@@ -5,31 +5,28 @@ import { InboxOutlined } from '@ant-design/icons';
 import Dragger, { DraggerProps } from 'antd/es/upload/Dragger';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
-// import { FileParsingService } from '../../services/FileParsingService'; // 移除旧服务
 import { PromptManager } from '../../services/llm/PromptManager';
 import { AgentExecutor } from '../../services/llm/AgentExecutor';
 import { LLMConfig } from '../../services/llm/LLMClient';
 import Sandbox from '../../components/layout/Sandbox';
 import { useDuckDB } from '../../hooks/useDuckDB';
-import { useFileParsing } from '../../hooks/useFileParsing'; // 引入新 Hook
+import { useFileParsing } from '../../hooks/useFileParsing';
+import { WorkbenchState } from '../../types/workbench.types';
 
 const { Content } = Layout;
 const { Title, Paragraph } = Typography;
 
-// const parsingService = FileParsingService.getInstance(); // 移除旧实例
 const promptManager = new PromptManager();
-
-type WorkbenchState = 'waitingForFile' | 'parsing' | 'fileLoaded' | 'analyzing' | 'resultsReady';
 
 const WorkbenchContent: React.FC = () => {
   const { token: { colorBgContainer, borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { initializeDuckDB, loadData } = useDuckDB(iframeRef);
-  const { parseFileToArrow } = useFileParsing(iframeRef); // 使用新 Hook
+  const { initializeDuckDB, loadData, executeQuery } = useDuckDB(iframeRef);
+  const { parseFileToArrow } = useFileParsing(iframeRef);
 
-  const [state, setState] = useState<WorkbenchState>('waitingForFile');
+  const [state, setState] = useState<WorkbenchState>('initializing');
   const [fileName, setFileName] = useState<string | null>(null);
   const [userRole] = useState('ecommerce');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -37,18 +34,26 @@ const WorkbenchContent: React.FC = () => {
   const [thinkingSteps, setThinkingSteps] = useState<any>(null);
 
   const [llmConfig] = useState<LLMConfig>({
-    apiKey: 'YOUR_QWEN_API_KEY',
+    apiKey: 'sk-a85b9705bed1492495c88422b562f81b',
     baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     modelName: 'qwen-turbo',
   });
   
-  const agentExecutor = useMemo(() => new AgentExecutor(llmConfig), [llmConfig]);
+  const agentExecutor = useMemo(() => {
+    if (!executeQuery) return null;
+    // 最终修正：现在 AgentExecutor 的构造函数接收 executeQuery，编译错误解决
+    return new AgentExecutor(llmConfig, executeQuery);
+  }, [llmConfig, executeQuery]);
 
   useEffect(() => {
-    initializeDuckDB().catch(err => {
-      console.error("DuckDB initialization failed:", err);
-      message.error("Failed to initialize data engine.");
-    });
+    initializeDuckDB()
+      .then(() => {
+        setState('waitingForFile');
+      })
+      .catch(err => {
+        console.error("DuckDB initialization failed:", err);
+        message.error("Failed to initialize data engine.");
+      });
   }, [initializeDuckDB]);
 
   const handleFileUpload: DraggerProps['beforeUpload'] = async (file) => {
@@ -68,7 +73,6 @@ const WorkbenchContent: React.FC = () => {
     setFileName(file.name);
 
     try {
-      // 关键修改：使用新的 parseFileToArrow 函数
       const arrowBuffer = await parseFileToArrow(file);
       await loadData('main_table', arrowBuffer);
       
@@ -85,6 +89,10 @@ const WorkbenchContent: React.FC = () => {
   };
 
   const handleStartAnalysis = async (query: string) => {
+    if (!agentExecutor) {
+      message.error('Analysis engine is not ready.');
+      return;
+    }
     setState('analyzing');
     setAnalysisResult(null);
     setThinkingSteps(null);
@@ -99,9 +107,22 @@ const WorkbenchContent: React.FC = () => {
     }
   };
 
+  const getLoadingTip = () => {
+    if (state === 'initializing') return '正在初始化数据引擎...';
+    if (state === 'parsing') return '正在解析文件...';
+    if (state === 'analyzing') return 'AI 正在分析中...';
+    return '';
+  };
+
+  const isSpinning = ['initializing', 'parsing', 'analyzing'].includes(state);
+
   const renderInitialView = () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-      <Dragger {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} style={{ padding: '48px', maxWidth: 500 }}>
+      <Dragger 
+        {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} 
+        disabled={state !== 'waitingForFile'}
+        style={{ padding: '48px', maxWidth: 500 }}
+      >
         <p className="ant-upload-drag-icon"><InboxOutlined /></p>
         <p className="ant-upload-text">点击或拖拽文件到此区域以上传</p>
         <p className="ant-upload-hint">支持 Excel 和 CSV 格式，文件上限 1GB。</p>
@@ -109,16 +130,10 @@ const WorkbenchContent: React.FC = () => {
     </div>
   );
 
-  // --- 问题二：修复 UI 布局问题 ---
   const renderAnalysisView = () => (
     <Layout style={{ background: 'transparent', height: 'calc(100vh - 200px)' }}>
-      {/* 将 Spin 组件移到内部，并使其包裹一个有确定大小的容器 */}
-      <Content style={{ overflow: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column' }}>
-        <Spin spinning={state === 'parsing' || state === 'analyzing'} tip={state === 'parsing' ? '正在解析文件...' : 'AI 正在分析中...'} size="large" style={{ maxHeight: '100%' }}>
-          <div style={{ flexGrow: 1, overflow: 'auto' }}>
-            <ResultsDisplay state={state} fileName={fileName} data={analysisResult} thinkingSteps={thinkingSteps} />
-          </div>
-        </Spin>
+      <Content style={{ overflow: 'auto', padding: '0 12px' }}>
+        <ResultsDisplay state={state} fileName={fileName} data={analysisResult} thinkingSteps={thinkingSteps} />
       </Content>
       <Layout.Sider width="100%" style={{ background: 'transparent', padding: '12px' }}>
         <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={state === 'analyzing'} suggestions={suggestions} />
@@ -132,9 +147,20 @@ const WorkbenchContent: React.FC = () => {
       <Breadcrumb items={[{ title: 'Vaultmind' }, { title: 'Workbench' }]} style={{ margin: '16px 0' }} />
       <div style={{ padding: 24, minHeight: 'calc(100vh - 112px)', background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column' }}>
         <Title level={2}>智能数据工作台</Title>
-        <Paragraph>{state === 'waitingForFile' ? '欢迎来到 Vaultmind。请上传您的数据文件，然后通过对话开始您的分析之旅。' : <>当前分析文件: <strong>{fileName}</strong></>}</Paragraph>
+        <Paragraph>
+          {state === 'waitingForFile' 
+            ? '欢迎来到 Vaultmind。请上传您的数据文件，然后通过对话开始您的分析之旅。' 
+            : (fileName ? <>当前分析文件: <strong>{fileName}</strong></> : '引擎初始化中...')}
+        </Paragraph>
         <Divider />
-        {state === 'waitingForFile' ? renderInitialView() : renderAnalysisView()}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Spin spinning={isSpinning} tip={getLoadingTip()} size="large" style={{maxHeight: '100%'}}>
+            {state === 'fileLoaded' || state === 'analyzing' || state === 'resultsReady' 
+              ? renderAnalysisView() 
+              : renderInitialView()
+            }
+          </Spin>
+        </div>
       </div>
     </AppLayout>
   );

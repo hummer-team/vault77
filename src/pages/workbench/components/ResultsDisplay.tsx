@@ -1,10 +1,9 @@
 import React from 'react';
 import { Card, Empty, Typography, Table, Tag, Space } from 'antd';
 import { BarChartOutlined, CodeOutlined, TableOutlined } from '@ant-design/icons';
+import { WorkbenchState } from '../../../types/workbench.types'; // 更新导入路径
 
 const { Paragraph, Text } = Typography;
-
-type WorkbenchState = 'waitingForFile' | 'parsing' | 'fileLoaded' | 'analyzing' | 'resultsReady';
 
 interface ResultsDisplayProps {
   state: WorkbenchState;
