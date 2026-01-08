@@ -7,6 +7,7 @@ import { forwardRef } from 'react';
  */
 const Sandbox = forwardRef<HTMLIFrameElement>((_props, ref) => {
   console.log("Sandbox component rendering...");
+
   return (
     <iframe
       ref={ref}
@@ -14,6 +15,7 @@ const Sandbox = forwardRef<HTMLIFrameElement>((_props, ref) => {
       src={chrome.runtime.getURL('sandbox.html')}
       style={{ display: 'none' }}
       title="Vaultmind Sandbox"
+      // Removed sandbox attribute
     />
   );
 });

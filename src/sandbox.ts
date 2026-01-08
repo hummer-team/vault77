@@ -1,136 +1,88 @@
-import ExcelJS from 'exceljs';
-import Papa from 'papaparse';
-import * as arrow from 'apache-arrow';
-import { DuckDBService } from './services/DuckDBService';
+// import DuckDBWorker from './workers/duckdb.worker.ts?worker'; // <-- 移除此行
 
-type ParsedData = Record<string, string | number | boolean | null>[];
+console.log('[Sandbox] Script started.');
+console.log('[Sandbox.ts] window.origin:', window.origin); // <-- Added this log
 
-const duckDBService = DuckDBService.getInstance();
+// 声明 duckdbWorker 变量，但不在全局作用域创建实例
+let duckdbWorker: Worker | null = null;
 
+// Helper function to resolve URLs relative to the sandbox's origin
+// This function is now only used for resources other than the main worker script
+// const resolveURL = (path: string, extensionOrigin: string) => {
+  // path from Vite is like '/assets/file.js'
+  // extensionOrigin is like 'chrome-extension://<ID>/'
+  // We combine them to get the absolute URL
+  // FIX: The path from useDuckDB.ts is already absolute, so just return it.
+  // The original resolveURL logic was for relative paths.
+  // Now, resources passed to sandbox are already absolute chrome-extension:// URLs.
+  // return path;
+// };
+
+
+// 监听来自父窗口的消息 (useDuckDB.ts)
 window.addEventListener('message', async (event) => {
+  console.log('[Sandbox] Received raw message from parent:', event.data); // <-- Added this log
+  console.log('[Sandbox] Received message from parent:', event.data.type);
+
   if (!event.source) return;
 
-  // 扩展 event.data 类型以包含 DuckDB 操作所需的参数
-  const { type, buffer, fileName, id, tableName, sql, bundle } = event.data; // 新增 bundle
+  const { type, resources, extensionOrigin } = event.data; 
 
-  if (type === 'PING') {
-    (event.source as Window).postMessage({ type: 'PONG' }, '*');
-    return;
-  }
-
-  if (type === 'PARSE_BUFFER_TO_ARROW') {
-    try {
-      const fileExtension = fileName.split('.').pop()?.toLowerCase();
-      let jsonData: ParsedData;
-
-      if (fileExtension === 'csv') {
-        const csvString = new TextDecoder().decode(buffer);
-        jsonData = await parseCsv(csvString);
-      } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
-        jsonData = await parseXlsx(buffer);
-      } else {
-        throw new Error('Unsupported file type');
-      }
-
-      if (jsonData.length === 0) {
-        throw new Error('File is empty or could not be parsed');
-      }
-
-      const arrowTable = arrow.tableFromJSON(jsonData);
-      const arrowBuffer = arrow.tableToIPC(arrowTable, 'file');
-
-      (event.source as Window).postMessage({ type: 'PARSE_SUCCESS', id, data: arrowBuffer }, '*', [arrowBuffer.buffer]);
-
-    } catch (error: any) {
-      (event.source as Window).postMessage({ type: 'PARSE_ERROR', id, error: error.message }, '*');
-    }
-  }
-
-  // --- DuckDB 相关的消息处理 ---
+  // Special handling for DUCKDB_INIT to create the Worker and resolve resource URLs
   if (type === 'DUCKDB_INIT') {
-    try {
-      if (!bundle) throw new Error('Missing bundle for DUCKDB_INIT');
-      // 关键修改：使用主页面传递过来的 bundle 进行初始化
-      await duckDBService.initialize(bundle);
-      (event.source as Window).postMessage({ type: 'DUCKDB_INIT_SUCCESS', id }, '*');
-    } catch (error: any) {
-      console.error("DuckDB initialization failed in sandbox:", error);
-      (event.source as Window).postMessage({ type: 'DUCKDB_INIT_ERROR', id, error: error.message }, '*');
-    }
-  }
+    if (!resources) throw new Error('Missing resources for DUCKDB_INIT');
+    if (!extensionOrigin) throw new Error('Missing extensionOrigin for DUCKDB_INIT'); // This check is now valid
 
-  if (type === 'DUCKDB_LOAD_DATA') {
-    try {
-      if (!tableName || !buffer) throw new Error('Missing tableName or buffer for DUCKDB_LOAD_DATA');
-      await duckDBService.loadData(tableName, new Uint8Array(buffer));
-      (event.source as Window).postMessage({ type: 'DUCKDB_LOAD_DATA_SUCCESS', id }, '*');
-    } catch (error: any) {
-      console.error("DuckDB load data failed in sandbox:", error);
-      (event.source as Window).postMessage({ type: 'DUCKDB_LOAD_DATA_ERROR', id, error: error.message }, '*');
-    }
-  }
+    // 1. Get the URL of our custom duckdb.worker.ts script
+    const ourWorkerScriptURL = resources['our-duckdb-worker-script.js'];
+    if (!ourWorkerScriptURL) throw new Error('Missing our-duckdb-worker-script.js URL');
 
-  if (type === 'DUCKDB_EXECUTE_QUERY') {
-    try {
-      if (!sql) throw new Error('Missing SQL query for DUCKDB_EXECUTE_QUERY');
-      const result = await duckDBService.executeQuery(sql);
-      (event.source as Window).postMessage({ type: 'DUCKDB_EXECUTE_QUERY_SUCCESS', id, result }, '*');
-    } catch (error: any) {
-      console.error("DuckDB execute query failed in sandbox:", error);
-      (event.source as Window).postMessage({ type: 'DUCKDB_EXECUTE_QUERY_ERROR', id, error: error.message }, '*');
-    }
-  }
+    // 移除 fetch, Blob, createObjectURL 等步骤
+    // console.log('[Sandbox] Fetching worker script from:', ourWorkerScriptURL);
+    // const response = await fetch(ourWorkerScriptURL);
+    // const workerScriptContent = await response.text();
+    // const workerBlob = new Blob([workerScriptContent], { type: 'application/javascript' });
+    // const workerBlobURL = URL.createObjectURL(workerBlob);
+    // console.log('[Sandbox] Created worker Blob URL:', workerBlobURL);
 
-  if (type === 'DUCKDB_GET_SCHEMA') {
-    try {
-      if (!tableName) throw new Error('Missing tableName for DUCKDB_GET_SCHEMA');
-      const schema = await duckDBService.getTableSchema(tableName);
-      (event.source as Window).postMessage({ type: 'DUCKDB_GET_SCHEMA_SUCCESS', id, schema }, '*');
-    } catch (error: any) {
-      console.error("DuckDB get schema failed in sandbox:", error);
-      (event.source as Window).postMessage({ type: 'DUCKDB_GET_SCHEMA_ERROR', id, error: error.message }, '*');
+    // 4. Create the Worker directly using the provided URL
+    duckdbWorker = new Worker(ourWorkerScriptURL, { type: 'module' }); // <-- Directly use ourWorkerScriptURL
+    console.log('[Sandbox] DuckDB Worker created directly from URL with type module:', duckdbWorker); // Updated log
+
+    // 5. Set up the onmessage handler for the newly created worker
+    duckdbWorker.onmessage = (workerEvent) => {
+      console.log('[Sandbox] Received message from DuckDB Worker:', workerEvent.data.type);
+      if (window.parent && window.parent !== window) {
+        const transfer = workerEvent.data.data instanceof ArrayBuffer ? [workerEvent.data.data] : [];
+        window.parent.postMessage(workerEvent.data, '*', transfer);
+      }
+    };
+
+    // 6. Resources are already absolute chrome-extension:// URLs from useDuckDB.ts
+    // No need for further resolveURL calls here for the bundle resources.
+    // Just ensure the 'resources' object passed to the worker is the one with absolute URLs.
+    
+    // 7. Forward the DUCKDB_INIT message with resolved resources to the DuckDB Worker
+    // The worker will then use these absolute URLs for duckdb-wasm bundles
+    duckdbWorker.postMessage({ ...event.data, resources: resources }); // resources are already absolute
+
+    // 移除 URL.revokeObjectURL(workerBlobURL);
+    // URL.revokeObjectURL(workerBlobURL);
+
+  } else {
+    // For other messages, if worker is not yet created, throw an error or queue
+    if (!duckdbWorker) {
+      console.error('[Sandbox] DuckDB Worker not initialized yet for message type:', type);
+      // Optionally, send an error back to parent or queue the message
+      return; 
     }
+    // For other messages, just forward them directly
+    duckdbWorker.postMessage(event.data, event.data.buffer instanceof ArrayBuffer ? [event.data.buffer] : []);
   }
 });
 
-function parseCsv(csvString: string): Promise<ParsedData> {
-  return new Promise((resolve, reject) => {
-    Papa.parse(csvString, {
-      header: true,
-      skipEmptyLines: true,
-      dynamicTyping: true,
-      complete: (results) => {
-        if (results.errors.length) {
-          reject(new Error(`CSV parsing error: ${results.errors[0].message}`));
-        } else {
-          resolve(results.data as ParsedData);
-        }
-      },
-      error: (error: Error) => reject(error),
-    });
-  });
-}
-
-async function parseXlsx(arrayBuffer: ArrayBuffer): Promise<ParsedData> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(arrayBuffer);
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet) throw new Error('Excel file contains no sheets.');
-  const jsonData: ParsedData = [];
-  let headers: (string | null)[] = [];
-  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) {
-      headers = Array.from(row.values as (string | null)[]);
-      return;
-    }
-    const rowObject: Record<string, any> = {};
-    const rowValues = row.values as any[];
-    headers.forEach((header, index) => {
-      if (header) {
-        rowObject[header] = rowValues[index + 1] ?? null;
-      }
-    });
-    jsonData.push(rowObject);
-  });
-  return jsonData;
+// 通知父窗口 Sandbox 已经准备好
+if (window.parent && window.parent !== window) {
+  console.log('[Sandbox] Sending SANDBOX_READY to parent.');
+  window.parent.postMessage({ type: 'SANDBOX_READY' }, '*');
 }

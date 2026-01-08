@@ -1,6 +1,7 @@
-import { defineConfig, Plugin } from 'vite'
+import { defineConfig, Plugin, UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { crx, ManifestV3Export } from '@crxjs/vite-plugin'
+import { crx } from '@crxjs/vite-plugin'
+import './src/types/crx-manifest.d.ts';
 
 const corsPlugin = (): Plugin => ({
   name: 'cors-plugin',
@@ -24,18 +25,26 @@ const corsPlugin = (): Plugin => ({
 });
 
 export default defineConfig(({ command }) => {
-  // 关键调试代码：在终端打印出当前的 command
-  console.log(`[vite.config.ts] Executing with command: "${command}"`);
-
   const isDev = command === 'serve';
 
-  const manifest: ManifestV3Export = {
+  const manifest: any = {
     manifest_version: 3,
     name: "Vaultmind",
     version: "0.2.0",
     description: "A lightweight, privacy-focused data analysis assistant.",
-    permissions: ["storage", "unlimitedStorage"],
-    action: { "default_popup": "index.html" },
+    permissions: [
+      "storage",
+      "unlimitedStorage"
+    ],
+    cross_origin_embedder_policy: {
+      "value": "require-corp"
+    },
+    cross_origin_opener_policy: {
+      "value": "same-origin"
+    },
+    action: {
+      "default_popup": "index.html"
+    },
     icons: {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
@@ -43,13 +52,23 @@ export default defineConfig(({ command }) => {
     },
     content_security_policy: {
       "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
-      "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval';"
+      "sandbox": "sandbox allow-scripts; script-src 'self' 'wasm-unsafe-eval'; worker-src blob:;"
     },
-    sandbox: { "pages": ["sandbox.html"] }
+    sandbox: {
+      "pages": [
+        "sandbox.html"
+      ]
+    },
+    web_accessible_resources: [
+      {
+        "resources": ["sandbox.html", "assets/*", "extensions/*"],
+        "matches": ["<all_urls>"]
+      }
+    ]
   };
 
   if (isDev) {
-    (manifest as any).background = {
+    manifest.background = {
       service_worker: "service-worker-loader.js",
       type: "module"
     };
@@ -57,15 +76,11 @@ export default defineConfig(({ command }) => {
       "ws://localhost:5173/*",
       "http://localhost:5173/*"
     ];
-    manifest.content_security_policy.extension_pages = "script-src 'self' 'wasm-unsafe-eval' http://localhost:5173; object-src 'self'; connect-src 'self' http://localhost:5173 ws://localhost:5173;";
-    manifest.web_accessible_resources = [{
-      "matches": ["<all_urls>"],
-      "resources": ["**/*", "*"],
-      "use_dynamic_url": false
-    }];
+    manifest.content_security_policy.extension_pages = "script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' http://localhost:5173; object-src 'self'; connect-src 'self' http://localhost:5173 ws://localhost:5173;";
+    manifest.web_accessible_resources[0].resources.push("**/*", "*");
   }
 
-  const config: any = {
+  const config: UserConfig = {
     plugins: [
       react(),
       crx({ manifest }),
@@ -76,6 +91,15 @@ export default defineConfig(({ command }) => {
       outDir: 'dist',
       sourcemap: isDev,
       minify: !isDev,
+      rollupOptions: {
+        input: {
+          main: 'index.html',
+          sandbox: 'sandbox.html',
+        },
+      },
+    },
+    worker: {
+      format: 'es',
     },
   };
 
