@@ -28,6 +28,10 @@ const customFetch: CustomFetch = Object.assign(async (url: string, options: Requ
     const correctedUrl = url.replace(/\/responses$/, '');
     console.log('[LLMClient] intercepted url ', url, 'fixed url:', correctedUrl);
 
+    // --- CRITICAL CHANGE: Add diagnostic logging for the request body ---
+    console.log('[LLMClient] Fetch options body:', options.body);
+    // --- END CRITICAL CHANGE ---
+
     const mergedHeaders = new Headers(options.headers);
     //mergedHeaders.set('Authorization', `Bearer ${config.apiKey}`);
     mergedHeaders.set('Content-Type', 'application/json');

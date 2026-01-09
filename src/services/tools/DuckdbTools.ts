@@ -1,60 +1,49 @@
-// import { DuckDBService } from '../DuckDBService'; // 移除直接依赖
 import { ExecuteQueryFunc } from '../llm/AgentExecutor'; // 导入类型
-
-// const duckDBService = DuckDBService.getInstance(); // 移除旧实例
 
 // --- Tool Definitions ---
 
-// 关键修改：工具函数现在接收 executeQuery 作为第一个参数
-export const findMax = async (executeQuery: ExecuteQueryFunc, { column }: { column: string }): Promise<any> => {
-  const sql = `SELECT MAX("${column}") as max_value FROM main_table;`;
-  return await executeQuery(sql);
-};
-
-export const sumByGroup = async (executeQuery: ExecuteQueryFunc, { groupColumn, aggColumn }: { groupColumn: string, aggColumn: string }): Promise<any> => {
-  const sql = `SELECT "${groupColumn}", SUM("${aggColumn}") as total FROM main_table GROUP BY "${groupColumn}" ORDER BY total DESC;`;
-  return await executeQuery(sql);
+/**
+ * Executes a given SQL query against the DuckDB database.
+ * This is a powerful and general-purpose tool.
+ * @param executeQuery The function to execute a SQL query.
+ * @param params An object containing the SQL query string.
+ * @param params.query The SQL query to execute.
+ * @returns A promise that resolves to the query result.
+ */
+export const sql_query_tool = async (executeQuery: ExecuteQueryFunc, { query }: { query: string }): Promise<any> => {
+  console.log(`[sql_query_tool] Executing query:`, query);
+  try {
+    const result = await executeQuery(query);
+    console.log(`[sql_query_tool] Query result:`, result);
+    return result;
+  } catch (error) {
+    console.error(`[sql_query_tool] Error executing query:`, error);
+    // Re-throw the error so the agent can potentially handle it
+    throw error;
+  }
 };
 
 // --- Tool Registry and Schema ---
 
-// 关键修改：更新 tools 的类型定义
+// The registry now only contains our single, powerful tool.
 export const tools: Record<string, (executeQuery: ExecuteQueryFunc, params: any) => Promise<any>> = {
-  findMax,
-  sumByGroup,
+  sql_query_tool,
 };
 
+// The schema now describes the `sql_query_tool`.
 export const toolSchemas = [
   {
-    tool: "findMax",
-    description: "Finds the maximum value in a specific column.",
+    tool: "sql_query_tool",
+    description: "Executes a valid SQL query against the database to answer a user's question. Use this for any data retrieval or calculation.",
     params: {
       type: "object",
       properties: {
-        column: {
+        query: {
           type: "string",
-          description: "The name of the column to find the maximum value from.",
+          description: "A complete and valid SQL query to run on the 'main_table'.",
         },
       },
-      required: ["column"],
-    },
-  },
-  {
-    tool: "sumByGroup",
-    description: "Calculates the sum of a numeric column, grouped by a dimension column.",
-    params: {
-      type: "object",
-      properties: {
-        groupColumn: {
-          type: "string",
-          description: "The column to group the results by (e.g., 'city', 'category').",
-        },
-        aggColumn: {
-          type: "string",
-          description: "The numeric column to sum up (e.g., 'sales', 'revenue').",
-        },
-      },
-      required: ["groupColumn", "aggColumn"],
+      required: ["query"],
     },
   },
 ];
