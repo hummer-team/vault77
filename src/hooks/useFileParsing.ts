@@ -30,9 +30,9 @@ export const useFileParsing = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
         if (id) {
           const callback = messageCallbacks.current.get(id);
           if (callback) {
-            if (type === 'PARSE_SUCCESS') {
+            if (type.endsWith('_SUCCESS')) { // More generic success check
               callback.resolve(data);
-            } else if (type === 'PARSE_ERROR') {
+            } else if (type.endsWith('_ERROR')) { // More generic error check
               callback.reject(new Error(error || 'Unknown parsing error'));
             }
             messageCallbacks.current.delete(id);
@@ -63,17 +63,17 @@ export const useFileParsing = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
     [iframeRef, isSandboxReady]
   );
 
-  const parseFileToArrow = useCallback(
-    async (file: File): Promise<Uint8Array> => {
+  const loadFileInDuckDB = useCallback(
+    async (file: File, tableName: string): Promise<void> => {
       const arrayBuffer = await file.arrayBuffer();
-      const arrowBuffer = await sendMessageToSandbox<ArrayBuffer>(
-        { type: 'PARSE_BUFFER_TO_ARROW', buffer: arrayBuffer, fileName: file.name },
+      // Send the raw file buffer to be loaded directly by the worker
+      await sendMessageToSandbox<void>(
+        { type: 'LOAD_FILE', buffer: arrayBuffer, fileName: file.name, tableName: tableName },
         [arrayBuffer]
       );
-      return new Uint8Array(arrowBuffer);
     },
     [sendMessageToSandbox]
   );
 
-  return { parseFileToArrow, isSandboxReady };
+  return { loadFileInDuckDB, isSandboxReady };
 };

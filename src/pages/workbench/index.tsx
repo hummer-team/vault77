@@ -13,6 +13,12 @@ import { useDuckDB } from '../../hooks/useDuckDB';
 import { useFileParsing } from '../../hooks/useFileParsing';
 import { WorkbenchState } from '../../types/workbench.types';
 
+// --- CRITICAL CHANGE: Remove dotenv imports and usage ---
+// import dotenv from 'dotenv';
+
+// // load .env file - THIS IS NOT NEEDED AND WILL NOT WORK IN BROWSER
+// dotenv.config({ path: '.env' });
+
 const { Content } = Layout;
 const { Title, Paragraph } = Typography;
 
@@ -23,8 +29,8 @@ const WorkbenchContent: React.FC = () => {
   const { message } = App.useApp();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { initializeDuckDB, loadData, executeQuery, isDBReady } = useDuckDB(iframeRef);
-  const { parseFileToArrow, isSandboxReady } = useFileParsing(iframeRef);
+  const { initializeDuckDB, executeQuery, isDBReady } = useDuckDB(iframeRef);
+  const { loadFileInDuckDB, isSandboxReady } = useFileParsing(iframeRef);
 
   const [uiState, setUiState] = useState<WorkbenchState>('initializing');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -33,9 +39,10 @@ const WorkbenchContent: React.FC = () => {
   const [thinkingSteps, setThinkingSteps] = useState<any>(null);
 
   const [llmConfig] = useState<LLMConfig>({
-    apiKey: 'YOUR_QWEN_API_KEY',
-    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    modelName: 'qwen-turbo',
+    provider: import.meta.env.VITE_LLM_PROVIDER, // <-- Add this line
+    apiKey: import.meta.env.VITE_LLM_API_KEY as string,
+    baseURL: import.meta.env.VITE_LLM_API_URL as string,
+    modelName: import.meta.env.VITE_LLM_MODEL_NAME as string,
   });
   
   const agentExecutor = useMemo(() => {
@@ -61,23 +68,27 @@ const WorkbenchContent: React.FC = () => {
   }, [isDBReady, isSandboxReady]);
 
   const handleFileUpload: DraggerProps['beforeUpload'] = async (file) => {
-    setUiState('parsing');
+    setUiState('parsing'); // Keep UI state for user feedback
     setFileName(file.name);
 
     try {
-      const arrowBuffer = await parseFileToArrow(file);
-      await loadData('main_table', arrowBuffer);
+      // --- CRITICAL CHANGE 2: Replace old logic with a single call ---
+      console.log(`[Workbench] Calling loadFileInDuckDB for file: ${file.name}`);
+      await loadFileInDuckDB(file, 'main_table');
+      console.log(`[Workbench] loadFileInDuckDB completed for file: ${file.name}`);
 
+      // This part can now run after the file is loaded directly into DuckDB
       const loadedSuggestions = await promptManager.getSuggestions('ecommerce');
       setSuggestions(loadedSuggestions);
 
       message.success(`${file.name} loaded and ready for analysis.`);
       setUiState('fileLoaded');
     } catch (error: any) {
+      console.error(`[Workbench] Error during file upload process:`, error); // Better logging
       message.error(`Failed to process file: ${error.message}`);
       setUiState('waitingForFile');
     }
-    return false;
+    return false; // Prevent default upload behavior
   };
 
   const handleStartAnalysis = async (query: string) => {

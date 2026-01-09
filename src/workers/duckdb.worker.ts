@@ -8,7 +8,7 @@ const duckDBService = DuckDBService.getInstance();
 // resolveURL is no longer needed here as bundle URLs should now be absolute.
 
 self.onmessage = async (event: MessageEvent) => {
-  const { type, id, resources, sql, tableName, buffer } = event.data;
+  const { type, id, resources, sql, tableName, buffer, fileName } = event.data; // Added fileName
 
   try {
     let result: any;
@@ -30,7 +30,7 @@ self.onmessage = async (event: MessageEvent) => {
             mainWorker: resources['duckdb-browser-eh.worker.js'],
           },
         };
-        
+
         const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
         (bundle as any).pthreadWorker = resources['duckdb-browser-coi.pthread.worker.js'];
 
@@ -57,9 +57,20 @@ self.onmessage = async (event: MessageEvent) => {
         break;
       }
       
-      // REMOVED 'PARSE_BUFFER_TO_ARROW' case from here
+      // --- NEW: Handle file loading ---
+      case 'LOAD_FILE': {
+        if (!fileName || !buffer || !tableName) {
+          throw new Error('Missing fileName, buffer, or tableName for LOAD_FILE');
+        }
+        console.log(`[DB Worker] Received LOAD_FILE for '${fileName}'`);
+        await duckDBService.registerFileBuffer(fileName, new Uint8Array(buffer));
+        await duckDBService.createTableFromFile(tableName, fileName);
+        result = true;
+        break;
+      }
 
       case 'DUCKDB_LOAD_DATA': {
+        // This case might become obsolete, but we'll keep it for now.
         if (!tableName || !buffer) throw new Error('Missing tableName or buffer');
         await duckDBService.loadData(tableName, new Uint8Array(buffer));
         result = true;

@@ -4,3 +4,4 @@ dist
 node_modules
 _.md
 _2.md
+.env

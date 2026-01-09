@@ -68,18 +68,18 @@ export default defineConfig(({command}) => {
         ]
     };
 
-    if (isDev) {
-        manifest.background = {
-            service_worker: "service-worker-loader.js",
-            type: "module"
-        };
-        manifest.host_permissions = [
-            "ws://localhost:5173/*",
-            "http://localhost:5173/*"
-        ];
-        manifest.content_security_policy.extension_pages = "script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' http://localhost:5173; object-src 'self'; connect-src 'self' http://localhost:5173 ws://localhost:5173;";
-        manifest.web_accessible_resources[0].resources.push("**/*", "*");
-    }
+
+    // manifest.background = {
+    //     service_worker: "service-worker-loader.js",
+    //     type: "module"
+    // };
+    manifest.host_permissions = [
+        "ws://localhost:5173/*",
+        "http://localhost:5173/*",
+        "https://dashscope.aliyuncs.com/*"
+    ];
+    //manifest.web_accessible_resources[0].resources.push("**/*", "*");
+
 
     const config: UserConfig = {
         plugins: [
@@ -88,9 +88,9 @@ export default defineConfig(({command}) => {
             corsPlugin(),
         ],
         resolve: { // <-- Add this resolve section
-          alias: {
-            'apache-arrow': 'node_modules/apache-arrow/Arrow.esnext.min.js',
-          },
+            alias: {
+                'apache-arrow': 'node_modules/apache-arrow/Arrow.esnext.min.js',
+            },
         },
         base: isDev ? '/' : './',
         build: {

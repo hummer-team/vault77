@@ -58,23 +58,61 @@ export class DuckDBService {
       throw e;
     }
     
-    // Try to load arrow extension, assuming it's built-in or automatically available
-    console.log('[DuckDBService] Attempting to connect for LOAD arrow...');
+    console.log('[DuckDBService] Attempting to connect for loading extensions...');
     const c = await this.db.connect();
     try {
-      console.log('[DuckDBService] Executing LOAD arrow;');
-      await c.query('INSTALL arrow from community;');
-      await c.query('LOAD arrow;'); // Keep LOAD
-      console.log('[DuckDBService] LOAD arrow; executed successfully.');
+        // --- CRITICAL CHANGE: Install excel and load arrow ---
+        console.log('[DuckDBService] Executing INSTALL excel;');
+        await c.query('INSTALL excel;'); // Let it fetch from the web
+        await c.query('LOAD excel;');
+        console.log('[DuckDBService] Excel extension loaded successfully.');
+
+        console.log('[DuckDBService] Executing LOAD arrow;');
+        await c.query('INSTALL arrow from community;');
+        await c.query('LOAD arrow;');
+        console.log('[DuckDBService] LOAD arrow; executed successfully.');
+
     } catch (e) {
-      console.error('[DuckDBService] Error executing LOAD arrow;:', e);
-      throw e; // Re-throw to propagate the error
+        console.error('[DuckDBService] Error loading extensions:', e);
+        throw e;
     } finally {
-      await c.close();
-      console.log('[DuckDBService] Connection closed after LOAD arrow.');
+        await c.close();
+        console.log('[DuckDBService] Connection closed after loading extensions.');
     }
     
-    console.log('DuckDB initialized and Arrow extension loaded (if available).');
+    console.log('DuckDB initialized and extensions loaded.');
+  }
+
+  public async registerFileBuffer(fileName: string, buffer: Uint8Array): Promise<void> {
+    if (!this.db) throw new Error('DuckDB not initialized.');
+    console.log(`[DuckDBService] Registering file '${fileName}' with buffer size: ${buffer.byteLength}`);
+    await this.db.registerFileBuffer(fileName, buffer);
+    console.log(`[DuckDBService] File '${fileName}' registered successfully.`);
+  }
+
+  public async createTableFromFile(tableName: string, fileName: string): Promise<void> {
+    if (!this.db) throw new Error('DuckDB not initialized.');
+    
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    let query: string;
+
+    if (fileExtension === 'csv') {
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_csv('${fileName}');`;
+    } else if (fileExtension === 'xlsx') {
+      // --- CRITICAL CHANGE: Use read_excel ---
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_xlsx('${fileName}');`;
+    } else {
+      throw new Error(`Unsupported file type for table creation: ${fileExtension}`);
+    }
+
+    console.log(`[DuckDBService] Creating table '${tableName}' with query: ${query}`);
+    const c = await this.db.connect();
+    try {
+      await c.query(query);
+      console.log(`[DuckDBService] Table '${tableName}' created successfully from file '${fileName}'.`);
+    } finally {
+      await c.close();
+    }
   }
 
   public async loadData(tableName: string, buffer: Uint8Array): Promise<void> {

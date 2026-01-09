@@ -107,113 +107,17 @@ window.addEventListener('message', async (event) => {
         console.log('[Sandbox] Forwarding DUCKDB_INIT message to worker with resources:', resources);
         duckdbWorker.postMessage({...event.data, resources: resources}); // resources are already absolute
 
-    } else if (type === 'PARSE_BUFFER_TO_ARROW') {
-        // --- NEW: Handle file parsing in the sandbox main thread ---
-        const {fileName, buffer, id} = event.data;
-        try {
-            const {default: Papa} = await import('papaparse');
-            const {default: ExcelJS} = await import('exceljs');
-            // --- CRITICAL CHANGE: Import vectorFromArray ---
-            const { Table, Utf8, vectorFromArray, tableToIPC } = await import('apache-arrow');
-            console.log('[Sandbox] Imported specific components from apache-arrow.');
-
-            const fileExtension = fileName.split('.').pop()?.toLowerCase();
-            let jsonData;
-
-            if (fileExtension === 'csv') {
-                const csvString = new TextDecoder().decode(buffer);
-                jsonData = await new Promise((resolve, reject) => {
-                    Papa.parse(csvString, {
-                        header: true,
-                        skipEmptyLines: true,
-                        dynamicTyping: true,
-                        complete: (results) => results.errors.length ? reject(results.errors[0]) : resolve(results.data),
-                        error: (error: Error) => reject(error),
-                    });
-                });
-            } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
-                const workbook = new ExcelJS.Workbook();
-                await workbook.xlsx.load(buffer);
-                const worksheet = workbook.worksheets[0];
-                if (!worksheet) throw new Error('Excel file contains no sheets.');
-                const rows: any[] = [];
-                worksheet.eachRow({includeEmpty: false}, (row) => {
-                    rows.push(row.values);
-                });
-                console.log('[Sandbox] Excel worksheet rows length', rows.length);
-                if (rows.length === 0) {
-                    jsonData = [];
-                } else {
-                    const headers = rows[0].slice(1);
-                    jsonData = rows.slice(1).map(rowArray => {
-                        const row = rowArray.slice(1);
-                        const rowObject: Record<string, any> = {};
-                        headers.forEach((header: string, index: number) => {
-                            rowObject[header] = row[index] ?? null;
-                        });
-                        console.log('[Sandbox] Parsed row:', JSON.stringify(rowObject));
-                        return rowObject;
-                    });
-                }
-            } else {
-                throw new Error('Unsupported file type');
-            }
-
-            if (!jsonData || !Array.isArray(jsonData) || jsonData.length === 0) {
-              throw new Error('File is empty or could not be parsed into an array of objects');
-            }
-
-            console.log('[Sandbox] Manually building Arrow table from JSON...');
-
-            // 1. Get column names from the first data row
-            const columnNames = Object.keys(jsonData[0]);
-
-            // 2. Create a Vector for each column using vectorFromArray
-            const columns = columnNames.map(name => {
-                // Extract all values for the current column and ensure they are strings
-                const values = jsonData.map((row: any) => {
-                    const value = row[name];
-                    return value === null || value === undefined ? null : String(value);
-                });
-                // --- CRITICAL CHANGE: Use vectorFromArray to explicitly create a string Vector ---
-                return vectorFromArray(values, new Utf8());
-            });
-
-            // 3. Create the table from the named columns
-            const arrowTable = new Table(Object.fromEntries(columnNames.map((name, i) => [name, columns[i]])));
-            // --- END CRITICAL CHANGE ---
-
-            console.log('[Sandbox] Arrow table created. Rows:', arrowTable.numRows);
-
-            console.log('[Sandbox] Serializing Arrow table to IPC format...');
-            const result = tableToIPC(arrowTable, 'file');
-            console.log('[Sandbox] IPC serialization complete. Result buffer byteLength:', result.byteLength); // <-- Added log
-
-            // Forward the result to the parent window
-            if (window.parent && window.parent !== window) {
-                console.log('[Sandbox] Posting PARSE_BUFFER_TO_ARROW_SUCCESS message to parent...'); // <-- Added log
-                window.parent.postMessage({type: 'PARSE_BUFFER_TO_ARROW_SUCCESS', id, result}, '*', [result.buffer]);
-                console.log('[Sandbox] Message posted to parent.'); // <-- Added log
-            }
-        } catch (error: any) {
-            console.error('[Sandbox] Error during PARSE_BUFFER_TO_ARROW:', error); // <-- More detailed error log
-            if (window.parent && window.parent !== window) {
-                window.parent.postMessage({type: 'PARSE_BUFFER_TO_ARROW_ERROR', id, error: error.message}, '*');
-            }
-        }
     } else {
-        // --- CRITICAL CHANGE: Only forward messages with a valid type ---
-        if (typeof type === 'undefined' || type === null || type === '') {
-            console.warn('[Sandbox] Received message with undefined or empty type, ignoring:', event.data);
-            return; // Ignore messages with no valid type
-        }
-
+        // --- CRITICAL CHANGE: Forward all other messages directly to the worker ---
         if (!duckdbWorker) {
             console.error('[Sandbox] DuckDB Worker not initialized yet for message type:', type);
-            return;
+            return; 
         }
-        console.log('[Sandbox] Forwarding unknown message type to duckdbWorker:', type, event.data); // <-- Added log
-        duckdbWorker.postMessage(event.data, event.data.buffer instanceof ArrayBuffer ? [event.data.buffer] : []);
+        
+        // Determine if there's a buffer to transfer
+        const transferables = event.data.buffer instanceof ArrayBuffer ? [event.data.buffer] : [];
+        console.log(`[Sandbox] Forwarding message of type '${type}' to duckdbWorker.`);
+        duckdbWorker.postMessage(event.data, transferables);
     }
 });
 
