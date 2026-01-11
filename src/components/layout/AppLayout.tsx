@@ -42,9 +42,40 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
-        <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, .2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-           <Title level={4} style={{ color: 'white', margin: 0, opacity: collapsed ? 0 : 1, transition: 'opacity 0.3s' }}>Vaultmind</Title>
+        {/* --- CRITICAL CHANGE: Add onClick handler and cursor style --- */}
+        <div 
+          style={{ 
+            height: 32, 
+            margin: 16, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '8px',
+            cursor: 'pointer' // Add pointer cursor on hover
+          }}
+          onClick={() => setCollapsed(!collapsed)} // Toggle collapsed state on click
+        >
+           <img 
+             src="/icons/icon-16.png" 
+             alt="Vaultmind Logo" 
+             style={{ height: '100%', width: 'auto' }} 
+           />
+           <Title 
+             level={4} 
+             style={{ 
+               color: 'white', 
+               margin: 0,
+               opacity: collapsed ? 0 : 1,
+               width: collapsed ? 0 : 'auto',
+               overflow: 'hidden',
+               whiteSpace: 'nowrap',
+               transition: 'width 0.2s ease-in-out, opacity 0.2s ease-in-out',
+             }}
+           >
+            Vaultmind
+           </Title>
         </div>
+        {/* --- END CRITICAL CHANGE --- */}
         <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} />
       </Sider>
       <Layout>
