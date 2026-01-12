@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   HistoryOutlined,
   PieChartOutlined,
   DatabaseOutlined,
   UserOutlined,
   CrownOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Layout, Menu, Typography, Breadcrumb, Button, Space } from 'antd';
+import { Layout, Menu, Typography, Breadcrumb, Button, Space, FloatButton } from 'antd';
 
 const { Content, Sider, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -39,6 +40,31 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const handleScrollToBottom = () => {
+    const content = contentRef.current;
+    if (content) {
+      content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = content;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 20;
+      setShowScrollToBottom(!isAtBottom);
+    };
+
+    content.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => content.removeEventListener('scroll', handleScroll);
+  }, [children]);
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -95,7 +121,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
           </div>
         </div>
         
-        <Content style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '0 16px' }}>
+        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '0 16px' }}>
           {children}
         </Content>
 
@@ -115,6 +141,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
           </div>
         </Footer>
       </Layout>
+      <FloatButton 
+        icon={<DownOutlined />}
+        onClick={handleScrollToBottom}
+        style={{
+          display: showScrollToBottom ? 'block' : 'none',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bottom: 40,
+        }}
+      />
     </Layout>
   );
 };

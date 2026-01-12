@@ -29,7 +29,6 @@ const Workbench: React.FC = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { initializeDuckDB, executeQuery, isDBReady } = useDuckDB(iframeRef);
   const { loadFileInDuckDB, isSandboxReady } = useFileParsing(iframeRef);
-  const resultsEndRef = useRef<HTMLDivElement>(null);
 
   const [uiState, setUiState] = useState<WorkbenchState>('initializing');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -47,14 +46,6 @@ const Workbench: React.FC = () => {
     if (!isDBReady || !executeQuery) return null;
     return new AgentExecutor(llmConfig, executeQuery);
   }, [llmConfig, executeQuery, isDBReady]);
-
-  const scrollToBottom = () => {
-    resultsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    setTimeout(scrollToBottom, 100);
-  }, [analysisHistory]);
 
   useEffect(() => {
     if (isSandboxReady) {
@@ -164,7 +155,6 @@ const Workbench: React.FC = () => {
           thinkingSteps={record.thinkingSteps}
         />
       ))}
-      <div ref={resultsEndRef} />
     </div>
   );
 
@@ -193,9 +183,10 @@ const Workbench: React.FC = () => {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
               {renderAnalysisView()}
             </div>
+            
             {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
               <div style={{ flexShrink: 0, paddingTop: '12px' }}>
                 <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />
