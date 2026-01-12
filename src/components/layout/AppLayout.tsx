@@ -103,7 +103,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
             <div style={{ flex: 1, textAlign: 'right' }}>
               <Text type="secondary">
-               issue report to lee@gmail.com thanks
+               issue report to lee@gmail.com
               </Text>
             </div>
           </div>
