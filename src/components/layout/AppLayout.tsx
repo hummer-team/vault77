@@ -40,9 +40,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    // --- CRITICAL CHANGE 1: Remove overflow: 'hidden' from the outermost Layout ---
+    <Layout style={{ height: '100vh' }}> {/* Removed overflow: 'hidden' */}
       <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
-        {/* --- CRITICAL CHANGE: Add onClick handler and cursor style --- */}
         <div 
           style={{ 
             height: 32, 
@@ -51,9 +51,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             alignItems: 'center', 
             justifyContent: 'center', 
             gap: '8px',
-            cursor: 'pointer' // Add pointer cursor on hover
+            cursor: 'pointer'
           }}
-          onClick={() => setCollapsed(!collapsed)} // Toggle collapsed state on click
+          onClick={() => setCollapsed(!collapsed)}
         >
            <img 
              src="/icons/icon-16.png" 
@@ -75,12 +75,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             Vaultmind
            </Title>
         </div>
-        {/* --- END CRITICAL CHANGE --- */}
         <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} />
       </Sider>
-      <Layout>
-        <Content style={{ margin: '0 16px', display: 'flex', flexDirection: 'column' }}>
-          {/* --- CRITICAL CHANGE: Create a header within the Content area --- */}
+      <Layout style={{ display: 'flex', flexDirection: 'column' }}>
+        
+        {/* --- CRITICAL CHANGE 2: Add flexShrink: 0 to the header div --- */}
+        <div style={{ margin: '0 16px', flexShrink: 0 }}> {/* Added flexShrink: 0 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0' }}>
             <Breadcrumb items={[{ title: 'Vaultmind' }, { title: 'Workbench' }]} />
             <Space>
@@ -88,15 +88,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               <Button type="link" size="small">退出</Button>
             </Space>
           </div>
-          {/* --- END CRITICAL CHANGE --- */}
-          
-          {/* The rest of the page content will be rendered here */}
+        </div>
+        
+        {/* --- CRITICAL CHANGE 3: The Content area is now the primary scroll container --- */}
+        <Content style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '0 16px' }}>
           {children}
         </Content>
-        {/* --- CRITICAL CHANGE: Reduce footer padding --- */}
-        <Footer style={{ padding: '8px 24px', background: 'transparent' }}>
+
+        <Footer style={{ padding: '8px 24px', background: 'transparent', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}></div> {/* Spacer */}
+            <div style={{ flex: 1 }}></div>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <Text type="secondary">
                 Copyright © 2026 VaultMind. All rights reserved.

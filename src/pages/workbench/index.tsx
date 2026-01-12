@@ -13,6 +13,14 @@ import { useDuckDB } from '../../hooks/useDuckDB';
 import { useFileParsing } from '../../hooks/useFileParsing';
 import { WorkbenchState } from '../../types/workbench.types';
 
+interface AnalysisRecord {
+  id: string;
+  query: string;
+  thinkingSteps: { tool: string; params: any, thought?: string } | null;
+  result: any;
+  status: 'analyzing' | 'resultsReady';
+}
+
 const { Title, Paragraph } = Typography;
 
 const promptManager = new PromptManager();
@@ -24,24 +32,33 @@ const WorkbenchContent: React.FC = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { initializeDuckDB, executeQuery, isDBReady } = useDuckDB(iframeRef);
   const { loadFileInDuckDB, isSandboxReady } = useFileParsing(iframeRef);
+  const resultsEndRef = useRef<HTMLDivElement>(null);
 
   const [uiState, setUiState] = useState<WorkbenchState>('initializing');
   const [fileName, setFileName] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [thinkingSteps, setThinkingSteps] = useState<any>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisRecord[]>([]);
 
   const [llmConfig] = useState<LLMConfig>({
     provider: import.meta.env.VITE_LLM_PROVIDER as any,
     apiKey: import.meta.env.VITE_LLM_API_KEY as string,
     baseURL: import.meta.env.VITE_LLM_API_URL as string,
     modelName: import.meta.env.VITE_LLM_MODEL_NAME as string,
+    mockEnabled: import.meta.env.VITE_LLM_MOCK === 'true', // <-- CRITICAL CHANGE: Read mock flag
   });
   
   const agentExecutor = useMemo(() => {
     if (!isDBReady || !executeQuery) return null;
     return new AgentExecutor(llmConfig, executeQuery);
   }, [llmConfig, executeQuery, isDBReady]);
+
+  const scrollToBottom = () => {
+    resultsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    setTimeout(scrollToBottom, 100);
+  }, [analysisHistory]);
 
   useEffect(() => {
     if (isSandboxReady) {
@@ -63,6 +80,7 @@ const WorkbenchContent: React.FC = () => {
   const handleFileUpload: DraggerProps['beforeUpload'] = async (file) => {
     setUiState('parsing');
     setFileName(file.name);
+    setAnalysisHistory([]);
 
     try {
       console.log(`[Workbench] Calling loadFileInDuckDB for file: ${file.name}`);
@@ -87,16 +105,35 @@ const WorkbenchContent: React.FC = () => {
       message.error('Analysis engine is not ready.');
       return;
     }
+
+    const newRecordId = `record-${Date.now()}`;
+    const newRecord: AnalysisRecord = {
+      id: newRecordId,
+      query: query,
+      thinkingSteps: null,
+      result: null,
+      status: 'analyzing',
+    };
+    setAnalysisHistory(prev => [...prev, newRecord]);
     setUiState('analyzing');
-    setAnalysisResult(null);
-    setThinkingSteps(null);
+
     try {
       const { tool, params, result, thought } = await agentExecutor.execute(query);
-      setThinkingSteps({ tool, params, thought });
-      setAnalysisResult(result);
-      setUiState('resultsReady');
+      
+      setAnalysisHistory(prev => prev.map(rec => 
+        rec.id === newRecordId 
+          ? { ...rec, status: 'resultsReady', thinkingSteps: { tool, params, thought }, result } 
+          : rec
+      ));
+      
     } catch (error: any) {
-      message.error(`Analysis failed: ${error.message}`);
+      console.error("Analysis failed, updating record with error:", error);
+      setAnalysisHistory(prev => prev.map(rec => 
+        rec.id === newRecordId 
+          ? { ...rec, status: 'resultsReady', result: { error: error.message } } 
+          : rec
+      ));
+    } finally {
       setUiState('fileLoaded');
     }
   };
@@ -104,17 +141,16 @@ const WorkbenchContent: React.FC = () => {
   const getLoadingTip = () => {
     if (uiState === 'initializing') return '正在初始化数据引擎...';
     if (uiState === 'parsing') return '正在解析文件...';
-    if (uiState === 'analyzing') return 'AI 正在分析中...';
     return '';
   };
 
-  const isSpinning = uiState === 'initializing' || uiState === 'parsing' || uiState === 'analyzing';
+  const isSpinning = uiState === 'initializing' || uiState === 'parsing';
 
   const renderInitialView = () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
       <Dragger 
         {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} 
-        disabled={uiState !== 'waitingForFile'}
+        disabled={isSpinning}
         style={{ padding: '48px', maxWidth: 500 }}
       >
         <p className="ant-upload-drag-icon"><InboxOutlined /></p>
@@ -125,44 +161,52 @@ const WorkbenchContent: React.FC = () => {
   );
 
   const renderAnalysisView = () => (
-    // The padding is now controlled by the parent container for alignment
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <ResultsDisplay state={uiState} fileName={fileName} data={analysisResult} thinkingSteps={thinkingSteps} />
+    <div>
+      {analysisHistory.map(record => (
+        <ResultsDisplay
+          key={record.id}
+          query={record.query}
+          status={record.status}
+          data={record.result}
+          thinkingSteps={record.thinkingSteps}
+        />
+      ))}
+      <div ref={resultsEndRef} />
     </div>
   );
 
   return (
     <AppLayout>
       <Sandbox ref={iframeRef} />
-      {/* --- CRITICAL CHANGE: Remove fixed height, let Flexbox control the layout --- */}
-      <div style={{ padding: 24, background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Spin spinning={isSpinning} tip={getLoadingTip()} size="large" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={2} style={{ margin: 0 }}>智能数据工作台</Title>
+          <div style={{ padding: '24px 24px 0 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Title level={2} style={{ margin: 0 }}>智能数据工作台</Title>
+            </div>
+            
+            <Paragraph>
+              {uiState === 'initializing'
+                ? '引擎初始化中...'
+                : (fileName
+                  ? <>当前分析文件: <strong>{fileName}</strong></>
+                  : '欢迎来到 Vaultmind。请上传您的数据文件，然后通过对话开始您的分析之旅。')
+              }
+            </Paragraph>
+            <Divider />
           </div>
-          
-          <Paragraph>
-            {uiState === 'initializing'
-              ? '引擎初始化中...'
-              : (uiState === 'waitingForFile'
-                ? '欢迎来到 Vaultmind。请上传您的数据文件，然后通过对话开始您的分析之旅。'
-                : <>当前分析文件: <strong>{fileName}</strong></>)
-            }
-          </Paragraph>
-          <Divider />
 
-          {/* This inner container correctly manages scrolling and docking */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
-              {uiState === 'fileLoaded' || uiState === 'analyzing' || uiState === 'resultsReady'
-                ? renderAnalysisView()
-                : renderInitialView()
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 24px 24px 24px' }}>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              {uiState === 'waitingForFile'
+                ? renderInitialView()
+                : renderAnalysisView()
               }
             </div>
             
-            {(uiState === 'fileLoaded' || uiState === 'analyzing' || uiState === 'resultsReady') && (
-              <div style={{ flexShrink: 0, padding: '12px 12px 0 12px' }}>
+            {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
+              <div style={{ flexShrink: 0, paddingTop: '12px' }}>
                 <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />
               </div>
             )}

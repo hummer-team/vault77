@@ -9,10 +9,12 @@ export class AgentExecutor {
   private promptManager = new PromptManager();
   private llmClient: LLMClient;
   private executeQuery: ExecuteQueryFunc;
+  private llmConfig: LLMConfig; // <-- CRITICAL CHANGE 1: Store llmConfig
 
   constructor(config: LLMConfig, executeQuery: ExecuteQueryFunc) {
     this.llmClient = new LLMClient(config);
     this.executeQuery = executeQuery;
+    this.llmConfig = config; // <-- CRITICAL CHANGE 1: Store llmConfig
   }
 
   public async execute(userInput: string): Promise<any> {
@@ -25,20 +27,50 @@ export class AgentExecutor {
       const role = 'ecommerce';
       const userPromptTemplate = this.promptManager.getToolSelectionPrompt(role, userInput, tableSchema);
 
-      // --- CRITICAL CHANGE: Construct the messages array correctly ---
-      console.log('[AgentExecutor] Calling official openai.chat.completions.create...');
-      const response = await this.llmClient.client.chat.completions.create({
-        model: this.llmClient.modelName,
-        messages: [
-          // 1. A dedicated system message to define the AI's persona
-          { role: 'system', content: "You are an expert data analyst who writes SQL queries based on user requests." },
-          // 2. A user message containing the detailed instructions and context for this specific task
-          { role: 'user', content: userPromptTemplate }
-        ],
-        tools: toolSchemas.map(t => ({ type: 'function', function: { name: t.tool, description: t.description, parameters: t.params } })),
-        tool_choice: 'auto',
-      });
-      // --- END CRITICAL CHANGE ---
+      // --- CRITICAL CHANGE 2: Implement Mock Logic ---
+      let response: any;
+      if (this.llmConfig.mockEnabled) {
+        console.warn('[AgentExecutor] LLM Mock is ENABLED. Returning mock response.');
+        // Simulate a Qwen-like response with tool call in content
+        response = {
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: JSON.stringify({
+                thought: `Mocking LLM response for query: "${userInput}". Decided to use sql_query_tool.`,
+                action: {
+                  tool: 'sql_query_tool',
+                  args: {
+                    query: `SELECT 'mocked_value' AS mock_result, '${userInput}' AS user_query FROM main_table LIMIT 10;`
+                  }
+                }
+              })
+            },
+            finish_reason: 'stop',
+            index: 0
+          }],
+          object: 'chat.completion',
+          id: 'mock-chatcmpl-id',
+          model: 'mock-model',
+          created: Date.now(),
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+        };
+        // Add a small delay to simulate network latency
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        // Original LLM API call
+        console.log('[AgentExecutor] Calling official openai.chat.completions.create...');
+        response = await this.llmClient.client.chat.completions.create({
+          model: this.llmClient.modelName,
+          messages: [
+            { role: 'system', content: "You are an expert data analyst who writes SQL queries based on user requests." },
+            { role: 'user', content: userPromptTemplate }
+          ],
+          tools: toolSchemas.map(t => ({ type: 'function', function: { name: t.tool, description: t.description, parameters: t.params } })),
+          tool_choice: 'auto',
+        });
+      }
+      // --- END CRITICAL CHANGE 2 ---
 
       const message = response.choices[0].message;
       console.log('[AgentExecutor] Received LLM message:', message); // Add log to see the raw message
