@@ -142,27 +142,15 @@ const Workbench: React.FC = () => {
   const isSpinning = uiState === 'initializing' || uiState === 'parsing';
 
   const renderInitialView = () => (
-    <div style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: '24px'
-    }}>
-      <Dragger 
-        {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} 
-        disabled={isSpinning}
-        style={{ padding: '48px', maxWidth: 500 }}
-      >
-        <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-        <p className="ant-upload-text">点击或拖拽文件到此区域以上传</p>
-        <p className="ant-upload-hint">支持 Excel 和 CSV 格式，文件上限 1GB。</p>
-      </Dragger>
-    </div>
+    <Dragger 
+      {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} 
+      disabled={isSpinning}
+      style={{ padding: '48px', maxWidth: 500 }}
+    >
+      <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+      <p className="ant-upload-text">点击或拖拽文件到此区域以上传</p>
+      <p className="ant-upload-hint">支持 Excel 和 CSV 格式，文件上限 1GB。</p>
+    </Dragger>
   );
 
   const renderAnalysisView = () => (
@@ -183,24 +171,38 @@ const Workbench: React.FC = () => {
   return (
     <>
       <Sandbox ref={iframeRef} />
-      <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <Spin spinning={isSpinning} tip={getLoadingTip()} size="large" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          
-          {uiState === 'waitingForFile' && renderInitialView()}
-          
-          {uiState !== 'waitingForFile' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
-              <div style={{ flex: 1, overflow: 'auto' }}>
-                {renderAnalysisView()}
-              </div>
-              {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
-                <div style={{ flexShrink: 0, paddingTop: '12px' }}>
-                  <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />
-                </div>
-              )}
+      <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }}>
+        
+        {isSpinning && (
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.05)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10
+          }}>
+            <Spin tip={getLoadingTip()} size="large" />
+          </div>
+        )}
+
+        {uiState === 'waitingForFile' ? (
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
+            {renderInitialView()}
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              {renderAnalysisView()}
             </div>
-          )}
-        </Spin>
+            {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
+              <div style={{ flexShrink: 0, paddingTop: '12px' }}>
+                <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
