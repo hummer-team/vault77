@@ -19,7 +19,8 @@ const ThinkingSteps: React.FC<{ steps: { tool: string; params: any, thought?: st
       <Text>1. 决定调用工具: <Tag color="blue">{steps.tool}</Tag></Text>
       <Text>2. 准备了以下参数:</Text>
       <pre style={{ 
-        border: '1px solid #e8e8e8',
+        background: '#1f2123', // A darker shade for contrast
+        border: '1px solid rgba(255, 255, 255, 0.1)',
         padding: '8px 12px', 
         borderRadius: 4, 
         whiteSpace: 'pre-wrap', 
@@ -46,9 +47,17 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
   const renderContent = () => {
     if (status === 'analyzing') {
       return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-          <Spin tip="AI 正在分析中..." />
-        </div>
+        <Card 
+          title={`Query: "${query}"`}
+          style={{
+            background: '#2a2d30',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+            <Spin tip="AI 正在分析中..." />
+          </div>
+        </Card>
       );
     }
 
@@ -89,11 +98,17 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
       });
 
       return (
-        <>
+        <Card 
+          title={`Query: "${query}"`}
+          style={{
+            background: '#2a2d30', // A slightly lighter, premium charcoal color
+            border: '1px solid rgba(255, 255, 255, 0.15)', // A subtle "glow" border
+          }}
+        >
           {thinkingSteps && (
             <>
               <ThinkingSteps steps={thinkingSteps} />
-              <Divider />
+              <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }} />
             </>
           )}
           <Paragraph><strong>分析结果:</strong></Paragraph>
@@ -103,7 +118,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
             pagination={{ pageSize: 5 }}
             size="small"
           />
-        </>
+        </Card>
       );
     }
     
@@ -112,9 +127,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
 
   return (
     <div style={{ opacity: isVisible ? 1 : 0, transition: 'opacity 0.5s ease-in-out', marginBottom: '24px' }}>
-      <Card title={`Query: "${query}"`}>
-        {renderContent()}
-      </Card>
+      {renderContent()}
     </div>
   );
 };

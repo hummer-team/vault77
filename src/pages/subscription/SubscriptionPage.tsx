@@ -90,6 +90,12 @@ const SubscriptionPage: React.FC = () => {
       </Space>
       
       <Divider />
+
+      <div style={{ textAlign: 'center', marginTop: '48px' }}>
+        <Text type="secondary">
+          Copyright © 2026 VaultMind. All rights reserved.
+        </Text>
+      </div>
     </div>
   );
 };

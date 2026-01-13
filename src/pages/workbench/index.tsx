@@ -23,7 +23,7 @@ interface AnalysisRecord {
 const promptManager = new PromptManager();
 
 const Workbench: React.FC = () => {
-  const { token: { colorBgContainer, borderRadiusLG } } = theme.useToken();
+  const { token: { borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -161,7 +161,16 @@ const Workbench: React.FC = () => {
   return (
     <>
       <Sandbox ref={iframeRef} />
-      <div style={{ background: colorBgContainer, borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }}>
+      <div style={{ 
+        background: 'rgba(38, 38, 40, 0.6)', 
+        borderRadius: borderRadiusLG, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        flex: 1,
+        position: 'relative',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(10px)',
+      }}>
         
         {isSpinning && (
           <div style={{
@@ -183,10 +192,9 @@ const Workbench: React.FC = () => {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
-            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+            <div style={{ flex: 1, overflow: 'auto' }}>
               {renderAnalysisView()}
             </div>
-            
             {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
               <div style={{ flexShrink: 0, paddingTop: '12px' }}>
                 <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />

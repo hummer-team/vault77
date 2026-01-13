@@ -4,14 +4,16 @@ import {
   PieChartOutlined,
   DatabaseOutlined,
   UserOutlined,
+  SettingOutlined,
   CrownOutlined,
   DownOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Layout, Menu, Typography, Breadcrumb, Button, Space, FloatButton } from 'antd';
+import { Layout, Menu, Typography, Space, FloatButton, Popover, Avatar } from 'antd';
 
-const { Content, Sider, Footer } = Layout;
-const { Title, Text } = Typography;
+const { Content, Sider } = Layout;
+const { Title } = Typography;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
@@ -29,7 +31,8 @@ const items: MenuItem[] = [
   getItem('SessionHistory', '2', <HistoryOutlined />),
   getItem('TemplateList', '3', <DatabaseOutlined />),
   getItem('Subscription', '4', <CrownOutlined />),
-  getItem('Settings', '5', <UserOutlined />),
+  getItem('Feedback', 'feedback', <MessageOutlined />),
+  getItem('Settings', '5', <SettingOutlined />),
 ];
 
 interface AppLayoutProps {
@@ -39,9 +42,15 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const userMenuContent = (
+    <div>
+      <a href="#">退出</a>
+    </div>
+  );
 
   const handleScrollToBottom = () => {
     const content = contentRef.current;
@@ -68,78 +77,66 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
-        <div 
-          style={{ 
-            height: 32, 
-            margin: 16, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: '8px',
-            cursor: 'pointer'
-          }}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-           <img 
-             src="/icons/icon-16.png" 
-             alt="Vaultmind Logo" 
-             style={{ height: '100%', width: 'auto' }} 
-           />
-           <Title 
-             level={4} 
-             style={{ 
-               color: 'white', 
-               margin: 0,
-               opacity: collapsed ? 0 : 1,
-               width: collapsed ? 0 : 'auto',
-               overflow: 'hidden',
-               whiteSpace: 'nowrap',
-               transition: 'width 0.2s ease-in-out, opacity 0.2s ease-in-out',
-             }}
-           >
-            Vaultmind
-           </Title>
-        </div>
-        <Menu 
-          theme="dark" 
-          selectedKeys={[currentKey]} 
-          mode="inline" 
-          items={items} 
-          onClick={onMenuClick} 
-        />
-      </Sider>
-      <Layout style={{ display: 'flex', flexDirection: 'column' }}>
-        
-        <div style={{ margin: '0 16px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0' }}>
-            <Breadcrumb items={[{ title: 'Vaultmind' }, { title: 'Workbench' }]} />
-            <Space>
-              <Typography.Text>hi, admin</Typography.Text>
-              <Button type="link" size="small">退出</Button>
-            </Space>
+      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div 
+            style={{ 
+              height: 32, 
+              margin: 16, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px',
+              cursor: 'pointer'
+            }}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+             <img 
+               src="/icons/icon-16.png" 
+               alt="Vaultmind Logo" 
+               style={{ height: '100%', width: 'auto' }} 
+             />
+             <Title 
+               level={4} 
+               style={{ 
+                 color: 'white', 
+                 margin: 0,
+                 opacity: collapsed ? 0 : 1,
+                 width: collapsed ? 0 : 'auto',
+                 overflow: 'hidden',
+                 whiteSpace: 'nowrap',
+                 transition: 'width 0.2s ease-in-out, opacity 0.2s ease-in-out',
+               }}
+             >
+              Vaultmind
+             </Title>
           </div>
+          <Menu 
+            theme="dark" 
+            selectedKeys={[currentKey]} 
+            mode="inline" 
+            items={items} 
+            onClick={onMenuClick} 
+            style={{ flex: 1, minHeight: 0 }}
+          />
         </div>
-        
-        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '0 16px' }}>
+        <div style={{ padding: '16px', flexShrink: 0 }}>
+          <Popover content={userMenuContent} placement="rightBottom" trigger="click">
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={<UserOutlined />} />
+              {!collapsed && <Typography.Text>hi, admin</Typography.Text>}
+            </Space>
+          </Popover>
+        </div>
+      </Sider>
+      <Layout style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
+      }}>
+        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '16px' }}>
           {children}
         </Content>
-
-        <Footer style={{ padding: '8px 24px', background: 'transparent', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}></div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <Text type="secondary">
-                Copyright © 2026 VaultMind. All rights reserved.
-              </Text>
-            </div>
-            <div style={{ flex: 1, textAlign: 'right' }}>
-              <Text type="secondary">
-               issue report to lee@gmail.com
-              </Text>
-            </div>
-          </div>
-        </Footer>
       </Layout>
       <FloatButton 
         icon={<DownOutlined />}

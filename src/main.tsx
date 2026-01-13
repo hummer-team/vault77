@@ -8,13 +8,18 @@ import 'antd/dist/reset.css';
 import SettingsPage from "./pages/workbench/Settings.tsx";
 import SessionListPage   from "./pages/session/SessionListPage.tsx";
 import TemplateListPage from "./pages/asset-center/TemplateListPage.tsx";
+import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 
 const App = () => {
-  // --- CRITICAL CHANGE 1: Add state and handlers for page routing ---
-  const [currentPage, setCurrentPage] = useState('1'); // '1' is the key for Workbench
+  const [currentPage, setCurrentPage] = useState('1');
+  const [isFeedbackDrawerOpen, setIsFeedbackDrawerOpen] = useState(false);
 
   const handleMenuClick: MenuProps['onClick'] = (e) => {
     console.log('Menu clicked:', e.key);
+    if (e.key === 'feedback') {
+      setIsFeedbackDrawerOpen(true);
+      return;
+    }
     setCurrentPage(e.key);
   };
 
@@ -31,22 +36,23 @@ const App = () => {
       case '5':
         return <SettingsPage/>
       default:
-        return <Workbench />; // Default to Workbench
+        return <Workbench />;
     }
   };
-  // --- END CRITICAL CHANGE 1 ---
 
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
       <AntdApp style={{ height: '100%' }}>
-        {/* --- CRITICAL CHANGE 2: Pass routing props to AppLayout --- */}
         <AppLayout
           currentKey={currentPage}
           onMenuClick={handleMenuClick}
         >
           {renderCurrentPage()}
         </AppLayout>
-        {/* --- END CRITICAL CHANGE 2 --- */}
+        <FeedbackDrawer 
+          open={isFeedbackDrawerOpen} 
+          onClose={() => setIsFeedbackDrawerOpen(false)} 
+        />
       </AntdApp>
     </ConfigProvider>
   );
