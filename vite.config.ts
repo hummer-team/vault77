@@ -67,7 +67,7 @@ const manifest: any = { // <-- Changed from defineManifest to 'any'
     },
     web_accessible_resources: [
         {
-            "resources": ["index.html", "sandbox.html", "assets/*", "extensions/*", "assets/content-script.js"],
+            "resources": ["index.html", "sandbox.html", "empty.html", "assets/*", "extensions/*", "assets/content-script.js"], // Added empty.html
             "matches": ["<all_urls>"]
         }
     ],

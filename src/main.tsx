@@ -43,15 +43,15 @@ const App = () => {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
-      case '1':
+      case 'Workbench':
         return <Workbench />;
-      case '2':
+      case 'SessionList':
         return <SessionListPage />;
-      case '3':
+      case 'TemplateList':
         return <TemplateListPage />;
-      case '4':
+      case 'Subscription':
         return <SubscriptionPage />;
-      case '5':
+      case 'Settings':
         return <SettingsPage/>
       default:
         return <Workbench />;

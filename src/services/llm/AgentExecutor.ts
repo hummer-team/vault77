@@ -105,7 +105,7 @@ export class AgentExecutor {
       // --- END CRITICAL CHANGE ---
 
       if (!toolCall) {
-        throw new Error("The AI did not select a tool to execute.");
+        throw new Error("未正确解析指令请重新输入.");
       }
 
       // --- CRITICAL CHANGE: Add type guard to satisfy TypeScript ---

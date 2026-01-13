@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert } from 'antd';
-import { TableOutlined } from '@ant-design/icons';
 
 const { Paragraph, Text } = Typography;
 
@@ -33,16 +32,7 @@ const ThinkingSteps: React.FC<{ steps: { tool: string; params: any, thought?: st
 );
 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, thinkingSteps }) => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (status === 'resultsReady') {
-      const timer = setTimeout(() => setIsVisible(true), 50);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
-    }
-  }, [status]);
+  // Removed isVisible state and useEffect for opacity transition
 
   const renderContent = () => {
     if (status === 'analyzing') {
@@ -54,8 +44,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
             border: '1px solid rgba(255, 255, 255, 0.15)',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-            <Spin tip="AI 正在分析中..." />
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
+            <Spin tip="AI 正在分析中..." size="large" /> {/* Added size="large" */}
           </div>
         </Card>
       );
@@ -122,11 +112,11 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
       );
     }
     
-    return <Empty image={<TableOutlined style={{ fontSize: 48 }} />} description="请在下方对话框中提出您的问题，开始分析。" />;
+    return null;
   };
 
   return (
-    <div style={{ opacity: isVisible ? 1 : 0, transition: 'opacity 0.5s ease-in-out', marginBottom: '24px' }}>
+    <div style={{ marginBottom: '24px' }}> {/* Removed opacity transition */}
       {renderContent()}
     </div>
   );

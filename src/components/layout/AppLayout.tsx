@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   HistoryOutlined,
   PieChartOutlined,
@@ -6,12 +6,11 @@ import {
   UserOutlined,
   SettingOutlined,
   CrownOutlined,
-  DownOutlined,
   MessageOutlined,
-  FullscreenOutlined, // Added FullscreenOutlined
+  FullscreenOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Layout, Menu, Typography, Space, FloatButton, Popover, Avatar /* Removed Button */ } from 'antd';
+import { Layout, Menu, Typography, Space, Popover, Avatar } from 'antd';
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
@@ -28,13 +27,13 @@ function getItem(
 }
 
 const items: MenuItem[] = [
-  getItem('Workbench', '1', <PieChartOutlined />),
-  getItem('SessionHistory', '2', <HistoryOutlined />),
-  getItem('TemplateList', '3', <DatabaseOutlined />),
-  getItem('Subscription', '4', <CrownOutlined />),
+  getItem('Workbench', 'Workbench', <PieChartOutlined />),
+  getItem('SessionHistory', 'SessionHistory', <HistoryOutlined />),
+  getItem('TemplateList', 'TemplateList', <DatabaseOutlined />),
+  getItem('Subscription', 'Subscription', <CrownOutlined />),
   getItem('Feedback', 'feedback', <MessageOutlined />),
-  getItem('Settings', '5', <SettingOutlined />),
-  getItem('Fullscreen', 'fullscreen', <FullscreenOutlined />), // Added Fullscreen menu item
+  getItem('Settings', 'Settings', <SettingOutlined />),
+  getItem('NewSession', 'fullscreen', <FullscreenOutlined />),
 ];
 
 interface AppLayoutProps {
@@ -45,8 +44,6 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick }) => {
   const [collapsed, setCollapsed] = useState(true);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const userMenuContent = (
     <div>
@@ -54,36 +51,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
     </div>
   );
 
-  const handleScrollToBottom = () => {
-    const content = contentRef.current;
-    if (content) {
-      content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
-    }
-  };
-
-  // Removed handleCloseSidebar function as it's no longer needed for sidePanel
-
-  useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = content;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 20; // Within 20px of bottom
-      // Removed isAtTop check
-      // Only show if content is scrollable AND not at the bottom
-      setShowScrollToBottom(scrollHeight > clientHeight && !isAtBottom);
-    };
-
-    content.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Call once on mount to set initial state
-
-    return () => content.removeEventListener('scroll', handleScroll);
-  }, [children]);
-
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} collapsedWidth={48} style={{ display: 'flex', flexDirection: 'column' }}> {/* Adjusted collapsedWidth */}
+      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} collapsedWidth={48} style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div 
             style={{ 
@@ -127,10 +97,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
           />
         </div>
         <div style={{ 
-          padding: collapsed ? '16px 0' : '16px', // Adjust padding based on collapsed state
+          padding: collapsed ? '16px 0' : '16px',
           flexShrink: 0,
           display: 'flex',
-          justifyContent: collapsed ? 'center' : 'flex-start', // Center when collapsed
+          justifyContent: collapsed ? 'center' : 'flex-start',
           alignItems: 'center',
         }}>
           <Popover content={userMenuContent} placement="rightBottom" trigger="click">
@@ -146,21 +116,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
         flexDirection: 'column',
         background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
       }}>
-        {/* Removed header for close button */}
-        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '16px' }}> {/* Adjusted margin back to original */}
+        {/* Removed flex styles to make it a simple container */}
+        <Content style={{ margin: '16px' }}>
           {children}
         </Content>
       </Layout>
-      <FloatButton 
-        icon={<DownOutlined />}
-        onClick={handleScrollToBottom}
-        style={{
-          display: showScrollToBottom ? 'block' : 'none',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          bottom: 40,
-        }}
-      />
     </Layout>
   );
 };

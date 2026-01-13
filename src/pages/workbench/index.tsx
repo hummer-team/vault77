@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { theme, Spin, App } from 'antd';
-import { InboxOutlined } from '@ant-design/icons';
-import Dragger, { DraggerProps } from 'antd/es/upload/Dragger';
+import { theme, Spin, App } from 'antd'; // Removed FloatButton
+import { DraggerProps } from 'antd/es/upload/Dragger'; // Removed DownOutlined
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
 import { PromptManager } from '../../services/llm/PromptManager';
@@ -27,12 +26,14 @@ const Workbench: React.FC = () => {
   const { message } = App.useApp();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null); // Ref for the scrollable content area
   const { initializeDuckDB, executeQuery, isDBReady } = useDuckDB(iframeRef);
   const { loadFileInDuckDB, isSandboxReady } = useFileParsing(iframeRef);
 
   const [uiState, setUiState] = useState<WorkbenchState>('initializing');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRecord[]>([]);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false); // State for the button
 
   const [llmConfig] = useState<LLMConfig>({
     provider: import.meta.env.VITE_LLM_PROVIDER as any,
@@ -58,11 +59,39 @@ const Workbench: React.FC = () => {
 
   useEffect(() => {
     if (isDBReady && isSandboxReady) {
-      setUiState('waitingForFile');
+      setUiState('fileLoaded'); 
     } else {
       setUiState('initializing');
     }
   }, [isDBReady, isSandboxReady]);
+
+  // Effect for scroll button visibility
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = content;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 20;
+      
+      console.log(`[ScrollCheck] scrollHeight: ${scrollHeight}, clientHeight: ${clientHeight}, scrollTop: ${scrollTop}, isAtBottom: ${isAtBottom}`);
+      
+      // Show button if content is scrollable and not at the bottom
+      setShowScrollToBottom(scrollHeight > clientHeight && !isAtBottom);
+    };
+
+    // Use MutationObserver to detect when new content is added, which may change scrollHeight
+    const observer = new MutationObserver(handleScroll);
+    observer.observe(content, { childList: true, subtree: true });
+
+    content.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Call once on mount/update to set initial state
+
+    return () => {
+      observer.disconnect();
+      content.removeEventListener('scroll', handleScroll);
+    };
+  }, []); // Run only once on mount
 
   const handleFileUpload: DraggerProps['beforeUpload'] = async (file) => {
     setUiState('parsing');
@@ -81,7 +110,7 @@ const Workbench: React.FC = () => {
     } catch (error: any) {
       console.error(`[Workbench] Error during file upload process:`, error);
       message.error(`Failed to process file: ${error.message}`);
-      setUiState('waitingForFile');
+      setUiState('fileLoaded'); 
     }
     return false;
   };
@@ -124,6 +153,13 @@ const Workbench: React.FC = () => {
     }
   };
 
+  const handleScrollToBottom = () => {
+    const content = contentRef.current;
+    if (content) {
+      content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
   const getLoadingTip = () => {
     if (uiState === 'initializing') return '正在初始化数据引擎...';
     if (uiState === 'parsing') return '正在解析文件...';
@@ -131,18 +167,6 @@ const Workbench: React.FC = () => {
   };
 
   const isSpinning = uiState === 'initializing' || uiState === 'parsing';
-
-  const renderInitialView = () => (
-    <Dragger 
-      {...{ name: "file", multiple: false, beforeUpload: handleFileUpload, showUploadList: false, accept: ".csv,.xls,.xlsx" }} 
-      disabled={isSpinning}
-      style={{ padding: '48px', maxWidth: 500 }}
-    >
-      <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-      <p className="ant-upload-text">点击或拖拽文件到此区域以上传</p>
-      <p className="ant-upload-hint">支持 Excel 和 CSV 格式，文件上限 1GB。</p>
-    </Dragger>
-  );
 
   const renderAnalysisView = () => (
     <div>
@@ -166,7 +190,7 @@ const Workbench: React.FC = () => {
         borderRadius: borderRadiusLG, 
         display: 'flex', 
         flexDirection: 'column', 
-        flex: 1,
+        height: '100%', // Set height to 100% to constrain children
         position: 'relative',
         border: '1px solid rgba(255, 255, 255, 0.1)',
         backdropFilter: 'blur(10px)',
@@ -186,22 +210,21 @@ const Workbench: React.FC = () => {
           </div>
         )}
 
-        {uiState === 'waitingForFile' ? (
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
-            {renderInitialView()}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
+          <div ref={contentRef} style={{ flex: 1, overflow: 'auto' }}> {/* Attach ref here */}
+            {renderAnalysisView()}
           </div>
-        ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              {renderAnalysisView()}
-            </div>
-            {(uiState === 'fileLoaded' || uiState === 'analyzing') && (
-              <div style={{ flexShrink: 0, paddingTop: '12px' }}>
-                <ChatPanel onSendMessage={handleStartAnalysis} isAnalyzing={uiState === 'analyzing'} suggestions={suggestions} />
-              </div>
-            )}
+          <div style={{ flexShrink: 0, paddingTop: '12px' }}>
+            <ChatPanel 
+              onSendMessage={handleStartAnalysis} 
+              isAnalyzing={uiState === 'analyzing'} 
+              suggestions={suggestions} 
+              onFileUpload={handleFileUpload}
+              showScrollToBottom={showScrollToBottom} // Pass the state
+              onScrollToBottom={handleScrollToBottom} // Pass the handler
+            />
           </div>
-        )}
+        </div>
       </div>
     </>
   );
