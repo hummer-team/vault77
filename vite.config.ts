@@ -1,6 +1,6 @@
 import {defineConfig, Plugin, UserConfig} from 'vite'
 import react from '@vitejs/plugin-react'
-import {crx} from '@crxjs/vite-plugin'
+import {crx} from '@crxjs/vite-plugin' // <-- defineManifest is no longer needed here
 import './src/types/crx-manifest.d.ts';
 
 const corsPlugin = (): Plugin => ({
@@ -24,71 +24,64 @@ const corsPlugin = (): Plugin => ({
     },
 });
 
-export default defineConfig(({command}) => {
-    const isDev = command === 'serve';
-
-    const manifest: any = {
-        manifest_version: 3,
-        name: "Vaultmind",
-        version: "0.2.0",
-        description: "A lightweight, privacy-focused data analysis assistant.",
-        permissions: [
-            "storage",
-            "unlimitedStorage"
-        ],
-        cross_origin_embedder_policy: {
-            "value": "require-corp"
-        },
-        cross_origin_opener_policy: {
-            "value": "same-origin"
-        },
-        action: {
-            "default_popup": "index.html"
-        },
-        icons: {
-            "16": "icons/icon-16.png",
-            "48": "icons/icon-48.png",
-            "64": "icons/icon-64.png",
-            "128": "icons/icon-128.png"
-        },
-        content_security_policy: {
-            "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';",
-            // The 'sandbox' CSP directive is not needed here if sandbox.html is not declared as a sandboxed page
-        },
-        // THIS FIELD MUST BE REMOVED
-        // sandbox: {
-        //     "pages": [
-        //         "sandbox.html"
-        //     ]
-        // },
-        web_accessible_resources: [
-            {
-                "resources": ["sandbox.html", "assets/*", "extensions/*"],
-                "matches": ["<all_urls>"]
-            }
-        ]
-    };
-
-
-    // manifest.background = {
-    //     service_worker: "service-worker-loader.js",
-    //     type: "module"
-    // };
-    manifest.host_permissions = [
+// --- CRITICAL CORRECTION: Define manifest as 'any' to bypass strict type checking ---
+const manifest: any = { // <-- Changed from defineManifest to 'any'
+    manifest_version: 3,
+    name: "Vaultmind",
+    version: "0.2.0",
+    description: "A lightweight, privacy-focused data analysis assistant.",
+    permissions: [
+        "storage",
+        "unlimitedStorage",
+        "activeTab",
+        "scripting"
+    ],
+    // --- Ensure host_permissions are here ---
+    host_permissions: [
         "ws://localhost:5173/*",
         "http://localhost:5173/*",
         "https://dashscope.aliyuncs.com/*"
-    ];
-    //manifest.web_accessible_resources[0].resources.push("**/*", "*");
+    ],
+    // --- CRITICAL CORRECTION: Correct structure for cross_origin policies ---
+    cross_origin_embedder_policy: { "value": "require-corp" }, // Corrected back to object
+    cross_origin_opener_policy: { "value": "same-origin" },   // Corrected back to object
+    // --- END CRITICAL CORRECTION ---
+    action: {
+        "default_title": "Open Vaultmind"
+    },
+    background: {
+        "service_worker": "src/background.ts",
+        "type": "module"
+    },
+    // content_scripts is removed as per the programmatic injection plan
+    icons: {
+        "16": "icons/icon-16.png",
+        "48": "icons/icon-48.png",
+        "64": "icons/icon-64.png",
+        "128": "icons/icon-128.png"
+    },
+    content_security_policy: {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';",
+    },
+    web_accessible_resources: [
+        {
+            "resources": ["index.html", "sandbox.html", "assets/*", "extensions/*", "assets/content-script.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
+};
+// --- END CRITICAL CORRECTION ---
 
+export default defineConfig(({command}) => {
+    const isDev = command === 'serve';
 
     const config: UserConfig = {
         plugins: [
             react(),
-            crx({manifest}),
+            crx({manifest}), // <-- Pass the 'any' typed manifest
             corsPlugin(),
         ],
-        resolve: { // <-- Add this resolve section
+        resolve: {
             alias: {
                 'apache-arrow': 'node_modules/apache-arrow/Arrow.esnext.min.js',
             },
@@ -102,12 +95,16 @@ export default defineConfig(({command}) => {
                 input: {
                     main: 'index.html',
                     sandbox: 'sandbox.html',
-                    duckdbWorker: 'src/workers/duckdb.worker.ts', // <-- Add worker as an entry
+                    duckdbWorker: 'src/workers/duckdb.worker.ts',
+                    contentScript: 'src/content-script.ts', // Add contentScript as an input
                 },
                 output: {
                     entryFileNames: (chunkInfo) => {
                         if (chunkInfo.name === 'duckdbWorker') {
-                            return `assets/duckdb.worker.js`; // <-- Force predictable name
+                            return `assets/duckdb.worker.js`;
+                        }
+                        if (chunkInfo.name === 'contentScript') { // Define fixed name for contentScript
+                            return `assets/content-script.js`;
                         }
                         return `assets/[name]-[hash].js`;
                     },

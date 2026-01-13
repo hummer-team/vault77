@@ -8,9 +8,10 @@ import {
   CrownOutlined,
   DownOutlined,
   MessageOutlined,
+  CloseOutlined, // Added CloseOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Layout, Menu, Typography, Space, FloatButton, Popover, Avatar } from 'antd';
+import { Layout, Menu, Typography, Space, FloatButton, Popover, Avatar, Button } from 'antd'; // Added Button
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
@@ -56,6 +57,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
     const content = contentRef.current;
     if (content) {
       content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  // Function to handle closing the sidebar
+  const handleCloseSidebar = () => {
+    console.log('Sending CLOSE_SIDEBAR message from AppLayout.');
+    if (chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'CLOSE_SIDEBAR' });
+    } else {
+      console.warn('chrome.runtime.sendMessage is not available. Are you in a browser context?');
     }
   };
 
@@ -134,7 +145,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
         flexDirection: 'column',
         background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
       }}>
-        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '16px' }}>
+        {/* Added header for close button */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          padding: '8px 16px 0 0', // Adjust padding as needed
+          flexShrink: 0 
+        }}>
+          <Button 
+            type="text" 
+            icon={<CloseOutlined style={{ color: 'white' }} />} 
+            onClick={handleCloseSidebar} 
+            style={{ color: 'white' }}
+          />
+        </div>
+        <Content ref={contentRef} style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', margin: '0 16px 16px 16px' }}> {/* Adjusted margin */}
           {children}
         </Content>
       </Layout>
