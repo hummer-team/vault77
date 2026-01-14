@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { theme, Spin, App, Typography } from 'antd'; // Added Typography
+import { theme, Spin, App, Typography, Tag, Space } from 'antd'; // Added Typography, Tag, Space
 import { DraggerProps } from 'antd/es/upload/Dragger';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -26,6 +26,15 @@ interface WorkbenchProps {
 
 const promptManager = new PromptManager();
 
+const tagStyle: React.CSSProperties = {
+  background: 'rgba(255, 255, 255, 0.08)',
+  borderColor: 'rgba(255, 255, 255, 0.2)',
+  color: 'rgba(255, 255, 255, 0.85)',
+  padding: '4px 8px',
+  borderRadius: '4px',
+  fontSize: '13px',
+};
+
 // Step 1: Create the InitialWelcomeView component
 const InitialWelcomeView: React.FC = () => (
   <div style={{
@@ -34,11 +43,16 @@ const InitialWelcomeView: React.FC = () => (
     justifyContent: 'center',
     alignItems: 'center',
     height: '100%',
-    gap: '16px'
+    gap: '16px' // Reduced gap for better spacing
   }}>
     <img src="/icons/icon-512.png" alt="Vaultmind Logo" style={{ width: 256, height: 256 }} />
-    <Typography.Title level={3}>Hi, 我是 Vaultmind</Typography.Title>
-    <Typography.Text type="secondary">我是您的Excel数据分析助手，很乐意为您服务！</Typography.Text>
+    <Typography.Title level={3}>Hi, 我是Vaultmind我能帮您：</Typography.Title>
+    <Space size={[8, 16]} wrap>
+      <Tag style={tagStyle}>快速准确Excel，CSV数据分析</Tag>
+      <Tag style={tagStyle}>图表绘制</Tag>
+      <Tag style={tagStyle}>数据洞察</Tag>
+      <Tag style={tagStyle}>智能报表生成</Tag>
+    </Space>
   </div>
 );
 

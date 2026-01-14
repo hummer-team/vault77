@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   HistoryOutlined,
   PieChartOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Layout, Menu, Typography, Space, Popover, Avatar } from 'antd';
+import { useUserStore } from '../../status/AppStatusManager.ts';
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
@@ -29,7 +30,7 @@ function getItem(
 const items: MenuItem[] = [
   getItem('Workbench', 'Workbench', <PieChartOutlined />),
   getItem('SessionHistory', 'SessionHistory', <HistoryOutlined />),
-  getItem('TemplateList', 'TemplateList', <DatabaseOutlined />),
+  getItem('Template', 'TemplateList', <DatabaseOutlined />),
   getItem('Subscription', 'Subscription', <CrownOutlined />),
   getItem('Feedback', 'feedback', <MessageOutlined />),
   getItem('Settings', 'Settings', <SettingOutlined />),
@@ -44,6 +45,11 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick }) => {
   const [collapsed, setCollapsed] = useState(true);
+  const { userProfile, fetchUserProfile } = useUserStore();
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
 
   const userMenuContent = (
     <div>
@@ -105,8 +111,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
         }}>
           <Popover content={userMenuContent} placement="rightBottom" trigger="click">
             <Space style={{ cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} />
-              {!collapsed && <Typography.Text>hi, admin</Typography.Text>}
+              <Avatar src={userProfile?.avatar} icon={<UserOutlined />} />
+              {!collapsed && <Typography.Text>hi, {userProfile?.nickname || 'admin'}</Typography.Text>}
             </Space>
           </Popover>
         </div>
@@ -116,7 +122,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
         flexDirection: 'column',
         background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
       }}>
-        {/* Removed flex styles to make it a simple container */}
         <Content style={{ margin: '16px' }}>
           {children}
         </Content>

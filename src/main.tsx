@@ -5,10 +5,10 @@ import AppLayout from './components/layout/AppLayout';
 import Workbench from './pages/workbench';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import 'antd/dist/reset.css';
-import SettingsPage from "./pages/workbench/Settings.tsx";
 import SessionListPage   from "./pages/session/SessionListPage.tsx";
 import TemplateListPage from "./pages/asset-center/TemplateListPage.tsx";
 import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
+import ProfilePage from "./pages/settings/ProfilePage.tsx";
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('1');
@@ -48,14 +48,14 @@ const App = () => {
           isFeedbackDrawerOpen={isFeedbackDrawerOpen} 
           setIsFeedbackDrawerOpen={setIsFeedbackDrawerOpen} 
         />;
-      case 'SessionList': // Changed from 'SessionList' to '2'
+      case 'SessionHistory':
         return <SessionListPage />;
-      case 'TemplateList': // Changed from 'TemplateList' to '3'
+      case 'TemplateList':
         return <TemplateListPage />;
-      case 'Subscription': // Changed from 'Subscription' to '4'
+      case 'Subscription':
         return <SubscriptionPage />;
-      case 'Settings': // Changed from 'Settings' to '5'
-        return <SettingsPage/>
+      case 'Settings':
+        return <ProfilePage/>
       default:
         return <Workbench 
           isFeedbackDrawerOpen={isFeedbackDrawerOpen} 
