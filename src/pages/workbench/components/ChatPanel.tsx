@@ -67,7 +67,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   ].join('\n');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
       <FloatButton
         icon={<DownOutlined />}
         onClick={onScrollToBottom}
@@ -87,13 +87,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       {/* Suggestions */}
       {suggestions && suggestions.length > 0 && (
-        <Space size={[0, 8]} wrap>
-          {suggestions.map((s, i) => (
-            <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer' }}>
-              {s}
-            </Tag>
-          ))}
-        </Space>
+        <div style={{
+          padding: '8px 12px',
+          background: 'rgba(255, 255, 255, 0.04)',
+          borderRadius: '6px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}>
+          <Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>
+          <Space size={[8, 8]} wrap>
+            {suggestions.map((s, i) => (
+              <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer' }}>
+                {s}
+              </Tag>
+            ))}
+          </Space>
+        </div>
       )}
 
       {/* Attachments Display */}

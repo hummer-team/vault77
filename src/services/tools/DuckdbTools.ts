@@ -1,6 +1,15 @@
 import { ExecuteQueryFunc } from '../llm/AgentExecutor'; // 导入类型
 
-// --- Tool Definitions ---
+// --- Custom Error Types ---
+export class MissingColumnError extends Error {
+  public missingColumn: string;
+
+  constructor(message: string, missingColumn: string) {
+    super(message);
+    this.name = 'MissingColumnError';
+    this.missingColumn = missingColumn;
+  }
+}
 
 /**
  * Executes a given SQL query against the DuckDB database.
@@ -16,9 +25,17 @@ export const sql_query_tool = async (executeQuery: ExecuteQueryFunc, { query }: 
     const result = await executeQuery(query);
     console.log(`[sql_query_tool] Query result:`, result);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[sql_query_tool] Error executing query:`, error);
-    // Re-throw the error so the agent can potentially handle it
+    
+    // Check for "column not found" errors from DuckDB
+    const columnNotFoundMatch = error.message.match(/Column "([^"]+)" not found/i) || error.message.match(/Unknown column '([^']+)'/i);
+    if (columnNotFoundMatch && columnNotFoundMatch[1]) {
+      const missingColumn = columnNotFoundMatch[1];
+      throw new MissingColumnError(`The column '${missingColumn}' was not found in the table.`, missingColumn);
+    }
+    
+    // Re-throw other errors as is
     throw error;
   }
 };
@@ -40,7 +57,7 @@ export const toolSchemas = [
       properties: {
         query: {
           type: "string",
-          description: "A complete and valid SQL query to run on the 'main_table'.",
+          description: "A complete and valid SQL query to run on the available tables.",
         },
       },
       required: ["query"],

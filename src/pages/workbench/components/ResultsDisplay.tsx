@@ -63,79 +63,27 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
   };
 
   const renderContent = () => {
+    const iconStyle = { fontSize: '16px' };
     const commonActions = (
-        <div style={{
-          padding: '0',
-          lineHeight: '1',
-          height: '16px'
-        }}>
-          <Space size={0}>
+        <div style={{ padding: '2px 0' }}>
+          <Space size="small">
             <Button
                 type="text"
                 icon={voted === 'up'
-                    ? <LikeFilled style={{
-                      color: '#1890ff',
-                      fontSize: '12px',
-                      verticalAlign: 'middle'
-                    }} />
-                    : <LikeOutlined style={{
-                      fontSize: '12px',
-                      verticalAlign: 'middle'
-                    }} />
+                    ? <LikeFilled style={{ ...iconStyle, color: '#1890ff' }} />
+                    : <LikeOutlined style={iconStyle} />
                 }
                 onClick={handleUpvoteClick}
-                style={{
-                  padding: '0',
-                  margin: '0',
-                  height: '12px',
-                  minHeight: '12px',
-                  minWidth: 'unset',
-                  lineHeight: '1',
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer'
-                }}
             />
             <Button
                 type="text"
-                icon={<DislikeOutlined style={{
-                  fontSize: '12px',
-                  verticalAlign: 'middle'
-                }} />}
+                icon={<DislikeOutlined style={iconStyle} />}
                 onClick={() => onDownvote(query)}
-                style={{
-                  padding: '0',
-                  margin: '0',
-                  height: '12px',
-                  minHeight: '12px',
-                  minWidth: 'unset',
-                  lineHeight: '1',
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer'
-                }}
             />
             <Button
                 type="text"
-                icon={<RedoOutlined style={{
-                  fontSize: '12px',
-                  verticalAlign: 'middle'
-                }} />}
+                icon={<RedoOutlined style={iconStyle} />}
                 onClick={() => onRetry(query)}
-                style={{
-                  padding: '0',
-                  margin: '0',
-                  height: '12px',
-                  minHeight: '12px',
-                  minWidth: 'unset',
-                  lineHeight: '1',
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer'
-                }}
             />
             <Popconfirm
                 title="您确定要删除此条记录吗？"
@@ -145,24 +93,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
             >
               <Button
                   type="text"
-                  icon={<DeleteOutlined style={{
-                    fontSize: '12px',
-                    verticalAlign: 'middle',
-                    color: '#ff4d4f'
-                  }} />}
+                  icon={<DeleteOutlined style={{...iconStyle, color: '#ff4d4f'}} />}
                   danger
-                  style={{
-                    padding: '0',
-                    margin: '0',
-                    height: '12px',
-                    minHeight: '12px',
-                    minWidth: 'unset',
-                    lineHeight: '1',
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer'
-                  }}
               />
             </Popconfirm>
           </Space>
@@ -225,7 +157,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
           title={`Query: "${query}"`}
           actions={[commonActions]}
           style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
-          bodyStyle={{ padding: '0 24px 12px 24px' }}
+          bodyStyle={{ padding: '0 24px 8px 24px' }}
         >
           <Space direction="vertical" style={{ width: '100%' }}>
             {thinkingSteps && (

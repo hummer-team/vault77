@@ -1,5 +1,5 @@
 import { PromptManager } from './PromptManager';
-import { tools, toolSchemas } from '../tools/DuckdbTools';
+import { tools, toolSchemas, MissingColumnError } from '../tools/DuckdbTools';
 import { LLMClient, LLMConfig } from './LLMClient';
 import OpenAI from 'openai';
 
@@ -127,7 +127,6 @@ export class AgentExecutor {
         };
         await new Promise((resolve) => setTimeout(resolve, 500));
       } else {
-        console.log('[AgentExecutor] Calling LLM with cancellable signal...');
         const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
           model: this.llmClient.modelName,
           messages: [
@@ -152,8 +151,6 @@ export class AgentExecutor {
       }
 
       const message = response.choices[0].message;
-      console.log('[AgentExecutor] Received LLM message:', message);
-
       let toolCall = message.tool_calls?.[0];
       let thought = `AI decided to use a tool.`;
 
@@ -184,9 +181,6 @@ export class AgentExecutor {
       if (toolCall.type === 'function') {
         const toolName = toolCall.function.name;
         const args = JSON.parse(toolCall.function.arguments);
-
-        console.log(`[AgentExecutor] LLM wants to execute tool: ${toolName} with params:`, args);
-
         const toolFunction = tools[toolName];
         if (!toolFunction) {
           throw new Error(`LLM selected an unknown tool: ${toolName}`);
@@ -207,9 +201,14 @@ export class AgentExecutor {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('[AgentExecutor] Analysis cancelled by user.');
-        // Return a specific object or null to indicate cancellation
         return { cancelled: true };
       }
+      
+      if (error instanceof MissingColumnError) {
+        const userFriendlyMessage = `很抱歉，我无法找到您请求的字段 '${error.missingColumn}'。请检查您的文件是否包含此列，或尝试使用其他字段进行分析。`;
+        error.message = userFriendlyMessage;
+      }
+
       console.error('Agent execution failed:', error);
       throw error;
     }
