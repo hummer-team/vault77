@@ -115,27 +115,55 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
     }
 
     if (status === 'resultsReady') {
+      const cardProps = {
+        title: `Query: "${query}"`,
+        actions: [commonActions],
+        style: { background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' },
+        bodyStyle: { padding: '0 24px 8px 24px' },
+      };
+
+      const commonContent = (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {thinkingSteps && (
+            <>
+              <ThinkingSteps steps={thinkingSteps} />
+              <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)', margin: '0' }} />
+            </>
+          )}
+          <Paragraph style={{ paddingTop: '16px' }}><strong>分析结果:</strong></Paragraph>
+        </Space>
+      );
+
       if (data && data.error) {
         return (
-          <Card actions={[commonActions]} style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+          <Card {...cardProps}>
+            {commonContent}
             <Alert
-              message="分析失败"
+              message="抱歉，我无法理解您的指令，请修改指令后重新尝试"
               description={data.error}
               type="error"
               showIcon
+              style={{ marginTop: '16px' }}
             />
+            <Paragraph type="secondary" style={{ marginTop: '16px' }}>
+              请尝试调整您的指令，例如更具体地描述您想要的数据或分析类型。
+            </Paragraph>
           </Card>
         );
-      }
-
-      if (!data) {
-        return <Card actions={[commonActions]}><Empty description="分析完成，但没有返回结果。" /></Card>;
       }
 
       const { columns: originalColumns, rows } = data;
 
       if (!originalColumns || !rows || rows.length === 0) {
-        return <Card actions={[commonActions]}><Empty description="分析完成，但没有返回结果。" /></Card>;
+        return (
+          <Card {...cardProps}>
+            {commonContent}
+            <Empty description="分析完成，但没有返回结果。" style={{ marginTop: '16px' }} />
+            <Paragraph type="secondary" style={{ marginTop: '16px' }}>
+              请尝试调整您的指令，例如更具体地描述您想要的数据或分析类型。
+            </Paragraph>
+          </Card>
+        );
       }
 
       const tableColumns = originalColumns.map((colName: string, index: number) => ({
@@ -153,31 +181,18 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
       });
 
       return (
-        <Card 
-          title={`Query: "${query}"`}
-          actions={[commonActions]}
-          style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
-          bodyStyle={{ padding: '0 24px 8px 24px' }}
-        >
-          <Space direction="vertical" style={{ width: '100%' }}>
-            {thinkingSteps && (
-              <>
-                <ThinkingSteps steps={thinkingSteps} />
-                <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)', margin: '0' }} />
-              </>
-            )}
-            <Paragraph style={{ paddingTop: '16px' }}><strong>分析结果:</strong></Paragraph>
-            <Table
-              dataSource={tableDataSource}
-              columns={tableColumns}
-              pagination={{
-                defaultPageSize: 20,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '20', '50', '100'],
-              }}
-              size="small"
-            />
-          </Space>
+        <Card {...cardProps}>
+          {commonContent}
+          <Table
+            dataSource={tableDataSource}
+            columns={tableColumns}
+            pagination={{
+              defaultPageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
+            size="small"
+          />
         </Card>
       );
     }

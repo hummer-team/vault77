@@ -1,5 +1,5 @@
 import { PromptManager } from './PromptManager';
-import { tools, toolSchemas, MissingColumnError } from '../tools/DuckdbTools';
+import { tools, toolSchemas, MissingColumnError, CannotAnswerError } from '../tools/DuckdbTools';
 import { LLMClient, LLMConfig } from './LLMClient';
 import OpenAI from 'openai';
 
@@ -61,12 +61,6 @@ export class AgentExecutor {
     return schemas.join('\n\n');
   }
 
-  /**
-   * Recursively sanitizes BigInt values in data structures to strings.
-   * DuckDB returns BigInts for COUNT/SUM, which need to be converted for JSON serialization/display.
-   * @param data The data structure to sanitize.
-   * @returns The sanitized data structure.
-   */
   private _sanitizeBigInts(data: any): any {
     if (typeof data === 'bigint') {
       return data.toString();
@@ -84,6 +78,48 @@ export class AgentExecutor {
       return newData;
     }
     return data;
+  }
+
+  /**
+   * Constructs a detailed error message when the LLM fails to return a valid tool call.
+   * It tries to extract reasons from the LLM's content, even if it's not perfectly formatted.
+   */
+  private _getToolCallErrorMessage(message: OpenAI.Chat.Completions.ChatCompletionMessage, userInput: string): string {
+    let llmReason = '';
+    let rawContentSnippet = '';
+
+    if (message.content && typeof message.content === 'string') {
+      rawContentSnippet = message.content.substring(0, 500); // Take a snippet for logging
+      try {
+        const parsedContent = JSON.parse(message.content);
+        // Try to get reason from thought or explanation
+        llmReason = parsedContent.thought || parsedContent.action?.args?.explanation || '';
+      } catch (e) {
+        console.error('[AgentExecutor] Failed to parse message.content as JSON and no regex match:'
+            , e, 'Raw content:', message.content, " user input: ", userInput);
+        // JSON parsing failed, try regex as a fallback
+        const thoughtRegex = /"thought":\s*"(.*?)(?<!\\)"/s;
+        const explanationRegex = /"explanation":\s*"(.*?)(?<!\\)"/s;
+
+        const thoughtMatch = message.content.match(thoughtRegex);
+        const explanationMatch = message.content.match(explanationRegex);
+
+        if (thoughtMatch && thoughtMatch[1]) {
+          llmReason = thoughtMatch[1].replace(/\\"/g, '"'); // Unescape quotes
+        } else if (explanationMatch && explanationMatch[1]) {
+          llmReason = explanationMatch[1].replace(/\\"/g, '"'); // Unescape quotes
+        }
+      }
+    }
+
+    if (llmReason) {
+      return llmReason;
+    }
+    if (rawContentSnippet && llmReason.includes('非JSON格式或无法解析')) { // Only show raw snippet if JSON parsing failed
+        return rawContentSnippet;
+    }
+
+    return '请调整指令重试';
   }
 
   public async execute(userInput: string, signal?: AbortSignal): Promise<any> {
@@ -154,6 +190,7 @@ export class AgentExecutor {
       let toolCall = message.tool_calls?.[0];
       let thought = `AI decided to use a tool.`;
 
+      // This block attempts to parse toolCall from message.content if tool_calls is missing
       if (!toolCall && message.content && typeof message.content === 'string') {
         try {
           const parsedContent = JSON.parse(message.content);
@@ -164,18 +201,20 @@ export class AgentExecutor {
               function: {
                 name: parsedContent.action.tool,
                 arguments: JSON.stringify(parsedContent.action.args),
-              },
+              }
             };
             thought = parsedContent.thought || thought;
             console.log('[AgentExecutor] Extracted tool call from message content.');
           }
         } catch (e) {
-          console.warn('[AgentExecutor] Message content is not a valid JSON for tool call.');
+          console.warn('[AgentExecutor] Message content is not a valid JSON for tool call, will be handled by !toolCall check.');
         }
       }
 
       if (!toolCall) {
-        throw new Error('未正确解析指令请重新输入.');
+        const errorMessage = this._getToolCallErrorMessage(message, userInput);
+        console.error('[AgentExecutor] LLM did not select a tool or returned unparseable content.');
+        throw new Error(errorMessage);
       }
 
       if (toolCall.type === 'function') {
@@ -207,6 +246,9 @@ export class AgentExecutor {
       if (error instanceof MissingColumnError) {
         const userFriendlyMessage = `很抱歉，我无法找到您请求的字段 '${error.missingColumn}'。请检查您的文件是否包含此列，或尝试使用其他字段进行分析。`;
         error.message = userFriendlyMessage;
+      } else if (error instanceof CannotAnswerError) {
+        // The error message from CannotAnswerError is already user-friendly.
+        // No modification is needed, but we explicitly acknowledge it here for clarity.
       }
 
       console.error('Agent execution failed:', error);

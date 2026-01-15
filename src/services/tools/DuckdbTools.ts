@@ -11,13 +11,17 @@ export class MissingColumnError extends Error {
   }
 }
 
+export class CannotAnswerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CannotAnswerError';
+  }
+}
+
+// --- Tool Definitions ---
+
 /**
  * Executes a given SQL query against the DuckDB database.
- * This is a powerful and general-purpose tool.
- * @param executeQuery The function to execute a SQL query.
- * @param params An object containing the SQL query string.
- * @param params.query The SQL query to execute.
- * @returns A promise that resolves to the query result.
  */
 export const sql_query_tool = async (executeQuery: ExecuteQueryFunc, { query }: { query: string }): Promise<any> => {
   console.log(`[sql_query_tool] Executing query:`, query);
@@ -28,26 +32,32 @@ export const sql_query_tool = async (executeQuery: ExecuteQueryFunc, { query }: 
   } catch (error: any) {
     console.error(`[sql_query_tool] Error executing query:`, error);
     
-    // Check for "column not found" errors from DuckDB
     const columnNotFoundMatch = error.message.match(/Column "([^"]+)" not found/i) || error.message.match(/Unknown column '([^']+)'/i);
     if (columnNotFoundMatch && columnNotFoundMatch[1]) {
       const missingColumn = columnNotFoundMatch[1];
       throw new MissingColumnError(`The column '${missingColumn}' was not found in the table.`, missingColumn);
     }
     
-    // Re-throw other errors as is
     throw error;
   }
 };
 
-// --- Tool Registry and Schema ---
-
-// The registry now only contains our single, powerful tool.
-export const tools: Record<string, (executeQuery: ExecuteQueryFunc, params: any) => Promise<any>> = {
-  sql_query_tool,
+/**
+ * Used by the LLM when it determines it cannot answer the question based on the available data.
+ */
+export const cannot_answer_tool = async (_executeQuery: ExecuteQueryFunc, { explanation }: { explanation: string }): Promise<any> => {
+  console.log(`[cannot_answer_tool] LLM determined it cannot answer. Explanation: ${explanation}`);
+  throw new CannotAnswerError(explanation);
 };
 
-// The schema now describes the `sql_query_tool`.
+
+// --- Tool Registry and Schema ---
+
+export const tools: Record<string, (executeQuery: ExecuteQueryFunc, params: any) => Promise<any>> = {
+  sql_query_tool,
+  cannot_answer_tool,
+};
+
 export const toolSchemas = [
   {
     tool: "sql_query_tool",
@@ -61,6 +71,20 @@ export const toolSchemas = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    tool: "cannot_answer_tool",
+    description: "Call this tool if you determine that the user's question cannot be answered with the available tables and columns. Provide a clear explanation.",
+    params: {
+      type: "object",
+      properties: {
+        explanation: {
+          type: "string",
+          description: "A clear and concise explanation to the user about why their question cannot be answered. For example, mention which specific columns are missing.",
+        },
+      },
+      required: ["explanation"],
     },
   },
 ];
