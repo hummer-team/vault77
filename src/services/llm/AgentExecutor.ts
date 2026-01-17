@@ -4,7 +4,9 @@ import { LLMClient, LLMConfig } from './LLMClient';
 import { Attachment } from '../../types/workbench.types';
 import OpenAI from 'openai';
 
-export type ExecuteQueryFunc = (sql: string) => Promise<any[]>;
+// Define the expected return type for executeQuery
+export type QueryResult = { data: any[]; schema: any[] };
+export type ExecuteQueryFunc = (sql: string) => Promise<QueryResult>;
 
 export class AgentExecutor {
   private promptManager = new PromptManager();
@@ -21,20 +23,27 @@ export class AgentExecutor {
   }
 
   private async _getAllTableSchemas(): Promise<string> {
-    const tablesResult = await this.executeQuery(
+    // Ensure executeQuery is called with the correct type
+    const tablesResult: QueryResult = await this.executeQuery(
       "SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'main_table_%';"
     );
     
-    const tableNames = (tablesResult || []).map((row: any) => row.table_name);
+    let tableNames: string[] = [];
+    // Access data from tablesResult.data
+    if (tablesResult && Array.isArray(tablesResult.data)) {
+      tableNames = tablesResult.data.map((row: any) => row.table_name);
+    }
 
     console.log('[AgentExecutor] Fetched tables:', tableNames);
 
     if (tableNames.length === 0) {
-      // Fallback for single table scenario if info schema fails
       try {
-        const schema = await this.executeQuery(`DESCRIBE main_table;`);
-        const schemaString = schema
-          .map((col: any) => `  - ${col.column_name} (${col.column_type})`)
+        // Ensure executeQuery is called with the correct type
+        const schemaResult: QueryResult = await this.executeQuery(`DESCRIBE main_table;`);
+        // Access data from schemaResult.data
+        let schemaRows = schemaResult.data;
+        const schemaString = schemaRows
+          .map((col: any) => `  - ${col.column_name || col.column_name} (${col.column_type || col.column_type})`) // Use column_name and column_type consistently
           .join('\n');
         return `Table: main_table\nColumns:\n${schemaString}`;
       } catch (e) {
@@ -44,12 +53,15 @@ export class AgentExecutor {
 
     const schemaPromises = tableNames.map(async (tableName: string) => {
       try {
-        const schemaResult = await this.executeQuery(`DESCRIBE "${tableName}";`);
-        const schemaString = schemaResult
-          .map((col: any) => `  - ${col.column_name} (${col.column_type})`)
+        // Ensure executeQuery is called with the correct type
+        const schemaResult: QueryResult = await this.executeQuery(`DESCRIBE "${tableName}";`);
+        // Access data from schemaResult.data
+        let schemaRows = schemaResult.data;
+
+        const schemaString = schemaRows
+          .map((col: any) => `  - ${col.column_name || col.column_name} (${col.column_type || col.column_type})`) // Use column_name and column_type consistently
           .join('\n');
         
-        // Find the corresponding attachment to get the sheet name
         const attachment = this.attachments.find(att => att.tableName === tableName);
         const sheetNameHint = attachment?.sheetName ? ` (from sheet: "${attachment.sheetName}")` : '';
 
@@ -92,10 +104,9 @@ export class AgentExecutor {
     let rawContentSnippet = '';
 
     if (message.content && typeof message.content === 'string') {
-      rawContentSnippet = message.content.substring(0, 500); // Take a snippet for logging
+      rawContentSnippet = message.content.substring(0, 500);
       try {
         const parsedContent = JSON.parse(message.content);
-        // Try to get reason from thought or explanation
         llmReason = parsedContent.thought || parsedContent.action?.args?.explanation || '';
       } catch (e) {
         console.error('[AgentExecutor] Failed to parse message.content as JSON and no regex match:'
@@ -103,29 +114,22 @@ export class AgentExecutor {
         // JSON parsing failed, try regex as a fallback
         const thoughtRegex = /"thought":\s*"(.*?)(?<!\\)"/s;
         const explanationRegex = /"explanation":\s*"(.*?)(?<!\\)"/s;
-
         const thoughtMatch = message.content.match(thoughtRegex);
         const explanationMatch = message.content.match(explanationRegex);
-
         if (thoughtMatch && thoughtMatch[1]) {
-          llmReason = thoughtMatch[1].replace(/\\"/g, '"'); // Unescape quotes
+          llmReason = thoughtMatch[1].replace(/\\"/g, '"');
         } else if (explanationMatch && explanationMatch[1]) {
-          llmReason = explanationMatch[1].replace(/\\"/g, '"'); // Unescape quotes
+          llmReason = explanationMatch[1].replace(/\\"/g, '"');
         }
       }
     }
 
-    if (llmReason) {
-      return llmReason;
-    }
-    if (rawContentSnippet && llmReason.includes('非JSON格式或无法解析')) { // Only show raw snippet if JSON parsing failed
-        return rawContentSnippet;
-    }
-
-    return '请调整指令重试';
+    if (llmReason) return llmReason;
+    if (rawContentSnippet) return rawContentSnippet;
+    return 'An unknown error occurred while processing the AI response.';
   }
 
-  public async execute(userInput: string, signal?: AbortSignal): Promise<any> {
+  public async execute(userInput: string, signal?: AbortSignal): Promise<{ tool: string; params: any; result: any; schema: any[]; thought: string; cancelled?: boolean }> {
     try {
       const allTableSchemas = await this._getAllTableSchemas();
       if (!allTableSchemas) {
@@ -145,6 +149,7 @@ export class AgentExecutor {
       let response: any;
       if (this.llmConfig.mockEnabled) {
         console.warn('[AgentExecutor] LLM Mock is ENABLED. Returning mock response.');
+        // Mock response should also include a schema for consistency
         response = {
           choices: [
             {
@@ -155,7 +160,7 @@ export class AgentExecutor {
                   action: {
                     tool: 'sql_query_tool',
                     args: {
-                      query: `SELECT 'mocked_value' AS mock_result, '${userInput}' AS user_query FROM main_table_1 LIMIT 10;`,
+                      query: `SELECT 'mocked_value' AS mock_result, '${userInput}' AS user_query, CURRENT_TIMESTAMP AS create_at FROM main_table_1 LIMIT 10;`,
                     },
                   },
                 }),
@@ -177,24 +182,36 @@ export class AgentExecutor {
             },
             { role: 'user', content: userPromptTemplate },
           ],
-          tools: toolSchemas.map((t) => ({
-            type: 'function',
-            function: {
-              name: t.tool,
-              description: t.description,
-              parameters: t.params,
-            },
+          // Map internal toolSchemas to OpenAI-style functions for function-calling
+          functions: toolSchemas.map((t) => ({
+            name: t.tool,
+            description: t.description,
+            parameters: t.params,
           })),
-          tool_choice: 'auto',
+          // Let the model decide whether to call a function
+          function_call: 'auto',
         };
         response = await this.llmClient.chatCompletions(params, signal);
       }
 
       const message = response.choices[0].message;
-      let toolCall = message.tool_calls?.[0];
+      // Normalize function call retrieval to support different provider shapes
+      // OpenAI style: message.function_call (object) or message.tool_calls (array)
+      let toolCall: any = null;
       let thought = `AI decided to use a tool.`;
+      if (message.function_call) {
+        toolCall = {
+          type: 'function',
+          function: {
+            name: message.function_call.name,
+            arguments: message.function_call.arguments,
+          },
+        };
+      } else if (message.tool_calls && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+        toolCall = message.tool_calls[0];
+      }
 
-      // This block attempts to parse toolCall from message.content if tool_calls is missing
+      // This block attempts to parse toolCall from message.content if tool_calls/function_call is missing
       if (!toolCall && message.content && typeof message.content === 'string') {
         try {
           const parsedContent = JSON.parse(message.content);
@@ -223,19 +240,31 @@ export class AgentExecutor {
 
       if (toolCall.type === 'function') {
         const toolName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
+        let args: any = {};
+        try {
+          args = typeof toolCall.function.arguments === 'string'
+            ? JSON.parse(toolCall.function.arguments)
+            : toolCall.function.arguments;
+        } catch (e) {
+          // If parsing fails, keep original and let tools handle validation
+          args = toolCall.function.arguments;
+        }
         const toolFunction = tools[toolName];
         if (!toolFunction) {
           throw new Error(`LLM selected an unknown tool: ${toolName}`);
         }
 
-        const toolResult = await toolFunction(this.executeQuery, args);
-        const sanitizedResult = this._sanitizeBigInts(toolResult);
+        // toolFunction now returns { data, schema }
+        const toolResult: QueryResult = await toolFunction(this.executeQuery, args);
+        
+        // Sanitize only the data part, keep schema as is
+        const sanitizedData = this._sanitizeBigInts(toolResult.data);
 
         return {
           tool: toolName,
           params: args,
-          result: sanitizedResult,
+          result: sanitizedData, // Renamed from 'result' to 'data' for clarity, but keeping 'result' for now to minimize changes
+          schema: toolResult.schema, // Pass the schema through
           thought: thought,
         };
       } else {
@@ -244,9 +273,10 @@ export class AgentExecutor {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('[AgentExecutor] Analysis cancelled by user.');
-        return { cancelled: true };
+        // Return a structure consistent with the success path, but indicating cancellation
+        return { cancelled: true, tool: '', params: {}, result: [], schema: [], thought: '' };
       }
-      
+
       if (error instanceof MissingColumnError) {
         const userFriendlyMessage = `很抱歉，我无法找到您请求的字段 '${error.missingColumn}'。请检查您的文件是否包含此列，或尝试使用其他字段进行分析。`;
         error.message = userFriendlyMessage;

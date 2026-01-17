@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 
 const { Paragraph } = Typography;
 
 interface ResultsDisplayProps {
   query: string;
   status: 'analyzing' | 'resultsReady';
-  data: any;
+  data: any[] | { error: string } | null; // Data can be an array of objects, an error object, or null
+  schema: any[] | null; // Schema is an array of objects with { name: string, type: string }
   thinkingSteps: { tool: string; params: any, thought?: string } | null;
   onUpvote: (query: string) => void;
   onDownvote: (query: string) => void;
@@ -53,8 +55,60 @@ const ThinkingSteps: React.FC<{ steps: { tool: string; params: any, thought?: st
   </Collapse>
 );
 
+// Helper to format Date into UTC 'YYYY-MM-DD HH:mm:ss'
+const formatDateToUTCString = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  const month = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const hours = pad(d.getUTCHours());
+  const minutes = pad(d.getUTCMinutes());
+  const seconds = pad(d.getUTCSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} UTC`;
+};
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete }) => {
+// Helper function to format TIMESTAMP values
+const formatTimestamp = (value: any): string => {
+  if (value instanceof Date) {
+    return formatDateToUTCString(value);
+  }
+  // If it's an ISO-like string (ends with Z or contains 'T'), parse it and show UTC
+  if (typeof value === 'string' && (/^\d{4}-\d{2}-\d{2}T/.test(value) || value.endsWith('Z'))) {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return formatDateToUTCString(d);
+  }
+  // Attempt to parse if it's a string that looks like a date
+  if (typeof value === 'string' && !isNaN(Date.parse(value))) {
+    const d = new Date(value);
+    return formatDateToUTCString(d);
+  }
+  // If it's a number, attempt to detect seconds/milliseconds/microseconds
+  if (typeof value === 'number') {
+    let ms = value;
+    if (value > 1e14) {
+      // assume microseconds -> convert to ms
+      ms = Math.floor(value / 1000);
+    } else if (value > 1e12) {
+      // likely milliseconds; use as-is
+      ms = value;
+    } else if (value > 1e9) {
+      // likely seconds -> convert to ms
+      ms = value * 1000;
+    } else {
+      // fallback: treat as ms
+      ms = value;
+    }
+
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      return formatDateToUTCString(d);
+    }
+    return String(value);
+  }
+  return String(value);
+};
+
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
 
   const handleUpvoteClick = () => {
@@ -134,7 +188,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
         </Space>
       );
 
-      if (data && data.error) {
+      // Handle error data
+      if (data && typeof data === 'object' && 'error' in data) {
         return (
           <Card {...cardProps}>
             {commonContent}
@@ -152,9 +207,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
         );
       }
 
-      const { columns: originalColumns, rows } = data;
-
-      if (!originalColumns || !rows || rows.length === 0) {
+      // Ensure data is an array and schema is present
+      const actualData = data as any[];
+      if (!actualData || actualData.length === 0 || !schema || schema.length === 0) {
         return (
           <Card {...cardProps}>
             {commonContent}
@@ -166,19 +221,31 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
         );
       }
 
-      const tableColumns = originalColumns.map((colName: string, index: number) => ({
-        title: colName,
-        dataIndex: `col_${index}`,
-        key: `col_${index}`,
-      }));
+      // Construct columns using schema information
+      const tableColumns: ColumnsType<any> = schema.map((col: any) => {
+        let renderFunction;
+        const typeStr = String(col.type || '').toLowerCase();
+        // Match timestamp/date/time types in a case-insensitive and flexible way
+        if (typeStr.includes('timestamp') || typeStr.includes('date') || typeStr.includes('time')) {
+          renderFunction = (text: any) => formatTimestamp(text);
+        } else if (typeStr.includes('boolean')) {
+          renderFunction = (text: any) => (typeof text === 'boolean' ? (text ? 'True' : 'False') : String(text));
+        }
+        // Add more type-specific render functions here as needed (e.g., DECIMAL, DATE, TIME)
 
-      const tableDataSource = rows.map((row: any[], rowIndex: number) => {
-        const rowObject: { [key: string]: any } = { key: `row-${rowIndex}` };
-        originalColumns.forEach((_colName: string, colIndex: number) => {
-          rowObject[`col_${colIndex}`] = row[colIndex];
-        });
-        return rowObject;
+        return {
+          title: col.name,
+          dataIndex: col.name, // dataIndex should match the key in the data objects
+          key: col.name,
+          render: renderFunction,
+        };
       });
+
+      // Data is already an array of objects, just need to add a key for Ant Design Table
+      const tableDataSource = actualData.map((row: any, rowIndex: number) => ({
+        ...row,
+        key: `row-${rowIndex}`, // Add a unique key for each row
+      }));
 
       return (
         <Card {...cardProps}>
@@ -192,6 +259,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, th
               pageSizeOptions: ['10', '20', '50', '100'],
             }}
             size="small"
+            scroll={{ x: 'max-content' }} // Enable horizontal scrolling for many columns
           />
         </Card>
       );

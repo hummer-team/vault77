@@ -37,24 +37,22 @@ export class DuckDBService {
     }
 
     // Pre-flight check is no longer needed
-    
+
     console.log('[DuckDBService] Attempting to instantiate DuckDB with bundle...');
     try {
       console.log('[DuckDBService] Calling this.db.instantiate with mainModule and pthreadWorker URL...');
-      
+
       // Pass the pthreadWorker URL as a string, as required by the API
       const instantiationPromise = this.db.instantiate(bundle.mainModule, (bundle as any).pthreadWorker);
-      
+
       const timeoutPromise = new Promise<void>((_, reject) =>
         setTimeout(() => reject(new Error('DuckDB instantiation timed out after 120 seconds.')), 120000)
       );
-      
-      await Promise.race([instantiationPromise, timeoutPromise]);
 
+      await Promise.race([instantiationPromise, timeoutPromise]);
       console.log('[DuckDBService] this.db.instantiate completed successfully.');
     } catch (e) {
       console.error('[DuckDBService] Error during DuckDB instantiation:', e);
-      console.error('[DuckDBService] Full error details:', e instanceof Error ? e.stack : e);
       throw e;
     }
     
@@ -129,7 +127,7 @@ export class DuckDBService {
 
   public async loadData(tableName: string, buffer: Uint8Array): Promise<void> {
     if (!this.db) throw new Error('DuckDB not initialized.');
-    
+
     const c = await this.db.connect();
     try {
       const prepared = await c.prepare(`CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM duckdb_arrow_ipc_scan(?);`);
@@ -138,30 +136,193 @@ export class DuckDBService {
     } finally {
       await c.close();
     }
-    
+
     console.log(`Data loaded into table '${tableName}' from Arrow buffer.`);
   }
 
-  public async executeQuery(sql: string): Promise<{ columns: string[], rows: any[][] }> {
+  public async executeQuery(sql: string): Promise<{ data: any[]; schema: any[] }> {
     if (!this.db) throw new Error('DuckDB not initialized.');
-    const c = await this.db.connect();
+    const conn: any = await this.db.connect();
     try {
-      const result = await c.query(sql);
+      const rawResult = await this._queryRaw(conn, sql);
+      const data = this._extractData(rawResult);
+      const schema = this._extractSchema(rawResult, data);
 
-      // --- CRITICAL CHANGE: Convert Arrow Table to our standard format ---
-      const columns = result.schema.fields.map(field => field.name);
-      const rows = result.toArray().map(row => Object.values(row.toJSON()));
+      this._normalizeTimeFields(data, schema);
 
-      console.log('[DuckDBService] Standardized query result:', { columns, rows });
-      return { columns, rows };
-      // --- END CRITICAL CHANGE ---
-
+      console.log('[DuckDBService] Standardized query result:', { data, schema });
+      return { data, schema };
     } finally {
-      await c.close();
+      await conn.close();
     }
   }
 
-  public async getTableSchema(tableName: string): Promise<any> {
+  // Execute the raw query via connection and return the raw result object
+  private async _queryRaw(conn: any, sql: string): Promise<any> {
+    try {
+      return await conn.query(sql);
+    } catch (err) {
+      // rethrow but keep stack
+      console.error('[DuckDBService] Query failed:', err, 'SQL:', sql);
+      throw err;
+    }
+  }
+
+  // Extracts rows into a plain JS array from various possible result shapes
+  private _extractData(result: any): any[] {
+    if (!result) return [];
+
+    if (typeof result.numRows === 'number' && typeof result.get === 'function') {
+      const rowsCount = result.numRows;
+      const out = Array.from({ length: rowsCount }, (_, i) => {
+        try {
+          const row = result.get(i);
+          return typeof row?.toJSON === 'function' ? row.toJSON() : row;
+        } catch (err) {
+          return result[i] ?? null;
+        }
+      });
+      return out;
+    }
+
+    if (Array.isArray(result)) return result;
+
+    if (typeof result.toArray === 'function') {
+      return result.toArray().map((r: any) => (typeof r?.toJSON === 'function' ? r.toJSON() : r));
+    }
+
+    if (typeof result === 'object') return [result];
+
+    return [];
+  }
+
+  // Extracts schema either from result.schema.fields or by inferring from first row
+  private _extractSchema(result: any, data: any[]): any[] {
+    if (result && result.schema && Array.isArray(result.schema.fields)) {
+      return (result.schema.fields as any[]).map((field: any) => ({
+        name: field?.name ?? String(field),
+        type: field && field.type ? String(field.type) : 'unknown',
+      }));
+    }
+
+    if (data.length > 0 && typeof data[0] === 'object' && !Array.isArray(data[0])) {
+      return Object.keys(data[0]).map((k) => ({ name: k, type: typeof data[0][k] }));
+    }
+
+    return [];
+  }
+
+  // Normalize time-like fields in-place: convert to ISO strings when possible
+  private _normalizeTimeFields(data: any[], schema: any[]): void {
+    if (!schema || schema.length === 0 || !data || data.length === 0) return;
+
+    const timeFields = schema
+      .filter((f) => typeof f.type === 'string' && /(timestamp|date|time)/i.test(f.type))
+      .map((f) => ({ name: f.name, type: String(f.type) }));
+
+    if (timeFields.length === 0) return;
+
+    for (const row of data) {
+      for (const fld of timeFields) {
+        const key = fld.name;
+        const rawVal = row?.[key];
+        if (rawVal == null) continue;
+
+        if (rawVal instanceof Date) {
+          row[key] = rawVal.toISOString();
+          continue;
+        }
+
+        if (typeof rawVal === 'string') {
+          const parsed = Date.parse(rawVal);
+          if (!isNaN(parsed)) {
+            row[key] = new Date(parsed).toISOString();
+          }
+          continue;
+        }
+
+        if (typeof rawVal === 'number') {
+          const best = this._chooseBestDateFromNumber(rawVal, fld.type);
+          if (best) row[key] = best.toISOString();
+        }
+      }
+    }
+  }
+
+  // Choose best Date candidate from a numeric timestamp by trying multiple units
+  private _chooseBestDateFromNumber(raw: number, typeHint?: string): Date | null {
+    const now = Date.now();
+    const isReasonableYear = (d: Date) => {
+      const y = d.getUTCFullYear();
+      return y >= 1970 && y <= 3000;
+    };
+
+    const candidates: { label: string; ms: number }[] = [];
+    candidates.push({ label: 'ms', ms: raw });
+    candidates.push({ label: 'micro', ms: Math.floor(raw / 1000) });
+    candidates.push({ label: 's', ms: raw * 1000 });
+
+    // Excel serial days (e.g., 44500) -> convert to ms: (days - 25569) * 86400000
+    if (raw > 2000 && raw < 60000) {
+      const excelMs = Math.round((raw - 25569) * 86400000);
+      candidates.push({ label: 'excel_days', ms: excelMs });
+    }
+
+    // bias by hint
+    if (typeHint) {
+      const hint = typeHint.toLowerCase();
+      if (hint.includes('micro')) candidates.sort((a, b) => (a.label === 'micro' ? -1 : (b.label === 'micro' ? 1 : 0)));
+      else if (hint.includes('second')) candidates.sort((a, b) => (a.label === 's' ? -1 : (b.label === 's' ? 1 : 0)));
+    }
+
+    // Prefer year 2000-2035 first
+    const preferred = candidates
+      .map((c) => ({ ...c, date: new Date(c.ms) }))
+      .filter((c) => !isNaN(c.date.getTime()) && c.date.getUTCFullYear() >= 2000 && c.date.getUTCFullYear() <= 2035);
+
+    const selectBest = (list: { label: string; ms: number; date: Date }[]) => {
+      if (list.length === 0) return null as Date | null;
+      let best: Date | null = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const c of list) {
+        const score = Math.abs(c.date.getTime() - now);
+        if (score < bestScore) {
+          bestScore = score;
+          best = c.date;
+        }
+      }
+      return best;
+    };
+
+    const pick = selectBest(preferred);
+    if (pick) return pick;
+
+    // fallback: reasonable year 1970-3000 and closest to now
+    let best: Date | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const c of candidates) {
+      const d = new Date(c.ms);
+      if (isNaN(d.getTime())) continue;
+      if (!isReasonableYear(d)) continue;
+      const score = Math.abs(d.getTime() - now);
+      if (score < bestScore) {
+        bestScore = score;
+        best = d;
+      }
+    }
+
+    // If none reasonable, try raw as ms
+    if (!best) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return d;
+      return null;
+    }
+
+    return best;
+  }
+
+  public async getTableSchema(tableName: string): Promise<{ data: any[]; schema: any[] }> {
     return this.executeQuery(`DESCRIBE "${tableName}";`);
   }
 }
+

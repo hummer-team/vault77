@@ -19,7 +19,8 @@ interface AnalysisRecord {
   id: string;
   query: string;
   thinkingSteps: { tool: string; params: any; thought?: string } | null;
-  result: any;
+  data: any[] | { error: string } | null; // Changed from 'result' to 'data' and explicitly typed as array of any, now includes error object
+  schema: any[] | null; // Added schema to the record
   status: 'analyzing' | 'resultsReady';
 }
 
@@ -69,6 +70,16 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRecord[]>([]);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   
+  // Initialize suggestions on component mount so users see tips immediately
+  useEffect(() => {
+    try {
+      const initial = promptManager.getSuggestions('ecommerce');
+      if (initial && initial.length > 0) setSuggestions(initial);
+    } catch (e) {
+      console.warn('[Workbench] Failed to load initial suggestions:', e);
+    }
+  }, []);
+
   // State for multi-sheet handling
   const [sheetsToSelect, setSheetsToSelect] = useState<string[] | null>(null);
   const [fileToLoad, setFileToLoad] = useState<File | null>(null);
@@ -202,9 +213,14 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const handleDeleteAttachment = async (attachmentId: string) => {
     const attachmentToDelete = attachments.find((att) => att.id === attachmentId);
     if (!attachmentToDelete) return;
-
-    setAttachments((prev) => prev.filter((att) => att.id !== attachmentId));
-
+  
+    const remainingAttachments = attachments.filter((att) => att.id !== attachmentId);
+    setAttachments(remainingAttachments);
+  
+    if (remainingAttachments.length === 0 && analysisHistory.length === 0) {
+      setUiState('waitingForFile');
+    }
+  
     if (attachmentToDelete.status === 'success') {
       try {
         await dropTable(attachmentToDelete.tableName);
@@ -230,7 +246,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     const signal = abortControllerRef.current.signal;
 
     const newRecordId = `record-${Date.now()}`;
-    const newRecord: AnalysisRecord = { id: newRecordId, query, thinkingSteps: null, result: null, status: 'analyzing' };
+    // Initialize data and schema as null
+    const newRecord: AnalysisRecord = { id: newRecordId, query, thinkingSteps: null, data: null, schema: null, status: 'analyzing' };
     setAnalysisHistory((prev) => [...prev, newRecord]);
     setUiState('analyzing');
 
@@ -245,14 +262,20 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
 
       setAnalysisHistory((prev) =>
         prev.map((rec) =>
-          rec.id === newRecordId ? { ...rec, status: 'resultsReady', thinkingSteps: { tool: result.tool, params: result.params, thought: result.thought }, result: result.result } : rec
+          rec.id === newRecordId ? { 
+            ...rec, 
+            status: 'resultsReady', 
+            thinkingSteps: { tool: result.tool, params: result.params, thought: result.thought }, 
+            data: result.result, // AgentExecutor returns 'result' as the data array
+            schema: result.schema // AgentExecutor now returns 'schema'
+          } : rec
         )
       );
     } catch (error: any) {
       console.error('Analysis failed, updating record with error:', error);
       setAnalysisHistory((prev) =>
         prev.map((rec) =>
-          rec.id === newRecordId ? { ...rec, status: 'resultsReady', result: { error: error.message } } : rec
+          rec.id === newRecordId ? { ...rec, status: 'resultsReady', data: { error: error.message }, schema: null } : rec
         )
       );
     } finally {
@@ -316,7 +339,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
       );
     }
 
-    if (analysisHistory.length === 0 && attachments.length === 0) {
+    if (analysisHistory.length === 0) {
       return <InitialWelcomeView />;
     }
 
@@ -327,7 +350,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
             key={record.id}
             query={record.query}
             status={record.status}
-            data={record.result}
+            data={record.data} // Pass data array
+            schema={record.schema} // Pass schema array
             thinkingSteps={record.thinkingSteps}
             onUpvote={handleUpvote}
             onDownvote={handleDownvote}

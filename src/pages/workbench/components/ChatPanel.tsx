@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Input, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined } from '@ant-design/icons';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -19,6 +19,15 @@ interface ChatPanelProps {
   onScrollToBottom: () => void;
 }
 
+interface GroupedAttachment {
+  fileName: string;
+  file: File;
+  sheetNames: string[];
+  attachmentIds: string[];
+  status: 'uploading' | 'success' | 'error';
+  error?: string;
+}
+
 const ChatPanel: React.FC<ChatPanelProps> = ({
   onSendMessage,
   isAnalyzing,
@@ -33,6 +42,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onScrollToBottom,
 }) => {
   const [form] = Form.useForm();
+
+  const groupedAttachments = useMemo((): GroupedAttachment[] => {
+    const groups: Map<string, GroupedAttachment> = new Map();
+    attachments.forEach(att => {
+      const group = groups.get(att.file.name);
+      if (group) {
+        group.attachmentIds.push(att.id);
+        if (att.sheetName) {
+          group.sheetNames.push(att.sheetName);
+        }
+        if (att.status === 'error') group.status = 'error';
+        if (att.status === 'uploading' && group.status !== 'error') group.status = 'uploading';
+      } else {
+        groups.set(att.file.name, {
+          fileName: att.file.name,
+          file: att.file,
+          sheetNames: att.sheetName ? [att.sheetName] : [],
+          attachmentIds: [att.id],
+          status: att.status,
+          error: att.error,
+        });
+      }
+    });
+    return Array.from(groups.values());
+  }, [attachments]);
+
+  const handleDeleteGroup = (attachmentIds: string[]) => {
+    attachmentIds.forEach(id => onDeleteAttachment(id));
+  };
 
   const handleFinish = (values: { message: string }) => {
     if (!values.message || !values.message.trim()) {
@@ -105,21 +143,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       )}
 
       {/* Attachments Display */}
-      {attachments.length > 0 && (
+      {groupedAttachments.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 8px' }}>
-          {attachments.map((att) => (
-            <Tag
-              key={att.id}
-              closable
-              onClose={() => onDeleteAttachment(att.id)}
-              icon={att.status === 'uploading' ? <Spin size="small" /> : undefined}
-              color={att.status === 'error' ? 'error' : 'default'}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              {att.file.name}
-              {att.status === 'error' && <Tooltip title={att.error}><CloseCircleFilled /></Tooltip>}
-            </Tag>
-          ))}
+          {groupedAttachments.map((group) => {
+            const tooltipTitle = group.sheetNames.length > 1 ? `Loaded sheets: ${group.sheetNames.join(', ')}` : `Loaded from ${group.fileName}`;
+            return (
+              <Tooltip title={tooltipTitle} key={group.fileName}>
+                <Tag
+                  closable
+                  onClose={() => handleDeleteGroup(group.attachmentIds)}
+                  icon={group.status === 'uploading' ? <Spin size="small" /> : <FileExcelOutlined />}
+                  color={group.status === 'error' ? 'error' : 'default'}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default' }}
+                >
+                  {group.fileName}
+                  {group.status === 'error' && <Tooltip title={group.error}><CloseCircleFilled /></Tooltip>}
+                </Tag>
+              </Tooltip>
+            );
+          })}
         </div>
       )}
 

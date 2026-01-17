@@ -70,28 +70,89 @@
 
 四、运行 / 构建（快速开始）
 - 前提
-  - Bun（建议 LTS）。
-  - bun（仓库使用 package.json 脚本。
-  - 浏览器：支持 Web Worker 与 WebAssembly。
+  - 本项目使用 Bun 作为首选运行/构建工具（建议使用 Bun LTS）。Bun 与 package.json 脚本兼容，生产/开发脚本名与 `package.json` 保持一致。
+- Bun 安装（macOS / zsh）
+  - 推荐（官方一行安装脚本）：`curl -fsSL https://bun.sh/install | bash`（安装脚本会把 `~/.bun/bin` 加入 PATH，重启 shell 或 `source ~/.zshrc` 后生效）。  
+  - 可选（Homebrew，如可用）：`brew install bun`。
+- 依赖与常用命令（与 `package.json` 对应）
+  - 安装依赖：`bun install`（与 npm/yarn 等价）。  
+  - 开发：`bun run dev`（启动 Vite 开发服务器）。  
+  - 构建：`bun run build`（通常会先运行 tsc 再 vite build，参见 package.json）。  
+  - 预览：`bun run preview`。  
+  - lint：`bun run lint`。
+- 示例：在 macOS / zsh 下启动开发（示例）
+  - 在 shell 中先设置环境变量（示例）：`export VITE_LLM_MOCK=true`；`export VITE_LLM_API_KEY="<your-key>"`  
+  - 启动：`bun run dev`，打开 `http://localhost:5173`。
+- 备注
+  - 若环境中同时存在 node/npm，Bun 能兼容大多数 package.json 脚本，但注意原生模块或特定 bundler 插件的兼容性（遇到问题时参考 Bun 官方文档或切换到 npm/yarn 进行回退测试）。
 
-- 常用命令（见 `package.json`）
-  - 开发：bun run dev （运行 Vite 开发服务器）
-  - 构建：bun run build （先 tsc 再 vite build）
-  - 预览：bun run preview
-  - lint：bun run lint
+LLM 模型约束与 Skills 声明
+- 目的与概览  
+  - 该节说明在向 LLM 提示与解析工具调用时的“技能（skills）声明”格式与必需的安全/格式约束，及如何在代码层面（`PromptManager` / `AgentExecutor` / `LLMClient`）落地这些约束，避免数据泄露或危险操作。
 
-- 环境变量（在项目中被读取）
-  - VITE_LLM_PROVIDER — LLM 提供者标识（例如 'openai' 等）。
-  - VITE_LLM_API_KEY — LLM API Key。
-  - VITE_LLM_API_URL — LLM API 基础 URL（如果使用自托管或代理）。
-  - VITE_LLM_MODEL_NAME — 要使用的模型名称。
-  - VITE_LLM_MOCK — 'true' 启用 AgentExecutor 的 mock 模式（在开发/调试时非常有用）。
-  - 备注：Workbench 中有一处 MAX_FILES 的读取使用了 `import.meta.env.VITE_LLM_PROVIDER as number || 1`，这是项目中非直观的实现（应为 VITE_MAX_FILES 或类似环境变量）。当前默认允许 1 个文件。
+- Skills（技能）声明 格式（最小字段）
+  - 格式说明（JSON object / 文档化模板）：每个 skill 至少包含：
+    - `name`：技能标识（字符串），例如 `sql_query_tool`。  
+    - `description`：简短描述（字符串）。  
+    - `input_schema`：输入参数 JSON Schema（描述必需字段与类型）。  
+    - `output_schema`：输出结果 JSON Schema（便于 LLM 按结构返回）。  
+    - `permissions`：权限/约束（例如 `read_only: true` / `allowed_tables: ["main_table_*"]`）。  
+    - `callable_tools`：技能可调用的下级工具列表（若适用）。  
+    - `example`：简短示例（调用示例 + 期望输出）。
+  - 简短示例（文档化，不是代码块）：
+    - `name`: "sql_query_tool"  
+    - `description`: "在沙箱 DuckDB 中对用户上传的数据执行只读 SQL 查询并返回 rows + schema"  
+    - `input_schema`: `{ query: string }`  
+    - `output_schema`: `{ data: [{...}], schema: [{column_name:string,column_type:string}], row_count:number }`  
+    - `permissions`: `{ read_only: true, allowed_tables: ["main_table_*"], max_rows: 500 }`  
+    - `example`: `{"query":"SELECT name, price FROM main_table_1 WHERE price > 100 LIMIT 10"}`
+
+- 强制约束（必读）
+  1. 响应格式（必需）  
+     - LLM 必须返回可解析的 JSON（或符合指定 `output_schema` 的结构），并包含标准字段，如 `action.tool`、`action.args`、`thought`（用于可审计的决策说明）。例如，最终应包含 `{"action":{"tool":"sql_query_tool","args":{...}},"thought":"...解释...","confidence":0.8}`。  
+  2. Token / 长度限制  
+     - 在 prompt 中对 LLM 明确约束最大 token 或最大字符长度，且在 `LLMClient` 层设置超时与最大 token（model-level）。文档中建议默认限制（例如：`max_tokens` 设定为模型上限的安全子集，视模型而定）。  
+  3. 禁止行为（硬禁）  
+     - 严禁尝试进行任意网络访问、外部 API 调用、系统命令执行或未授权的文件读写。LLM 在决策/响应中不得包含任何凭证或明确的密钥。  
+  4. SQL 执行安全约束（强制）  
+     - 默认只允许只读查询（SELECT）。对任何包含 `INSERT`/`UPDATE`/`DELETE`/`DROP`/`ALTER`/`CREATE`/`ATTACH`/`DETACH` 等关键字的 SQL，Agent 必须拒绝或要求二次确认并记录审计。  
+     - 仅允许访问表白名单（例如仅以 `main_table_` 前缀命名的表）。  
+     - 强制 `max_rows` 上限（例如 500），如果请求未包含 `LIMIT`，在执行前由 `AgentExecutor` 插入或拒绝。  
+     - 建议在执行前做语法/安全预检（如简单关键字黑名单与表名白名单校验）。  
+  5. 网络 / 文件系统访问约束  
+     - Agent 在任何情况下不得允许 LLM 直接发起网络请求或访问宿主文件系统；所有需要外部数据的操作必须通过明确定义的工具（Tool）并经过审查。  
+  6. 错误与确认策略  
+     - 若 LLM 返回无法解析或不合规的 action（格式错误 / 非白名单表 / 非只读 SQL），`AgentExecutor` 必须：拒绝执行并返回可读的错误消息；对于模糊或潜在危险的请求，应回问用户二次确认（通过新增 prompt step）并记录原因。  
+     - 建议在响应中包含 `thought`（Agent 推理）与 `confidence` 字段以便人工审查。
+
+- 在代码中如何实现这些约束（高优先级建议与位置）
+  1. `PromptManager`（文件：`src/services/llm/PromptManager.ts`）  
+     - 在构造 prompt 时把“强制约束”作为 system message 的一部分传给 LLM（例如：“严格返回 JSON，禁止访问网络或文件系统，SQL 只能为只读 SELECT，表白名单：main_table_*，若需要更高权限必须要求用户确认”）。  
+     - 在向 LLM 提供工具能力时（tools / function schemas），确保传入的 `toolSchemas` 包含 `permissions`（如 read_only、allowed_tables、max_rows）以便模型选择时可见。  
+     - 在模板中明确要求 LLM 返回 `action`、`args`、`thought` 字段并遵循 `output_schema`。  
+  2. `AgentExecutor`（文件：`src/services/llm/AgentExecutor.ts`）  
+     - 在解析到 LLM 的工具调用前，先做“工具调用白名单”与“参数校验”（验证 `toolName` 在 `tools` 注册表中）。  
+     - 对 SQL 类参数执行严格的预检：- 确认只含允许的关键词（通过关键字黑名单检测 DDL/DML）；- 校验所有表名是否匹配白名单模式（例如 /^main_table_/）；- 如果 `SELECT` 未包含 `LIMIT`，自动添加 `LIMIT {max_rows}` 或拒绝并要求说明。  
+     - 若检测到高风险操作（非只读、访问非白名单表），不要直接执行，应返回错误或触发“需要用户确认”的流程（返回给前端一个明确的交互提示）。  
+     - 在执行工具返回结果后，再做一次输出结构校验，确保符合 `output_schema`（否则视为失败并记录原始 LLM 内容用于审计）。  
+     - 使用 `_sanitizeBigInts` 等现有工具对结果进行净化，保障前端序列化安全。  
+  3. `LLMClient`（文件：`src/services/llm/LLMClient.ts`）  
+     - 在创建请求时设置合理的超时与 `max_tokens`（或模型限制参数），并支持 `AbortSignal` 用于用户取消。  
+     - 将 `dangerouslyAllowBrowser`、`baseURL` 等敏感配置在文档中明确说明，并通过环境变量管理（`VITE_LLM_API_KEY` / `VITE_LLM_API_URL` / `VITE_LLM_MODEL_NAME` / `VITE_LLM_MOCK`）。  
+  4. 额外建议（跨文件）  
+     - 在 `src/services/tools/DuckdbTools.ts` 的工具 schema 中补充 `permissions` 字段，并在 AgentExecutor 中读取并强制执行。  
+     - 增加“预检/审计”钩子：每次 Agent 执行前后，把 LLM 原始响应、解析的 action、执行的 SQL（如有）、返回结果与时间戳写入日志/审计表（或前端可下载的审计文件）。  
+     - 使用 `llmConfig.mockEnabled` 做开发环境回归测试与 E2E 测试（文档提示如何启用）。
+
+- 建议的文档更新点（供开发者实际修改代码时参考）
+  - `src/services/llm/PromptManager.ts`：在 `getToolSelectionPrompt` 中注入“强制约束”system text；把 `tools` schema 权限以参数传入。  
+  - `src/services/llm/AgentExecutor.ts`：增加 `_preflightValidateToolCall(toolName, args)` helper（检查白名单、关键字、LIMIT、permissions），以及在解析 tool_call 后调用该函数。  
+  - `src/services/llm/LLMClient.ts`：把 `chatCompletions` 调用中 `max_tokens`、`timeout` 的推荐位置与示例写在注释中，确保调用方可传 `signal` 取消请求。
 
 五、Agent 执行流（详细）
-1. 用户在 UI（ChatPanel）输入请求并提交（或选择 suggestion）。
-2. Workbench 的 `handleStartAnalysis` 收集上下文（已上传的文件名列表、table 名称等），并确保 `AgentExecutor` 已就绪（依赖 isDBReady、executeQuery）。
-3. `AgentExecutor.execute(userInput)`：
+- 1. 用户在 UI（ChatPanel）输入请求并提交（或选择 suggestion）。
+- 2. Workbench 的 `handleStartAnalysis` 收集上下文（已上传的文件名列表、table 名称等），并确保 `AgentExecutor` 已就绪（依赖 isDBReady、executeQuery）。
+- 3. `AgentExecutor.execute(userInput)`：
    - 调用 `_getAllTableSchemas()`：先查询 `information_schema.tables`（表名以 `main_table_%` 前缀），若为空则回退到 `DESCRIBE main_table`。
    - 使用 `PromptManager.getToolSelectionPrompt('ecommerce', userInput, allTableSchemas)` 构造 prompt。
    - 若 `llmConfig.mockEnabled` 为 true，则采用内置的 mock response；否则通过 `LLMClient.client.chat.completions.create({...})` 向 LLM 发起请求。

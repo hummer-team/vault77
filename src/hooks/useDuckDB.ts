@@ -1,13 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-
-// Import resource URLs as relative paths
-import duckdb_wasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
-import duckdb_worker_mvp from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
-import duckdb_wasm_eh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
-import duckdb_worker_eh from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
-import duckdb_pthread_worker_from_url from '@duckdb/duckdb-wasm/dist/duckdb-browser-coi.pthread.worker.js?url';
-import duckdb_pthread_worker_content from '@duckdb/duckdb-wasm/dist/duckdb-browser-coi.pthread.worker.js?raw'; // <-- Import as raw text
+import { getDuckDBResources } from './DuckDBEngineDefine';
 
 interface AppMessage {
   type: string;
@@ -86,29 +79,14 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
       });
     }
 
-    console.log('[useDuckDB] Sandbox ready. Building bundle with absolute paths...');
-
-    const our_duckdb_worker_script_url = chrome.runtime.getURL('assets/duckdb.worker.js');
-    console.log('[useDuckDB] Manually constructed worker URL:', our_duckdb_worker_script_url);
-
-    const DUCKDB_RESOURCES = {
-      'duckdb-mvp.wasm': duckdb_wasm,
-      'duckdb-browser-mvp.worker.js': duckdb_worker_mvp,
-      'duckdb-eh.wasm': duckdb_wasm_eh,
-      'duckdb-browser-eh.worker.js': duckdb_worker_eh,
-      'duckdb-browser-coi.pthread.worker.js': duckdb_pthread_worker_from_url, // Keep the URL for other purposes if needed
-      // Pass the content of the pthread worker
-      'duckdb-browser-coi.pthread.worker.js_content': duckdb_pthread_worker_content, // <-- Pass content
-      'our-duckdb-worker-script.js': our_duckdb_worker_script_url,
-    };
-
+    console.log('[useDuckDB] Sandbox ready. Getting DuckDB resources...');
+    const DUCKDB_RESOURCES = getDuckDBResources();
+    
     const extensionOrigin = chrome.runtime.getURL('/');
-    console.log('[useDuckDB] Calculated extensionOrigin:', extensionOrigin); // Log extensionOrigin
+    console.log('[useDuckDB] Calculated extensionOrigin:', extensionOrigin);
 
-    console.log('[useDuckDB] Sending DUCKDB_INIT to sandbox with absolute resource paths and extension origin.');
-    // Deep copy resources to ensure they are not modified during postMessage transfer
+    console.log('[useDuckDB] Sending DUCKDB_INIT to sandbox...');
     const messageToSend = { type: 'DUCKDB_INIT', resources: JSON.parse(JSON.stringify(DUCKDB_RESOURCES)), extensionOrigin };
-    console.log('[useDuckDB] Message object being sent:', messageToSend); // Log full message object
     return sendMessageToSandbox(messageToSend);
   }, [isSandboxReady, sendMessageToSandbox]);
 
@@ -121,7 +99,7 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
   );
 
   const executeQuery = useCallback(
-    (sql: string): Promise<any[]> => { // The return type is now consistently an array of objects
+    (sql: string): Promise<{ data: any[], schema: any[] }> => {
       if (!isDBReady) return Promise.reject(new Error('DuckDB is not ready.'));
       return sendMessageToSandbox({ type: 'DUCKDB_EXECUTE_QUERY', sql });
     },
@@ -144,8 +122,8 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
     }
     try {
       const result = await executeQuery("SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'main_table_%';");
-      // The result from duckdb-wasm is typically an array of objects
-      return result.map((row: any) => row.table_name);
+      const tableData = result.data || [];
+      return tableData.map((row: any) => row.table_name);
     } catch (error) {
       console.error('[useDuckDB] Failed to get all user tables:', error);
       return [];
