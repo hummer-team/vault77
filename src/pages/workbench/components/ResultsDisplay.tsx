@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm } from 'antd';
-import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined } from '@ant-design/icons';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message } from 'antd';
+import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import ReactMarkdown from 'react-markdown';
+import { Attachment } from '../../../types/workbench.types';
+import { exportTableToCsv } from '../../../services/tools/FileTools';
 
 const { Paragraph } = Typography;
 
@@ -20,6 +22,8 @@ interface ResultsDisplayProps {
   queryDurationMs?: number;  // <-- 新增：查询耗时（毫秒）
   onEditQuery: (query: string) => void;
   onCopyQuery: (query: string) => void;
+  // attachments snapshot for this record
+  attachments?: Attachment[];
 }
 
 // 将毫秒转为秒字符串，如 "耗时 1.2s"
@@ -136,13 +140,41 @@ const formatTimestamp = (value: any): string => {
   return String(value);
 };
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery }) => {
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
 
   const handleUpvoteClick = () => {
     setVoted('up');
     onUpvote(query);
+  };
+
+  const canExport =
+    status === 'resultsReady' &&
+    !!schema &&
+    Array.isArray(schema) &&
+    schema.length > 0 &&
+    !!data &&
+    Array.isArray(data) &&
+    data.length > 0 &&
+    !(typeof data === 'object' && 'error' in (data as any));
+
+  const handleExportClick = () => {
+    if (!canExport || !schema || !Array.isArray(data)) {
+      message.warning('暂无可导出的数据');
+      return;
+    }
+    try {
+      exportTableToCsv({
+        data: data as any[],
+        schema: schema.map((c: any) => ({ name: c.name, type: c.type })),
+      });
+      // 导出成功的全局 success 提示移除，下载行为已足够明显
+      // message.success('CSV 导出成功');
+    } catch (e) {
+      console.error('Failed to export CSV:', e);
+      message.error('导出失败，请稍后重试');
+    }
   };
 
   const renderContent = () => {
@@ -168,6 +200,14 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             icon={<RedoOutlined style={iconStyle} />}
             onClick={() => onRetry(query)}
           />
+          <Tooltip>
+            <Button
+              type="text"
+              icon={<DownloadOutlined style={iconStyle} />}
+              onClick={handleExportClick}
+              disabled={!canExport}
+            />
+          </Tooltip>
           <Popconfirm
             title="您确定要删除此条记录吗？"
             onConfirm={onDelete}
@@ -232,12 +272,42 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       </div>
     );
 
+    // 每条记录专属附件展示，靠近 Query 区域
+    const renderAttachmentsInline = () => {
+      if (!attachments || attachments.length === 0) return null;
+
+      // 简单聚合：按 file.name + sheetName 展示
+      return (
+        <div style={{ marginTop: 8 }}>
+          <Space size={[4, 4]} wrap>
+            {attachments.map((att) => {
+              const label = att.sheetName
+                ? `${att.file.name} (${att.sheetName})`
+                : att.file.name;
+              return (
+                <Tag
+                  key={att.id}
+                  icon={<FileExcelOutlined />}
+                  color="default"
+                  style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  <Tooltip title={label}>{label}</Tooltip>
+                </Tag>
+              );
+            })}
+          </Space>
+        </div>
+      );
+    };
+
     if (status === 'analyzing') {
       return (
         <Card
           title={renderCardTitle()}
           style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
         >
+          {/* 附件展示区域放在 Query 下方 */}
+          {renderAttachmentsInline()}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '150px' }}>
             <Spin tip="AI 正在分析中..." size="large" />
           </div>
@@ -255,6 +325,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const commonContent = (
         <Space direction="vertical" style={{ width: '100%' }}>
+          {/* 附件区域作为 Query 区域下的第一块内容，靠左展示 */}
+          {renderAttachmentsInline()}
           {thinkingSteps && (
             <>
               <ThinkingSteps steps={thinkingSteps} llmDurationMs={llmDurationMs} />

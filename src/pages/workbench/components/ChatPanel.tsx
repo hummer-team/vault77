@@ -27,6 +27,8 @@ interface ChatPanelProps {
   // 新增：用于外部控制输入框内容
   initialMessage?: string;
   setInitialMessage?: (msg: string) => void;
+  // new: inline persona hint text
+  personaHint?: string | null;
 }
 
 interface GroupedAttachment {
@@ -54,6 +56,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onPersonaBadgeClick,
   initialMessage,
   setInitialMessage,
+  personaHint,
 }) => {
   const [form] = Form.useForm();
   const { userProfile } = useUserStore();
@@ -206,7 +209,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             <Input.TextArea
               placeholder={placeholderText}
               disabled={isAnalyzing || isInitializing}
-              style={{ height: 120, resize: 'none', paddingBottom: '40px', paddingRight: '40px' }}
+              style={{ height: 120, resize: 'none', paddingBottom: '52px', paddingRight: '40px' }}
               onKeyDown={handleKeyDown}
               onChange={handleChangeMessage}
             />
@@ -232,38 +235,57 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               </Space>
             </div>
           )}
-          <div style={{ position: 'absolute', bottom: '8px', left: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* Enhanced Persona Badge */}
-            <Tooltip
-              title={
-                hasPersona
-                  ? `${currentPersona.displayName} - Expertise: ${currentPersona.expertise.join(', ')}`
-                  : '👋 Set your role to get precise analysis suggestions'
-              }
-              placement="top"
-            >
-              <Button
-                icon={<UserOutlined />}
-                onClick={onPersonaBadgeClick}
-                className={!hasPersona ? 'persona-button-pulse' : ''}
-                style={{
-                  padding: '4px 15px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: !hasPersona ? '2px solid #1890ff' : undefined,
-                  boxShadow: !hasPersona ? '0 0 8px rgba(24, 144, 255, 0.5)' : undefined,
-                }}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              right: '48px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Enhanced Persona Badge */}
+              <Tooltip
+                title={
+                  hasPersona
+                    ? `${currentPersona.displayName} - Expertise: ${currentPersona.expertise.join(', ')}`
+                    : '👋 Set your role to get precise analysis suggestions'
+                }
+                placement="top"
               >
-                {hasPersona && <span style={{ marginLeft: 4 }}>{currentPersona.displayName}</span>}
-              </Button>
-            </Tooltip>
-            <Upload {...uploadProps}>
-              <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
-            </Upload>
-            {error && (
-              <Typography.Text type="danger" style={{ fontSize: '12px' }}>
-                {error}
+                <Button
+                  icon={<UserOutlined />}
+                  onClick={onPersonaBadgeClick}
+                  className={!hasPersona ? 'persona-button-pulse' : ''}
+                  style={{
+                    padding: '4px 15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: !hasPersona ? '2px solid #1890ff' : undefined,
+                    boxShadow: !hasPersona ? '0 0 8px rgba(24, 144, 255, 0.5)' : undefined,
+                  }}
+                >
+                  {hasPersona && <span style={{ marginLeft: 4 }}>{currentPersona.displayName}</span>}
+                </Button>
+              </Tooltip>
+              <Upload {...uploadProps}>
+                <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
+              </Upload>
+              {error && (
+                <Typography.Text type="danger" style={{ fontSize: '12px' }}>
+                  {error}
+                </Typography.Text>
+              )}
+            </div>
+            {/* inline persona hint on the right side, light yellow text */}
+            {personaHint && (
+              <Typography.Text style={{ fontSize: 12, color: '#fadb14' }}>
+                {personaHint}
               </Typography.Text>
             )}
           </div>

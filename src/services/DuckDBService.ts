@@ -5,7 +5,7 @@ export class DuckDBService {
   private db: duckdb.AsyncDuckDB | null = null;
   private logger: duckdb.ConsoleLogger = new duckdb.ConsoleLogger();
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): DuckDBService {
     if (!DuckDBService.instance) {
@@ -22,7 +22,7 @@ export class DuckDBService {
     }
 
     console.log('[DuckDBService] Initializing DuckDB...');
-    
+
     // The workerInstance is now the CoreWorker, which is correct for AsyncDuckDB
     this.db = new duckdb.AsyncDuckDB(this.logger, workerInstance);
     console.log('[DuckDBService] AsyncDuckDB instance created with CoreWorker instance.');
@@ -55,29 +55,29 @@ export class DuckDBService {
       console.error('[DuckDBService] Error during DuckDB instantiation:', e);
       throw e;
     }
-    
+
     console.log('[DuckDBService] Attempting to connect for loading extensions...');
     const c = await this.db.connect();
     try {
-        // --- CRITICAL CHANGE: Install excel and load arrow ---
-        console.log('[DuckDBService] Executing INSTALL excel;');
-        await c.query('INSTALL excel;'); // Let it fetch from the web
-        await c.query('LOAD excel;');
-        console.log('[DuckDBService] Excel extension loaded successfully.');
+      // --- CRITICAL CHANGE: Install excel and load arrow ---
+      console.log('[DuckDBService] Executing INSTALL excel;');
+      await c.query('INSTALL excel;'); // Let it fetch from the web
+      await c.query('LOAD excel;');
+      console.log('[DuckDBService] Excel extension loaded successfully.');
 
-        console.log('[DuckDBService] Executing LOAD arrow;');
-        await c.query('INSTALL arrow from community;');
-        await c.query('LOAD arrow;');
-        console.log('[DuckDBService] LOAD arrow; executed successfully.');
+      console.log('[DuckDBService] Executing LOAD arrow;');
+      await c.query('INSTALL arrow from community;');
+      await c.query('LOAD arrow;');
+      console.log('[DuckDBService] LOAD arrow; executed successfully.');
 
     } catch (e) {
-        console.error('[DuckDBService] Error loading extensions:', e);
-        throw e;
+      console.error('[DuckDBService] Error loading extensions:', e);
+      throw e;
     } finally {
-        await c.close();
-        console.log('[DuckDBService] Connection closed after loading extensions.');
+      await c.close();
+      console.log('[DuckDBService] Connection closed after loading extensions.');
     }
-    
+
     console.log('DuckDB initialized and extensions loaded.');
   }
 
@@ -90,7 +90,7 @@ export class DuckDBService {
 
   public async createTableFromFile(tableName: string, fileName: string, sheetName?: string): Promise<void> {
     if (!this.db) throw new Error('DuckDB not initialized.');
-    
+
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     let query: string;
 
@@ -109,7 +109,7 @@ export class DuckDBService {
         query = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_xlsx(${safeFileName});`;
       }
     } else if (fileExtension === 'parquet') {
-        query = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_parquet(${safeFileName});`;
+      query = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_parquet(${safeFileName});`;
     }
     else {
       throw new Error(`Unsupported file type for table creation: ${fileExtension}`);

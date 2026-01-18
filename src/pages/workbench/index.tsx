@@ -27,8 +27,10 @@ interface AnalysisRecord {
   data: any[] | { error: string } | null; // Changed from 'result' to 'data' and explicitly typed as array of any, now includes error object
   schema: any[] | null; // Added schema to the record
   status: 'analyzing' | 'resultsReady';
-  llmDurationMs?: number;    // <-- 新增：LLM 调用耗时（毫秒）
-  queryDurationMs?: number;  // <-- 新增：数据查询耗时（毫秒）
+  llmDurationMs?: number;
+  queryDurationMs?: number;
+  // Snapshot of attachments at the time of this query
+  attachmentsSnapshot?: Attachment[];
 }
 
 interface WorkbenchProps {
@@ -62,6 +64,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const { token: { borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
+  // timer for persona hint auto clear
+  const personaHintTimerRef = useRef<number | null>(null);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -78,6 +82,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
 
   // 新增：当前输入框内容，用于“编辑”时回填
   const [currentInput, setCurrentInput] = useState<string>('');
+  // persona hint message to show near ChatPanel
+  const [personaHint, setPersonaHint] = useState<string | null>(null);
 
   const { userProfile } = useUserStore();
 
@@ -170,6 +176,16 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     };
   }, []);
 
+  // clear persona hint timer on unmount
+  useEffect(() => {
+    return () => {
+      if (personaHintTimerRef.current !== null) {
+        window.clearTimeout(personaHintTimerRef.current);
+        personaHintTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleFileUpload = async (file: File) => {
     if (attachments.length >= MAX_FILES) {
       setChatError(`You can only upload a maximum of ${MAX_FILES} file(s).`);
@@ -223,8 +239,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const handleLoadSheets = async (selectedSheets: string[]) => {
     if (!fileToLoad) return;
 
+    // 这里不立刻把 sheetsToSelect 置空，让 SheetSelector 还留在页面上显示 loading
     setUiState('parsing');
-    setSheetsToSelect(null);
 
     try {
       const loadedAttachments = await loadSheetsInDuckDB(fileToLoad, selectedSheets, attachments.length);
@@ -235,12 +251,17 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
       const personaId = profilePersonaId || 'business_user';
       const loadedSuggestions = getPersonaSuggestions(personaId);
       setSuggestions(loadedSuggestions);
+
+      // 加载完成后再关闭 SheetSelector，并切换到 fileLoaded
+      setSheetsToSelect(null);
+      setFileToLoad(null);
       setUiState('fileLoaded');
     } catch (error: any) {
       console.error(`[Workbench] Error loading sheets:`, error);
       setUiState('error');
       setChatError(`Failed to load sheets: ${error.message}`);
-    } finally {
+      // 出错时也关闭 SheetSelector，避免卡死在选择页面
+      setSheetsToSelect(null);
       setFileToLoad(null);
     }
   };
@@ -281,8 +302,18 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     const signal = abortControllerRef.current.signal;
 
     const newRecordId = `record-${Date.now()}`;
-    // Initialize data and schema as null
-    const newRecord: AnalysisRecord = { id: newRecordId, query, thinkingSteps: null, data: null, schema: null, status: 'analyzing', llmDurationMs: undefined, queryDurationMs: undefined };
+    const newRecord: AnalysisRecord = {
+      id: newRecordId,
+      query,
+      thinkingSteps: null,
+      data: null,
+      schema: null,
+      status: 'analyzing',
+      llmDurationMs: undefined,
+      queryDurationMs: undefined,
+      // take snapshot of current attachments
+      attachmentsSnapshot: attachments,
+    };
     setAnalysisHistory((prev) => [...prev, newRecord]);
     setUiState('analyzing');
 
@@ -304,23 +335,26 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
         effective: effectivePersonaId
       });
 
-      // Show info message if inferred persona differs from profile
+      // Show inline hint in ChatPanel instead of global message.info
       if (inferredPersonaId && inferredPersonaId !== profilePersonaId) {
-        message.info(
-          `Detected you might be "${effectivePersona.displayName}", optimized analysis suggestions accordingly`,
-          3
-        );
+        const hintText = `检测到你更像「${effectivePersona.displayName}」，已按该角色优化分析。`;
+        setPersonaHint(hintText);
+        // reset existing timer if any
+        if (personaHintTimerRef.current !== null) {
+          window.clearTimeout(personaHintTimerRef.current);
+        }
+        personaHintTimerRef.current = window.setTimeout(() => {
+          setPersonaHint(null);
+          personaHintTimerRef.current = null;
+        }, 2000);
       }
 
-      // Initialize AgentExecutor with persona context
-      const agentExecutor = new AgentExecutor(llmConfig, executeQuery);
-
-      // 显式标注为 any，允许读取扩展字段
+      // 使用 useMemo 创建好的 agentExecutor（已带 attachments），只传 persona/context
       const result: any = await agentExecutor.execute(query, signal, {
         persona: effectivePersonaId
       });
 
-      // 从 result 上“按需读取”，如果 AgentExecutor 暂时没有返回这两个字段，则为 undefined
+      // 从 result 上读取 LLM 调用耗时与查询耗时（如果 AgentExecutor 未返回则为 undefined）
       const llmDurationMs: number | undefined = result.llmDurationMs;
       const queryDurationMs: number | undefined = result.queryDurationMs;
 
@@ -367,7 +401,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const handleCopyQuery = async (query: string) => {
     try {
       await navigator.clipboard.writeText(query);
-      message.success('提示词已复制到剪贴板');
+      // success toast removed, UI 已足够明确
+      // message.success('提示词已复制到剪贴板');
     } catch (e) {
       console.error('复制失败:', e);
       message.error('复制失败，请手动复制');
@@ -383,7 +418,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
 
   const handleUpvote = (query: string) => {
     console.log(`Upvoted query: "${query}". Backend call would be here.`);
-    message.success('Thanks for your feedback!');
+    // 非关键 success 提示移除，避免打断
+    // message.success('Thanks for your feedback!');
     return Promise.resolve({ status: 'success' });
   };
 
@@ -399,7 +435,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
 
   const handleDeleteRecord = (recordId: string) => {
     setAnalysisHistory((prev) => prev.filter((rec) => rec.id !== recordId));
-    message.success('分析记录已删除');
+    // 卡片消失即为最直观反馈，这里去掉 success 提示
+    // message.success('分析记录已删除');
   };
 
   const handleScrollToBottom = () => {
@@ -446,11 +483,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
             onDownvote={handleDownvote}
             onRetry={handleRetry}
             onDelete={() => handleDeleteRecord(record.id)} // Pass delete handler
-            llmDurationMs={record.llmDurationMs}         // <-- 传递 LLM 耗时
-            queryDurationMs={record.queryDurationMs}     // <-- 传递查询耗时
+            llmDurationMs={record.llmDurationMs}
+            queryDurationMs={record.queryDurationMs}
             // 新增：编辑 / 复制 回调
             onEditQuery={handleEditQuery}
             onCopyQuery={handleCopyQuery}
+            // pass attachment snapshot for this record
+            attachments={record.attachmentsSnapshot}
           />
         ))}
       </div>
@@ -516,6 +555,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
               // 新增：与输入框双向绑定，支持“编辑”回填
               initialMessage={currentInput}
               setInitialMessage={setCurrentInput}
+              // new: inline persona hint for ChatPanel
+              personaHint={personaHint}
             />
           </div>
         </div>
