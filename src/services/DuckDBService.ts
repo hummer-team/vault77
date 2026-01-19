@@ -95,7 +95,7 @@ export class DuckDBService {
       console.log('[DuckDBService] sys settings: ', setttings);
     } catch (e) {
       console.error('[DuckDBService] Error loading extensions:', e);
-      throw e;
+      throw new Error('duckdb init fail.');
     } finally {
       await c.close();
       console.log('[DuckDBService] Connection closed after loading extensions.');

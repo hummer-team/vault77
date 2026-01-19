@@ -252,16 +252,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
       const personaId = profilePersonaId || 'business_user';
       const loadedSuggestions = getPersonaSuggestions(personaId);
       setSuggestions(loadedSuggestions);
-
-      // 加载完成后再关闭 SheetSelector，并切换到 fileLoaded
       setSheetsToSelect(null);
       setFileToLoad(null);
       setUiState('fileLoaded');
     } catch (error: any) {
       console.error(`[Workbench] Error loading sheets:`, error);
       setUiState('error');
-      setChatError(`Failed to load sheets: ${error.message}`);
-      // 出错时也关闭 SheetSelector，避免卡死在选择页面
+      setChatError(`Failed to load sheets`);
       setSheetsToSelect(null);
       setFileToLoad(null);
     }

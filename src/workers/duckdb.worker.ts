@@ -30,10 +30,10 @@ self.onmessage = async (event: MessageEvent) => {
             mainModule: resources['duckdb-eh.wasm'],
             mainWorker: resources['duckdb-browser-eh.worker.js'],
           },
-          //coi: {
+          // coi: {
           //  mainModule: resources['duckdb-coi.wasm'],
           //  mainWorker: resources['duckdb-browser-coi.worker.js']
-          //}
+          // }
         };
 
         const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
