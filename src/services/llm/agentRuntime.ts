@@ -114,20 +114,25 @@ export const runAgent = async (
       cancelled: result.cancelled,
     };
   } catch (err: unknown) {
+    const maybeWithTiming = err as { llmDurationMs?: unknown; queryDurationMs?: unknown };
+    const llmDurationMs = typeof maybeWithTiming.llmDurationMs === 'number' ? maybeWithTiming.llmDurationMs : undefined;
+    const queryDurationMs =
+      typeof maybeWithTiming.queryDurationMs === 'number' ? maybeWithTiming.queryDurationMs : undefined;
+
     if (abortController.signal.aborted) {
-      return { stopReason: 'CANCELLED', cancelled: true, message: 'Cancelled.' };
+      return { stopReason: 'CANCELLED', cancelled: true, message: 'Cancelled.', llmDurationMs, queryDurationMs };
     }
 
     const message = err instanceof Error ? err.message : 'Unknown error.';
 
     if (/Need clarification/i.test(message)) {
-      return { stopReason: 'NEED_CLARIFICATION', message };
+      return { stopReason: 'NEED_CLARIFICATION', message, llmDurationMs, queryDurationMs };
     }
     if (/Policy denied/i.test(message) || /POLICY_DENIED/i.test(message)) {
-      return { stopReason: 'POLICY_DENIED', message };
+      return { stopReason: 'POLICY_DENIED', message, llmDurationMs, queryDurationMs };
     }
 
-    return { stopReason: 'TOOL_ERROR', message };
+    return { stopReason: 'TOOL_ERROR', message, llmDurationMs, queryDurationMs };
   } finally {
     window.clearTimeout(timeoutId);
     if (signal) signal.removeEventListener('abort', onAbort);

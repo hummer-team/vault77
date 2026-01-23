@@ -6,6 +6,31 @@ import ReactMarkdown from 'react-markdown';
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 
+// --- M6: Clarification helpers ---
+const parseClarifyingQuestions = (errorText: string): string[] => {
+  const lines = errorText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  const questions: string[] = [];
+  for (const line of lines) {
+    const cleaned = line.replace(/^[-*]\s+/, '').trim();
+    if (!cleaned) continue;
+    if (/^Need clarification[:：]?$/i.test(cleaned) || /^需要你补充信息[:：]?$/i.test(cleaned)) continue;
+    questions.push(cleaned);
+  }
+  return questions;
+};
+
+const buildQuickRepliesFromQuestion = (question: string): string[] => {
+  // Minimal heuristic: detect common time-range clarification.
+  if (/最近.*(时间|一段时间|范围)/.test(question) || /(7天|30天|90天)/.test(question)) {
+    return ['最近7天', '最近30天', '最近90天'];
+  }
+  return [];
+};
+
 const { Paragraph } = Typography;
 
 interface ResultsDisplayProps {
@@ -28,8 +53,9 @@ interface ResultsDisplayProps {
 
 // 将毫秒转为秒字符串，如 "耗时 1.2s"
 const formatDurationSeconds = (ms?: number): string | null => {
-  if (ms == null || !Number.isFinite(ms)) return null;
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return null;
   const seconds = ms / 1000;
+  if (seconds < 1) return `耗时 ${seconds.toFixed(2)}s`;
   return `耗时 ${seconds.toFixed(1)}s`;
 };
 
@@ -174,6 +200,7 @@ const buildSafeSchema = (schema: unknown, data: unknown): Array<{ name: string; 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
+  const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
   const handleUpvoteClick = () => {
     setVoted('up');
@@ -329,6 +356,35 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       );
     };
 
+    const renderThinkingPanel = (): React.ReactNode => {
+      // Always render the header so that LLM timing is always visible.
+      if (thinkingSteps) {
+        return <ThinkingSteps steps={thinkingSteps} llmDurationMs={llmDurationMs} />;
+      }
+
+      return (
+        <Collapse ghost style={{ margin: '0 -24px' }}>
+          <Collapse.Panel
+            header={
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>查看AI思考过程</span>
+                {llmDurationLabel && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {llmDurationLabel}
+                  </Typography.Text>
+                )}
+              </div>
+            }
+            key="1"
+          >
+            <Typography.Text type="secondary">
+              本次未展示详细思考步骤（可能因澄清/策略拒绝/执行失败提前结束）。
+            </Typography.Text>
+          </Collapse.Panel>
+        </Collapse>
+      );
+    };
+
     if (status === 'analyzing') {
       return (
         <Card
@@ -354,14 +410,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const commonContent = (
         <Space direction="vertical" style={{ width: '100%' }}>
-          {/* 附件区域作为 Query 区域下的第一块内容，靠左展示 */}
           {renderAttachmentsInline()}
-          {thinkingSteps && (
-            <>
-              <ThinkingSteps steps={thinkingSteps} llmDurationMs={llmDurationMs} />
-              <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)', margin: '0' }} />
-            </>
-          )}
+          {renderThinkingPanel()}
+          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)', margin: '0' }} />
           <div
             style={{
               paddingTop: '16px',
@@ -384,18 +435,55 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       // Handle error data
       if (data && typeof data === 'object' && 'error' in data) {
+        const errText = String((data as { error: unknown }).error ?? '');
+        const isClarification = /Need clarification/i.test(errText) || /需要你补充信息/.test(errText);
+        const clarifyingQuestions: string[] = isClarification ? parseClarifyingQuestions(errText) : [];
+        const quickReplies: string[] =
+          clarifyingQuestions.length > 0 ? buildQuickRepliesFromQuestion(clarifyingQuestions[0] ?? '') : [];
+
         return (
           <Card {...cardProps}>
             {commonContent}
+
             <Alert
-              message="抱歉，我无法理解您的指令"
-              description={data.error}
-              type="error"
+              message={isClarification ? '需要你补充信息' : '抱歉，我无法理解您的指令'}
+              description={errText}
+              type={isClarification ? 'warning' : 'error'}
               showIcon
-              style={{ marginTop: '16px' }}
+              style={{ marginTop: '12px' }}
             />
+
+            {isClarification && clarifyingQuestions.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <Typography.Text type="secondary">你可以直接点选一个选项来补全问题：</Typography.Text>
+                <ul style={{ marginTop: 8, marginBottom: 8, paddingLeft: 18 }}>
+                  {clarifyingQuestions.map((q: string) => (
+                    <li key={q} style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+
+                {quickReplies.length > 0 && (
+                  <Space wrap size={[8, 8]}>
+                    {quickReplies.map((reply: string) => (
+                      <Button
+                        key={reply}
+                        size="small"
+                        onClick={() => {
+                          onEditQuery(`${query} ${reply}`);
+                        }}
+                      >
+                        {reply}
+                      </Button>
+                    ))}
+                  </Space>
+                )}
+              </div>
+            )}
+
             <Paragraph type="secondary" style={{ marginTop: '16px' }}>
-              请尝试调整您的指令，例如更具体地描述您想要的数据或分析类型。
+              你也可以直接在输入框中补充更具体的条件（例如：时间范围、日期字段、筛选条件），然后再提交。
             </Paragraph>
           </Card>
         );

@@ -451,7 +451,14 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
         setAnalysisHistory((prev) =>
           prev.map((rec) =>
             rec.id === newRecordId
-              ? { ...rec, status: 'resultsReady', data: { error: msg }, schema: null }
+              ? {
+                ...rec,
+                status: 'resultsReady',
+                data: { error: msg },
+                schema: null,
+                llmDurationMs: runtimeResult.llmDurationMs,
+                queryDurationMs: runtimeResult.queryDurationMs,
+              }
               : rec
           )
         );

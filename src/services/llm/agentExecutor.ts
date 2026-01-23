@@ -191,6 +191,10 @@ export class AgentExecutor {
       personaId: options?.persona,
     });
 
+    // Track durations even on failures
+    let llmDurationMs: number | undefined;
+    let queryDurationMs: number | undefined;
+
     try {
       const allTableSchemas = await this._getAllTableSchemas();
       if (!allTableSchemas) {
@@ -304,7 +308,7 @@ export class AgentExecutor {
       }
 
       const llmEnd = performance.now();
-      const llmDurationMs = llmEnd - llmStart;
+      llmDurationMs = llmEnd - llmStart;
 
       const responseObj = response as {
         choices: Array<{ message: OpenAI.Chat.Completions.ChatCompletionMessage }>;
@@ -389,7 +393,10 @@ export class AgentExecutor {
           errorMessage: reason,
           llmDurationMs,
         });
-        throw new Error(reason);
+        const error = new Error(reason);
+        (error as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
+        (error as unknown as { llmDurationMs?: number; queryDurationMs?: number }).queryDurationMs = queryDurationMs;
+        throw error;
       }
 
       const toolName = toolCall.function.name;
@@ -416,7 +423,10 @@ export class AgentExecutor {
           errorMessage: msg,
           llmDurationMs,
         });
-        throw new Error(msg);
+        const error = new Error(msg);
+        (error as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
+        (error as unknown as { llmDurationMs?: number; queryDurationMs?: number }).queryDurationMs = queryDurationMs;
+        throw error;
       }
 
       let toolArgs: unknown = {};
@@ -440,6 +450,9 @@ export class AgentExecutor {
       try {
         toolResult = await toolFn(this.executeQuery, toolArgs);
       } catch (err: unknown) {
+        const queryEnd = performance.now();
+        queryDurationMs = queryEnd - queryStart;
+
         // --- M4: SQL debug loop (single auto repair) ---
         const isSqlQueryTool = toolName === 'sql_query_tool';
         const originalArgs = toolArgs as { query?: unknown };
@@ -482,20 +495,31 @@ export class AgentExecutor {
             // Retry once with patched SQL
             toolResult = await toolFn(this.executeQuery, patchedArgs);
 
+            const retryEnd = performance.now();
+            queryDurationMs = retryEnd - queryStart;
+
             // Merge debug explanation into thought (UI-friendly)
             thought = `${thought}\n\n[Auto SQL Debug]\n${debugResult.explanation}`;
           } catch (repairErr) {
             console.warn('[AgentExecutor] Auto SQL debug failed, fallback to original error:', repairErr);
-            // fallthrough to normal error handling below
+            // Attach timing then rethrow original error
+            if (err instanceof Error) {
+              (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
+              (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).queryDurationMs = queryDurationMs;
+            }
             throw err;
           }
         } else {
+          if (err instanceof Error) {
+            (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
+            (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).queryDurationMs = queryDurationMs;
+          }
           throw err;
         }
       }
 
       const queryEnd = performance.now();
-      const queryDurationMs = queryEnd - queryStart;
+      queryDurationMs = queryEnd - queryStart;
 
       const sanitized = this._sanitizeBigInts(toolResult);
 
@@ -569,6 +593,13 @@ export class AgentExecutor {
       // If already emitted events in inner blocks, do not duplicate too much.
       const message = err instanceof Error ? err.message : 'Unknown error.';
       console.error('[AgentExecutor] execute failed:', err);
+
+      // Ensure the thrown error carries timings.
+      if (err instanceof Error) {
+        (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
+        (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).queryDurationMs = queryDurationMs;
+      }
+
       emitAgentEvent({
         type: 'agent.error',
         runId,
@@ -586,6 +617,8 @@ export class AgentExecutor {
         stopReason: 'UNKNOWN',
         errorCategory: 'UNKNOWN',
         errorMessage: message,
+        llmDurationMs,
+        queryDurationMs,
       });
       throw err;
     }
