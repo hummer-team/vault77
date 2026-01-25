@@ -7,11 +7,110 @@
 - 主要入口/关注点文件：`src/services/llm/*`, `src/services/tools/*`, `src/workers/duckdb.worker.ts`, `src/hooks/*`, `src/pages/workbench/*`。
 
 更新日志
-- 本文档基于当前代码仓库（2026-01-15）自动生成，已阅读并引用了 repository 中的关键文件。
+- **2026-01-25**: 完成 M10.4 (Skill System Integration) 和 M10.5 (Transparency Enhancement)，新增 User Skill L0 配置系统、Query Router、透明度标签和设置面板。
+- **2026-01-15**: 本文档基于当前代码仓库自动生成，已阅读并引用了 repository 中的关键文件。
 
 一、目的
 - 说明 Agent 的职责、执行流程、关键实现文件与如何在项目中扩展（新增 prompt 或 tool）。
 - 目标读者：想理解或扩展 Vaultmind 的开发者。
+
+二、M10 系列重构（重要）
+
+### M10.4：Skill System Integration + User Skill L0
+
+**完成日期**: 2026-01-24  
+**目标**: 实现用户自定义表配置（L0 级别），允许业务用户在无需编程的情况下配置字段映射、默认过滤条件、自定义指标。
+
+**核心功能**:
+
+1. **User Skill Configuration System**
+   - 用户可在 Settings → Profile 页面配置 User Skill
+   - 支持配置项：Industry（行业）、Field Mapping（字段映射）、Default Filters（默认过滤条件）、Custom Metrics（自定义指标）
+   - 配置存储在 Chrome Storage 中，按 session 维度隔离
+
+2. **Query Type Router**（`src/services/llm/skills/router.ts`）
+   - 关键字路由：快速识别 CRUD 操作（增删改查）和简单统计查询
+   - 准确率 95%+，平均响应时间 < 50ms
+   - 降级策略：复杂查询自动切换到 `analysis.v1` Skill
+
+3. **Dynamic Prompt Building**（`src/services/llm/skills/core/digestBuilder.ts`）
+   - Schema Digest（4000 chars）：表结构摘要
+   - User Skill Digest（1200 chars）：用户配置摘要
+   - System Skill Pack（2000 chars）：系统内置技能包
+   - 总预算控制：~8000 chars，支持自动截断
+
+4. **Runtime Execution Flow**（`src/services/llm/agentRuntime.ts`）
+   - 查询开始前加载 User Skill Config
+   - 通过 Query Router 选择合适的 Skill
+   - 构建包含用户配置的增强 Prompt
+   - 执行 Skill 并收集元数据
+
+**技术约束**:
+- L0 Metrics：仅支持基础聚合（count, count_distinct, sum, avg, min, max）
+- 单表限制：当前仅支持单表配置（activeTable = attachments[0].tableName）
+- 字段校验：通过 Zod schema 强制执行字段名、SQL 关键字安全检查
+
+**关键文件**:
+- `src/services/llm/skills/types.ts`：User Skill L0 类型定义
+- `src/services/llm/skills/router.ts`：Query Type Router 实现
+- `src/services/llm/skills/core/digestBuilder.ts`：Prompt Digest 构建器
+- `src/services/llm/agentRuntime.ts`：Agent 运行时（集成 User Skill）
+- `src/services/userSkill/userSkillService.ts`：User Skill 持久化服务
+- `src/pages/settings/ProfilePage.tsx`：User Skill 配置 UI
+
+---
+
+### M10.5：Transparency & Explainability Enhancement
+
+**完成日期**: 2026-01-25  
+**目标**: 让 AI 的技能使用、用户配置应用、分析推理过程对用户可见，增强信任和可调试性。
+
+**核心功能**:
+
+1. **Skill Metadata Tags**（`ResultsDisplay.tsx`）
+   - **Skill Tag** (蓝色)：显示使用的技能名称（如 `analysis.v1`）
+   - **Industry Tag** (绿色)：显示生效的行业配置（如 `ecommerce`）
+   - **UserSkill Tag** (橙色/灰色)：显示用户配置状态
+     - 已配置：`用户配置已应用，XXX/1200 字符`
+     - 未配置：`未配置` (灰色)
+
+2. **Effective Settings Panel**（`ResultsDisplay.tsx`）
+   - 展示本次查询生效的完整配置：
+     - **Table Name**：当前分析的表名
+     - **Field Mapping**：用户配置的字段映射（Time/Amount/OrderID/UserID）
+     - **Default Filters (Top-5)**：生效的前 5 个默认过滤条件，超出自动折叠
+     - **Metrics (Top-8)**：生效的前 8 个自定义指标，超出自动折叠
+   - 自动处理边界情况：无配置时不显示对应区块
+
+3. **System Metrics Display**（`ProfilePage.tsx`）
+   - 在 Metrics Panel 展示当前行业的系统内置指标
+   - 支持 Override 检测：用户自定义指标与系统指标同名时显示橙色 `用户覆盖` 标签
+   - 行业指标数量：
+     - `ecommerce`: 6 个（GMV、订单量、客单价等）
+     - `finance`: 4 个（交易金额、交易笔数等）
+     - `retail`: 4 个（销售额、销售量等）
+     - `default`: 2 个（总计数、总金额）
+
+4. **Metadata Collection & Flow**（`agentRuntime.ts` → `index.tsx` → `ResultsDisplay.tsx`）
+   - agentRuntime 在查询执行时计算 5 个元数据字段：
+     - `skillName`: 使用的技能名称
+     - `industry`: 生效的行业
+     - `userSkillApplied`: 用户配置是否应用
+     - `userSkillDigestChars`: 用户配置 Digest 字符数
+     - `activeTable`: 当前分析的表名
+   - 元数据随 AgentRunResult 传递到前端，最终在 ThinkingSteps 中展示
+
+**技术实现**:
+- 所有元数据字段为可选（optional），保持向后兼容
+- effectiveSettings 从 tableConfig 实时构建，不存储
+- System Metrics 当前硬编码（M11+ 将支持动态加载）
+- 所有边界情况已处理（无配置、部分配置、空列表）
+
+**文档**:
+- `design/m8-regression.md`：M10.4 + M10.5 回归测试用例（16 个测试用例）
+- `design/skillManual.md`：User Skill 配置操作手册（972 行，面向终端用户）
+
+---
 
 二、总体架构概览
 - 组件（高层次）
@@ -20,12 +119,18 @@
   - LLM 服务层（Agent 逻辑）:
     - `src/services/llm/llmClient.ts`：LLM API 客户端（目前使用官方 `openai` npm 包）。
     - `src/services/llm/promptManager.ts`：管理 prompt 模板与构建完整的 prompt 文本。
-    - `src/services/llm/agentExecutor.ts`：Agent 的执行器——负责：获取表结构、**通过 Skill 路由器动态选择 Skill**、构建 prompt、调用 LLM、解析 LLM 响应并调用工具。
+    - `src/services/llm/agentRuntime.ts`（**M10.4 新增**）：Agent 运行时——整合 User Skill Config 加载、Query Router、Skill 执行、元数据收集，替代原 `agentExecutor.ts`。
+    - `src/services/llm/agentExecutor.ts`（已废弃）：旧的 Agent 执行器，保留用于兼容性。
   - Skills & Tools:
-    - **Skill 动态路由**: `src/services/llm/skills/router.ts` 会根据用户输入和功能开关，智能地选择使用哪个 `Skill`（例如，是通用的 `nl2sql.v1` 还是更复杂的 `analysis.v1`）。
+    - **Skill 动态路由**: `src/services/llm/skills/router.ts` 会根据用户输入和功能开关，智能地选择使用哪个 `Skill`（例如，是通用的 `nl2sql.v1` 还是更复杂的 `analysis.v1`）。**M10.4 新增关键字路由，准确率 95%+，< 50ms 响应**。
     - **Skill 注册表**: `src/services/llm/skills/registry.ts` 维护了一个所有可用 `Skill` 的映射表。
+    - **Skill 类型定义**: `src/services/llm/skills/types.ts`（**M10.4 新增**）定义了 User Skill L0 类型（FilterExpr、MetricDefinition、TableSkillConfig、UserSkillConfig）。
+    - **Digest Builder**: `src/services/llm/skills/core/digestBuilder.ts`（**M10.4 新增**）构建 Schema Digest、User Skill Digest、System Skill Pack，用于增强 Prompt。
     - **工具实现**: `src/services/tools/duckdbTools.ts`（当前仅 `sql_query_tool`，负责执行 SQL 并返回结果）。
   - Worker：`src/workers/duckdb.worker.ts`（DuckDB WASM worker，负责初始化 DuckDB、加载文件缓冲区、执行 SQL）。
+  - User Skill 服务（**M10.4 新增**）:
+    - `src/services/userSkill/userSkillService.ts`：负责 User Skill Config 在 Chrome Storage 中的持久化和加载。
+    - `src/services/userSkill/types.ts`：User Skill 相关类型定义（已合并到 `skills/types.ts`）。
   - 其他：`src/services/duckDBService.ts`（在 worker/主线程间封装 DuckDB 操作），`src/services/settingsService.ts`、`src/services/storageService.ts`、`src/status/appStatusManager.ts` 等。
 
 三、关键文件与职责（逐项）
@@ -42,13 +147,17 @@
   - `src/services/llm/promptManager.ts`
     - 管理不同角色/场景的 prompt 集合，目前导入了 `src/prompts/ecommerce.ts`。
     - 提供 `getToolSelectionPrompt(role, userInput, tableSchema)` 生成完整 prompt（会将 tableSchema JSON.stringify 后嵌入模板）。
-  - `src/services/llm/agentExecutor.ts`
-    - Agent 的核心：
-      - 通过 `executeQuery`（注入函数，来自 useDuckDB）读取数据库表名与 schema（会尝试查询 `information_schema.tables` 或回退到 `DESCRIBE main_table`）。
-      - 通过 PromptManager 构造 LLM 输入（role 固定为 'ecommerce' 在当前实现中）。
-      - 调用 LlmClient（若 `llmConfig.mockEnabled` 为 true，则会返回一个 mock 响应用于调试）。
-      - 解析 LLM 返回：支持 LLM 的 function/tool 调用（tool_calls / message.content 中嵌入的 JSON），并将对应工具从 `services/tools` 注册表中调用。
+  - `src/services/llm/agentRuntime.ts`（**M10.4 新增，替代 agentExecutor**）
+    - Agent 运行时核心：
+      - **Phase 1 - User Skill Loading**: 从 Chrome Storage 加载当前 session 的 User Skill Config。
+      - **Phase 2 - Query Router**: 通过 `resolveSkill(userInput)` 选择合适的 Skill（`nl2sql.v1` 或 `analysis.v1`）。
+      - **Phase 3 - Digest Building**: 构建 Schema Digest、User Skill Digest、System Skill Pack，增强 Prompt。
+      - **Phase 4 - Skill Execution**: 调用选中的 Skill，传入增强后的 context（包含 userSkillDigest）。
+      - **Phase 5 - Metadata Collection**: 收集 5 个元数据字段（skillName、industry、userSkillApplied、userSkillDigestChars、activeTable）和 effectiveSettings。
       - 对 DuckDB 返回的大整数（BigInt）进行字符串化处理 `_sanitizeBigInts`，以便 JSON 序列化与前端显示。
+      - 返回 `AgentRunResult` 包含结果数据、元数据、thinking steps。
+  - `src/services/llm/agentExecutor.ts`（已废弃）
+    - 旧的 Agent 执行器，保留用于兼容性。M10.4+ 请使用 `agentRuntime.ts`。
 
 - Tools
   - `src/services/tools/duckdbTools.ts`
@@ -64,12 +173,26 @@
 
 - 前端页面/组件
   - `src/pages/workbench/index.tsx`（Workbench）
-    - 负责：管理 UI 状态（initializing, parsing, fileLoaded, analyzing 等）、初始化 DuckDB/sandbox、文件上传、调度 AgentExecutor（new AgentExecutor(llmConfig, executeQuery)）并展示结果。
+    - 负责：管理 UI 状态（initializing, parsing, fileLoaded, analyzing 等）、初始化 DuckDB/sandbox、文件上传、调度 `agentRuntime`（**M10.4 更新**）并展示结果。
     - 从 `import.meta.env` 读取 LLM 相关配置：
       - VITE_LLM_PROVIDER, VITE_LLM_API_KEY, VITE_LLM_API_URL, VITE_LLM_MODEL_NAME, VITE_LLM_MOCK
     - File 上传后会将文件放到 `main_table_{n}`（例如：`main_table_1`）并通过 `PromptManager.getSuggestions('ecommerce')` 获取预设建议。
+    - **M10.5 更新**：扩展 `AnalysisRecord.thinkingSteps` 类型，包含元数据（skillName、industry、userSkillApplied 等）和 effectiveSettings。
   - `src/pages/workbench/components/ChatPanel.tsx`
     - UI 层：消息输入、文件上传（通过 antd Upload beforeUpload 调用 Workbench 的 onFileUpload）、显示 suggestions 与 attachments。
+  - `src/pages/workbench/components/ResultsDisplay.tsx`（**M10.5 新增透明度功能**）
+    - 展示查询结果和分析过程。
+    - **新增功能**：
+      - `renderSkillMetadataTags()`：渲染 3 个元数据标签（Skill/Industry/UserSkill）。
+      - `renderEffectiveSettings()`：渲染 Effective Settings Panel（Table/Field Mapping/Filters/Metrics）。
+      - 自动折叠长列表（Filters > 5, Metrics > 8）。
+  - `src/pages/settings/ProfilePage.tsx`（**M10.4 新增 User Skill 配置，M10.5 新增 System Metrics 显示**）
+    - User Skill 配置界面，包含 4 个配置区块：
+      - **Industry Selection**：选择行业（ecommerce/finance/retail/custom）。
+      - **Field Mapping**：配置字段映射（Time/Amount/OrderID/UserID）。
+      - **Default Filters**：配置默认过滤条件（支持 9 种操作符）。
+      - **Custom Metrics**：配置自定义指标（支持 6 种聚合函数）。
+    - **M10.5 新增**：System Metrics 显示区块，展示当前行业的系统内置指标，支持 Override 检测。
 
 四、运行 / 构建（快速开始）
 - 前提
@@ -152,17 +275,65 @@ LLM 模型约束与 Skills 声明
   - `src/services/llm/agentExecutor.ts`：增加 `_preflightValidateToolCall(toolName, args)` helper（检查白名单、关键字、LIMIT、permissions），以及在解析 tool_call 后调用该函数。  
   - `src/services/llm/LlmClient.ts`：把 `chatCompletions` 调用中 `max_tokens`、`timeout` 的推荐位置与示例写在注释中，确保调用方可传 `signal` 取消请求。
 
-五、Agent 执行流（详细）
-- 1. 用户在 UI（ChatPanel）输入请求并提交（或选择 suggestion）。
-- 2. Workbench 的 `handleStartAnalysis` 收集上下文（已上传的文件名列表、table 名称等），并确保 `AgentExecutor` 已就绪（依赖 isDBReady、executeQuery）。
-- 3. `AgentExecutor.execute(userInput)`：
-   - **调用 `resolveSkill(userInput)`**: 首先通过 `Skill Router` 根据用户输入决定使用哪个 `Skill` (例如, `analysis.v1` 或 `nl2sql.v1`)。
-   - 调用 `_getAllTableSchemas()`：先查询 `information_schema.tables`（表名以 `main_table_%` 前缀），若为空则回退到 `DESCRIBE main_table`。
-   - 使用 `PromptManager.getToolSelectionPrompt('ecommerce', userInput, allTableSchemas)` 构造 prompt。
-   - 若 `llmConfig.mockEnabled` 为 true，则采用内置的 mock response；否则通过 `LlmClient.client.chat.completions.create({...})` 向 LLM 发起请求。
-   - 解析 LLM 返回信息：优先读取 `message.tool_calls`（function 调用）；若没有，则尝试把 `message.content` 当做 JSON 来解析 action/tool 调用。
-   - 根据解析到的工具调用（例如 `sql_query_tool`），从 `tools` 注册表中找到对应实现并调用（传入 `executeQuery` 与参数）。
-   - 对工具返回结果做 BigInt 转字符串处理，最后把 `{ tool, params, result, thought }` 返回给调用方（Workbench）。
+五、Agent 执行流（详细）- M10.4 更新版
+
+- **1. 用户在 UI（ChatPanel）输入请求并提交（或选择 suggestion）。**
+
+- **2. Workbench 的 `handleStartAnalysis` 收集上下文（已上传的文件名列表、table 名称等），并确保 `agentRuntime` 已就绪（依赖 isDBReady、executeQuery）。**
+
+- **3. `agentRuntime.execute(userInput, attachments)`**（**M10.4 新增完整流程**）：
+
+   **Phase 1: User Skill Loading**
+   - 调用 `userSkillService.loadUserSkill(sessionId)` 从 Chrome Storage 加载当前 session 的用户配置。
+   - 如果无配置或加载失败，设置 `userSkillConfig = null`（降级到默认行为）。
+
+   **Phase 2: Query Router**
+   - 调用 `resolveSkill(userInput)` 通过 Skill Router 选择合适的 Skill：
+     - **关键字路由**（优先）：检测 CRUD 操作关键字（增删改查、统计、对比、排行等）→ 选择 `nl2sql.v1`。
+     - **功能开关路由**（降级）：复杂查询或未命中关键字 → 选择 `analysis.v1`。
+   - 准确率 95%+，响应时间 < 50ms。
+
+   **Phase 3: Schema & Digest Building**
+   - 调用 `_getAllTableSchemas()`：查询 `information_schema.tables`（表名以 `main_table_%` 前缀），若为空则回退到 `DESCRIBE main_table`。
+   - 动态导入 `digestBuilder.ts`：
+     - `buildSchemaDigest(allTableSchemas)` → 生成 Schema Digest（最大 4000 chars）。
+     - `buildUserSkillDigest(userSkillConfig)` → 生成 User Skill Digest（最大 1200 chars）。
+     - `buildSystemSkillPack(industry)` → 生成 System Skill Pack（最大 2000 chars）。
+   - 三个 Digest 合并后作为 `context.userSkillDigest` 传入 Skill。
+
+   **Phase 4: Skill Execution**
+   - 调用选中的 Skill：
+     - `await skillImpl.execute({ userInput, executeQuery, allTableSchemas, userSkillDigest })`
+   - Skill 内部会：
+     - 使用增强后的 Prompt（包含 Schema Digest + User Skill Digest + System Skill Pack）。
+     - 调用 LLM（若 `llmConfig.mockEnabled` 为 true，则返回 mock response）。
+     - 解析 LLM 返回信息：优先读取 `message.tool_calls`（function 调用）；若没有，则尝试把 `message.content` 当做 JSON 来解析 action/tool 调用。
+     - 根据解析到的工具调用（例如 `sql_query_tool`），从 `tools` 注册表中找到对应实现并调用（传入 `executeQuery` 与参数）。
+     - 对工具返回结果做 BigInt 转字符串处理，返回 `SkillRunResult`。
+
+   **Phase 5: Metadata Collection（M10.5 新增）**
+   - 计算 5 个元数据字段：
+     - `skillName`: 使用的 Skill 名称（如 `analysis.v1`）。
+     - `industry`: 从 `userSkillConfig.industry` 提取。
+     - `userSkillApplied`: `userSkillConfig !== null`。
+     - `userSkillDigestChars`: `userSkillDigest.length`。
+     - `activeTable`: `attachments[0]?.tableName ?? 'main_table_1'`（**单表限制**）。
+   - 构建 `effectiveSettings`（从 `userSkillConfig.tableConfigs[activeTable]` 提取）：
+     - `tableName`: 当前表名。
+     - `fieldMapping`: 字段映射配置。
+     - `defaultFilters`: 默认过滤条件列表。
+     - `metrics`: 自定义指标列表。
+   - 返回 `AgentRunResult`：
+     - `status`: SUCCESS / CANCELLED / NEED_CLARIFICATION。
+     - `result`: Skill 执行结果（SQL、data、schema、thought）。
+     - `metadata`: 5 个元数据字段。
+     - `effectiveSettings`: 生效的配置快照。
+
+- **4. Workbench 接收 `AgentRunResult`，更新 UI 并传递元数据到 `ResultsDisplay` 组件。**
+
+- **5. ResultsDisplay 渲染透明度信息（M10.5）**：
+   - `renderSkillMetadataTags()`：展示 Skill/Industry/UserSkill 3 个标签。
+   - `renderEffectiveSettings()`：展示 Table Name、Field Mapping、Default Filters（Top-5）、Metrics（Top-8）。
 
 六、错误处理与常见问题
 - LLM 错误
@@ -207,22 +378,54 @@ LLM 模型约束与 Skills 声明
   - 使用：AgentExecutor/Workbench 调用 `getToolSelectionPrompt('finance', userInput, tableSchema)`。
 
 十、参考文件列表（仓库中关键文件）
-- package.json
-- vite.config.ts
-- src/hooks/useLLMAgent.ts
-- src/hooks/useDuckDB.ts
-- src/hooks/useFileParsing.ts
-- src/services/llm/LlmClient.ts
-- src/services/llm/promptManager.ts
-- src/services/llm/agentExecutor.ts
-- src/services/llm/skills/router.ts
-- src/services/llm/skills/registry.ts
-- src/services/tools/duckdbTools.ts
-- src/services/duckDBService.ts
-- src/workers/duckdb.worker.ts
-- src/pages/workbench/index.tsx
-- src/pages/workbench/components/ChatPanel.tsx
-- src/prompts/ecommerce.ts
+
+### 核心运行时
+- `src/services/llm/agentRuntime.ts`（**M10.4 新增**，替代 agentExecutor）
+- `src/services/llm/agentExecutor.ts`（已废弃）
+- `src/services/llm/LlmClient.ts`
+- `src/services/llm/promptManager.ts`
+
+### Skills 系统（**M10.4 新增**）
+- `src/services/llm/skills/types.ts`（User Skill L0 类型定义）
+- `src/services/llm/skills/router.ts`（Query Type Router）
+- `src/services/llm/skills/registry.ts`（Skill 注册表）
+- `src/services/llm/skills/core/digestBuilder.ts`（Prompt Digest 构建器）
+- `src/services/llm/skills/impl/nl2sql.ts`（NL2SQL Skill 实现）
+- `src/services/llm/skills/impl/analysis.ts`（Analysis Skill 实现）
+
+### User Skill 服务（**M10.4 新增**）
+- `src/services/userSkill/userSkillService.ts`（User Skill 持久化服务）
+
+### 工具
+- `src/services/tools/duckdbTools.ts`
+
+### Hooks
+- `src/hooks/useLLMAgent.ts`
+- `src/hooks/useDuckDB.ts`
+- `src/hooks/useFileParsing.ts`
+
+### Worker
+- `src/workers/duckdb.worker.ts`
+- `src/services/duckDBService.ts`
+
+### 前端页面
+- `src/pages/workbench/index.tsx`（**M10.4/M10.5 更新**）
+- `src/pages/workbench/components/ChatPanel.tsx`
+- `src/pages/workbench/components/ResultsDisplay.tsx`（**M10.5 新增透明度功能**）
+- `src/pages/settings/ProfilePage.tsx`（**M10.4 新增 User Skill 配置，M10.5 新增 System Metrics**）
+
+### Prompts
+- `src/prompts/ecommerce.ts`
+
+### 配置
+- `package.json`
+- `vite.config.ts`
+- `tsconfig.json`
+
+### 文档（**M10.4/M10.5 新增**）
+- `design/refactor2.md`（M10 系列设计文档）
+- `design/m8-regression.md`（M10.4 + M10.5 回归测试用例）
+- `design/skillManual.md`（User Skill 配置操作手册）
 
 ---
 
