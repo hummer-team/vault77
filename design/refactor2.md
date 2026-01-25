@@ -996,14 +996,16 @@ User Skill Digest 示例（给 LLM 看）：
 - `userSkillService.ts`：全局 settings 读写（Chrome storage）
 
 #### 验收标准
-- [ ] TypeScript 编译通过，无 `any` 类型
+- [x] TypeScript 编译通过，无 `any` 类型
 - [ ] zod schema 能拦截非法输入（Case U4：SQL 注入攻击被拒绝）
-- [ ] `filterCompiler` 能正确编译相对时间（Case U8：生成 `CAST(col AS TIMESTAMP) >= CURRENT_TIMESTAMP - INTERVAL '30 days'`）
-- [ ] 单元测试覆盖：
+  - 有问题：delete from main_table_1 没被拦截并且提示词发送给LLM，LLM返回错误
+  - 期望：zod 拦截非法输入
+- [x] `filterCompiler` 能正确编译相对时间（Case U8：生成 `CAST(col AS TIMESTAMP) >= CURRENT_TIMESTAMP - INTERVAL '30 days'`）
+- [x] 单元测试覆盖：
   - `FilterExpr` 编译（含相对时间、时区 UTC）
   - `MetricDefinition` 编译（含 where 嵌套）
   - Digest 裁剪（Top-N/Top-K 规则，deterministic）
-- [ ] Digest 预算控制：userSkillDigest <= 1200 chars（Case U6）
+- [x] Digest 预算控制：userSkillDigest <= 1200 chars（Case U6）
 
 #### 依赖
 无（基础层）
