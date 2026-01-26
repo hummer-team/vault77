@@ -150,24 +150,48 @@ const ProfilePage: React.FC = () => {
     loadUserSkillConfig();
   }, []);
 
-  // Load available tables from session storage (or mock data)
+  // Load available tables from session storage and listen for updates
   useEffect(() => {
-    // Try to get schema cache from session storage
-    if (typeof chrome !== 'undefined' && chrome.storage?.session) {
-      chrome.storage.session.get(['schemaCache'], (result) => {
-        if (result.schemaCache && typeof result.schemaCache === 'object') {
-          const tables = Object.keys(result.schemaCache);
-          setAvailableTables(tables);
-          console.log('[ProfilePage] Available tables from session:', tables);
-        } else {
-          // No schema cache - use mock data for development
-          console.log('[ProfilePage] No schema cache found, using mock data');
-          setAvailableTables(['orders_table', 'users_table']); // Mock tables
+    // Function to load tables from schemaCache
+    const loadAvailableTables = () => {
+      if (typeof chrome !== 'undefined' && chrome.storage?.session) {
+        chrome.storage.session.get(['schemaCache'], (result) => {
+          if (result.schemaCache && typeof result.schemaCache === 'object') {
+            const tables = Object.keys(result.schemaCache);
+            setAvailableTables(tables);
+            console.log('[ProfilePage] Available tables from session:', tables);
+          } else {
+            // No schema cache - use mock data for development
+            console.log('[ProfilePage] No schema cache found, using mock data');
+            setAvailableTables(['orders_table', 'users_table']); // Mock tables
+          }
+        });
+      } else {
+        // Development fallback
+        setAvailableTables(['orders_table', 'users_table']);
+      }
+    };
+
+    // Initial load
+    loadAvailableTables();
+
+    // Listen for schemaCache updates
+    if (typeof chrome !== 'undefined' && chrome.storage?.session?.onChanged) {
+      const handleStorageChange = (
+        changes: { [key: string]: chrome.storage.StorageChange }
+      ) => {
+        if (changes.schemaCache) {
+          console.log('[ProfilePage] schemaCache updated, reloading tables');
+          loadAvailableTables();
         }
-      });
-    } else {
-      // Development fallback
-      setAvailableTables(['orders_table', 'users_table']);
+      };
+
+      chrome.storage.session.onChanged.addListener(handleStorageChange);
+
+      // Cleanup listener on unmount
+      return () => {
+        chrome.storage.session.onChanged.removeListener(handleStorageChange);
+      };
     }
   }, []);
 

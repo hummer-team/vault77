@@ -149,6 +149,65 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     }
   };
 
+  /**
+   * Cache table schema to chrome.storage.session for User Skill Configuration
+   * @param tableName - The table name to cache schema for
+   */
+  const cacheTableSchema = async (tableName: string): Promise<void> => {
+    if (!executeQuery) {
+      console.warn('[Workbench] executeQuery not ready, cannot cache schema');
+      return;
+    }
+
+    try {
+      const schemaResult = await executeQuery(`DESCRIBE "${tableName}";`);
+      if (!schemaResult || !Array.isArray(schemaResult.data)) {
+        console.warn(`[Workbench] Invalid schema result for table: ${tableName}`);
+        return;
+      }
+
+      // Extract column names from schema result
+      const columns = schemaResult.data.map((row: any) => ({
+        name: row.column_name || row.name || '',
+      })).filter((col: { name: string }) => col.name.length > 0);
+
+      // Read existing cache
+      const result = await chrome.storage.session.get('schemaCache');
+      const existingCache = (result.schemaCache as Record<string, Array<{ name: string }>> | undefined) || {};
+
+      // Update cache with new table schema
+      const updatedCache = {
+        ...existingCache,
+        [tableName]: columns,
+      };
+
+      // Write back to session storage
+      await chrome.storage.session.set({ schemaCache: updatedCache });
+      console.log(`[Workbench] Cached schema for table: ${tableName}, columns:`, columns.map(c => c.name).join(', '));
+    } catch (error) {
+      console.error(`[Workbench] Failed to cache schema for table: ${tableName}`, error);
+    }
+  };
+
+  /**
+   * Persist attachments metadata to chrome.storage.session
+   * Note: File objects are not serializable, so we only store metadata
+   */
+  const persistAttachments = async (attachmentList: Attachment[]): Promise<void> => {
+    try {
+      const serializable = attachmentList.map(att => ({
+        id: att.id,
+        fileName: att.file?.name || 'unknown',
+        tableName: att.tableName,
+        status: att.status,
+      }));
+      await chrome.storage.session.set({ attachments: serializable });
+      console.log('[Workbench] Persisted attachments:', serializable.length);
+    } catch (error) {
+      console.error('[Workbench] Failed to persist attachments:', error);
+    }
+  };
+
   // Initialize suggestions on component mount so users see tips immediately
   useEffect(() => {
     try {
@@ -312,9 +371,18 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
       console.log('[Workbench] Loading file into DuckDB:', file.name);
       await loadFileInDuckDB(file, newAttachment.tableName);
 
-      setAttachments((prev) =>
-        prev.map((att) => (att.id === newAttachment.id ? { ...att, status: 'success' } : att))
-      );
+      setAttachments((prev) => {
+        const updated = prev.map((att) => 
+          att.id === newAttachment.id ? { ...att, status: 'success' as const } : att
+        );
+        // Persist attachments after state update
+        persistAttachments(updated);
+        return updated;
+      });
+      
+      // Cache table schema for User Skill Configuration
+      await cacheTableSchema(newAttachment.tableName);
+      
       // Load persona-specific suggestions
       const profilePersonaId = userProfile?.skills?.[0];
       const personaId = profilePersonaId || 'business_user';
@@ -339,7 +407,17 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     try {
       console.log('[Workbench] Loading sheets:', selectedSheets);
       const loadedAttachments = await loadSheetsInDuckDB(fileToLoad, selectedSheets, attachments.length);
-      setAttachments(prev => [...prev, ...loadedAttachments]);
+      setAttachments(prev => {
+        const updated = [...prev, ...loadedAttachments];
+        // Persist attachments after state update
+        persistAttachments(updated);
+        return updated;
+      });
+
+      // Cache table schema for each loaded sheet
+      for (const attachment of loadedAttachments) {
+        await cacheTableSchema(attachment.tableName);
+      }
 
       // Load persona-specific suggestions
       const profilePersonaId = userProfile?.skills?.[0];
@@ -364,6 +442,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
 
     const remainingAttachments = attachments.filter((att) => att.id !== attachmentId);
     setAttachments(remainingAttachments);
+    
+    // Persist updated attachments list
+    await persistAttachments(remainingAttachments);
 
     if (remainingAttachments.length === 0 && analysisHistory.length === 0) {
       setUiState('waitingForFile');
@@ -373,6 +454,17 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
       try {
         await dropTable(attachmentToDelete.tableName);
         console.log(`[Workbench] Dropped table: ${attachmentToDelete.tableName}`);
+        
+        // Remove table schema from cache
+        try {
+          const result = await chrome.storage.session.get('schemaCache');
+          const existingCache = (result.schemaCache as Record<string, Array<{ name: string }>> | undefined) || {};
+          const { [attachmentToDelete.tableName]: removed, ...updatedCache } = existingCache;
+          await chrome.storage.session.set({ schemaCache: updatedCache });
+          console.log(`[Workbench] Removed schema cache for table: ${attachmentToDelete.tableName}`);
+        } catch (cacheError) {
+          console.warn(`[Workbench] Failed to remove schema cache for table: ${attachmentToDelete.tableName}`, cacheError);
+        }
       } catch (error) {
         console.error(`[Workbench] Failed to drop table ${attachmentToDelete.tableName}:`, error);
       }

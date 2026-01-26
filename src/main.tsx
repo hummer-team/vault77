@@ -44,9 +44,12 @@ const App = () => {
   };
 
   const renderCurrentPage = () => {
-    switch (currentPage) {
-      case 'Workbench':
-        return (
+    // Render all pages simultaneously to preserve state (especially Workbench's DuckDB Worker)
+    // Use display: none to hide inactive pages instead of unmounting them
+    return (
+      <>
+        {/* Workbench - always mounted to preserve DuckDB Worker and data */}
+        <div style={{ display: (currentPage === 'Workbench' || currentPage === '1') ? 'contents' : 'none' }}>
           <Suspense
             fallback={
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -59,31 +62,29 @@ const App = () => {
               setIsFeedbackDrawerOpen={setIsFeedbackDrawerOpen}
             />
           </Suspense>
-        );
-      case 'SessionHistory':
-        return <SessionListPage />;
-      case 'TemplateList':
-        return <TemplateListPage />;
-      case 'Subscription':
-        return <SubscriptionPage />;
-      case 'Settings':
-        return <ProfilePage />
-      default:
-        return (
-          <Suspense
-            fallback={
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Spin tip="Loading Vaultmind..." />
-              </div>
-            }
-          >
-            <Workbench
-              isFeedbackDrawerOpen={isFeedbackDrawerOpen}
-              setIsFeedbackDrawerOpen={setIsFeedbackDrawerOpen}
-            />
-          </Suspense>
-        );
-    }
+        </div>
+
+        {/* Session History */}
+        <div style={{ display: currentPage === 'SessionHistory' ? 'contents' : 'none' }}>
+          <SessionListPage />
+        </div>
+
+        {/* Template List */}
+        <div style={{ display: currentPage === 'TemplateList' ? 'contents' : 'none' }}>
+          <TemplateListPage />
+        </div>
+
+        {/* Subscription */}
+        <div style={{ display: currentPage === 'Subscription' ? 'contents' : 'none' }}>
+          <SubscriptionPage />
+        </div>
+
+        {/* Settings */}
+        <div style={{ display: currentPage === 'Settings' ? 'contents' : 'none' }}>
+          <ProfilePage />
+        </div>
+      </>
+    );
   };
 
   return (

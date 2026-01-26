@@ -70,20 +70,42 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { userProfile } = useUserStore();
   const [userSkillConfigs, setUserSkillConfigs] = useState<Record<string, TableSkillConfig>>({});
 
-  // Load User Skill configurations
+  // Load User Skill configurations and listen for updates
   useEffect(() => {
     const loadUserSkills = async () => {
       try {
         const config = await userSkillService.loadUserSkill();
         if (config) {
           setUserSkillConfigs(config.tables);
+          console.log('[ChatPanel] User Skill configs loaded:', Object.keys(config.tables));
         }
       } catch (error) {
         console.error('[ChatPanel] Failed to load user skill configs:', error);
       }
     };
     
+    // Initial load
     loadUserSkills();
+
+    // Listen for User Skill configuration updates
+    if (typeof chrome !== 'undefined' && chrome.storage?.session?.onChanged) {
+      const handleStorageChange = (
+        changes: { [key: string]: chrome.storage.StorageChange }
+      ) => {
+        // Check if userSkillConfig has changed
+        if (changes.userSkillConfig) {
+          console.log('[ChatPanel] User Skill config updated, reloading');
+          loadUserSkills();
+        }
+      };
+
+      chrome.storage.session.onChanged.addListener(handleStorageChange);
+
+      // Cleanup listener on unmount
+      return () => {
+        chrome.storage.session.onChanged.removeListener(handleStorageChange);
+      };
+    }
   }, []);
 
   // 当 initialMessage 变化时，同步到表单输入框
@@ -130,27 +152,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Generate User Skill status text for attached tables
   const userSkillStatusText = useMemo(() => {
-    if (groupedAttachments.length === 0) return null;
+    if (attachments.length === 0) return null;
     
-    const unconfiguredTables: string[] = [];
+    const unconfiguredTables: Set<string> = new Set();
     
-    groupedAttachments.forEach(group => {
-      // Use sheet names as table names if available, otherwise use fileName
-      const tableNames = group.sheetNames.length > 0 ? group.sheetNames : [group.fileName];
-      
-      tableNames.forEach(tableName => {
-        const config = userSkillConfigs[tableName];
-        if (!config) {
-          unconfiguredTables.push(tableName);
-        }
-      });
+    attachments.forEach(att => {
+      // Use tableName (e.g., "main_table_1") to check configuration
+      const config = userSkillConfigs[att.tableName];
+      if (!config) {
+        // Show fileName for user-friendly display
+        unconfiguredTables.add(att.file.name);
+      }
     });
     
     // Only show warning for unconfigured tables
-    if (unconfiguredTables.length === 0) return null;
+    if (unconfiguredTables.size === 0) return null;
     
-    return `⚠ Not configured: ${unconfiguredTables.join(', ')}`;
-  }, [groupedAttachments, userSkillConfigs]);
+    return `⚠ Not configured: ${Array.from(unconfiguredTables).join(', ')}`;
+  }, [attachments, userSkillConfigs]);
 
   const handleFinish = (values: { message: string }) => {
     if (!values.message || !values.message.trim()) {
