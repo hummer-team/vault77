@@ -20,16 +20,16 @@ This skill pack provides domain knowledge for e-commerce data analysis. It helps
 
 When user mentions these terms, map to corresponding column names:
 
-| User Term | Common Column Names | Alternative Names |
-|-----------|---------------------|-------------------|
-| Order ID | order_id, id, order_number | 订单编号 |
-| User/Customer | user_id, customer_id, buyer_id | 用户ID, 客户ID |
-| Amount/Price | amount, price, total_amount, order_value | 金额, 价格, 订单金额 |
-| Quantity | quantity, qty, item_count | 数量 |
+| User Term | Common Column Names                           | Alternative Names |
+|-----------|-----------------------------------------------|-------------------|
+| Order ID | order_id, id, order_number,order_no           | 订单编号 |
+| User/Customer | user_id, customer_id, buyer_id                | 用户ID, 客户ID |
+| Amount/Price | amount, price, total_amount, order_value      | 金额, 价格, 订单金额 |
+| Quantity | quantity, qty, item_count                     | 数量 |
 | Time/Date | order_date, created_at, order_time, timestamp | 下单时间, 创建时间 |
-| Product | product_id, sku, item_id | 商品ID, SKU |
-| Category | category, product_category | 类别, 商品类别 |
-| Status | status, order_status, state | 状态, 订单状态 |
+| Product | product_id, sku, item_id                      | 商品ID, SKU |
+| Category | category, product_category                    | 类别, 商品类别 |
+| Status | status, order_status, state                   | 状态, 订单状态 |
 
 **Chinese Term Support**: The system fully supports Chinese column names (e.g., "订单编号", "用户ID", "下单时间").
 
