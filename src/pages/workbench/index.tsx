@@ -119,8 +119,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const [personaHint, setPersonaHint] = useState<string | null>(null);
 
   // File size limits (Chrome extension runs in constrained memory environment)
-  const MAX_SINGLE_FILE_BYTES = 200 * 1024 * 1024; // 200MB per file
-  const MAX_TOTAL_FILES_BYTES = 500 * 1024 * 1024; // 500MB total across attachments
+  const MAX_SINGLE_FILE_BYTES = 1000 * 1024 * 1024; // 200MB per file
+  const MAX_TOTAL_FILES_BYTES = 2000 * 1024 * 1024; // 500MB total across attachments
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const uploadHintTimerRef = useRef<number | null>(null);
 

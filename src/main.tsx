@@ -11,6 +11,7 @@ import SessionListPage from "./pages/session/SessionListPage.tsx";
 import TemplateListPage from "./pages/asset-center/TemplateListPage.tsx";
 import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 import ProfilePage from "./pages/settings/ProfilePage.tsx";
+import { Agentation } from "agentation";
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('1');
@@ -108,5 +109,6 @@ const App = () => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <Agentation />
   </React.StrictMode>,
 );
