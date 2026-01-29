@@ -17,13 +17,36 @@ export const relativeTimeValueSchema = z.object({
 });
 
 /**
- * Literal value schema (primitives only).
+ * SQL injection keywords blacklist for filter values.
+ */
+const SQL_INJECTION_KEYWORDS = [
+  'DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE',
+  'EXEC', 'EXECUTE', 'SCRIPT', '--', '/*', '*/', ';', 'xp_', 'sp_'
+];
+
+/**
+ * Validate string doesn't contain SQL injection patterns.
+ */
+const validateNoSqlInjection = (value: string): boolean => {
+  const upperValue = value.toUpperCase();
+  return !SQL_INJECTION_KEYWORDS.some(keyword => upperValue.includes(keyword));
+};
+
+/**
+ * Literal value schema (primitives only) with SQL injection protection.
  */
 export const literalValueSchema = z.union([
-  z.string().max(1000), // Prevent excessively long strings
+  z.string().max(1000).refine(validateNoSqlInjection, {
+    message: 'Filter value contains forbidden SQL keywords (DROP, DELETE, etc.)',
+  }),
   z.number(),
   z.boolean(),
-  z.array(z.union([z.string().max(500), z.number()])).max(1000), // Max 1000 items
+  z.array(z.union([
+    z.string().max(500).refine(validateNoSqlInjection, {
+      message: 'Filter value contains forbidden SQL keywords',
+    }),
+    z.number()
+  ])).max(1000), // Max 1000 items
 ]);
 
 /**

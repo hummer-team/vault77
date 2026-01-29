@@ -19,7 +19,8 @@ function isRelativeTimeValue(value: unknown): value is RelativeTimeValue {
 }
 
 /**
- * Compile relative time value to SQL INTERVAL expression.
+ * Compile relative time value to SQL expression using date_add().
+ * DuckDB doesn't support TIMESTAMP - INTERVAL syntax, must use date_add().
  * @param column Column name to apply time filter
  * @param value Relative time value
  * @param op Comparison operator
@@ -37,20 +38,18 @@ function compileRelativeTime(
     throw new Error(`Invalid operator "${op}" for relative time comparison`);
   }
 
-  // Build INTERVAL expression
-  const intervalExpr = `INTERVAL '${amount} ${unit}'`;
-  
   // Force CAST to TIMESTAMP to avoid DuckDB binder error with TIMESTAMPTZ
   const castColumn = `CAST(${column} AS TIMESTAMP)`;
   
-  // Build comparison based on direction
+  // Build comparison based on direction using date_add()
   if (direction === 'past') {
-    // Past: column >= CURRENT_TIMESTAMP - INTERVAL
-    // Adjust operator: >= becomes >=, > becomes >, etc.
-    return `${castColumn} >= CURRENT_TIMESTAMP - ${intervalExpr}`;
+    // Past: column >= date_add(CURRENT_TIMESTAMP, -INTERVAL 'N unit')
+    const intervalExpr = `INTERVAL '${amount} ${unit}'`;
+    return `${castColumn} >= date_add(CURRENT_TIMESTAMP, -${intervalExpr})`;
   } else {
-    // Future: column <= CURRENT_TIMESTAMP + INTERVAL
-    return `${castColumn} <= CURRENT_TIMESTAMP + ${intervalExpr}`;
+    // Future: column <= date_add(CURRENT_TIMESTAMP, INTERVAL 'N unit')
+    const intervalExpr = `INTERVAL '${amount} ${unit}'`;
+    return `${castColumn} <= date_add(CURRENT_TIMESTAMP, ${intervalExpr})`;
   }
 }
 

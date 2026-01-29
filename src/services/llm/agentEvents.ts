@@ -16,6 +16,7 @@ export type AgentErrorCategory =
   | 'TOOL_ERROR'
   | 'LLM_ERROR'
   | 'CANCELLED'
+  | 'INDUSTRY_NOT_ENABLED'  // M11.1: Industry validation error
   | 'UNKNOWN';
 
 export interface AgentBaseEvent {

@@ -33,8 +33,8 @@ const buildFallbackClarificationMessage = (): SkillResult => {
 
 const safeQuoteIdent = (name: string): string => {
   const trimmed = name.trim();
-  // Use backticks for DuckDB identifier quoting (consistent with existing code paths).
-  return '`' + trimmed.replace(/`/g, '``') + '`';
+  // Use double quotes for DuckDB identifier quoting (DuckDB doesn't support backticks).
+  return '"' + trimmed.replace(/"/g, '""') + '"';
 };
 
 const chooseFirstMatchingColumn = (schemaDigest: string, candidates: string[]): string | null => {
@@ -67,7 +67,8 @@ const buildSqlByQueryType = (tableName: string, queryType: QueryType, cols: {
   if (queryType === 'kpi_single') {
     let sql = `SELECT COUNT(*) AS total_count FROM ${tableName}`;
     if (whereClause) sql += `\n${whereClause}`;
-    return sql + `\nLIMIT ${limit}`;
+    // Aggregation queries return 1 row, no need for LIMIT
+    return sql;
   }
 
   if (queryType === 'kpi_grouped') {
@@ -81,7 +82,7 @@ const buildSqlByQueryType = (tableName: string, queryType: QueryType, cols: {
     parts.push(
       `GROUP BY ${dim}`,
       `ORDER BY total_count DESC`,
-      `LIMIT ${limit}`
+      `LIMIT ${limit}` // Keep LIMIT for grouped queries (can have many groups)
     );
     return parts.join('\n');
   }
@@ -97,7 +98,7 @@ const buildSqlByQueryType = (tableName: string, queryType: QueryType, cols: {
     parts.push(
       `GROUP BY day`,
       `ORDER BY day`,
-      `LIMIT ${limit}`
+      `LIMIT ${limit}` // Keep LIMIT for time series (can have many days)
     );
     return parts.join('\n');
   }
@@ -115,7 +116,8 @@ const buildSqlByQueryType = (tableName: string, queryType: QueryType, cols: {
       `FROM ${tableName}`,
     ];
     if (whereClause) parts.push(whereClause);
-    return parts.join('\n') + `\nLIMIT ${limit}`;
+    // Aggregation query returns 1 row, no need for LIMIT
+    return parts.join('\n');
   }
 
   if (queryType === 'topn') {
@@ -143,8 +145,14 @@ export const analysisV1Skill: SkillDefinition = {
         ? undefined 
         : ctx.runtime.llmConfig;
       
+      // Extract industry from user skill config if available
+      const industry = (ctx.activeTable && ctx.userSkillConfig?.tables?.[ctx.activeTable])
+        ? ctx.userSkillConfig.tables[ctx.activeTable].industry
+        : undefined;
+      
       const classification = await classifyQueryType(
         ctx.userInput,
+        industry, // Pass industry for domain term filtering
         llmConfigForClassification,
         ctx.schemaDigest
       );

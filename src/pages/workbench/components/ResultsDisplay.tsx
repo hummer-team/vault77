@@ -586,6 +586,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         return <ThinkingSteps steps={thinkingSteps} llmDurationMs={llmDurationMs} />;
       }
 
+      // Even without thinkingSteps, show fallback with timing
       return (
         <Collapse ghost style={{ margin: '0 -24px' }}>
           <Collapse.Panel

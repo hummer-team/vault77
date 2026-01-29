@@ -218,6 +218,7 @@ export class DuckDBService {
       const data = this._extractData(rawResult);
       const schema = this._extractSchema(rawResult, data);
       this._normalizeTimeFields(data, schema);
+      this._normalizeBigIntFields(data); // Convert BigInt to Number for JSON serialization
       console.log('[DuckDBService] Standardized query result:', { data, schema });
       return { data, schema };
     } finally {
@@ -296,6 +297,44 @@ export class DuckDBService {
           if (best) row[key] = best.toISOString();
         }
       }
+    }
+  }
+
+  /**
+   * Convert BigInt values to Number for JSON serialization.
+   * DuckDB returns BIGINT columns as BigInt, which cannot be JSON.stringify'd.
+   * This method recursively traverses data and converts all BigInt values to Number.
+   */
+  private _normalizeBigIntFields(data: any[]): void {
+    if (!data || data.length === 0) return;
+    
+    const convertBigInt = (obj: any): any => {
+      if (obj === null || obj === undefined) return obj;
+      
+      if (typeof obj === 'bigint') {
+        // Convert BigInt to Number (safe for values within Number.MAX_SAFE_INTEGER)
+        return Number(obj);
+      }
+      
+      if (Array.isArray(obj)) {
+        return obj.map(convertBigInt);
+      }
+      
+      if (typeof obj === 'object') {
+        const converted: any = {};
+        for (const key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            converted[key] = convertBigInt(obj[key]);
+          }
+        }
+        return converted;
+      }
+      
+      return obj;
+    };
+
+    for (let i = 0; i < data.length; i++) {
+      data[i] = convertBigInt(data[i]);
     }
   }
 

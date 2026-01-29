@@ -7,6 +7,7 @@
 - 主要入口/关注点文件：`src/services/llm/*`, `src/services/tools/*`, `src/workers/duckdb.worker.ts`, `src/hooks/*`, `src/pages/workbench/*`。
 
 更新日志
+- **2026-01-29**: 完成 M10.6 (Multi-Industry Refactoring & M8 Regression Fixes)，实现多行业动态支持、行业功能开关、修复 7 个回归测试问题 + 1 个 BigInt 序列化问题。
 - **2026-01-25**: 完成 M10.4 (Skill System Integration) 和 M10.5 (Transparency Enhancement)，新增 User Skill L0 配置系统、Query Router、透明度标签和设置面板。
 - **2026-01-15**: 本文档基于当前代码仓库自动生成，已阅读并引用了 repository 中的关键文件。
 

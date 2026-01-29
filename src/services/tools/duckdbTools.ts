@@ -19,6 +19,25 @@ export class CannotAnswerError extends Error {
   }
 }
 
+/**
+ * Error thrown when an industry is not enabled.
+ * Contains information about available industries for user-friendly error messages.
+ */
+export class IndustryNotEnabledError extends Error {
+  public readonly requestedIndustry: string;
+  public readonly enabledIndustries: string[];
+
+  constructor(requestedIndustry: string, enabledIndustries: string[]) {
+    super(
+      `Industry "${requestedIndustry}" is not enabled. ` +
+      `Please select an enabled industry or contact administrator to enable more industries.`
+    );
+    this.name = 'IndustryNotEnabledError';
+    this.requestedIndustry = requestedIndustry;
+    this.enabledIndustries = enabledIndustries;
+  }
+}
+
 // --- Tool Definitions ---
 
 /**

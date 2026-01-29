@@ -76,6 +76,7 @@ Rules:
 - tableScope must be either "auto" or an array of table names.
 - If columns/tables are unclear, set riskFlags to include "needs_schema_discovery".
 - If information is missing to run any query, set needClarification=true and provide 1-3 clarifyingQuestions.
+- IMPORTANT: If time range is vague (e.g., "最近一段时间", "近期", "一段时间", "recently"), set needClarification=true and ask for specific time range.
 
 Return schema:
 {

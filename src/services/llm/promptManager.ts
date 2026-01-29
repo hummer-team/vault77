@@ -1,4 +1,6 @@
-import { ecommercePrompts } from '../../prompts/ecommerce'; // Direct import for simplicity
+import { ecommercePrompts } from '../../prompts/ecommerce';
+import { financePrompts } from '../../prompts/finance';
+import { retailPrompts } from '../../prompts/retail';
 import { Attachment } from '../../types/workbench.types';
 import { UserPersona } from '../../types/persona';
 import { getPersonaSuggestions } from '../../config/personaSuggestions';
@@ -16,7 +18,8 @@ interface PromptTemplate {
 // A record to hold different prompt sets by role
 const promptSets: Record<string, PromptTemplate> = {
   ecommerce: ecommercePrompts,
-  // finance: financePrompts, // Future extension
+  finance: financePrompts,
+  retail: retailPrompts,
 };
 
 export class PromptManager {
@@ -64,9 +67,14 @@ export class PromptManager {
     userSkillConfig?: UserSkillConfig,
     activeTable?: string
   ): Promise<string> {
-    const prompts = promptSets[role.toLowerCase()];
+    let prompts = promptSets[role.toLowerCase()];
     if (!prompts) {
-      throw new Error(`Prompt set for role "${role}" not found.`);
+      // Fallback to ecommerce if role not found
+      console.warn(`[PromptManager] Prompt set for role "${role}" not found. Falling back to ecommerce.`);
+      prompts = promptSets['ecommerce'];
+      if (!prompts) {
+        throw new Error(`Prompt set for role "ecommerce" (fallback) not found.`);
+      }
     }
 
     // Step 3: Load System Skill Pack if industry is provided

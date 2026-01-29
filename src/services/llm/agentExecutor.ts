@@ -1,5 +1,5 @@
 import { PromptManager } from './promptManager.ts';
-import { tools, toolSchemas, MissingColumnError } from '../tools/duckdbTools.ts';
+import { tools, toolSchemas, MissingColumnError, IndustryNotEnabledError } from '../tools/duckdbTools.ts';
 import { LlmClient, LLMConfig } from './llmClient.ts';
 import { Attachment } from '../../types/workbench.types';
 import OpenAI from 'openai';
@@ -8,6 +8,7 @@ import { emitAgentEvent } from './agentEvents.ts';
 import { rewriteQuery } from './rewrite.ts';
 import { discoverSchema, formatSchemaDigest } from './schemaDiscovery.ts';
 import { debugSqlOnce } from './sqlDebug.ts';
+import { isIndustryEnabled, getEnabledIndustries } from '../flags/featureFlags';
 
 // Define the expected return type for executeQuery
 export type QueryResult = { data: unknown[]; schema: unknown[] };
@@ -203,6 +204,41 @@ export class AgentExecutor {
     let queryDurationMs: number | undefined;
 
     try {
+      // ===== INDUSTRY VALIDATION (M11.1) =====
+      // Validate industry is enabled before proceeding
+      const industry = options?.industry || 'ecommerce';
+      
+      if (!isIndustryEnabled(industry)) {
+        const enabledIndustries = getEnabledIndustries();
+        const error = new IndustryNotEnabledError(industry, enabledIndustries);
+        
+        console.warn(`[AgentExecutor] Industry validation failed: ${error.message}`);
+        
+        emitAgentEvent({
+          type: 'agent.error',
+          runId,
+          sessionId,
+          ts: Date.now(),
+          errorCategory: 'INDUSTRY_NOT_ENABLED',
+          errorMessage: error.message,
+        });
+        
+        emitAgentEvent({
+          type: 'agent.run.end',
+          runId,
+          sessionId,
+          ts: Date.now(),
+          ok: false,
+          stopReason: 'POLICY_DENIED',
+          errorCategory: 'INDUSTRY_NOT_ENABLED',
+          errorMessage: error.message,
+        });
+        
+        throw error;
+      }
+      
+      console.log(`[AgentExecutor] Industry validation passed: ${industry}`);
+      
       const allTableSchemas = await this._getAllTableSchemas();
       if (!allTableSchemas) {
         throw new Error('Could not retrieve any table schemas.');
@@ -258,9 +294,12 @@ export class AgentExecutor {
       const personaId = options?.persona || 'business_user';
       const persona = getPersonaById(personaId);
 
-      const role = 'ecommerce';
+      // Use validated industry (already checked above)
+      const role = industry;
+      console.log(`[AgentExecutor] Using validated role/industry: ${role}`);
+      
       const userPromptTemplate = await this.promptManager.getToolSelectionPrompt(
-        role,
+        industry,
         userInput,
         effectiveSchemaString,
         this.attachments,

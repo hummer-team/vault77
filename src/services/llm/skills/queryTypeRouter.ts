@@ -1,5 +1,9 @@
 /**
- * Query Type Router (M10.4 Phase 1)
+ * Query Type Router & Skill Resolver (M10.4 Phase 1)
+ * 
+ * Unified routing system with two layers:
+ * 1. Skill Layer: Route to appropriate skill (nl2sql.v1 or analysis.v1)
+ * 2. Query Type Layer: Classify query into specific types for SQL generation
  * 
  * Mixed strategy: keyword matching (fast, 70%+ coverage) + LLM classification (fallback)
  * 
@@ -11,21 +15,24 @@
 
 import type { LLMConfig } from '../llmClient';
 import { LlmClient } from '../llmClient';
+import { getFeatureFlags } from '../../flags/featureFlags';
+import type { SkillContext, SkillDefinition } from './types';
+import { getSkill } from './registry';
 
 export type QueryType =
-  | 'kpi_single'        // 统计单值：总数、平均数
-  | 'kpi_grouped'       // 分组统计：按维度聚合
-  | 'trend_time'        // 时间趋势：按天/周/月
-  | 'distribution'      // 分布占比
-  | 'topn'              // 排名/Top N
-  | 'comparison'        // 对比差异
-  | 'unknown';          // 无法分类
+  | 'kpi_single'        // Single value statistics: total count, average
+  | 'kpi_grouped'       // Grouped aggregation: group by dimension
+  | 'trend_time'        // Time series trend: daily/weekly/monthly
+  | 'distribution'      // Distribution and percentage
+  | 'topn'              // Ranking / Top N
+  | 'comparison'        // Comparison analysis
+  | 'unknown';          // Unable to classify
 
 export interface QueryTypeClassification {
   queryType: QueryType;
   confidence: number; // 0..1
-  matchedKeywords: string[]; // 命中的关键词
-  method: 'keyword' | 'llm'; // 分类方法
+  matchedKeywords: string[]; // Matched keywords
+  method: 'keyword' | 'llm'; // Classification method
 }
 
 /**
@@ -33,37 +40,37 @@ export interface QueryTypeClassification {
  * Each rule contains primary keywords (strong signal) and secondary keywords (weak signal).
  */
 const KEYWORD_RULES: Record<string, { primary: string[]; secondary: string[] }> = {
-  // 统计类
+  // Single value statistics
   kpi_single: {
     primary: ['总共', '总数', '总计', '一共', '多少个', '有几个', '数量', 'count', 'total', '统计'],
     secondary: ['平均', '均值', 'average', 'avg', 'mean']
   },
 
-  // 分组聚合
+  // Grouped aggregation
   kpi_grouped: {
     primary: ['按照', '按', '分组', '每个', '各个', 'group by', 'by', '各'],
     secondary: ['统计', '计算', '汇总', 'sum', '平均', '数量']
   },
 
-  // 时间趋势
+  // Time series trend
   trend_time: {
     primary: ['趋势', '走势', '变化', '增长', '下降', 'trend', '按天', '按周', '按月', '按年', 'daily', 'monthly'],
     secondary: ['时间', '日期', '历史', 'time', 'date', 'over time']
   },
 
-  // 分布占比
+  // Distribution and percentage
   distribution: {
     primary: ['分布', '占比', '比例', '百分比', 'distribution', 'percentage', 'proportion', '构成'],
     secondary: ['各', '每个', '不同']
   },
 
-  // TopN 排名
+  // TopN ranking
   topn: {
     primary: ['排名', '排行', '前', 'top', 'top n', '最多', '最少', '最高', '最低', 'highest', 'lowest'],
     secondary: ['前n', '前十', '前5', 'top 10', 'top 5']
   },
 
-  // 对比分析
+  // Comparison analysis
   comparison: {
     primary: ['对比', '比较', '差异', 'compare', 'vs', 'versus', '相比', '比'],
     secondary: ['和', '与', 'and', 'between']
@@ -71,26 +78,58 @@ const KEYWORD_RULES: Record<string, { primary: string[]; secondary: string[] }> 
 };
 
 /**
- * Domain-specific terms that boost confidence.
+ * Domain-specific terms grouped by industry.
  * When detected alongside query type keywords, confidence increases to 1.0.
  */
-const DOMAIN_TERMS = [
-  // E-commerce
-  '订单', '用户', '商品', '销售额', 'GMV', '客单价', '转化率', '复购',
-  'order', 'user', 'product', 'sales', 'revenue', 'conversion',
-  // Finance
-  '交易', '金额', '收入', '支出', '余额', '利润', 'transaction', 'amount', 'profit',
-  // General
-  '数据', '记录', '条数', 'data', 'record', 'count'
-];
+const DOMAIN_TERMS_BY_INDUSTRY: Record<string, string[]> = {
+  ecommerce: [
+    '订单', '用户', '商品', '销售额', 'GMV', '客单价', '转化率', '复购',
+    'order', 'user', 'product', 'sales', 'revenue', 'conversion', 'repurchase'
+  ],
+  finance: [
+    '交易', '金额', '收入', '支出', '余额', '利润', '手续费', '流水',
+    'transaction', 'amount', 'profit', 'balance', 'fee', 'flow'
+  ],
+  retail: [
+    '销售', '库存', '门店', '客流', '坪效', '动销率', 'SKU', '周转',
+    'sales', 'inventory', 'store', 'traffic', 'turnover', 'sku'
+  ],
+  general: [
+    '数据', '记录', '条数', '统计', 'data', 'record', 'count', 'total'
+  ]
+};
+
+/**
+ * Keywords that indicate the need for analysis.v1 skill (advanced analytics).
+ * Used for skill-level routing.
+ */
+const ANALYSIS_KEYWORDS = /统计|趋势|分布|对比|top\s*\d|Top\s*\d|group by|median|stddev/i;
+
+/**
+ * Get combined domain terms for an industry (industry-specific + general).
+ * @param industry Industry identifier (optional)
+ * @returns Array of domain terms
+ */
+function getDomainTerms(industry?: string): string[] {
+  if (!industry || !DOMAIN_TERMS_BY_INDUSTRY[industry]) {
+    // If no industry specified, return all terms
+    return Object.values(DOMAIN_TERMS_BY_INDUSTRY).flat();
+  }
+  // Return industry-specific + general terms
+  return [
+    ...DOMAIN_TERMS_BY_INDUSTRY[industry],
+    ...DOMAIN_TERMS_BY_INDUSTRY.general
+  ];
+}
 
 /**
  * Classify query by keywords (Phase 1: fast path).
  * 
  * @param userInput User's natural language query
+ * @param industry Optional industry identifier to filter domain terms
  * @returns Classification result with confidence
  */
-export function classifyByKeywords(userInput: string): QueryTypeClassification {
+export function classifyByKeywords(userInput: string, industry?: string): QueryTypeClassification {
   const lowerInput = userInput.toLowerCase();
   
   // Track matches for each query type
@@ -125,8 +164,8 @@ export function classifyByKeywords(userInput: string): QueryTypeClassification {
     // Scoring: primary keywords worth 2 points, secondary worth 1 point
     let score = match.primary * 2 + match.secondary * 1;
     
-    // Special handling: if kpi_grouped has strong grouping keywords ("按", "分组", "group by"), boost priority
-    // But only when there's also a secondary keyword (like "统计")
+    // Special handling: if kpi_grouped has strong grouping keywords, boost priority
+    // Only when there's also a secondary keyword
     if (queryType === 'kpi_grouped' && match.primary > 0 && match.secondary > 0) {
       score += 0.5; // Small boost to win over kpi_single when both match
     }
@@ -152,7 +191,8 @@ export function classifyByKeywords(userInput: string): QueryTypeClassification {
   }
   
   // Check for domain terms (boost confidence)
-  const hasDomainTerm = DOMAIN_TERMS.some(term => 
+  const domainTerms = getDomainTerms(industry);
+  const hasDomainTerm = domainTerms.some(term => 
     lowerInput.includes(term.toLowerCase())
   );
   
@@ -161,7 +201,7 @@ export function classifyByKeywords(userInput: string): QueryTypeClassification {
     confidence = hasDomainTerm ? 1.0 : 0.9;
   } else if (bestScore >= 2) {
     // Multiple weak signals
-    confidence = 0.75; // Lower than 0.8 to satisfy test
+    confidence = 0.75;
   } else {
     // Single keyword match
     confidence = 0.6;
@@ -256,18 +296,20 @@ Return JSON only.`;
 /**
  * Main router: hybrid strategy (keyword + LLM fallback).
  * 
- * @param llmConfig LLM configuration (optional, only used if confidence < 0.7)
  * @param userInput User's natural language query
+ * @param industry Optional industry identifier for domain term filtering
+ * @param llmConfig LLM configuration (optional, only used if confidence < 0.7)
  * @param schemaDigest Schema information (optional, for LLM fallback)
  * @returns Classification result
  */
 export async function classifyQueryType(
   userInput: string,
+  industry?: string,
   llmConfig?: LLMConfig,
   schemaDigest?: string
 ): Promise<QueryTypeClassification> {
   // Phase 1: Fast keyword matching
-  const keywordResult = classifyByKeywords(userInput);
+  const keywordResult = classifyByKeywords(userInput, industry);
   
   console.log('[QueryTypeRouter] Keyword result:', keywordResult);
   
@@ -294,3 +336,41 @@ export async function classifyQueryType(
   
   return keywordResult;
 }
+
+// ============================================================================
+// Skill-Level Router (Layer 1)
+// ============================================================================
+
+/**
+ * Resolve skill ID based on query context.
+ * 
+ * Strategy: analysis.v1 is an orchestrator which can fall back to nl2sql.
+ * Therefore, routing only decides whether to wrap with analysis.v1.
+ * 
+ * @param ctx Skill context with user input and runtime config
+ * @returns Skill ID ('nl2sql.v1' or 'analysis.v1')
+ */
+export const resolveSkillId = (ctx: SkillContext): string => {
+  const flags = getFeatureFlags();
+  if (!flags.enableSkillRouter) return 'nl2sql.v1';
+
+  if (flags.enableAnalysisSkillV1) {
+    // Prefer analysis.v1 for common analytics expressions
+    if (ANALYSIS_KEYWORDS.test(ctx.userInput)) {
+      return 'analysis.v1';
+    }
+  }
+  return 'nl2sql.v1';
+};
+
+/**
+ * Resolve skill definition based on query context.
+ * 
+ * @param ctx Skill context with user input and runtime config
+ * @returns Skill definition or null if not found
+ */
+export const resolveSkill = (ctx: SkillContext): SkillDefinition | null => {
+  const id = resolveSkillId(ctx);
+  const skill = getSkill(id);
+  return skill ?? null;
+};
