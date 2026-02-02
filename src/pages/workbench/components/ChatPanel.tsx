@@ -6,7 +6,7 @@ import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
 import { getPersonaById } from '../../../config/personas';
 import { useUserStore } from '../../../status/appStatusManager.ts';
-import { userSkillService } from '../../../services/userSkill/userSkillService';
+import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
 
 interface ChatPanelProps {

@@ -7,11 +7,18 @@ import * as duckdb from '@duckdb/duckdb-wasm';
 const duckDBService = DuckDBService.getInstance();
 let createdCoreWorker: Worker | null = null; // track core worker created during init so we can terminate on shutdown
 
+// File registration cache to avoid duplicate registrations
+const registeredFiles = new Set<string>();
+
+// Configuration: Switch between buffer and handle modes for testing
+const USE_FILE_HANDLE = true; // Set to false to use buffer mode
+
 
 // resolveURL is no longer needed here as bundle URLs should now be absolute.
 
 self.onmessage = async (event: MessageEvent) => {
-  const { type, id, resources, sql, tableName, buffer, file, fileName, sheetName } = event.data; // Added file and adjusted
+  const { type, id, resources, sql, tableName, fileName, sheetName } = event.data;
+  let { buffer, file } = event.data;  // Use 'let' to allow buffer reassignment
 
   try {
     let result: any;
@@ -74,53 +81,51 @@ self.onmessage = async (event: MessageEvent) => {
         break;
       }
 
-      case 'DUCKDB_REGISTER_FILE': {
-        if (!fileName || !buffer) {
-          throw new Error('Missing fileName or buffer for DUCKDB_REGISTER_FILE');
-        }
-        console.log(`[DB Worker] Received DUCKDB_REGISTER_FILE for '${fileName}'`);
-        await duckDBService.registerFileBuffer(fileName, new Uint8Array(buffer));
-        result = true;
-        break;
-      }
-
-      case 'CREATE_TABLE_FROM_FILE': {
-        if (!tableName || !fileName) {
-          throw new Error('Missing tableName or fileName for CREATE_TABLE_FROM_FILE');
-        }
-        if (!buffer) {
-          throw new Error('Missing buffer for CREATE_TABLE_FROM_FILE');
-        }
-        const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
-        console.log(`[DB Worker] Received CREATE_TABLE_FROM_FILE for '${fileName}' into '${tableName}', bytes=${u8.byteLength}`);
-        await duckDBService.createTableFromFile(tableName, fileName, u8, sheetName);
-        result = true;
-        break;
-      }
 
       case 'LOAD_FILE': {
-        if (!tableName) {
-          throw new Error('Missing tableName for LOAD_FILE');
+        if (!tableName || !fileName) {
+          throw new Error('Missing required parameters for LOAD_FILE');
         }
-
-        // Preferred path: receive raw bytes directly
-        if (buffer && fileName) {
-          const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
-          console.log(`[DB Worker] Received LOAD_FILE for '${fileName}' into table '${tableName}', bytes=${u8.byteLength}`);
-          await duckDBService.createTableFromFile(tableName, fileName, u8, sheetName);
-          result = true;
-          break;
+        
+        console.log(`[DB Worker] Received LOAD_FILE for '${fileName}' into table '${tableName}'`);
+        
+        // Step 1: Register file (only once per fileName)
+        if (!registeredFiles.has(fileName)) {
+          const startTime = performance.now();
+          const fileObj = file as File | undefined;
+          
+          if (USE_FILE_HANDLE && fileObj) {
+            console.log(`[DB Worker] Registering '${fileName}' via File handle (mode: handle)`);
+            await duckDBService.registerFileHandle(fileName, fileObj);
+          } else {
+            // Fallback: read buffer from file if not provided
+            if (!buffer) {
+              if (!fileObj) {
+                throw new Error('Either buffer or file object is required for LOAD_FILE');
+              }
+              console.log(`[DB Worker] Reading file '${fileName}' into buffer...`);
+              const arrayBuffer = await fileObj.arrayBuffer();
+              buffer = new Uint8Array(arrayBuffer);
+            }
+            
+            const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
+            console.log(`[DB Worker] Registering '${fileName}' via buffer (mode: buffer), bytes=${u8.byteLength}`);
+            await duckDBService.registerFileBuffer(fileName, u8);
+          }
+          
+          const duration = performance.now() - startTime;
+          console.log(`[DB Worker] File '${fileName}' registered in ${duration.toFixed(2)}ms`);
+          registeredFiles.add(fileName);
+        } else {
+          console.log(`[DB Worker] File '${fileName}' already registered, skipping registration.`);
         }
-
-        // Backward compatible path: receive File object
-        if (!file) {
-          throw new Error('Missing file buffer or file object for LOAD_FILE');
-        }
-        const fileBuffer = await (file as File).arrayBuffer();
-        const fileUint8Array = new Uint8Array(fileBuffer);
-
-        console.log(`[DB Worker] Received LOAD_FILE for '${(file as File).name}' into table '${tableName}', bytes=${fileUint8Array.byteLength}`);
-        await duckDBService.createTableFromFile(tableName, (file as File).name, fileUint8Array, sheetName);
+        
+        // Step 2: Create table from registered file
+        const tableStartTime = performance.now();
+        await duckDBService.createTableFromFile(tableName, fileName, sheetName);
+        const tableDuration = performance.now() - tableStartTime;
+        console.log(`[DB Worker] Table '${tableName}' created in ${tableDuration.toFixed(2)}ms`);
+        
         result = true;
         break;
       }

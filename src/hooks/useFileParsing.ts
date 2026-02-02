@@ -111,30 +111,17 @@ export const useFileParsing = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
     return sheetNames;
   }, []);
 
-  const registerFileWithWorker = useCallback(
-    async (file: File): Promise<void> => {
-      const buffer = await file.arrayBuffer();
-      await sendMessageToSandbox<void>(
-        { type: 'DUCKDB_REGISTER_FILE', fileName: file.name, buffer: new Uint8Array(buffer) },
-        [buffer]
-      );
-    },
-    [sendMessageToSandbox]
-  );
-
   const loadFileInDuckDB = useCallback(
     async (file: File, tableName: string, sheetName?: string): Promise<void> => {
-      const ab = await file.arrayBuffer();
-      const u8 = new Uint8Array(ab);
+      // Only pass File object, Worker will read buffer if needed
       await sendMessageToSandbox<void>(
         {
           type: 'LOAD_FILE',
           fileName: file.name,
-          buffer: u8,
           tableName,
           sheetName,
-        },
-        [u8.buffer]
+          file: file
+        }
       );
     },
     [sendMessageToSandbox]
@@ -168,5 +155,5 @@ export const useFileParsing = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
     [loadFileInDuckDB]
   );
 
-  return {loadFileInDuckDB, loadSheetsInDuckDB, getSheetNamesFromExcel, registerFileWithWorker, isSandboxReady};
+  return {loadFileInDuckDB, loadSheetsInDuckDB, getSheetNamesFromExcel, isSandboxReady};
 };

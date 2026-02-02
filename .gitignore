@@ -3,7 +3,7 @@
 dist
 node_modules
 design/_.md
-_2.md
+rule.md
 .env
 .aiassistant
 .github

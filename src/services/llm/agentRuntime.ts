@@ -11,7 +11,7 @@ import type { Attachment } from '../../types/workbench.types';
 import type { ExecuteQueryFunc } from './agentExecutor.ts';
 import { ensureSkillsRegistered } from './skills/index.ts';
 import { resolveSkill } from './skills/queryTypeRouter.ts';
-import { userSkillService } from '../userSkill/userSkillService';
+import { userSkillService } from '../user-skill/userSkillService';
 
 export type AgentStopReason =
   | 'SUCCESS'

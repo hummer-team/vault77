@@ -26,7 +26,7 @@ import { UserOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-d
 import { settingsService, LLMProviderConfig, LlmConfigConflictError } from '../../services/settingsService.ts';
 import { useUserStore } from '../../status/appStatusManager.ts';
 import { personaRegistry } from '../../config/personas';
-import { userSkillService } from '../../services/userSkill/userSkillService.ts';
+import { userSkillService } from '../../services/user-skill/userSkillService.ts';
 import type { UserSkillConfig, TableSkillConfig, FieldMapping, FilterExpr, RelativeTimeValue, LiteralValue, MetricDefinition } from '../../services/llm/skills/types.ts';
 import './ProfilePage.css';
 

@@ -1,4 +1,5 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 
 const ARROW_IPC_STREAM_EOS = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]);
 
@@ -97,20 +98,63 @@ export class DuckDBService {
   public async registerFileBuffer(fileName: string, buffer: Uint8Array): Promise<void> {
     if (!this.db) throw new Error('DuckDB not initialized.');
     console.log(`[DuckDBService] Registering file '${fileName}' with buffer size: ${buffer.byteLength}`);
-    // IMPORTANT:
-    // DuckDB's registerFileBuffer may take ownership of the underlying ArrayBuffer in some runtimes.
-    // To keep the caller's `buffer` safe for subsequent parsing (e.g., JSZip -> Excel -> Arrow pipeline),
-    // always pass a copy into DuckDB.
-    const copy = buffer.slice();
-    await this.db.registerFileBuffer(fileName, copy);
-    console.log(`[DuckDBService] File '${fileName}' registered successfully.`);
+    
+    // Register buffer directly with DuckDB
+    // Note: Buffer ownership may be transferred to DuckDB, but this is safe because:
+    // 1. Buffer was already transferred from main thread via Worker postMessage (Transferable)
+    // 2. No subsequent code in Worker needs to access this buffer after registration
+    await this.db.registerFileBuffer(fileName, buffer);
+    
+    console.log(`[DuckDBService] File '${fileName}' registered successfully via buffer.`);
   }
 
-  public async createTableFromFile(tableName: string, fileName: string, fileBuffer?: Uint8Array, sheetName?: string): Promise<void> {
+  /**
+   * Register a file using File object for streaming access (zero-copy when possible).
+   * Falls back to registerFileBuffer if file handle registration fails.
+   * @param fileName - Logical file name in DuckDB virtual filesystem
+   * @param file - Browser File object from input[type=file] or drag-and-drop
+   */
+  public async registerFileHandle(fileName: string, file: File): Promise<void> {
+    if (!this.db) throw new Error('DuckDB not initialized.');
+    
+    try {
+      console.log(`[DuckDBService] Attempting to register file '${fileName}' via File handle (size: ${file.size} bytes)`);
+      
+      // Use BROWSER_FILEREADER protocol for File objects
+      // directIO=false for better compatibility with Chrome Extension environment
+      await this.db.registerFileHandle(fileName, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
+      
+      console.log(`[DuckDBService] File '${fileName}' registered successfully via File handle.`);
+    } catch (error) {
+      console.warn(
+        `[DuckDBService] Failed to register file '${fileName}' via File handle, falling back to buffer strategy.`,
+        error
+      );
+      
+      // Fallback: read file into buffer and use buffer-based registration
+      console.log(`[DuckDBService] Reading file '${fileName}' into buffer for fallback registration...`);
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = new Uint8Array(arrayBuffer);
+      
+      await this.registerFileBuffer(fileName, buffer);
+    }
+  }
+
+  /**
+   * Create a DuckDB table from a file.
+   * NOTE: File must be registered beforehand via registerFileBuffer or registerFileHandle.
+   * @param tableName - Name of the table to create
+   * @param fileName - Logical file name (must have valid extension: .csv, .xlsx, .parquet)
+   * @param sheetName - Optional sheet name for Excel files
+   */
+  public async createTableFromFile(
+    tableName: string,
+    fileName: string,
+    sheetName?: string
+  ): Promise<void> {
     if (!this.db) throw new Error('DuckDB not initialized.');
     if (!fileName) throw new Error('fileName is required.');
     if (!tableName) throw new Error('tableName is required.');
-    if (!fileBuffer) throw new Error('File buffer is required for loading.');
 
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     if (!fileExtension) throw new Error(`Unable to infer file extension from fileName: ${fileName}`);
@@ -122,9 +166,6 @@ export class DuckDBService {
     const dtime = Date.now();
 
     try {
-      // Register file buffer so duckdb file readers can access it by file name.
-      await this.registerFileBuffer(fileName, fileBuffer);
-
       if (fileExtension === 'xlsx') {
         await this._createTableFromXlsx(c, safeTableName, safeFileName, fileName, sheetName, dtime);
         return;
