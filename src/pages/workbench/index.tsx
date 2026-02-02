@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { theme, Spin, App, Typography, Tag, Space, Drawer } from 'antd';
-import { v4 as uuidv4 } from 'uuid';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
 import { SheetSelector } from './components/SheetSelector';
 import { LLMConfig } from '../../services/llm/llmClient.ts';
 import Sandbox from '../../components/layout/Sandbox';
 import { useDuckDB } from '../../hooks/useDuckDB';
-import { useFileParsing } from '../../hooks/useFileParsing';
+import { useFileManager } from '../../hooks/useFileManager';
+import { useTableSchema } from '../../hooks/useTableSchema';
 import { WorkbenchState, Attachment } from '../../types/workbench.types';
 import { settingsService } from '../../services/settingsService.ts';
 import { resolveActiveLlmConfig, isValidLlmConfig } from '../../services/llm/runtimeLlmConfig.ts';
@@ -101,7 +101,6 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const { initializeDuckDB, executeQuery, isDBReady, dropTable } = useDuckDB(iframeRef);
-  const { loadFileInDuckDB, loadSheetsInDuckDB, getSheetNamesFromExcel, isSandboxReady } = useFileParsing(iframeRef);
 
   const { userProfile } = useUserStore();
 
@@ -149,45 +148,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     }
   };
 
-  /**
-   * Cache table schema to chrome.storage.session for User Skill Configuration
-   * @param tableName - The table name to cache schema for
-   */
-  const cacheTableSchema = async (tableName: string): Promise<void> => {
-    if (!executeQuery) {
-      console.warn('[Workbench] executeQuery not ready, cannot cache schema');
-      return;
-    }
-
-    try {
-      const schemaResult = await executeQuery(`DESCRIBE "${tableName}";`);
-      if (!schemaResult || !Array.isArray(schemaResult.data)) {
-        console.warn(`[Workbench] Invalid schema result for table: ${tableName}`);
-        return;
-      }
-
-      // Extract column names from schema result
-      const columns = schemaResult.data.map((row: any) => ({
-        name: row.column_name || row.name || '',
-      })).filter((col: { name: string }) => col.name.length > 0);
-
-      // Read existing cache
-      const result = await chrome.storage.session.get('schemaCache');
-      const existingCache = (result.schemaCache as Record<string, Array<{ name: string }>> | undefined) || {};
-
-      // Update cache with new table schema
-      const updatedCache = {
-        ...existingCache,
-        [tableName]: columns,
-      };
-
-      // Write back to session storage
-      await chrome.storage.session.set({ schemaCache: updatedCache });
-      console.log(`[Workbench] Cached schema for table: ${tableName}, columns:`, columns.map(c => c.name).join(', '));
-    } catch (error) {
-      console.error(`[Workbench] Failed to cache schema for table: ${tableName}`, error);
-    }
-  };
+  // Table schema caching hook
+  const { cacheTableSchema, removeTableSchemaFromCache } = useTableSchema({ executeQuery });
 
   /**
    * Persist attachments metadata to chrome.storage.session
@@ -225,6 +187,33 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   // State for multi-sheet handling
   const [sheetsToSelect, setSheetsToSelect] = useState<string[] | null>(null);
   const [fileToLoad, setFileToLoad] = useState<File | null>(null);
+
+  // File manager hook (combines parsing + upload business logic)
+  const {
+    isSandboxReady,
+    handleFileUpload,
+    handleLoadSheets: handleLoadSheetsBase,
+    handleDeleteAttachment,
+  } = useFileManager({
+    iframeRef,
+    attachments,
+    setAttachments,
+    userProfile,
+    setUiState: (state: string) => setUiState(state as WorkbenchState),
+    setChatError,
+    setFileToLoad,
+    setSheetsToSelect,
+    setSuggestions,
+    dropTable: async (tableName: string) => { await dropTable(tableName); },
+    cacheTableSchema,
+    removeTableSchemaFromCache,
+    persistAttachments,
+    showUploadHint,
+    MAX_FILES,
+    MAX_SINGLE_FILE_BYTES,
+    MAX_TOTAL_FILES_BYTES,
+    analysisHistory,
+  });
 
   const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => ({
     provider: import.meta.env.VITE_LLM_PROVIDER as any,
@@ -324,151 +313,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     };
   }, []);
 
-  const handleFileUpload = async (file: File) => {
-    if (attachments.length >= MAX_FILES) {
-      setChatError(`You can only upload a maximum of ${MAX_FILES} file(s).`);
-      return false;
-    }
-
-    // Size guardrails
-    const currentTotalBytes = attachments.reduce((sum, a) => sum + (a.file?.size ?? 0), 0);
-    const nextTotalBytes = currentTotalBytes + (file.size ?? 0);
-
-    if (file.size > MAX_SINGLE_FILE_BYTES) {
-      showUploadHint('That file is a bit large for the browser. Please upload a smaller one (≤ 200MB).');
-      return false;
-    }
-
-    if (nextTotalBytes > MAX_TOTAL_FILES_BYTES) {
-      showUploadHint('Total uploads are getting heavy. Please remove a file or upload a smaller one (≤ 500MB total).');
-      return false;
-    }
-
-    setChatError(null);
-    setUiState('parsing');
-
-    try {
-      // Check for multiple sheets only for excel files
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        const sheetNames = await getSheetNamesFromExcel(file);
-        if (sheetNames.length > 1) {
-          setFileToLoad(file);
-          setSheetsToSelect(sheetNames);
-          setUiState('selectingSheet');
-          return false; // Stop standard flow
-        }
-      }
-
-      // Standard flow for single-sheet files (or non-excel files)
-      const newAttachment: Attachment = {
-        id: uuidv4(),
-        file,
-        tableName: `main_table_${attachments.length + 1}`,
-        status: 'uploading',
-      };
-      setAttachments((prev) => [...prev, newAttachment]);
-      console.log('[Workbench] Loading file into DuckDB:', file.name);
-      await loadFileInDuckDB(file, newAttachment.tableName);
-
-      setAttachments((prev) => {
-        const updated = prev.map((att) => 
-          att.id === newAttachment.id ? { ...att, status: 'success' as const } : att
-        );
-        // Persist attachments after state update
-        persistAttachments(updated);
-        return updated;
-      });
-      
-      // Cache table schema for User Skill Configuration
-      await cacheTableSchema(newAttachment.tableName);
-      
-      // Load persona-specific suggestions
-      const profilePersonaId = userProfile?.skills?.[0];
-      const personaId = profilePersonaId || 'business_user';
-      const loadedSuggestions = getPersonaSuggestions(personaId);
-      setSuggestions(loadedSuggestions);
-      setUiState('fileLoaded');
-
-    } catch (error: any) {
-      console.error(`[Workbench] Error during file upload process:`, error);
-      setUiState('error');
-      setChatError(`Failed to load file: ${error.message}`);
-    }
-    return false;
-  };
-
+  // Wrapper for handleLoadSheets to match existing signature
   const handleLoadSheets = async (selectedSheets: string[]) => {
-    if (!fileToLoad) return;
-
-    // 这里不立刻把 sheetsToSelect 置空，让 SheetSelector 还留在页面上显示 loading
-    setUiState('parsing');
-
-    try {
-      console.log('[Workbench] Loading sheets:', selectedSheets);
-      const loadedAttachments = await loadSheetsInDuckDB(fileToLoad, selectedSheets, attachments.length);
-      setAttachments(prev => {
-        const updated = [...prev, ...loadedAttachments];
-        // Persist attachments after state update
-        persistAttachments(updated);
-        return updated;
-      });
-
-      // Cache table schema for each loaded sheet
-      for (const attachment of loadedAttachments) {
-        await cacheTableSchema(attachment.tableName);
-      }
-
-      // Load persona-specific suggestions
-      const profilePersonaId = userProfile?.skills?.[0];
-      const personaId = profilePersonaId || 'business_user';
-      const loadedSuggestions = getPersonaSuggestions(personaId);
-      setSuggestions(loadedSuggestions);
-      setSheetsToSelect(null);
-      setFileToLoad(null);
-      setUiState('fileLoaded');
-    } catch (error: any) {
-      console.error(`[Workbench] Error loading sheets:`, error);
-      setUiState('error');
-      setChatError(`Failed to load sheets`);
-      setSheetsToSelect(null);
-      setFileToLoad(null);
-    }
-  };
-
-  const handleDeleteAttachment = async (attachmentId: string) => {
-    const attachmentToDelete = attachments.find((att) => att.id === attachmentId);
-    if (!attachmentToDelete) return;
-
-    const remainingAttachments = attachments.filter((att) => att.id !== attachmentId);
-    setAttachments(remainingAttachments);
-    
-    // Persist updated attachments list
-    await persistAttachments(remainingAttachments);
-
-    if (remainingAttachments.length === 0 && analysisHistory.length === 0) {
-      setUiState('waitingForFile');
-    }
-
-    if (attachmentToDelete.status === 'success') {
-      try {
-        await dropTable(attachmentToDelete.tableName);
-        console.log(`[Workbench] Dropped table: ${attachmentToDelete.tableName}`);
-        
-        // Remove table schema from cache
-        try {
-          const result = await chrome.storage.session.get('schemaCache');
-          const existingCache = (result.schemaCache as Record<string, Array<{ name: string }>> | undefined) || {};
-          const { [attachmentToDelete.tableName]: removed, ...updatedCache } = existingCache;
-          await chrome.storage.session.set({ schemaCache: updatedCache });
-          console.log(`[Workbench] Removed schema cache for table: ${attachmentToDelete.tableName}`);
-        } catch (cacheError) {
-          console.warn(`[Workbench] Failed to remove schema cache for table: ${attachmentToDelete.tableName}`, cacheError);
-        }
-      } catch (error) {
-        console.error(`[Workbench] Failed to drop table ${attachmentToDelete.tableName}:`, error);
-      }
-    }
+    await handleLoadSheetsBase(fileToLoad, selectedSheets);
   };
 
   const handleStartAnalysis = async (query: string) => {

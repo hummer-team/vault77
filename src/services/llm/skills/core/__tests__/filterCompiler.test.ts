@@ -94,7 +94,7 @@ describe('FilterCompiler', () => {
       };
       const result = compileFilter(filter);
       expect(result).toContain('CAST(order_date AS TIMESTAMP)');
-      expect(result).toContain('CURRENT_TIMESTAMP - INTERVAL');
+      expect(result).toContain('date_add(CURRENT_TIMESTAMP, -INTERVAL');
       expect(result).toContain("'30 day'");
     });
 
@@ -112,7 +112,7 @@ describe('FilterCompiler', () => {
       };
       const result = compileFilter(filter);
       expect(result).toContain('CAST(expiry_date AS TIMESTAMP)');
-      expect(result).toContain('CURRENT_TIMESTAMP + INTERVAL');
+      expect(result).toContain('date_add(CURRENT_TIMESTAMP, INTERVAL');
       expect(result).toContain("'2 week'");
     });
 
