@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useDuckDB } from './useDuckDB';
 
 interface SchemaColumn {
   name: string;
@@ -6,28 +7,29 @@ interface SchemaColumn {
 
 type SchemaCache = Record<string, SchemaColumn[]>;
 
-interface UseTableSchemaProps {
-  executeQuery?: (sql: string) => Promise<{ data: any[] } | null>;
-}
-
 /**
  * Hook for managing table schema caching in chrome.storage.session
  * Used for User Skill Configuration and other features requiring column metadata
+ * 
+ * @param iframeRef Reference to the sandbox iframe (used internally for DuckDB communication)
  */
-export const useTableSchema = ({ executeQuery }: UseTableSchemaProps) => {
+export const useTableSchema = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
+  // Internal: Get schema fetcher from useDuckDB
+  const { getTableSchema, isDBReady } = useDuckDB(iframeRef);
+
   /**
    * Cache table schema to chrome.storage.session
    * @param tableName The name of the table to cache schema for
    */
   const cacheTableSchema = useCallback(
     async (tableName: string): Promise<void> => {
-      if (!executeQuery) {
-        console.warn('[useTableSchema] executeQuery not ready, cannot cache schema');
+      if (!isDBReady) {
+        console.warn('[useTableSchema] DuckDB not ready, cannot cache schema');
         return;
       }
 
       try {
-        const schemaResult = await executeQuery(`DESCRIBE "${tableName}";`);
+        const schemaResult = await getTableSchema(tableName);
         if (!schemaResult || !Array.isArray(schemaResult.data)) {
           console.warn(`[useTableSchema] Invalid schema result for table: ${tableName}`);
           return;
@@ -60,7 +62,7 @@ export const useTableSchema = ({ executeQuery }: UseTableSchemaProps) => {
         console.error(`[useTableSchema] Failed to cache schema for table: ${tableName}`, error);
       }
     },
-    [executeQuery]
+    [getTableSchema, isDBReady]
   );
 
   /**

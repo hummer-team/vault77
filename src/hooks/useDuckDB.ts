@@ -218,5 +218,13 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
     }
   }, [executeQuery, isDBReady]);
 
-  return { initializeDuckDB, loadData, executeQuery, dropTable, getAllUserTables, isDBReady, shutdownDuckDB };
+  const getTableSchema = useCallback(
+    (tableName: string): Promise<{ data: any[], schema: any[] }> => {
+      if (!isDBReady) return Promise.reject(new Error('DuckDB is not ready.'));
+      return sandboxClient.post({ type: 'GET_TABLE_SCHEMA', tableName });
+    },
+    [sandboxClient, isDBReady]
+  );
+
+  return { initializeDuckDB, loadData, executeQuery, dropTable, getAllUserTables, getTableSchema, isDBReady, shutdownDuckDB };
 };

@@ -141,6 +141,12 @@ self.onmessage = async (event: MessageEvent) => {
         result = await duckDBService.executeQuery(sql);
         break;
       }
+      case 'GET_TABLE_SCHEMA': {
+        if (!tableName) throw new Error('Missing tableName for GET_TABLE_SCHEMA');
+        console.log(`[DB Worker] Getting schema for table: ${tableName}`);
+        result = await duckDBService.getTableSchema(tableName);
+        break;
+      }
       default:
         throw new Error(`[DB Worker] Unknown message type: ${type}`);
     }

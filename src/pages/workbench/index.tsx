@@ -148,8 +148,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     }
   };
 
-  // Table schema caching hook
-  const { cacheTableSchema, removeTableSchemaFromCache } = useTableSchema({ executeQuery });
+  // Table schema caching hook (self-contained, no need to pass getTableSchema)
+  const { cacheTableSchema, removeTableSchemaFromCache } = useTableSchema(iframeRef);
 
   /**
    * Persist attachments metadata to chrome.storage.session
