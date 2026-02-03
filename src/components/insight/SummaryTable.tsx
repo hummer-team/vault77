@@ -49,7 +49,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       key: 'cardinality',
       width: 100,
       align: 'right',
-      sorter: (a, b) => a.cardinality - b.cardinality,
+      // sorter: (a, b) => a.cardinality - b.cardinality,
       render: (cardinality: number) => formatNumber(cardinality),
     },
     {
@@ -58,7 +58,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       key: 'nullRate',
       width: 80,
       align: 'right',
-      sorter: (a, b) => a.nullRate - b.nullRate,
+      // sorter: (a, b) => a.nullRate - b.nullRate,
       render: (nullRate: number) => formatPercentage(nullRate),
     },
     {

@@ -96,7 +96,36 @@ const App = () => {
   };
 
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
+    <ConfigProvider 
+      theme={{ 
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: '#FF6B00',
+          colorInfo: '#FF6B00',
+          colorLink: '#FF6B00',
+          colorSuccess: '#52c41a',
+          colorWarning: '#faad14',
+          colorError: '#ff4d4f',
+          borderRadius: 12,
+          fontSize: 14,
+        },
+        components: {
+          Button: {
+            colorPrimary: '#FF6B00',
+            algorithm: true,
+          },
+          Input: {
+            borderRadius: 8,
+          },
+          Card: {
+            borderRadiusLG: 12,
+          },
+          Table: {
+            borderRadius: 8,
+          },
+        },
+      }}
+    >
       <AntdApp style={{ height: '100%' }}>
         <AppLayout
           currentKey={currentPage}

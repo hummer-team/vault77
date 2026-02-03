@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { theme, Spin, App, Typography, Tag, Space, Drawer } from 'antd';
+import { theme, Spin, App, Typography, Space, Drawer } from 'antd';
+import { 
+  CodeOutlined, 
+  BarChartOutlined, 
+  StarOutlined,
+  BulbOutlined,
+  SafetyOutlined,
+  ThunderboltOutlined
+} from '@ant-design/icons';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
 import { SheetSelector } from './components/SheetSelector';
@@ -75,24 +83,78 @@ interface WorkbenchProps {
   onDuckDBReady?: (executeQuery: (sql: string) => Promise<{ data: any[]; schema: any[] }>, isReady: boolean) => void;
 }
 
-const tagStyle: React.CSSProperties = {
-  background: 'rgba(255, 255, 255, 0.08)',
-  borderColor: 'rgba(255, 255, 255, 0.2)',
-  color: 'rgba(255, 255, 255, 0.85)',
-  padding: '4px 8px',
-  borderRadius: '4px',
-  fontSize: '13px',
-};
-
 const InitialWelcomeView: React.FC = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: '16px' }}>
-    <img src="/icons/icon-512.png" alt="Vaultmind Logo" style={{ width: 256, height: 256 }} />
-    <Typography.Title level={3}>Hi, 自然语言即洞察，分析无边界</Typography.Title>
-    <Space size={[8, 16]} wrap>
-      <Tag style={tagStyle}>快速准确Excel，CSV数据分析</Tag>
-      <Tag style={tagStyle}>图表绘制</Tag>
-      <Tag style={tagStyle}>数据洞察</Tag>
-      <Tag style={tagStyle}>智能报表生成</Tag>
+  <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    height: '100%', 
+    overflowY: 'auto',
+    padding: '40px 24px 24px 24px',
+    gap: '24px'
+  }}>
+    {/* Logo Section - Simple Large Logo */}
+    <div style={{ marginBottom: '8px' }}>
+      <img 
+        src="/icons/icon-512.png" 
+        alt="Vaultmind Logo" 
+        style={{ width: 256, height: 256 }} 
+      />
+    </div>
+
+    {/* Title Section */}
+    <div style={{ textAlign: 'center', maxWidth: 900 }}>
+      <Typography.Title 
+        level={2} 
+        style={{ 
+          margin: 0, 
+          fontSize: 40,
+          fontWeight: 800,
+          lineHeight: 1.2,
+          color: 'rgba(255, 255, 255, 0.95)'
+        }}
+      >
+        Hi, <span style={{ 
+          fontFamily: 'monospace', 
+          color: '#FF6B00', 
+          fontStyle: 'italic',
+          textTransform: 'uppercase',
+          padding: '0 8px'
+        }} className="neon-glow-text">Natural Language</span> is Insight.
+      </Typography.Title>
+      <Typography.Text style={{ 
+        fontSize: 12, 
+        color: 'rgba(255, 255, 255, 0.45)', 
+        fontWeight: 600,
+        letterSpacing: '0.3em',
+        textTransform: 'uppercase',
+        marginTop: 12,
+        display: 'block'
+      }}>
+        Analysis Without Boundaries.
+      </Typography.Text>
+    </div>
+
+    {/* Capability Tags */}
+    <Space size={[10, 10]} wrap style={{ justifyContent: 'center', maxWidth: 800 }}>
+      <span className="capability-tag">
+        <SafetyOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Security
+      </span>
+      <span className="capability-tag">
+        <ThunderboltOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> High Performance
+      </span>
+      <span className="capability-tag">
+        <CodeOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Excel &amp; CSV Analysis
+      </span>
+      <span className="capability-tag">
+        <BarChartOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Smart Charting
+      </span>
+      <span className="capability-tag">
+        <BulbOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Data Insight
+      </span>
+      <span className="capability-tag">
+        <StarOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> AI Report Gen
+      </span>
     </Space>
   </div>
 );

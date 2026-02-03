@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Input, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined } from '@ant-design/icons';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -220,7 +220,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const currentPersona = getPersonaById(currentPersonaId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '896px', margin: '0 auto', width: '100%' }}>
       <FloatButton
         icon={<DownOutlined />}
         onClick={onScrollToBottom}
@@ -245,15 +245,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           background: 'rgba(255, 255, 255, 0.04)',
           borderRadius: '6px',
           border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}>
+          overflowX: 'auto',
+        }}
+        className="no-scrollbar">
           <Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>
-          <Space size={[8, 8]} wrap>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap' }}>
             {suggestions.map((s, i) => (
-              <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer' }}>
+              <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
                 {s}
               </Tag>
             ))}
-          </Space>
+          </div>
         </div>
       )}
 
@@ -396,21 +398,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               </Typography.Text>
             )}
           </div>
-          {isAnalyzing && (
-            <Tooltip title="Cancel Analysis">
-              <Button
-                shape="circle"
-                icon={<StopOutlined />}
-                onClick={onCancel}
-                className="cancel-button-pulse"
-                style={{
-                  position: 'absolute',
-                  bottom: '8px',
-                  right: '8px',
-                }}
-              />
-            </Tooltip>
-          )}
+          {/* Send/Cancel Button - Always visible */}
+          <Tooltip title={isAnalyzing ? "Cancel Analysis" : "Send (Ctrl+Enter)"}>
+            <Button
+              icon={isAnalyzing ? <StopOutlined /> : <SendOutlined />}
+              onClick={isAnalyzing ? onCancel : () => form.submit()}
+              className={isAnalyzing ? "cancel-button-pulse" : ""}
+              disabled={!isAnalyzing && (isInitializing || !isLlmReady)}
+              type={isAnalyzing ? "default" : "primary"}
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '8px',
+              }}
+            />
+          </Tooltip>
         </div>
       </Form>
     </div>

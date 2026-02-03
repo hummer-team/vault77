@@ -1,18 +1,40 @@
-/* Global UI baseline for Vaultmind.
- * Goal: prevent "white hairline" showing at top/bottom during overscroll
- * by ensuring html/body/root always use the dark background.
- */
+/* ============================================
+   Global UI Styles for Vaultmind
+   Phase 1+2: Color Theme + Background Effects
+   ============================================ */
 
+/* CSS Variables - Orange Theme */
 :root {
   color-scheme: dark;
+  
+  /* Primary Colors */
+  --color-primary: #FF6B00;
+  --color-primary-hover: #FF8533;
+  --color-primary-light: rgba(255, 107, 0, 0.1);
+  
+  /* Background Colors */
+  --color-bg-dark: #0B0E14;
+  --color-bg-light: #F1F5F9;
+  --color-sidebar-dark: #021224;
+  
+  /* Glass Morphism */
+  --glass-bg-light: rgba(255, 255, 255, 0.4);
+  --glass-bg-dark: rgba(255, 255, 255, 0.05);
+  --glass-border-light: rgba(255, 255, 255, 0.2);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+  
+  /* Card Colors */
+  --card-bg-dark: rgba(30, 32, 38, 0.4);
+  --card-bg-light: rgba(255, 255, 255, 0.8);
 }
 
+/* Base Layout - Dark Background with Data Grid */
 html,
 body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background: radial-gradient(circle at top, #2a2a2e, #1e1e20);
+  background: var(--color-bg-dark);
   background-attachment: fixed;
   overscroll-behavior: none;
   overflow-x: hidden;
@@ -24,6 +46,229 @@ body {
 
 #root {
   height: 100%;
-  background: radial-gradient(circle at top, #2a2a2e, #1e1e20);
+  background: var(--color-bg-dark);
   overflow-x: hidden;
+  position: relative;
+}
+
+/* Data Grid Background Pattern */
+.data-grid-bg {
+  background-image: radial-gradient(
+    circle at 2px 2px,
+    rgba(255, 107, 0, 0.03) 1px,
+    transparent 0
+  );
+  background-size: 40px 40px;
+}
+
+/* Apply data grid to root */
+#root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(
+    circle at 2px 2px,
+    rgba(255, 107, 0, 0.03) 1px,
+    transparent 0
+  );
+  background-size: 40px 40px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glass Morphism Effect */
+.glass-morphism {
+  background: var(--glass-bg-dark);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-dark);
+  border-radius: 12px;
+}
+
+/* Neon Glow Text Effect */
+.neon-glow-text {
+  text-shadow: 
+    0 0 20px rgba(255, 107, 0, 0.6),
+    0 0 40px rgba(255, 107, 0, 0.4);
+}
+
+/* Primary Color Glow */
+.primary-glow {
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.2);
+}
+
+/* Capability Tag Style */
+.capability-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--glass-bg-dark);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-dark);
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.capability-tag:hover {
+  border-color: rgba(255, 107, 0, 0.4);
+  background: rgba(255, 107, 0, 0.1);
+}
+
+/* Feature Card Style (for future welcome page) */
+.feature-card {
+  flex-shrink: 0;
+  width: 160px;
+  height: 140px;
+  background: var(--glass-bg-dark);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-dark);
+  border-radius: 16px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.5s ease;
+  overflow: hidden;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 107, 0, 0.5);
+  box-shadow: 0 0 30px -10px rgba(255, 107, 0, 0.4);
+}
+
+.feature-card .card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.5s ease;
+}
+
+.feature-card:hover .card-content {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.feature-card .description {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.6;
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: all 0.5s ease;
+  background: rgba(11, 14, 20, 0.95);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.feature-card:hover .description {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Horizontal Scroll Container */
+.scroll-container {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 1rem 3rem;
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scroll-container > * {
+  scroll-snap-align: center;
+}
+
+/* Scroll Gradient Masks */
+.scroll-mask-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8rem;
+  background: linear-gradient(to right, var(--color-bg-dark), transparent);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scroll-mask-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 8rem;
+  background: linear-gradient(to left, var(--color-bg-dark), transparent);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Blueprint Logo Effect */
+.blueprint-logo {
+  filter: drop-shadow(0 0 8px rgba(255, 107, 0, 0.3));
+}
+
+/* Holographic Flicker Animation */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  41% { opacity: 1; }
+  42% { opacity: 0.8; }
+  43% { opacity: 1; }
+  45% { opacity: 0.9; }
+  46% { opacity: 1; }
+}
+
+.holo-flicker {
+  animation: flicker 4s infinite;
+}
+
+/* Orange Accent Color for Interactive Elements */
+.accent-primary {
+  color: var(--color-primary);
+}
+
+.bg-accent-primary {
+  background-color: var(--color-primary);
+}
+
+.border-accent-primary {
+  border-color: var(--color-primary);
+}
+
+/* Smooth Transitions */
+.transition-smooth {
+  transition: all 0.3s ease;
+}
+
+/* No Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
