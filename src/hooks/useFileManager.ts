@@ -40,6 +40,7 @@ interface UseFileManagerProps {
   MAX_SINGLE_FILE_BYTES: number;
   MAX_TOTAL_FILES_BYTES: number;
   analysisHistory: any[];
+  onFileLoaded?: (tableName: string) => void; // Callback after file loaded successfully
 }
 
 /**
@@ -65,6 +66,7 @@ export const useFileManager = ({
   MAX_SINGLE_FILE_BYTES,
   MAX_TOTAL_FILES_BYTES,
   analysisHistory,
+  onFileLoaded,
 }: UseFileManagerProps) => {
   const messageCallbacks = useRef<
     Map<string, { resolve: (value: any) => void; reject: (reason?: any) => void }>
@@ -266,6 +268,12 @@ export const useFileManager = ({
         const loadedSuggestions = getPersonaSuggestions(personaId);
         setSuggestions(loadedSuggestions);
         setUiState('fileLoaded');
+
+        // Trigger insight generation automatically
+        if (onFileLoaded) {
+          console.log('[useFileManager] Triggering insight generation for table:', newAttachment.tableName);
+          onFileLoaded(newAttachment.tableName);
+        }
       } catch (error: any) {
         console.error(`[useFileManager] Error during file upload process:`, error);
         setUiState('error');
@@ -324,6 +332,12 @@ export const useFileManager = ({
         setSheetsToSelect(null);
         setFileToLoad(null);
         setUiState('fileLoaded');
+
+        // Trigger insight generation for the first loaded sheet automatically
+        if (onFileLoaded && loadedAttachments.length > 0) {
+          console.log('[useFileManager] Triggering insight generation for first sheet:', loadedAttachments[0].tableName);
+          onFileLoaded(loadedAttachments[0].tableName);
+        }
       } catch (error: any) {
         console.error(`[useFileManager] Error loading sheets:`, error);
         setUiState('error');

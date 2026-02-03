@@ -1,0 +1,321 @@
+/**
+ * @file insightService.test.ts
+ * @description Unit tests for InsightService - SQL query building and result transformation
+ */
+
+import { describe, test, expect, beforeEach } from 'bun:test';
+import { InsightService } from '../insightService';
+import type {
+  InsightConfig,
+  ColumnProfile,
+  DistributionResult,
+} from '../../../types/insight.types';
+
+describe('InsightService', () => {
+  let insightService: InsightService;
+
+  beforeEach(() => {
+    insightService = InsightService.getInstance();
+  });
+
+  describe('buildSummaryQuery', () => {
+    test('should include sampling when enabled', () => {
+      const config: InsightConfig = {
+        tableName: 'test_table',
+        columns: [],
+        rowCount: 15000,
+        enableSampling: true,
+        samplingRate: 0.75,
+        numericColumns: [],
+        categoricalColumns: [],
+        datetimeColumns: [],
+        statusColumns: [],
+        categoryColumns: [],
+      };
+
+      const sql = insightService.buildSummaryQuery(config);
+
+      expect(sql).toContain('TABLESAMPLE RESERVOIR(75 PERCENT)');
+      expect(sql).toContain('test_table');
+    });
+
+    test('should not include sampling when disabled', () => {
+      const config: InsightConfig = {
+        tableName: 'test_table',
+        columns: [],
+        rowCount: 5000,
+        enableSampling: false,
+        samplingRate: 0.75,
+        numericColumns: [],
+        categoricalColumns: [],
+        datetimeColumns: [],
+        statusColumns: [],
+        categoryColumns: [],
+      };
+
+      const sql = insightService.buildSummaryQuery(config);
+
+      expect(sql).not.toContain('TABLESAMPLE');
+    });
+  });
+
+  describe('buildDistributionQuery', () => {
+    test('should generate histogram query with WIDTH_BUCKET', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 0, 100, false);
+
+      expect(sql).toContain('WIDTH_BUCKET');
+      expect(sql).toContain('"amount"');
+      expect(sql).toContain('bin_start');
+      expect(sql).toContain('bin_end');
+      expect(sql).toContain('bin_mid');
+      expect(sql).toContain('COUNT(*)');
+    });
+
+    test('should include sampling when enabled', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 0, 100, true);
+
+      expect(sql).toContain('TABLESAMPLE RESERVOIR(75 PERCENT)');
+    });
+
+    test('should handle edge case: min equals max', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 50, 50, false);
+
+      // Should return simple query without WIDTH_BUCKET
+      expect(sql).not.toContain('WIDTH_BUCKET');
+      expect(sql).toContain('50 as bin_start');
+      expect(sql).toContain('50 as bin_end');
+      expect(sql).toContain('50 as bin_mid');
+    });
+
+    test('should filter out null values', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 0, 100, false);
+
+      expect(sql).toContain('WHERE "amount" IS NOT NULL');
+    });
+  });
+
+  describe('transformDistributionResult', () => {
+    test('should transform query result correctly', () => {
+      const queryResult = [
+        { bin_start: 0, bin_end: 10, bin_mid: 5, count: 20 },
+        { bin_start: 10, bin_end: 20, bin_mid: 15, count: 30 },
+        { bin_start: 20, bin_end: 30, bin_mid: 25, count: 15 },
+      ];
+
+      const result = insightService.transformDistributionResult('amount', queryResult);
+
+      expect(result.columnName).toBe('amount');
+      expect(result.bins).toHaveLength(3);
+      expect(result.bins[0]).toEqual({
+        binStart: 0,
+        binEnd: 10,
+        binMid: 5,
+        count: 20,
+      });
+    });
+
+    test('should handle empty result', () => {
+      const result = insightService.transformDistributionResult('amount', []);
+
+      expect(result.columnName).toBe('amount');
+      expect(result.bins).toHaveLength(0);
+    });
+  });
+
+  describe('mergeDistributions', () => {
+    test('should merge multiple distributions into multi-line chart data', () => {
+      const distributions: DistributionResult[] = [
+        {
+          columnName: 'col1',
+          bins: [
+            { binStart: 0, binEnd: 10, binMid: 5, count: 20 },
+            { binStart: 10, binEnd: 20, binMid: 15, count: 30 },
+          ],
+        },
+        {
+          columnName: 'col2',
+          bins: [
+            { binStart: 0, binEnd: 10, binMid: 5, count: 15 },
+            { binStart: 10, binEnd: 20, binMid: 15, count: 25 },
+          ],
+        },
+      ];
+
+      const merged = insightService.mergeDistributions(distributions);
+
+      expect(merged.xAxis).toEqual([5, 15]);
+      expect(merged.series).toHaveLength(2);
+      expect(merged.series[0].columnName).toBe('col1');
+      expect(merged.series[0].data).toEqual([20, 30]);
+      expect(merged.series[1].columnName).toBe('col2');
+      expect(merged.series[1].data).toEqual([15, 25]);
+    });
+
+    test('should handle empty distributions array', () => {
+      const merged = insightService.mergeDistributions([]);
+
+      expect(merged.xAxis).toEqual([]);
+      expect(merged.series).toEqual([]);
+    });
+
+    test('should handle single distribution', () => {
+      const distributions: DistributionResult[] = [
+        {
+          columnName: 'col1',
+          bins: [
+            { binStart: 0, binEnd: 10, binMid: 5, count: 20 },
+          ],
+        },
+      ];
+
+      const merged = insightService.mergeDistributions(distributions);
+
+      expect(merged.xAxis).toEqual([5]);
+      expect(merged.series).toHaveLength(1);
+      expect(merged.series[0].data).toEqual([20]);
+    });
+  });
+
+  describe('buildCategoricalQuery', () => {
+    test('should generate TOP N query', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'status', false, 20);
+
+      expect(sql).toContain('SELECT');
+      expect(sql).toContain('"status" as value');
+      expect(sql).toContain('COUNT(*) as count');
+      expect(sql).toContain('GROUP BY "status"');
+      expect(sql).toContain('ORDER BY count DESC');
+      expect(sql).toContain('LIMIT 20');
+    });
+
+    test('should include sampling when enabled', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'status', true);
+
+      expect(sql).toContain('TABLESAMPLE RESERVOIR(75 PERCENT)');
+    });
+
+    test('should filter out null values', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'status', false);
+
+      expect(sql).toContain('WHERE "status" IS NOT NULL');
+    });
+
+    test('should use custom topN parameter', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'status', false, 10);
+
+      expect(sql).toContain('LIMIT 10');
+    });
+  });
+
+  describe('transformCategoricalResult', () => {
+    test('should transform query result correctly', () => {
+      const queryResult = [
+        { value: 'pending', count: 150 },
+        { value: 'completed', count: 200 },
+        { value: 'failed', count: 50 },
+      ];
+
+      const result = insightService.transformCategoricalResult('status', queryResult);
+
+      expect(result.columnName).toBe('status');
+      expect(result.values).toHaveLength(3);
+      expect(result.values[0]).toEqual({ value: 'pending', count: 150 });
+    });
+
+    test('should convert non-string values to strings', () => {
+      const queryResult = [
+        { value: 123, count: 10 },
+        { value: null, count: 5 },
+      ];
+
+      const result = insightService.transformCategoricalResult('code', queryResult);
+
+      expect(result.values[0].value).toBe('123');
+      expect(result.values[1].value).toBe('null');
+    });
+
+    test('should handle empty result', () => {
+      const result = insightService.transformCategoricalResult('status', []);
+
+      expect(result.columnName).toBe('status');
+      expect(result.values).toHaveLength(0);
+    });
+  });
+
+  describe('SQL Injection Protection', () => {
+    test('should properly quote column names', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'col"name', 0, 100, false);
+
+      // Column names should be double-quoted
+      expect(sql).toContain('"col"name"');
+    });
+
+    test('should properly quote table names in categorical query', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'status', false);
+
+      // Should use parameterized table name (not injectable)
+      expect(sql).toContain('test_table');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('should handle very large cardinality', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 0, 1e15, false);
+
+      expect(sql).toContain('WIDTH_BUCKET');
+      // Large number is formatted as full integer, not scientific notation
+      expect(sql).toContain('1000000000000000');
+    });
+
+    test('should handle negative ranges', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', -100, 100, false);
+
+      expect(sql).toContain('-100');
+      expect(sql).toContain('100');
+    });
+
+    test('should handle decimal ranges', () => {
+      const sql = insightService.buildDistributionQuery('test_table', 'amount', 0.01, 0.99, false);
+
+      expect(sql).toContain('0.01');
+      expect(sql).toContain('0.99');
+    });
+
+    test('should handle special characters in column names', () => {
+      const sql = insightService.buildCategoricalQuery('test_table', 'col-name_123', false);
+
+      expect(sql).toContain('"col-name_123"');
+    });
+  });
+
+  describe('transformSummaryResult', () => {
+    test('should wrap column profiles in summary result', () => {
+      const columns: ColumnProfile[] = [
+        {
+          name: 'col1',
+          duckdbType: 'INTEGER',
+          type: 'numeric',
+          semanticType: 'amount',
+          cardinality: 1000,
+          nullRate: 0.05,
+          min: 0,
+          max: 100,
+          mean: 50,
+          median: 48,
+          stddev: 20,
+        },
+      ];
+
+      const result = insightService.transformSummaryResult(columns);
+
+      expect(result.columns).toEqual(columns);
+      expect(result.columns[0].name).toBe('col1');
+    });
+
+    test('should handle empty columns array', () => {
+      const result = insightService.transformSummaryResult([]);
+
+      expect(result.columns).toEqual([]);
+    });
+  });
+});

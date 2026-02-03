@@ -67,6 +67,8 @@ interface AnalysisRecord {
 interface WorkbenchProps {
   isFeedbackDrawerOpen: boolean;
   setIsFeedbackDrawerOpen: (isOpen: boolean) => void;
+  onNavigateToInsight?: (tableName: string) => void;
+  onDuckDBReady?: (executeQuery: (sql: string) => Promise<{ data: any[]; schema: any[] }>, isReady: boolean) => void;
 }
 
 const tagStyle: React.CSSProperties = {
@@ -91,7 +93,7 @@ const InitialWelcomeView: React.FC = () => (
   </div>
 );
 
-const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
+const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNavigateToInsight, onDuckDBReady }) => {
   const { token: { borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -101,6 +103,14 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const { initializeDuckDB, executeQuery, isDBReady, dropTable } = useDuckDB(iframeRef);
+
+  // Notify parent when DuckDB is ready
+  useEffect(() => {
+    if (isDBReady && onDuckDBReady) {
+      console.log('[Workbench] DuckDB ready, notifying parent with executeQuery');
+      onDuckDBReady(executeQuery, isDBReady);
+    }
+  }, [isDBReady, executeQuery, onDuckDBReady]);
 
   const { userProfile } = useUserStore();
 
@@ -213,6 +223,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen }) => {
     MAX_SINGLE_FILE_BYTES,
     MAX_TOTAL_FILES_BYTES,
     analysisHistory,
+    onFileLoaded: (tableName: string) => {
+      // Auto-navigate to insight page after file loaded
+      if (onNavigateToInsight) {
+        console.log('[Workbench] Auto-navigating to insight for table:', tableName);
+        onNavigateToInsight(tableName);
+      }
+    },
   });
 
   const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => ({

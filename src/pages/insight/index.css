@@ -1,0 +1,85 @@
+/**
+ * Insight Page Styles
+ */
+
+.insight-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.insight-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.insight-section {
+  margin-bottom: 32px;
+}
+
+.section-header {
+  margin-bottom: 16px;
+}
+
+.section-header h4 {
+  margin-bottom: 4px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.section-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.insight-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .insight-page {
+    padding: 16px;
+  }
+
+  .insight-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* Dark theme adjustments */
+.insight-page .ant-table {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.insight-page .ant-table-thead > tr > th {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.insight-page .ant-table-tbody > tr > td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.insight-page .ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.08) !important;
+}

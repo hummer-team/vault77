@@ -267,6 +267,186 @@ export class DuckDBService {
     }
   }
 
+  /**
+   * A. Global Summary Statistics
+   * Provides flexible statistical aggregation for specified columns
+   * @param tableName - Table to analyze
+   * @param columns - Array of column configurations with name and stats to compute
+   * @param enableSampling - Whether to use sampling (default: auto-enabled for >10k rows)
+   * @param samplingRate - Sampling rate in percentage (default: 75)
+   * @returns Statistical results as key-value pairs
+   * 
+   * @example
+   * summaryStatistics('test_order', [
+   *   { name: '实付金额', stats: ['min', 'max', 'avg', 'p50', 'p99'] },
+   *   { name: '下单时间', stats: ['min', 'max'] },
+   *   { name: '订单状态', stats: ['cardinality'] }
+   * ])
+   */
+  public async summaryStatistics(
+    tableName: string,
+    columns: Array<{ name: string; stats: string[] }>,
+    enableSampling?: boolean,
+    samplingRate: number = 75
+  ): Promise<{ data: any[]; schema: any[] }> {
+    // Auto-detect sampling if not specified
+    if (enableSampling === undefined) {
+      const countResult = await this.executeQuery(`SELECT COUNT(*) as total FROM ${tableName}`);
+      const rowCount = countResult.data[0]?.total || 0;
+      enableSampling = rowCount > 10000;
+    }
+
+    const sampling = enableSampling ? `USING SAMPLE ${samplingRate}%` : '';
+    const selectClauses: string[] = ['COUNT(*) as total_rows'];
+
+    // Build SELECT clauses for each column and stat
+    for (const col of columns) {
+      const columnName = col.name;
+      for (const stat of col.stats) {
+        switch (stat) {
+          case 'min':
+            selectClauses.push(`MIN("${columnName}") as ${this._sanitizeAlias(columnName)}_min`);
+            break;
+          case 'max':
+            selectClauses.push(`MAX("${columnName}") as ${this._sanitizeAlias(columnName)}_max`);
+            break;
+          case 'avg':
+          case 'mean':
+            selectClauses.push(`AVG("${columnName}") as ${this._sanitizeAlias(columnName)}_avg`);
+            break;
+          case 'stddev':
+          case 'std':
+            selectClauses.push(`STDDEV("${columnName}") as ${this._sanitizeAlias(columnName)}_stddev`);
+            break;
+          case 'median':
+          case 'p50':
+            selectClauses.push(`APPROX_QUANTILE("${columnName}", 0.5) as ${this._sanitizeAlias(columnName)}_p50`);
+            break;
+          case 'p80':
+            selectClauses.push(`APPROX_QUANTILE("${columnName}", 0.8) as ${this._sanitizeAlias(columnName)}_p80`);
+            break;
+          case 'p99':
+            selectClauses.push(`APPROX_QUANTILE("${columnName}", 0.99) as ${this._sanitizeAlias(columnName)}_p99`);
+            break;
+          case 'cardinality':
+          case 'distinct':
+            selectClauses.push(`APPROX_COUNT_DISTINCT("${columnName}") as ${this._sanitizeAlias(columnName)}_cardinality`);
+            break;
+          default:
+            console.warn(`[DuckDBService] Unknown stat type: ${stat}`);
+        }
+      }
+    }
+
+    const sql = `SELECT ${selectClauses.join(',\n       ')} FROM ${tableName} ${sampling}`;
+    console.log('[DuckDBService] summaryStatistics SQL:', sql);
+    return this.executeQuery(sql);
+  }
+
+  /**
+   * B. Data Distribution using HISTOGRAM
+   * Returns histogram data for numeric columns
+   * @param tableName - Table to analyze
+   * @param columns - Array of column names to generate histograms for
+   * @param enableSampling - Whether to use sampling
+   * @param samplingRate - Sampling rate in percentage (default: 75)
+   * @returns Histogram results for each column
+   * 
+   * @example
+   * insightsDataDistribution('test_order', ['实付金额', '商品数量'])
+   */
+  public async insightsDataDistribution(
+    tableName: string,
+    columns: string[],
+    enableSampling?: boolean,
+    samplingRate: number = 75
+  ): Promise<Record<string, { data: any[]; schema: any[] }>> {
+    // Auto-detect sampling if not specified
+    if (enableSampling === undefined) {
+      const countResult = await this.executeQuery(`SELECT COUNT(*) as total FROM ${tableName}`);
+      const rowCount = countResult.data[0]?.total || 0;
+      enableSampling = rowCount > 10000;
+    }
+
+    const sampling = enableSampling ? `USING SAMPLE ${samplingRate}%` : '';
+    const results: Record<string, { data: any[]; schema: any[] }> = {};
+
+    // Execute histogram query for each column
+    for (const columnName of columns) {
+      const sql = `SELECT HISTOGRAM("${columnName}") FROM ${tableName} ${sampling}`;
+      console.log(`[DuckDBService] insightsDataDistribution SQL for ${columnName}:`, sql);
+      try {
+        results[columnName] = await this.executeQuery(sql);
+      } catch (error) {
+        console.error(`[DuckDBService] Failed to generate histogram for ${columnName}:`, error);
+        // Continue with other columns
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * C. Categorical/Dimensional Insights
+   * Returns top N values grouped by specified dimensions
+   * @param tableName - Table to analyze
+   * @param groupByColumns - Columns to group by (supports multi-dimensional)
+   * @param enableSampling - Whether to use sampling
+   * @param samplingRate - Sampling rate in percentage (default: 75)
+   * @param topN - Limit results to top N (default: 50)
+   * @returns Grouped count results
+   * 
+   * @example
+   * insightsCategorical('test_order', ['订单状态', '会员等级'], true, 75, 10)
+   */
+  public async insightsCategorical(
+    tableName: string,
+    groupByColumns: string[],
+    enableSampling?: boolean,
+    samplingRate: number = 75,
+    topN: number = 50
+  ): Promise<{ data: any[]; schema: any[] }> {
+    // Auto-detect sampling if not specified
+    if (enableSampling === undefined) {
+      const countResult = await this.executeQuery(`SELECT COUNT(*) as total FROM ${tableName}`);
+      const rowCount = countResult.data[0]?.total || 0;
+      enableSampling = rowCount > 10000;
+    }
+
+    const quotedColumns = groupByColumns.map(col => `"${col}"`).join(', ');
+    
+    let sql: string;
+    if (enableSampling) {
+      // Sampling requires subquery
+      sql = `
+        SELECT ${quotedColumns}, COUNT(*) as cnt 
+        FROM (SELECT * FROM ${tableName} USING SAMPLE ${samplingRate}%) as sampled_table
+        GROUP BY ${quotedColumns}
+        ORDER BY cnt DESC
+        LIMIT ${topN}
+      `.trim();
+    } else {
+      sql = `
+        SELECT ${quotedColumns}, COUNT(*) as cnt 
+        FROM ${tableName}
+        GROUP BY ${quotedColumns}
+        ORDER BY cnt DESC
+        LIMIT ${topN}
+      `.trim();
+    }
+
+    console.log('[DuckDBService] insightsCategorical SQL:', sql);
+    return this.executeQuery(sql);
+  }
+
+  /**
+   * Helper: Sanitize column name for use as SQL alias
+   * Removes special characters and spaces
+   */
+  private _sanitizeAlias(columnName: string): string {
+    return columnName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  }
+
   private async _queryRaw(conn: any, sql: string): Promise<any> {
     try {
       return await conn.query(sql);
