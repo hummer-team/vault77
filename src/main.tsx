@@ -4,7 +4,6 @@ import { App as AntdApp, ConfigProvider, theme, MenuProps, Spin } from 'antd';
 import AppLayout from './components/layout/AppLayout';
 // import Workbench from './pages/workbench';
 const Workbench = React.lazy(() => import('./pages/workbench')); // 懒加载 Workbench
-const InsightPage = React.lazy(() => import('./pages/insight')); // 懒加载 InsightPage
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import 'antd/dist/reset.css';
 import './global.css';
@@ -13,16 +12,10 @@ import TemplateListPage from "./pages/asset-center/TemplateListPage.tsx";
 import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 import ProfilePage from "./pages/settings/ProfilePage.tsx";
 import { Agentation } from "agentation";
-import { DuckDBProvider } from './contexts/DuckDBContext';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('1');
   const [isFeedbackDrawerOpen, setIsFeedbackDrawerOpen] = useState(false);
-  const [insightTableName, setInsightTableName] = useState<string | null>(null);
-  
-  // DuckDB state (provided by Workbench)
-  const [executeQuery, setExecuteQuery] = useState<((sql: string) => Promise<{ data: any[]; schema: any[] }>) | null>(null);
-  const [isDBReady, setIsDBReady] = useState(false);
 
   // Make the function async to use await
   const handleMenuClick: MenuProps['onClick'] = async (e) => {
@@ -68,38 +61,14 @@ const App = () => {
             <Workbench
               isFeedbackDrawerOpen={isFeedbackDrawerOpen}
               setIsFeedbackDrawerOpen={setIsFeedbackDrawerOpen}
-              onNavigateToInsight={(tableName: string) => {
-                setInsightTableName(tableName);
-                setCurrentPage('Insight');
+              onNavigateToInsight={() => {
+                // No longer used - insights are shown in sidebar
+                console.log('[App] onNavigateToInsight called but using sidebar now');
               }}
-              onDuckDBReady={(execQuery, ready) => {
-                setExecuteQuery(() => execQuery);
-                setIsDBReady(ready);
+              onDuckDBReady={() => {
+                // No longer needed in main.tsx - DuckDB is managed within Workbench
               }}
             />
-          </Suspense>
-        </div>
-
-        {/* Insight Page - wrapped in DuckDBProvider */}
-        <div style={{ display: currentPage === 'Insight' ? 'contents' : 'none' }}>
-          <Suspense
-            fallback={
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Spin tip="Loading Insights..." />
-              </div>
-            }
-          >
-            {insightTableName && executeQuery && isDBReady && (
-              <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
-                <InsightPage 
-                  tableName={insightTableName}
-                  onNoValidColumns={() => {
-                    console.log('[App] No valid columns, navigating back to Workbench');
-                    setCurrentPage('1'); // Navigate back to Workbench
-                  }}
-                />
-              </DuckDBProvider>
-            )}
           </Suspense>
         </div>
 

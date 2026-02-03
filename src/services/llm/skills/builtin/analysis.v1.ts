@@ -158,7 +158,7 @@ export const analysisV1Skill: SkillDefinition = {
       );
       let queryType = classification.queryType as QueryType;
       
-      console.log(`[analysis.v1] Query classified as: ${queryType} (confidence: ${classification.confidence})`);
+      console.log(`[analysis.v1] Query classified as: ${queryType} (confidence: ${classification.confidence})${classification.topN ? `, topN: ${classification.topN}` : ''}`);
 
       // Step 2: Get table config and field mapping (Phase 3)
       const tableName = ctx.activeTable ?? 'main_table_1';
@@ -166,6 +166,10 @@ export const analysisV1Skill: SkillDefinition = {
       const fieldMapping = tableConfig?.fieldMapping;
 
       console.log(`[analysis.v1] Using table: ${tableName}, has config: ${!!tableConfig}`);
+
+      // Extract maxRows: use topN if available, otherwise use ctx.maxRows
+      const maxRows = classification.topN ?? ctx.maxRows;
+      console.log(`[analysis.v1] Using maxRows: ${maxRows}${classification.topN ? ' (from user input)' : ' (default)'}`);
 
       // Step 3: Use Field Mapping with fallback to guessing
       const timeColumn = fieldMapping?.timeColumn 
@@ -210,7 +214,7 @@ export const analysisV1Skill: SkillDefinition = {
         tableName,
         queryType,
         { timeColumn, metricColumn, dimensionColumn },
-        ctx.maxRows,
+        maxRows,
         whereClause
       );
 

@@ -38,8 +38,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Column Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
-      fixed: 'left',
+      ellipsis: true,
       render: (name: string) => (
         <strong style={{ color: 'rgba(255, 255, 255, 0.85)' }}>{name}</strong>
       ),
@@ -48,7 +47,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Unique Values',
       dataIndex: 'cardinality',
       key: 'cardinality',
-      width: 120,
+      width: 100,
       align: 'right',
       sorter: (a, b) => a.cardinality - b.cardinality,
       render: (cardinality: number) => formatNumber(cardinality),
@@ -57,7 +56,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Null Rate',
       dataIndex: 'nullRate',
       key: 'nullRate',
-      width: 100,
+      width: 80,
       align: 'right',
       sorter: (a, b) => a.nullRate - b.nullRate,
       render: (nullRate: number) => formatPercentage(nullRate),
@@ -66,7 +65,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Min',
       dataIndex: 'min',
       key: 'min',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (min: number | string | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -79,7 +78,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Max',
       dataIndex: 'max',
       key: 'max',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (max: number | string | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -92,7 +91,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Mean',
       dataIndex: 'mean',
       key: 'mean',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (mean: number | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -105,7 +104,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'P50',
       dataIndex: 'p50',
       key: 'p50',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (p50: number | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -118,7 +117,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'P80',
       dataIndex: 'p80',
       key: 'p80',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (p80: number | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -131,7 +130,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'P99',
       dataIndex: 'p99',
       key: 'p99',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (p99: number | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -144,7 +143,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       title: 'Std Dev',
       dataIndex: 'stddev',
       key: 'stddev',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (stddev: number | undefined, record: ColumnProfile) =>
         record.type === 'numeric' ? (
@@ -161,13 +160,17 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       dataSource={columns}
       rowKey="name"
       loading={loading}
-      pagination={false}
-      scroll={{ x: 1200, y: 400 }}
-      size="small"
-      bordered
-      style={{
-        background: 'rgba(255, 255, 255, 0.04)',
+      pagination={{
+        defaultPageSize: 20,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50', '100'],
+        size: 'small',
       }}
+      scroll={{ x: 'max-content', y: 400 }}
+      size="small"
     />
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(SummaryTable);

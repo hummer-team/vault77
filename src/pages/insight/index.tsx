@@ -100,8 +100,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
     if (!hasCacheHit) return null;
 
     return (
-      <Space style={{ marginLeft: 16 }}>
-        <Text style={{ color: 'rgba(255, 255, 255, 0.65)' }}>
+      <Space style={{ marginLeft: 16, flexWrap: 'wrap' }} size={[8, 4]}>
+        <Text style={{ color: 'rgba(255, 255, 255, 0.65)', whiteSpace: 'nowrap' }}>
           <InfoCircleOutlined /> Cache hits:
         </Text>
         {cacheHit.summary && <Tag color="green">Summary</Tag>}
@@ -115,11 +115,13 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
     <div className="insight-page">
       {/* Header */}
       <div className="insight-header">
-        <div>
-          <Title level={2} style={{ margin: 0, display: 'inline' }}>
-            Data Insights
+        <div style={{ flex: 1, minWidth: 250 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px 16px' }}>
+            <Title level={2} style={{ margin: 0 }}>
+              Data Insights
+            </Title>
             {renderCacheIndicator()}
-          </Title>
+          </div>
           <Paragraph style={{ margin: '8px 0 0 0', color: 'rgba(255, 255, 255, 0.65)' }}>
             Automatic analysis for <strong>{tableName}</strong>
             {config?.enableSampling && (
@@ -130,7 +132,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
           </Paragraph>
         </div>
 
-        <Space>
+        <Space wrap>
           <Button onClick={clearCache} icon={<ClearOutlined />}>
             Clear Cache
           </Button>
@@ -154,7 +156,16 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
             <Text style={{ marginLeft: 12 }}>Loading summary...</Text>
           </div>
         ) : (
-          summary && <SummaryTable columns={summary.columns} />
+          summary && (
+            <div style={{ 
+              background: '#2a2d30', 
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '8px',
+              padding: '16px'
+            }}>
+              <SummaryTable columns={summary.columns} />
+            </div>
+          )
         )}
       </div>
 
@@ -179,7 +190,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
                 <Text style={{ marginLeft: 12 }}>Loading distributions...</Text>
               </div>
             ) : (
-              distribution && <DistributionChart data={distribution} height={450} />
+              distribution && <DistributionChart data={distribution} height={400} />
             )}
           </div>
 
@@ -209,7 +220,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
               <CategoricalChart
                 statusColumns={categorical.status}
                 categoryColumns={categorical.category}
-                height={350}
+                height={300}
               />
             )
           )}
@@ -226,4 +237,6 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
   );
 };
 
-export default InsightPage;
+// Memoize to prevent unnecessary re-renders
+export default React.memo(InsightPage);
+

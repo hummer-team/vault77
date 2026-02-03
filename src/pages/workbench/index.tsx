@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { theme, Spin, App, Typography, Tag, Space, Drawer } from 'antd';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -17,6 +17,10 @@ import ProfilePage from "../settings/ProfilePage.tsx";
 import { getPersonaSuggestions } from '../../config/personaSuggestions';
 import { useUserStore } from '../../status/appStatusManager.ts';
 import { runAgent } from '../../services/llm/agentRuntime.ts';
+import { DuckDBProvider } from '../../contexts/DuckDBContext';
+import './workbench.css';
+
+const InsightPage = React.lazy(() => import('../insight'));
 
 // Configuration
 const MAX_FILES = Number(import.meta.env.VITE_MAX_FILES ?? 1); // Default to 1
@@ -93,7 +97,7 @@ const InitialWelcomeView: React.FC = () => (
   </div>
 );
 
-const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNavigateToInsight, onDuckDBReady }) => {
+const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDBReady }) => {
   const { token: { borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -122,7 +126,14 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [profileDrawerVisible, setProfileDrawerVisible] = useState(false);
 
+
+  // BI Sidebar state
+  const [showInsightSidebar, setShowInsightSidebar] = useState(false);
+  const [insightTableName, setInsightTableName] = useState<string | null>(null);
   // 新增：当前输入框内容，用于“编辑”时回填
+  const [sidebarAnimationState, setSidebarAnimationState] = useState<'entering' | 'visible' | 'exiting' | 'hidden'>('hidden');
+  const [sidebarWidth, setSidebarWidth] = useState(50); // percentage (50% default)
+  const [isDragging, setIsDragging] = useState(false);
   const [currentInput, setCurrentInput] = useState<string>('');
   // persona hint message to show near ChatPanel
   const [personaHint, setPersonaHint] = useState<string | null>(null);
@@ -157,6 +168,117 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
       setSuggestions(personaSuggestions);
     }
   };
+
+  // Toggle Insight Sidebar
+  const toggleInsightSidebar = () => {
+    // If no table data, try to trigger insight generation
+    if (!showInsightSidebar && !insightTableName && attachments.length > 0) {
+      // Get first attachment's table name
+      const firstTable = attachments[0].tableName;
+      if (firstTable) {
+        handleShowInsight(firstTable);
+        return;
+      }
+    }
+    
+    if (showInsightSidebar) {
+      // Start exit animation
+      setSidebarAnimationState('exiting');
+      setTimeout(() => {
+        setShowInsightSidebar(false);
+        setSidebarAnimationState('hidden');
+      }, 350); // Match CSS transition duration
+    } else {
+      // Start entry animation
+      setShowInsightSidebar(true);
+      setSidebarAnimationState('entering');
+      // Trigger reflow to ensure entering state is applied
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setSidebarAnimationState('visible');
+        });
+      });
+    }
+  };
+
+  // Handle navigation to insight from attachments
+  const handleShowInsight = useCallback((tableName: string) => {
+    setInsightTableName(tableName);
+    setShowInsightSidebar(true);
+    setSidebarAnimationState('entering');
+    // Trigger reflow to ensure entering state is applied
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setSidebarAnimationState('visible');
+      });
+    });
+  }, []);
+
+  // Callback for when no valid columns found (stabilized with useCallback)
+  const handleNoValidColumns = useCallback(() => {
+    console.log('[Workbench] No valid columns, closing sidebar');
+    setShowInsightSidebar(false);
+  }, []);
+
+  // Draggable divider handlers
+  const tempWidthRef = useRef<number>(sidebarWidth);
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+  const sidebarSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleDividerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    tempWidthRef.current = sidebarWidth;
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = document.querySelector('.workbench-container') as HTMLElement;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const newWidth = ((containerRect.right - e.clientX) / containerRect.width) * 100;
+      
+      // Constrain between 20% and 70%
+      const constrainedWidth = Math.min(Math.max(newWidth, 20), 70);
+      tempWidthRef.current = constrainedWidth;
+
+      // Directly update DOM styles without triggering React re-render
+      const chatSection = chatSectionRef.current;
+      const sidebarSection = sidebarSectionRef.current;
+      
+      if (chatSection && sidebarSection) {
+        chatSection.style.flex = `1 1 ${100 - constrainedWidth}%`;
+        sidebarSection.style.flex = `0 0 ${constrainedWidth}%`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // Only update React state once when drag ends
+      setSidebarWidth(tempWidthRef.current);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  // Trigger chart resize after drag ends
+  useEffect(() => {
+    if (!isDragging && showInsightSidebar) {
+      // Trigger window resize event to make ECharts redraw
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 50);
+    }
+  }, [isDragging, showInsightSidebar]);
 
   // Table schema caching hook (self-contained, no need to pass getTableSchema)
   const { cacheTableSchema, removeTableSchemaFromCache } = useTableSchema(iframeRef);
@@ -224,11 +346,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
     MAX_TOTAL_FILES_BYTES,
     analysisHistory,
     onFileLoaded: (tableName: string) => {
-      // Auto-navigate to insight page after file loaded
-      if (onNavigateToInsight) {
-        console.log('[Workbench] Auto-navigating to insight for table:', tableName);
-        onNavigateToInsight(tableName);
-      }
+      // Auto-show insight sidebar after file loaded
+      console.log('[Workbench] Auto-showing insight for table:', tableName);
+      handleShowInsight(tableName);
     },
   });
 
@@ -605,10 +725,32 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
   };
 
   return (
-    <>
-      <Sandbox ref={iframeRef} />
-      <div style={{ background: 'rgba(38, 38, 40, 0.6)', borderRadius: borderRadiusLG, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)' }}>
-        {/* Non-blocking top hint: show small spinner + text during initialization/parsing without blocking the UI */}
+  <>
+    <Sandbox ref={iframeRef} />
+    <div 
+      className={`workbench-container ${isDragging ? 'dragging' : ''}`}
+      style={{ 
+        background: 'rgba(38, 38, 40, 0.6)', 
+        borderRadius: borderRadiusLG, 
+        display: 'flex', 
+        flexDirection: 'row', 
+        height: '100%', 
+        position: 'relative', 
+        border: '1px solid rgba(255, 255, 255, 0.1)', 
+        backdropFilter: 'blur(10px)',
+        overflow: 'hidden'
+      }}>
+      {/* Left side: Chat flow */}
+      <div 
+        ref={chatSectionRef}
+        className="workbench-chat-section"
+        style={{ 
+          flex: showInsightSidebar ? `1 1 ${100 - sidebarWidth}%` : '1', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+        {/* Non-blocking top hint */}
         <div style={{ padding: '12px 24px' }}>
           {uiState === 'initializing' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -623,7 +765,6 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
             </div>
           )}
         </div>
-
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
           <div ref={contentRef} style={{ flex: 1, overflow: 'auto' }}>
             {renderAnalysisView()}
@@ -660,19 +801,71 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onNaviga
               showScrollToBottom={showScrollToBottom}
               onScrollToBottom={handleScrollToBottom}
               onPersonaBadgeClick={handlePersonaBadgeClick}
-              // 新增：与输入框双向绑定，支持“编辑”回填
               initialMessage={currentInput}
               setInitialMessage={setCurrentInput}
-              // new: inline persona hint for ChatPanel
               personaHint={personaHint}
               uploadHint={uploadHint}
               isLlmReady={isLlmReady}
+              showInsightSidebar={showInsightSidebar}
+              onToggleInsight={toggleInsightSidebar}
             />
           </div>
         </div>
       </div>
-    </>
-  );
+      
+      {/* Draggable divider */}
+      {showInsightSidebar && insightTableName && (
+        <div
+          onMouseDown={handleDividerMouseDown}
+          style={{
+            width: '4px',
+            cursor: 'col-resize',
+            backgroundColor: isDragging ? 'rgba(24, 144, 255, 0.5)' : 'transparent',
+            transition: isDragging ? 'none' : 'background-color 0.2s',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.backgroundColor = 'rgba(24, 144, 255, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isDragging) {
+              (e.target as HTMLElement).style.backgroundColor = 'transparent';
+            }
+          }}
+        />
+      )}
+      
+      {/* Right side: Insight Sidebar */}
+      {showInsightSidebar && insightTableName && (
+        <div 
+          ref={sidebarSectionRef}
+          className={`workbench-insight-sidebar ${sidebarAnimationState === 'entering' ? 'entering' : sidebarAnimationState === 'exiting' ? 'exiting' : ''}`}
+          style={{
+            flex: `0 0 ${sidebarWidth}%`,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+          <Suspense
+            fallback={
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin tip="Loading Insights..." />
+              </div>
+            }
+          >
+            <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
+              <InsightPage 
+                tableName={insightTableName}
+                onNoValidColumns={handleNoValidColumns}
+              />
+            </DuckDBProvider>
+          </Suspense>
+        </div>
+      )}
+    </div>
+  </>
+);
 };
 
 export default Workbench;

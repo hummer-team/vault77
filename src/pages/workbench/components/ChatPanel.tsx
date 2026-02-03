@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Input, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined } from '@ant-design/icons';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -35,6 +35,9 @@ interface ChatPanelProps {
   uploadHint?: string | null;
   // new: whether LLM config is ready (from Workbench)
   isLlmReady?: boolean;
+  // BI Sidebar control
+  showInsightSidebar?: boolean;
+  onToggleInsight?: () => void;
 }
 
 interface GroupedAttachment {
@@ -65,6 +68,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   personaHint,
   uploadHint,
   isLlmReady = true,
+  showInsightSidebar = false,
+  onToggleInsight,
 }) => {
   const [form] = Form.useForm();
   const { userProfile } = useUserStore();
@@ -348,6 +353,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               <Upload {...uploadProps}>
                 <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
               </Upload>
+              {/* Data Insight Button - only show when attachments exist */}
+              {onToggleInsight && attachments.length > 0 && (
+                <Tooltip title={showInsightSidebar ? "Hide Data Insights" : "Show Data Insights"}>
+                  <Button 
+                    icon={<BarChartOutlined />} 
+                    disabled={isAnalyzing}
+                    onClick={onToggleInsight}
+                    type={showInsightSidebar ? "default" : "default"}
+                    style={{
+                      background: showInsightSidebar ? 'rgba(255, 255, 255, 0.08)' : undefined,
+                      borderColor: showInsightSidebar ? 'rgba(24, 144, 255, 0.5)' : undefined,
+                    }}
+                  />
+                </Tooltip>
+              )}
               {!isLlmReady && (
                 <Typography.Text style={{ fontSize: 12, color: '#fadb14' }}>
                   Connect an LLM in Settings to enable analysis.

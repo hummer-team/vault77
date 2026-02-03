@@ -33,6 +33,7 @@ export interface QueryTypeClassification {
   confidence: number; // 0..1
   matchedKeywords: string[]; // Matched keywords
   method: 'keyword' | 'llm'; // Classification method
+  topN?: number; // For topn queries, the N value extracted from user input
 }
 
 /**
@@ -76,6 +77,42 @@ const KEYWORD_RULES: Record<string, { primary: string[]; secondary: string[] }> 
     secondary: ['和', '与', 'and', 'between']
   }
 };
+
+/**
+ * Extract topN number from user input.
+ * Supports patterns like: "top 10", "前10", "前十", "top10", "前10名", etc.
+ * @param userInput User query string
+ * @returns Extracted N value, or undefined if not found
+ */
+function extractTopN(userInput: string): number | undefined {
+  const normalizedInput = userInput.toLowerCase();
+  
+  // Pattern 1: "top N" or "top N名/个/条"
+  const topPattern = /top\s*(\d+)/i;
+  const topMatch = normalizedInput.match(topPattern);
+  if (topMatch) {
+    return parseInt(topMatch[1], 10);
+  }
+  
+  // Pattern 2: "前N" or "前N名/个/条"
+  const qianPattern = /前\s*(\d+)/;
+  const qianMatch = userInput.match(qianPattern);
+  if (qianMatch) {
+    return parseInt(qianMatch[1], 10);
+  }
+  
+  // Pattern 3: Chinese number words (前十, 前五, etc.)
+  const chineseNumbers: Record<string, number> = {
+    '十': 10, '五': 5, '三': 3, '二十': 20, '五十': 50, '百': 100
+  };
+  for (const [chinese, num] of Object.entries(chineseNumbers)) {
+    if (userInput.includes(`前${chinese}`)) {
+      return num;
+    }
+  }
+  
+  return undefined;
+}
 
 /**
  * Domain-specific terms grouped by industry.
@@ -211,7 +248,8 @@ export function classifyByKeywords(userInput: string, industry?: string): QueryT
     queryType: bestType,
     confidence,
     matchedKeywords,
-    method: 'keyword'
+    method: 'keyword',
+    topN: bestType === 'topn' ? extractTopN(userInput) : undefined
   };
 }
 

@@ -310,7 +310,7 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
       <Row gutter={[16, 16]}>
         {/* Status columns (pie charts) */}
         {statusColumns.map(col => (
-          <Col key={`status-${col.columnName}`} xs={24} lg={12} xxl={8} style={{ minWidth: 400 }}>
+          <Col key={`status-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
             <div style={{ marginBottom: 8 }}>
               <h4 style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, margin: 0 }}>
                 Status Distribution
@@ -322,7 +322,7 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
 
         {/* Category columns (bar charts) */}
         {categoryColumns.map(col => (
-          <Col key={`category-${col.columnName}`} xs={24} lg={12} style={{ minWidth: 400 }}>
+          <Col key={`category-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
             <div style={{ marginBottom: 8 }}>
               <h4 style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, margin: 0 }}>
                 Category Distribution (Top 20)
@@ -335,3 +335,6 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
     </div>
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(CategoricalChart);

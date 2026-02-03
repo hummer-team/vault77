@@ -205,3 +205,6 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
     />
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(DistributionChart);

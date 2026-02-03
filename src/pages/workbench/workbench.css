@@ -1,0 +1,59 @@
+/* Workbench Layout with BI Sidebar */
+
+/* Draggable divider cursor */
+.workbench-container {
+  user-select: none;
+}
+
+.workbench-container.dragging * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Responsive layout: stacks vertically on narrow screens */
+@media (max-width: 1024px) {
+  .workbench-container {
+    flex-direction: column !important;
+  }
+
+  .workbench-chat-section {
+    flex: 1 !important;
+  }
+
+  .workbench-insight-sidebar {
+    flex: 0 0 50% !important;
+    border-left: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+}
+
+/* Smooth transitions for sidebar */
+.workbench-container,
+.workbench-chat-section {
+  transition: flex 0.3s ease, width 0.3s ease;
+}
+
+/* Insight sidebar slide and fade animation */
+.workbench-insight-sidebar {
+  transition: flex 0.3s ease, width 0.3s ease, transform 0.35s ease-in-out, opacity 0.35s ease-in-out;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Initial hidden state (for entry animation) */
+.workbench-insight-sidebar.entering {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Exiting state (for exit animation) */
+.workbench-insight-sidebar.exiting {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Disable transitions during drag */
+.workbench-container.dragging .workbench-chat-section,
+.workbench-container.dragging .workbench-insight-sidebar {
+  transition: none;
+}
