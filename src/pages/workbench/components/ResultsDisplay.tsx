@@ -535,7 +535,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               onEditQuery(query);
             }}
           >
-            编辑
           </Button>
           <Button
             size="small"
@@ -546,7 +545,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               onCopyQuery(query);
             }}
           >
-            复制
           </Button>
         </Space>
       </div>
@@ -628,9 +626,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     if (status === 'resultsReady') {
       const cardProps = {
         title: renderCardTitle(),
-        actions: [commonActions],
         style: { background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' },
-        bodyStyle: { padding: '0 24px 8px 24px' },
+        bodyStyle: { padding: '0 24px 16px 24px' },
       };
 
       const commonContent = (
@@ -768,6 +765,19 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             size="small"
             scroll={{ x: 'max-content' }} // Enable horizontal scrolling for many columns
           />
+          {/* Action buttons aligned with pagination */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: '16px',
+              paddingTop: '12px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            }}
+          >
+            {commonActions}
+          </div>
         </Card>
       );
     }

@@ -827,51 +827,34 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             </div>
           )}
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '24px' }}>
-          <div ref={contentRef} style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '24px', paddingBottom: '160px' }} ref={contentRef}>
             {renderAnalysisView()}
           </div>
-          <div style={{ flexShrink: 0, paddingTop: '12px' }}>
-            <Drawer
-              title="用户角色设置"
-              placement="right"
-              onClose={handleProfileDrawerClose}
-              open={profileDrawerVisible}
-              width={600}
-              maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-              style={{
-                background: 'rgba(24, 24, 28, 0.98)',
-              }}
-              bodyStyle={{
-                padding: 24,
-                background: 'rgba(24, 24, 28, 0.98)',
-              }}
-            >
-              <ProfilePage />
-            </Drawer>
-            <ChatPanel
-              onSendMessage={handleStartAnalysis}
-              isAnalyzing={uiState === 'analyzing'}
-              isInitializing={uiState === 'initializing'}
-              onCancel={handleCancelAnalysis}
-              suggestions={suggestions}
-              onFileUpload={handleFileUpload}
-              attachments={attachments}
-              onDeleteAttachment={handleDeleteAttachment}
-              error={chatError}
-              setError={setChatError}
-              showScrollToBottom={showScrollToBottom}
-              onScrollToBottom={handleScrollToBottom}
-              onPersonaBadgeClick={handlePersonaBadgeClick}
-              initialMessage={currentInput}
-              setInitialMessage={setCurrentInput}
-              personaHint={personaHint}
-              uploadHint={uploadHint}
-              isLlmReady={isLlmReady}
-              showInsightSidebar={showInsightSidebar}
-              onToggleInsight={toggleInsightSidebar}
-            />
-          </div>
+          
+          {/* ChatPanel with floating input */}
+          <ChatPanel
+            onSendMessage={handleStartAnalysis}
+            isAnalyzing={uiState === 'analyzing'}
+            isInitializing={uiState === 'initializing'}
+            onCancel={handleCancelAnalysis}
+            suggestions={suggestions}
+            onFileUpload={handleFileUpload}
+            attachments={attachments}
+            onDeleteAttachment={handleDeleteAttachment}
+            error={chatError}
+            setError={setChatError}
+            showScrollToBottom={showScrollToBottom}
+            onScrollToBottom={handleScrollToBottom}
+            onPersonaBadgeClick={handlePersonaBadgeClick}
+            initialMessage={currentInput}
+            setInitialMessage={setCurrentInput}
+            personaHint={personaHint}
+            uploadHint={uploadHint}
+            isLlmReady={isLlmReady}
+            showInsightSidebar={showInsightSidebar}
+            onToggleInsight={toggleInsightSidebar}
+          />
         </div>
       </div>
       
@@ -926,6 +909,25 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         </div>
       )}
     </div>
+    
+    {/* Drawer - Global Level */}
+    <Drawer
+      title="用户角色设置"
+      placement="right"
+      onClose={handleProfileDrawerClose}
+      open={profileDrawerVisible}
+      width={600}
+      maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      style={{
+        background: 'rgba(24, 24, 28, 0.98)',
+      }}
+      bodyStyle={{
+        padding: 24,
+        background: 'rgba(24, 24, 28, 0.98)',
+      }}
+    >
+      <ProfilePage />
+    </Drawer>
   </>
 );
 };

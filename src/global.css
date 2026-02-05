@@ -272,3 +272,36 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ============================================
+   Table Style Customization
+   Premium design with orange header
+   ============================================ */
+
+/* Table Header - Light Orange */
+.ant-table-thead > tr > th {
+  color: #FFB366 !important;
+  font-weight: 600 !important;
+  background: rgba(30, 32, 38, 0.6) !important;
+  border-bottom: 1px solid rgba(255, 179, 102, 0.2) !important;
+}
+
+/* Table Body - Light White */
+.ant-table-tbody > tr > td {
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Table Row Hover Effect */
+.ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Table Striped Row (optional alternate row color) */
+.ant-table-tbody > tr:nth-child(even) > td {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.ant-table-tbody > tr:nth-child(even):hover > td {
+  background: rgba(255, 255, 255, 0.05) !important;
+}

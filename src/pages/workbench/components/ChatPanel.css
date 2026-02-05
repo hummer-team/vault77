@@ -42,3 +42,13 @@
         border-color: #40a9ff;
     }
 }
+
+/* Floating Chat Panel - Lightweight Design */
+.floating-chat-container {
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    z-index: 100;
+    padding: 16px 0 20px;
+}

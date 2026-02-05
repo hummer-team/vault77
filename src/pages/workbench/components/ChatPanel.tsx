@@ -220,7 +220,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const currentPersona = getPersonaById(currentPersonaId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', maxWidth: '896px', margin: '0 auto', width: '100%' }}>
+    <div className="floating-chat-container">
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '12px', 
+        position: 'relative', 
+        maxWidth: '896px', 
+        margin: '0 auto', 
+        width: '100%',
+        background: 'rgba(30, 32, 38, 0.95)',
+        borderRadius: '12px',
+        padding: '16px',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
       <FloatButton
         icon={<DownOutlined />}
         onClick={onScrollToBottom}
@@ -241,14 +254,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Suggestions */}
       {suggestions && suggestions.length > 0 && (
         <div style={{
-          padding: '8px 12px',
-          background: 'rgba(255, 255, 255, 0.04)',
-          borderRadius: '6px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '8px 0',
           overflowX: 'auto',
         }}
         className="no-scrollbar">
-          <Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>
+          {/*<Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>*/}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap' }}>
             {suggestions.map((s, i) => (
               <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -261,7 +271,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       {/* Attachments Display */}
       {groupedAttachments.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 8px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0' }}>
           {groupedAttachments.map((group) => {
             const tooltipTitle = group.sheetNames.length > 1 ? `Loaded sheets: ${group.sheetNames.join(', ')}` : `Loaded from ${group.fileName}`;
             return (
@@ -415,6 +425,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           </Tooltip>
         </div>
       </Form>
+      </div>
     </div>
   );
 };
