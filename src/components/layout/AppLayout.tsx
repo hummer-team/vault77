@@ -122,7 +122,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
         flexDirection: 'column',
         background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
       }}>
-        <Content style={{ margin: '16px' }}>
+        <Content style={{ 
+          margin: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 32px)',
+          overflow: 'hidden'
+        }}>
           {children}
         </Content>
       </Layout>

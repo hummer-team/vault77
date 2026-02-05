@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { theme, Spin, App, Typography, Space, Drawer } from 'antd';
+import { Spin, App, Typography, Space, Drawer } from 'antd';
 import { 
   CodeOutlined, 
   BarChartOutlined, 
@@ -160,7 +160,6 @@ const InitialWelcomeView: React.FC = () => (
 );
 
 const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDBReady }) => {
-  const { token: { borderRadiusLG } } = theme.useToken();
   const { message } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
   // timer for persona hint auto clear
@@ -759,31 +758,27 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       return <InitialWelcomeView />;
     }
 
-    return (
-      <div>
-        {analysisHistory.map((record) => (
-          <ResultsDisplay
-            key={record.id}
-            query={record.query}
-            status={record.status}
-            data={record.data} // Pass data array
-            schema={record.schema} // Pass schema array
-            thinkingSteps={record.thinkingSteps}
-            onUpvote={handleUpvote}
-            onDownvote={handleDownvote}
-            onRetry={handleRetry}
-            onDelete={() => handleDeleteRecord(record.id)} // Pass delete handler
-            llmDurationMs={record.llmDurationMs}
-            queryDurationMs={record.queryDurationMs}
-            // 新增：编辑 / 复制 回调
-            onEditQuery={handleEditQuery}
-            onCopyQuery={handleCopyQuery}
-            // pass attachment snapshot for this record
-            attachments={record.attachmentsSnapshot}
-          />
-        ))}
-      </div>
-    );
+    return analysisHistory.map((record) => (
+      <ResultsDisplay
+        key={record.id}
+        query={record.query}
+        status={record.status}
+        data={record.data} // Pass data array
+        schema={record.schema} // Pass schema array
+        thinkingSteps={record.thinkingSteps}
+        onUpvote={handleUpvote}
+        onDownvote={handleDownvote}
+        onRetry={handleRetry}
+        onDelete={() => handleDeleteRecord(record.id)} // Pass delete handler
+        llmDurationMs={record.llmDurationMs}
+        queryDurationMs={record.queryDurationMs}
+        // 新增：编辑 / 复制 回调
+        onEditQuery={handleEditQuery}
+        onCopyQuery={handleCopyQuery}
+        // pass attachment snapshot for this record
+        attachments={record.attachmentsSnapshot}
+      />
+    ));
   };
 
   return (
@@ -792,14 +787,14 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     <div 
       className={`workbench-container ${isDragging ? 'dragging' : ''}`}
       style={{ 
-        background: 'rgba(38, 38, 40, 0.6)', 
-        borderRadius: borderRadiusLG, 
+        background: 'transparent', 
+        borderRadius: 0, 
         display: 'flex', 
         flexDirection: 'row', 
         height: '100%', 
         position: 'relative', 
-        border: '1px solid rgba(255, 255, 255, 0.1)', 
-        backdropFilter: 'blur(10px)',
+        border: 'none', 
+        backdropFilter: 'none',
         overflow: 'hidden'
       }}>
       {/* Left side: Chat flow */}
@@ -812,23 +807,25 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           flexDirection: 'column',
           overflow: 'hidden'
         }}>
-        {/* Non-blocking top hint */}
-        <div style={{ padding: '12px 24px' }}>
-          {uiState === 'initializing' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Spin size="small" />
-              <span style={{ color: 'rgba(255,255,255,0.85)' }}>Vaultmind 引擎初始化中...</span>
-            </div>
-          )}
-          {uiState === 'parsing' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Spin size="small" />
-              <span style={{ color: 'rgba(255,255,255,0.85)' }}>{getLoadingTip()}</span>
-            </div>
-          )}
-        </div>
+        {/* Non-blocking top hint - only render when needed */}
+        {(uiState === 'initializing' || uiState === 'parsing') && (
+          <div style={{ padding: '12px 16px' }}>
+            {uiState === 'initializing' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Spin size="small" />
+                <span style={{ color: 'rgba(255,255,255,0.85)' }}>Vaultmind 引擎初始化中...</span>
+              </div>
+            )}
+            {uiState === 'parsing' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Spin size="small" />
+                <span style={{ color: 'rgba(255,255,255,0.85)' }}>{getLoadingTip()}</span>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-          <div style={{ flex: 1, overflow: 'auto', padding: '24px', paddingBottom: '160px' }} ref={contentRef}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '0', paddingBottom: '160px' }} ref={contentRef}>
             {renderAnalysisView()}
           </div>
           
