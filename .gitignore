@@ -21,3 +21,5 @@ refactor-plan.md
 .gemini
 GEMINI.md
 CODEBUDDY.md
+TS_INTEGRATION.md
+design/wasm.md

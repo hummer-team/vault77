@@ -16,6 +16,7 @@ import Sandbox from '../../components/layout/Sandbox';
 import { useDuckDB } from '../../hooks/useDuckDB';
 import { useFileManager } from '../../hooks/useFileManager';
 import { useTableSchema } from '../../hooks/useTableSchema';
+import { useAnomaly } from '../../hooks/useAnomaly'; // Add anomaly detection hook
 import { WorkbenchState, Attachment } from '../../types/workbench.types';
 import { settingsService } from '../../services/settingsService.ts';
 import { resolveActiveLlmConfig, isValidLlmConfig } from '../../services/llm/runtimeLlmConfig.ts';
@@ -168,6 +169,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const { initializeDuckDB, executeQuery, isDBReady, dropTable } = useDuckDB(iframeRef);
+  
+  // Initialize anomaly detection hook (depends on executeQuery)
+  const anomalyDetection = useAnomaly(executeQuery);
 
   // Notify parent when DuckDB is ready
   useEffect(() => {
@@ -410,6 +414,25 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       // Auto-show insight sidebar after file loaded
       console.log('[Workbench] Auto-showing insight for table:', tableName);
       handleShowInsight(tableName);
+      
+      // Auto-trigger anomaly detection (async, non-blocking)
+      (async () => {
+        try {
+          const settings = await settingsService.getAnomalyDetectionSettings();
+          if (settings.autoRun && isDBReady) {
+            console.log('[Workbench] Auto-triggering anomaly detection for:', tableName);
+            await anomalyDetection.detectAnomalies({
+              tableName,
+              orderIdColumn: '', // Auto-infer
+              featureColumns: [], // Auto-infer
+            });
+            console.log('[Workbench] Anomaly detection completed');
+          }
+        } catch (error) {
+          console.error('[Workbench] Anomaly detection failed:', error);
+          // Non-blocking: don't show error to user, just log
+        }
+      })();
     },
   });
 
@@ -899,6 +922,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
               <InsightPage 
                 tableName={insightTableName}
+                anomalyResult={anomalyDetection.result}
                 onNoValidColumns={handleNoValidColumns}
               />
             </DuckDBProvider>

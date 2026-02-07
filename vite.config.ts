@@ -64,11 +64,12 @@ const manifest: any = { // <-- Changed from defineManifest to 'any'
         "128": "icons/icon-128.png"
     },
     content_security_policy: {
-        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';",
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
+        "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; child-src 'self';"
     },
     web_accessible_resources: [
         {
-            "resources": ["index.html", "sandbox.html", "empty.html", "assets/*", "extensions/*", "assets/content-script.js"], // Added empty.html
+            "resources": ["index.html", "sandbox.html", "empty.html", "assets/*", "extensions/*", "assets/content-script.js", "wasm/*"], // Added wasm/* for WASM module
             "matches": ["<all_urls>"]
         }
     ],
@@ -104,12 +105,16 @@ export default defineConfig(({command}) => {
                     main: 'index.html',
                     sandbox: 'sandbox.html',
                     duckdbWorker: 'src/workers/duckdb.worker.ts',
+                    anomalyWorker: 'src/workers/anomaly.worker.ts', // Add anomaly worker for WASM execution
                     contentScript: 'src/content-script.ts', // Add contentScript as an input
                 },
                 output: {
                     entryFileNames: (chunkInfo) => {
                         if (chunkInfo.name === 'duckdbWorker') {
                             return `assets/duckdb.worker.js`;
+                        }
+                        if (chunkInfo.name === 'anomalyWorker') { // Fixed name for anomaly worker
+                            return `assets/anomaly.worker.js`;
                         }
                         if (chunkInfo.name === 'contentScript') { // Define fixed name for contentScript
                             return `assets/content-script.js`;

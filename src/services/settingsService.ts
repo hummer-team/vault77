@@ -6,6 +6,7 @@
 
 import { storageService } from './storageService.ts';
 import { v4 as uuidv4 } from 'uuid';
+import { AnomalyDetectionSettings } from '../types/anomaly.types';
 
 // --- Data Structures ---
 
@@ -29,6 +30,7 @@ const USER_PROFILE_KEY = 'userProfile';
 const LLM_CONFIGS_KEY = 'llmProviderConfigs';
 const USER_PERSONA_KEY = 'vaultmind_user_persona2';
 const PERSONA_PROMPT_DISMISSED_KEY = 'vaultmind_persona_prompt_dismissed2';
+const ANOMALY_DETECTION_SETTINGS_KEY = 'anomalyDetectionSettings'; // New key for anomaly settings
 
 
 // --- Service Class ---
@@ -199,6 +201,49 @@ class SettingsService {
     } catch (error) {
       console.error('[SettingsService] Failed to dismiss persona prompt:', error);
     }
+  }
+
+  // --- Anomaly Detection Settings Methods ---
+
+  /**
+   * Get anomaly detection settings with defaults
+   * @returns Current anomaly detection settings
+   */
+  public async getAnomalyDetectionSettings(): Promise<AnomalyDetectionSettings> {
+    return storageService.getItem<AnomalyDetectionSettings>(
+      ANOMALY_DETECTION_SETTINGS_KEY,
+      {
+        autoRun: true,              // Auto-run on data upload
+        threshold: 0.8,             // Default anomaly threshold
+        samplingRate: 0.75,         // 75% sampling for large datasets
+        samplingThreshold: 50000,   // Trigger sampling at 50k rows
+        useGPU: 'auto',             // Smart GPU strategy
+      }
+    );
+  }
+
+  /**
+   * Update anomaly detection settings
+   * @param settings Partial settings to update
+   */
+  public async updateAnomalyDetectionSettings(
+    settings: Partial<AnomalyDetectionSettings>
+  ): Promise<void> {
+    const current = await this.getAnomalyDetectionSettings();
+    const updated = { ...current, ...settings };
+    
+    // Validate settings
+    if (updated.threshold < 0 || updated.threshold > 1) {
+      throw new Error('Threshold must be between 0 and 1');
+    }
+    if (updated.samplingRate <= 0 || updated.samplingRate > 1) {
+      throw new Error('Sampling rate must be between 0 and 1');
+    }
+    if (updated.samplingThreshold <= 0) {
+      throw new Error('Sampling threshold must be positive');
+    }
+    
+    await storageService.setItem(ANOMALY_DETECTION_SETTINGS_KEY, updated);
   }
 }
 
