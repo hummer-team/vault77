@@ -5,8 +5,18 @@
  */
 
 import React, { useState } from 'react';
-import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider } from 'antd';
-import { ReloadOutlined, ClearOutlined, InfoCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, message } from 'antd';
+import type { MenuProps } from 'antd';
+import { 
+  ReloadOutlined, 
+  ClearOutlined, 
+  InfoCircleOutlined, 
+  ExclamationCircleOutlined,
+  MoreOutlined,
+  DownloadOutlined,
+  EyeOutlined,
+  BulbOutlined,
+} from '@ant-design/icons';
 import { useInsight } from '../../hooks/insight/useInsight';
 import { SummaryTable } from '../../components/insight/SummaryTable';
 import { DistributionChart } from '../../components/insight/DistributionChart';
@@ -15,6 +25,7 @@ import { AnomalyScatterChart } from '../../components/insight/AnomalyScatterChar
 import { AnomalyHeatmapChart } from '../../components/insight/AnomalyHeatmapChart';
 import { useDuckDBContext } from '../../contexts/DuckDBContext';
 import type { AnomalyAnalysisOutput } from '../../types/anomaly.types';
+import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 import './index.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -24,13 +35,17 @@ interface InsightPageProps {
   onNoValidColumns?: () => void; // Callback when no valid columns found
   anomalyResult?: AnomalyAnalysisOutput | null; // Anomaly detection result from Workbench
   onAnomalyThresholdChange?: (threshold: number) => void; // Callback to trigger re-detection
+  onDownloadAnomalies?: (orderIds: string[]) => Promise<any[]>; // Callback to download anomalies
+  onViewAnomalies?: (orderIds: string[], tableName: string) => Promise<void>; // Callback to view anomalies
 }
 
 export const InsightPage: React.FC<InsightPageProps> = ({ 
   tableName, 
   onNoValidColumns, 
   anomalyResult,
-  onAnomalyThresholdChange 
+  onAnomalyThresholdChange,
+  onDownloadAnomalies,
+  onViewAnomalies,
 }) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
   
@@ -45,6 +60,98 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       setAnomalyThreshold(anomalyResult.metadata.threshold);
     }
   }, [anomalyResult?.metadata.threshold]);
+
+  // Handler for anomaly actions menu
+  const handleMenuClick = async ({ key }: { key: string }) => {
+    if (!anomalyResult) return;
+
+    switch (key) {
+      case 'download':
+        await handleDownloadAnomalies();
+        break;
+      case 'view':
+        await handleViewAnomalies();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Handler for Download action
+  const handleDownloadAnomalies = async () => {
+    if (!anomalyResult || !onDownloadAnomalies) return;
+
+    const orderIds = anomalyResult.anomalies.map(a => a.orderId);
+    
+    if (orderIds.length === 0) {
+      message.warning('No anomalies to download');
+      return;
+    }
+
+    try {
+      const loadingMsg = message.loading('Preparing CSV download...', 0);
+      
+      const fullData = await onDownloadAnomalies(orderIds);
+      
+      // Dynamically import CSV export utility
+      const { exportToCSV } = await import('../../utils/csvExport');
+      
+      // Export to CSV
+      exportToCSV(
+        fullData,
+        `anomalies-${tableName}-${Date.now()}`,
+      );
+      
+      loadingMsg();
+    } catch (error) {
+      message.error('Failed to download anomalies: ' + (error as Error).message);
+      console.error('[InsightPage] Download failed:', error);
+    }
+  };
+
+  // Handler for View action
+  const handleViewAnomalies = async () => {
+    if (!anomalyResult || !onViewAnomalies) return;
+
+    const orderIds = anomalyResult.anomalies.map(a => a.orderId);
+    
+    if (orderIds.length === 0) {
+      message.warning('No anomalies to view');
+      return;
+    }
+
+    try {
+      const loadingMsg = message.loading('Loading anomalies in analysis panel...', 0);
+      
+      await onViewAnomalies(orderIds, tableName);
+      
+      loadingMsg();
+      message.success('Anomalies loaded in analysis panel');
+    } catch (error) {
+      message.error('Failed to view anomalies: ' + (error as Error).message);
+      console.error('[InsightPage] View failed:', error);
+    }
+  };
+
+  // Menu items for anomaly actions
+  const anomalyMenuItems: MenuProps['items'] = [
+    {
+      key: 'download',
+      icon: <DownloadOutlined />,
+      label: 'CSV',
+    },
+    {
+      key: 'view',
+      icon: <EyeOutlined />,
+      label: 'View',
+    },
+    {
+      key: 'reason',
+      icon: <BulbOutlined />,
+      label: 'Analyze',
+      disabled: true,  // Future feature
+    },
+  ];
 
   const {
     loading,
@@ -270,12 +377,47 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             {/* Anomaly Statistics */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card 
+                  size="small" 
+                  style={{ 
+                    background: '#2a2d30', 
+                    border: '2px solid #ff4d4f',  // Highlighted border
+                    boxShadow: '0 0 12px rgba(255, 77, 79, 0.4)',  // Red glow
+                    position: 'relative',
+                  }}
+                >
+                  {/* Three-dot menu moved inside body with absolute positioning */}
+                  <Dropdown 
+                    menu={{ 
+                      items: anomalyMenuItems, 
+                      onClick: handleMenuClick,
+                      style: {
+                        background: '#2a2d30',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                      },
+                    }} 
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button 
+                      type="text" 
+                      icon={<MoreOutlined style={{ fontSize: 16 }} />} 
+                      size="small"
+                      style={{ 
+                        color: 'rgba(255, 255, 255, 0.85)',
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        zIndex: 1,
+                      }}
+                    />
+                  </Dropdown>
+                  
                   <Statistic
                     title="Anomaly Rate"
                     value={(anomalyResult.anomalyRate * 100).toFixed(2)}
                     suffix="%"
-                    valueStyle={{ color: '#ff4d4f' }}
+                    valueStyle={{ color: '#ff4d4f', fontWeight: 'bold' }}
                   />
                 </Card>
               </Col>
@@ -343,7 +485,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             <Row gutter={16}>
               <Col span={12}>
                 <Card 
-                  title="Individual Anomalies (Scatter Plot)"
+                  title={
+                    anomalyResult.anomalyCount > MAX_ANOMALIES_FOR_VISUALIZATION
+                      ? `Individual Anomalies (Top ${MAX_ANOMALIES_FOR_VISUALIZATION} of ${anomalyResult.anomalyCount})`
+                      : 'Individual Anomalies (Scatter Plot)'
+                  }
                   size="small"
                   style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
                 >
@@ -352,13 +498,18 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       data={anomalyResult.anomalies}
                       xAxisFeature={anomalyResult.metadata.featureColumns[0]}
                       height={350}
+                      totalCount={anomalyResult.anomalyCount}
                     />
                   )}
                 </Card>
               </Col>
               <Col span={12}>
                 <Card 
-                  title="Feature Correlation (Heatmap)"
+                  title={
+                    anomalyResult.anomalyCount > MAX_ANOMALIES_FOR_VISUALIZATION
+                      ? `Feature Correlation (Top ${MAX_ANOMALIES_FOR_VISUALIZATION} of ${anomalyResult.anomalyCount})`
+                      : 'Feature Correlation (Heatmap)'
+                  }
                   size="small"
                   style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
                 >
@@ -368,6 +519,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       feature1={anomalyResult.metadata.featureColumns[0]}
                       feature2={anomalyResult.metadata.featureColumns[1]}
                       height={350}
+                      totalCount={anomalyResult.anomalyCount}
                     />
                   )}
                 </Card>

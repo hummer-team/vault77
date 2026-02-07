@@ -381,6 +381,7 @@ export async function analyzeAnomalies(
       durationMs: totalDuration,
       threshold,
       featureColumns,
+      orderIdColumn,  // NEW: Record order ID column name for querying
     };
 
     // Step 10: Return result

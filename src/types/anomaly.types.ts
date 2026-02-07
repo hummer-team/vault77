@@ -90,6 +90,7 @@ export interface AnomalyMetadata {
   durationMs: number;          // Total execution time
   threshold: number;           // Anomaly threshold used
   featureColumns: string[];    // Feature columns analyzed
+  orderIdColumn?: string;      // Order ID column name (for querying original data)
 }
 
 /**

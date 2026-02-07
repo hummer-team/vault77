@@ -305,6 +305,78 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }
   }, [insightTableName, isDBReady, anomalyDetection]);
 
+  // Handle download anomalies from InsightPage
+  const handleDownloadAnomalies = useCallback(async (orderIds: string[]): Promise<any[]> => {
+    if (!insightTableName || !isDBReady || orderIds.length === 0) {
+      throw new Error('Database not ready or no order IDs provided');
+    }
+
+    console.log('[Workbench] Fetching full order data for download:', orderIds.length);
+
+    // Build SQL to fetch full order data
+    const orderIdList = orderIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    
+    // Use anomaly metadata to get correct order ID column name
+    const orderIdColumn = anomalyDetection.result?.metadata?.orderIdColumn || 'order_id';
+    const sql = `SELECT * FROM ${insightTableName} WHERE ${orderIdColumn} IN (${orderIdList})`;
+
+    const result = await executeQuery(sql);
+    return result.data;
+  }, [insightTableName, isDBReady, executeQuery, anomalyDetection.result?.metadata]);
+
+  // Handle view anomalies in analysis panel from InsightPage
+  const handleViewAnomalies = useCallback(async (orderIds: string[], tableName: string) => {
+    if (!isDBReady || orderIds.length === 0) {
+      throw new Error('Database not ready or no order IDs provided');
+    }
+
+    console.log('[Workbench] Viewing anomalies in analysis panel:', orderIds.length);
+
+    // Limit to prevent timeout
+    const limitedOrderIds = orderIds.slice(0, 10000);
+    if (orderIds.length > 10000) {
+      message.warning(`Showing top 10,000 out of ${orderIds.length} anomalies`);
+    }
+
+    // Build SQL to fetch full order data
+    const orderIdList = limitedOrderIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    
+    // Use anomaly metadata to get correct order ID column name
+    const orderIdColumn = anomalyDetection.result?.metadata?.orderIdColumn || 'order_id';
+    const sql = `SELECT * FROM ${tableName} WHERE ${orderIdColumn} IN (${orderIdList})`;
+
+    // Execute query
+    const startTime = performance.now();
+    const result = await executeQuery(sql);
+    const queryDuration = performance.now() - startTime;
+
+    // Create a new analysis record (similar to SQL query result)
+    const newRecord: AnalysisRecord = {
+      id: `anomaly-view-${Date.now()}`,
+      query: `View ${limitedOrderIds.length} Anomalous Orders`,
+      thinkingSteps: {
+        tool: 'sql_query_tool',
+        params: { query: sql },
+        thought: `Filtered ${limitedOrderIds.length} anomalous orders from table ${tableName}`,
+      },
+      data: result.data,
+      schema: result.schema,
+      status: 'resultsReady',
+      queryDurationMs: queryDuration,
+      attachmentsSnapshot: attachments,
+    };
+
+    // Add to analysis history
+    setAnalysisHistory(prev => [...prev, newRecord]);
+    
+    // Auto-scroll to bottom to show new result
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }
+    }, 100);
+  }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata]);
+
   // Draggable divider handlers
   const tempWidthRef = useRef<number>(sidebarWidth);
   const chatSectionRef = useRef<HTMLDivElement>(null);
@@ -946,6 +1018,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                 anomalyResult={anomalyDetection.result}
                 onNoValidColumns={handleNoValidColumns}
                 onAnomalyThresholdChange={handleAnomalyThresholdChange}
+                onDownloadAnomalies={handleDownloadAnomalies}
+                onViewAnomalies={handleViewAnomalies}
               />
             </DuckDBProvider>
           </Suspense>

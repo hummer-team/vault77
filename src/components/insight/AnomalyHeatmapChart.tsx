@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { AnomalyRecord } from '../../types/anomaly.types';
+import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 
 export interface AnomalyHeatmapChartProps {
   data: AnomalyRecord[];
@@ -14,6 +15,7 @@ export interface AnomalyHeatmapChartProps {
   feature2: string;    // Second feature name (Y axis)
   bins?: number;       // Number of bins per axis, default 10
   height?: number;     // Chart height in pixels, default 400
+  totalCount?: number; // Total anomaly count (for display when data is limited)
 }
 
 export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
@@ -22,17 +24,23 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
   feature2,
   bins = 10,
   height = 400,
+  // totalCount is for future use (e.g., displaying "Showing X of Y" in tooltip)
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
 
+  // Limit data to top N for performance (heatmap aggregates data, so less critical)
+  const displayData = useMemo(() => {
+    return data.slice(0, MAX_ANOMALIES_FOR_VISUALIZATION);
+  }, [data]);
+
   // Calculate heatmap data (anomaly rate per bin)
   const heatmapData = useMemo(() => {
-    if (data.length === 0) return { matrix: [], xLabels: [], yLabels: [], maxRate: 0 };
+    if (displayData.length === 0) return { matrix: [], xLabels: [], yLabels: [], maxRate: 0 };
 
     // Extract feature values
-    const f1Values = data.map(r => r.features[feature1]).filter(v => typeof v === 'number');
-    const f2Values = data.map(r => r.features[feature2]).filter(v => typeof v === 'number');
+    const f1Values = displayData.map(r => r.features[feature1]).filter(v => typeof v === 'number');
+    const f2Values = displayData.map(r => r.features[feature2]).filter(v => typeof v === 'number');
 
     if (f1Values.length === 0 || f2Values.length === 0) {
       return { matrix: [], xLabels: [], yLabels: [], maxRate: 0 };
@@ -52,7 +60,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
     const counts: number[][] = Array(bins).fill(0).map(() => Array(bins).fill(0));
 
     // Populate bins
-    data.forEach(record => {
+    displayData.forEach(record => {
       const f1Val = record.features[feature1];
       const f2Val = record.features[feature2];
       
@@ -94,7 +102,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
     });
 
     return { matrix, xLabels, yLabels, maxRate };
-  }, [data, feature1, feature2, bins]);
+  }, [displayData, feature1, feature2, bins]);
 
   useEffect(() => {
     if (!chartRef.current || heatmapData.matrix.length === 0) return;

@@ -88,3 +88,12 @@
 .insight-page .ant-table-tbody > tr:hover > td {
   background: rgba(255, 255, 255, 0.08) !important;
 }
+
+/* Fix: Align Anomaly Rate card title with other cards */
+/* Strategy: Remove Card extra prop and use absolute positioning for menu */
+/* This ensures all cards have the same structure (no card-head) */
+
+/* Clean up previous aggressive CSS rules - no longer needed */
+.insight-section .ant-card .ant-card-body {
+  padding: 20px !important; /* Consistent padding for all cards */
+}

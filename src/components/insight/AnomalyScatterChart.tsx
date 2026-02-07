@@ -4,9 +4,10 @@
  * X-axis: Feature value (e.g., amount), Y-axis: Anomaly score
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { AnomalyRecord } from '../../types/anomaly.types';
+import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 
 export interface AnomalyScatterChartProps {
   data: AnomalyRecord[];
@@ -14,6 +15,7 @@ export interface AnomalyScatterChartProps {
   yAxisLabel?: string;  // Custom Y axis label, default 'Anomaly Score'
   height?: number;      // Chart height in pixels, default 400
   onPointClick?: (record: AnomalyRecord) => void; // Click handler
+  totalCount?: number;  // Total anomaly count (for display when data is limited)
 }
 
 export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
@@ -22,12 +24,18 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
   yAxisLabel = 'Anomaly Score',
   height = 400,
   onPointClick,
+  // totalCount is for future use (e.g., displaying "Showing X of Y" in tooltip)
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
 
+  // Limit data to top N for performance
+  const displayData = useMemo(() => {
+    return data.slice(0, MAX_ANOMALIES_FOR_VISUALIZATION);
+  }, [data]);
+
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
+    if (!chartRef.current || displayData.length === 0) return;
 
     // Force dispose and recreate chart instance to ensure proper re-rendering
     if (chartInstanceRef.current) {
@@ -41,10 +49,11 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
 
     // Prepare data for scatter plot
     // Note: data only contains anomalous orders (filtered by anomalyService)
+    // Display limited to top N for performance
     const anomalyData: [number, number][] = [];
     const allRecords: AnomalyRecord[] = [];
 
-    data.forEach((record) => {
+    displayData.forEach((record) => {
       const xValue = record.features[xAxisFeature];
       if (typeof xValue !== 'number') return; // Skip if feature not found
 
@@ -158,7 +167,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         chartInstance.off('click');
       }
     };
-  }, [data, xAxisFeature, yAxisLabel, onPointClick]);
+  }, [displayData, xAxisFeature, yAxisLabel, onPointClick]);
 
   // Cleanup on unmount
   useEffect(() => {
