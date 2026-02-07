@@ -16,6 +16,7 @@ import {
   DownloadOutlined,
   EyeOutlined,
   BulbOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useInsight } from '../../hooks/insight/useInsight';
 import { SummaryTable } from '../../components/insight/SummaryTable';
@@ -126,7 +127,6 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       await onViewAnomalies(orderIds, tableName);
       
       loadingMsg();
-      message.success('Anomalies loaded in analysis panel');
     } catch (error) {
       message.error('Failed to view anomalies: ' + (error as Error).message);
       console.error('[InsightPage] View failed:', error);
@@ -357,7 +357,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       )}
 
       {/* Section 4: Anomaly Detection (if available) */}
-      {anomalyResult && anomalyResult.anomalyCount > 0 && (
+      {anomalyResult && (
         <>
           <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
           <div className="insight-section">
@@ -365,17 +365,34 @@ export const InsightPage: React.FC<InsightPageProps> = ({
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
                 Anomaly Detection
-                <Tag color="red">{anomalyResult.anomalyCount} Anomalies</Tag>
-                {anomalyResult.anomalyCount > 1000 && (
-                  <Tag color="orange" icon={<InfoCircleOutlined />}>
-                    Large dataset - may impact performance
+                {anomalyResult.anomalyCount > 0 ? (
+                  <>
+                    {anomalyResult.anomalyCount > 1000 && (
+                      <Tag color="orange" icon={<InfoCircleOutlined />}>
+                        Large dataset - may impact performance
+                      </Tag>
+                    )}
+                  </>
+                ) : (
+                  <Tag color="green" icon={<CheckCircleOutlined />}>
+                    No Anomalies Detected
                   </Tag>
                 )}
+                {/* GPU Acceleration status indicator */}
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  marginLeft: 'auto',
+                  fontWeight: 'normal',
+                }}>
+                  GPU: {anomalyResult.metadata.gpuUsed ? 'Enabled' : 'Disabled'}
+                </span>
               </Title>
             </div>
 
             {/* Anomaly Statistics */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
+              {/* Card 1: Anomaly Rate */}
               <Col span={6}>
                 <Card 
                   size="small" 
@@ -421,30 +438,35 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   />
                 </Card>
               </Col>
+
+              {/* Card 2: Anomalous Orders */}
+              <Col span={6}>
+                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                  <Statistic
+                    title="Anomalous Orders"
+                    value={anomalyResult.anomalyCount}
+                    valueStyle={{ color: '#ff4d4f' }}
+                  />
+                </Card>
+              </Col>
+
+              {/* Card 3: Normal Orders */}
+              <Col span={6}>
+                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                  <Statistic
+                    title="Normal Orders"
+                    value={anomalyResult.totalProcessed - anomalyResult.anomalyCount}
+                    valueStyle={{ color: '#52c41a' }}
+                  />
+                </Card>
+              </Col>
+
+              {/* Card 4: Total Processed */}
               <Col span={6}>
                 <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
                   <Statistic
                     title="Total Processed"
                     value={anomalyResult.totalProcessed}
-                    valueStyle={{ color: 'rgba(255, 255, 255, 0.85)' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
-                  <Statistic
-                    title="GPU Acceleration"
-                    value={anomalyResult.metadata.gpuUsed ? 'Enabled' : 'Disabled'}
-                    valueStyle={{ color: anomalyResult.metadata.gpuUsed ? '#52c41a' : 'rgba(255, 255, 255, 0.65)' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
-                  <Statistic
-                    title="Execution Time"
-                    value={anomalyResult.metadata.durationMs.toFixed(0)}
-                    suffix="ms"
                     valueStyle={{ color: 'rgba(255, 255, 255, 0.85)' }}
                   />
                 </Card>
@@ -495,6 +517,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 >
                   {anomalyResult.metadata.featureColumns.length > 0 && (
                     <AnomalyScatterChart
+                      key={`scatter-${anomalyResult.anomalyCount}-${anomalyResult.metadata.threshold}`}
                       data={anomalyResult.anomalies}
                       xAxisFeature={anomalyResult.metadata.featureColumns[0]}
                       height={350}
@@ -515,6 +538,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 >
                   {anomalyResult.metadata.featureColumns.length >= 2 && (
                     <AnomalyHeatmapChart
+                      key={`heatmap-${anomalyResult.anomalyCount}-${anomalyResult.metadata.threshold}`}
                       data={anomalyResult.anomalies}
                       feature1={anomalyResult.metadata.featureColumns[0]}
                       feature2={anomalyResult.metadata.featureColumns[1]}
