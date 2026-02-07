@@ -29,12 +29,18 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
   useEffect(() => {
     if (!chartRef.current || data.length === 0) return;
 
-    // Initialize or get chart instance
-    const chartInstance = chartInstanceRef.current || echarts.init(chartRef.current, 'dark');
+    // Force dispose and recreate chart instance to ensure proper re-rendering
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.dispose();
+      chartInstanceRef.current = null;
+    }
+
+    // Initialize new chart instance
+    const chartInstance = echarts.init(chartRef.current, 'dark');
     chartInstanceRef.current = chartInstance;
 
     // Prepare data for scatter plot
-    const normalData: [number, number][] = [];
+    // Note: data only contains anomalous orders (filtered by anomalyService)
     const anomalyData: [number, number][] = [];
     const allRecords: AnomalyRecord[] = [];
 
@@ -43,13 +49,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
       if (typeof xValue !== 'number') return; // Skip if feature not found
 
       const point: [number, number] = [xValue, record.score];
-      
-      if (record.isAbnormal) {
-        anomalyData.push(point);
-      } else {
-        normalData.push(point);
-      }
-      
+      anomalyData.push(point);
       allRecords.push(record);
     });
 
@@ -62,16 +62,14 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         borderColor: '#777',
         textStyle: { color: '#fff' },
         formatter: (params: any) => {
-          const index = params.seriesIndex === 0 
-            ? params.dataIndex 
-            : normalData.length + params.dataIndex;
-          const record = allRecords[index];
+          const record = allRecords[params.dataIndex];
           
           return `
             <strong>Order ID:</strong> ${record.orderId}<br/>
             <strong>${xAxisFeature}:</strong> ${params.value[0].toFixed(2)}<br/>
             <strong>Score:</strong> ${params.value[1].toFixed(3)}<br/>
-            <strong>Status:</strong> ${record.isAbnormal ? '<span style="color:#ff4d4f">Anomaly</span>' : '<span style="color:#52c41a">Normal</span>'}
+            <strong>Rank:</strong> #${record.rank ?? 'N/A'}<br/>
+            <strong>Status:</strong> <span style="color:#ff4d4f">Anomaly</span>
           `;
         },
       },
@@ -111,23 +109,6 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
       },
       series: [
         {
-          name: 'Normal Orders',
-          type: 'scatter',
-          data: normalData,
-          symbolSize: 6,
-          itemStyle: {
-            color: '#52c41a',
-            opacity: 0.6,
-          },
-          emphasis: {
-            itemStyle: {
-              color: '#95de64',
-              borderColor: '#52c41a',
-              borderWidth: 2,
-            },
-          },
-        },
-        {
           name: 'Anomalous Orders',
           type: 'scatter',
           data: anomalyData,
@@ -146,7 +127,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         },
       ],
       legend: {
-        data: ['Normal Orders', 'Anomalous Orders'],
+        data: ['Anomalous Orders'],
         bottom: '5%',
         textStyle: {
           color: 'rgba(255, 255, 255, 0.85)',
@@ -159,10 +140,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
     // Handle click events
     if (onPointClick) {
       chartInstance.on('click', (params: any) => {
-        const index = params.seriesIndex === 0 
-          ? params.dataIndex 
-          : normalData.length + params.dataIndex;
-        const record = allRecords[index];
+        const record = allRecords[params.dataIndex];
         onPointClick(record);
       });
     }

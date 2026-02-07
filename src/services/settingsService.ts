@@ -214,7 +214,7 @@ class SettingsService {
       ANOMALY_DETECTION_SETTINGS_KEY,
       {
         autoRun: true,              // Auto-run on data upload
-        threshold: 0.8,             // Default anomaly threshold
+        threshold: 0.7,             // Default anomaly threshold
         samplingRate: 0.75,         // 75% sampling for large datasets
         samplingThreshold: 50000,   // Trigger sampling at 50k rows
         useGPU: 'auto',             // Smart GPU strategy

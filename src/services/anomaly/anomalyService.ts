@@ -362,6 +362,14 @@ export async function analyzeAnomalies(
       record.rank = index + 1;
     });
 
+    // Performance warning for large result sets
+    if (anomalies.length > 5000) {
+      console.warn('[AnomalyService] Large anomaly count detected:', {
+        anomalyCount: anomalies.length,
+        recommendation: 'Consider increasing threshold or enabling sampling',
+      });
+    }
+
     // Step 9: Build metadata
     const totalDuration = performance.now() - startTime;
     const metadata: AnomalyMetadata = {

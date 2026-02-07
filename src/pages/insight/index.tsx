@@ -23,13 +23,28 @@ interface InsightPageProps {
   tableName: string;
   onNoValidColumns?: () => void; // Callback when no valid columns found
   anomalyResult?: AnomalyAnalysisOutput | null; // Anomaly detection result from Workbench
+  onAnomalyThresholdChange?: (threshold: number) => void; // Callback to trigger re-detection
 }
 
-export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidColumns, anomalyResult }) => {
+export const InsightPage: React.FC<InsightPageProps> = ({ 
+  tableName, 
+  onNoValidColumns, 
+  anomalyResult,
+  onAnomalyThresholdChange 
+}) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
   
-  // Local state for anomaly threshold adjustment
-  const [anomalyThreshold, setAnomalyThreshold] = useState(0.8);
+  // Local state for anomaly threshold adjustment (UI only)
+  const [anomalyThreshold, setAnomalyThreshold] = useState(
+    anomalyResult?.metadata.threshold ?? 0.8
+  );
+
+  // Sync threshold with anomalyResult when it changes
+  React.useEffect(() => {
+    if (anomalyResult?.metadata.threshold) {
+      setAnomalyThreshold(anomalyResult.metadata.threshold);
+    }
+  }, [anomalyResult?.metadata.threshold]);
 
   const {
     loading,
@@ -244,6 +259,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
                 <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
                 Anomaly Detection
                 <Tag color="red">{anomalyResult.anomalyCount} Anomalies</Tag>
+                {anomalyResult.anomalyCount > 1000 && (
+                  <Tag color="orange" icon={<InfoCircleOutlined />}>
+                    Large dataset - may impact performance
+                  </Tag>
+                )}
               </Title>
             </div>
 
@@ -299,7 +319,13 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
                 max={0.95}
                 step={0.05}
                 value={anomalyThreshold}
-                onChange={setAnomalyThreshold}
+                onChange={(value) => {
+                  setAnomalyThreshold(value);
+                  // Trigger re-detection with new threshold
+                  if (onAnomalyThresholdChange) {
+                    onAnomalyThresholdChange(value);
+                  }
+                }}
                 style={{ width: 300, display: 'inline-block' }}
                 marks={{
                   0.5: '0.5',
@@ -323,7 +349,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({ tableName, onNoValidCo
                 >
                   {anomalyResult.metadata.featureColumns.length > 0 && (
                     <AnomalyScatterChart
-                      data={anomalyResult.anomalies.filter(a => a.score >= anomalyThreshold)}
+                      data={anomalyResult.anomalies}
                       xAxisFeature={anomalyResult.metadata.featureColumns[0]}
                       height={350}
                     />

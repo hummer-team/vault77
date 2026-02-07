@@ -285,6 +285,26 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     setShowInsightSidebar(false);
   }, []);
 
+  // Handle anomaly threshold change from InsightPage
+  const handleAnomalyThresholdChange = useCallback(async (newThreshold: number) => {
+    if (!insightTableName || !isDBReady) return;
+
+    console.log('[Workbench] Re-detecting anomalies with new threshold:', newThreshold);
+    
+    try {
+      await anomalyDetection.detectAnomalies({
+        tableName: insightTableName,
+        orderIdColumn: '', // Auto-infer
+        featureColumns: [], // Auto-infer
+        threshold: newThreshold,
+      });
+      console.log('[Workbench] Anomaly re-detection completed');
+    } catch (error) {
+      console.error('[Workbench] Anomaly re-detection failed:', error);
+      message.error('Failed to re-detect anomalies with new threshold');
+    }
+  }, [insightTableName, isDBReady, anomalyDetection]);
+
   // Draggable divider handlers
   const tempWidthRef = useRef<number>(sidebarWidth);
   const chatSectionRef = useRef<HTMLDivElement>(null);
@@ -425,6 +445,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
               tableName,
               orderIdColumn: '', // Auto-infer
               featureColumns: [], // Auto-infer
+              threshold: settings.threshold, // Use default threshold from settings
             });
             console.log('[Workbench] Anomaly detection completed');
           }
@@ -924,6 +945,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                 tableName={insightTableName}
                 anomalyResult={anomalyDetection.result}
                 onNoValidColumns={handleNoValidColumns}
+                onAnomalyThresholdChange={handleAnomalyThresholdChange}
               />
             </DuckDBProvider>
           </Suspense>
