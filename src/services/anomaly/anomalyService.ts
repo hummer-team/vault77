@@ -141,10 +141,10 @@ async function fetchData(
 }> {
   try {
     // Build SQL query with sampling
-    // FIX: Add REPEATABLE seed to ensure consistent sampling results
+    // Use DuckDB official SAMPLE syntax (without REPEATABLE which is not supported)
     const shouldSample = samplingRate < 1.0;
     const samplingClause = shouldSample 
-      ? `USING SAMPLE ${(samplingRate * 100).toFixed(2)} PERCENT (bernoulli, REPEATABLE (42))`
+      ? `USING SAMPLE ${(samplingRate * 100).toFixed(2)} PERCENT (bernoulli)`
       : '';
     
     const featureColumnsSQL = featureColumns
