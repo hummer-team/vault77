@@ -1,0 +1,57 @@
+/**
+ * ActionPanel Component Styles
+ */
+
+.action-panel {
+  background: #1f1f1f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-panel .ant-card-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-panel .ant-card-body {
+  padding: 20px;
+}
+
+.action-section {
+  margin-bottom: 24px;
+}
+
+.action-section:last-child {
+  margin-bottom: 0;
+}
+
+.action-section h5 {
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pattern-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.pattern-list li {
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.recommendation-card {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+}
+
+.recommendation-card:hover {
+  background: #2f2f2f;
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.recommendation-card .ant-card-body {
+  padding: 12px 16px;
+}

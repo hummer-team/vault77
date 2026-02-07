@@ -102,6 +102,7 @@ export interface AnomalyAnalysisOutput {
   anomalyRate: number;         // Anomaly rate [0, 1] (anomalyCount / totalProcessed)
   anomalies: AnomalyRecord[];  // List of anomalous orders (sorted by score desc)
   metadata: AnomalyMetadata;   // Execution metadata
+  decision?: import('./insight-action.types').InsightActionOutput; // Optional LLM decision output
 }
 
 // ============================================================================

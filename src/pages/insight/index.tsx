@@ -4,7 +4,7 @@
  * Reuses DuckDB instance from Workbench via Context
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
@@ -24,8 +24,13 @@ import { DistributionChart } from '../../components/insight/DistributionChart';
 import { CategoricalChart } from '../../components/insight/CategoricalChart';
 import { AnomalyScatterChart } from '../../components/insight/AnomalyScatterChart';
 import { AnomalyHeatmapChart } from '../../components/insight/AnomalyHeatmapChart';
+import { ActionPanel } from '../../components/insight/ActionPanel';
 import { useDuckDBContext } from '../../contexts/DuckDBContext';
+import { createInsightActionService } from '../../services/insight/insightActionService';
+import { downloadReport } from '../../services/insight/reportGenerator';
+import { settingsService } from '../../services/settingsService';
 import type { AnomalyAnalysisOutput } from '../../types/anomaly.types';
+import type { InsightAction } from '../../types/insight-action.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 import './index.css';
 
@@ -55,12 +60,80 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     anomalyResult?.metadata.threshold ?? 0.8
   );
 
+  // LLM Insight Action state
+  const [insightAction, setInsightAction] = useState<InsightAction | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+
   // Sync threshold with anomalyResult when it changes
   React.useEffect(() => {
     if (anomalyResult?.metadata.threshold) {
       setAnomalyThreshold(anomalyResult.metadata.threshold);
     }
   }, [anomalyResult?.metadata.threshold]);
+
+  /**
+   * Generate LLM insights (extracted for reuse in retry)
+   */
+  const generateLLMInsights = React.useCallback(async () => {
+    if (!anomalyResult || anomalyResult.anomalyCount === 0 || !isDBReady) {
+      setInsightAction(null);
+      setInsightError(null);
+      return;
+    }
+
+    // Check if auto-generation is enabled
+    const settings = await settingsService.getInsightActionSettings();
+    if (!settings.autoGenerate) {
+      console.log('[InsightPage] Insight action auto-generation disabled');
+      return;
+    }
+
+    setInsightLoading(true);
+    setInsightError(null);
+
+    try {
+      // Create service with DuckDB query executor
+      const insightService = createInsightActionService(executeQuery);
+
+      console.log('[InsightPage] Generating insights for', anomalyResult.anomalyCount, 'anomalies');
+
+      const output = await insightService.generateInsight(
+        {
+          algorithmType: 'anomaly',
+          tableName,
+          analysisResult: anomalyResult,
+        },
+        settings
+      );
+
+      setInsightAction(output);
+      console.log('[InsightPage] Insights generated:', output);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setInsightError(`Failed to generate insights: ${errorMsg}`);
+      console.error('[InsightPage] Insight generation failed:', error);
+    } finally {
+      setInsightLoading(false);
+    }
+  }, [anomalyResult, tableName, isDBReady, executeQuery]);
+
+  /**
+   * Auto-generate insights when anomaly result changes
+   */
+  useEffect(() => {
+    // Delay generation to avoid blocking UI thread
+    const timer = setTimeout(generateLLMInsights, 500);
+    return () => clearTimeout(timer);
+  }, [generateLLMInsights]);
+
+  /**
+   * Retry insight generation (manual trigger)
+   */
+  const handleRetryInsight = React.useCallback(() => {
+    console.log('[InsightPage] Manual retry triggered');
+    generateLLMInsights();
+  }, [generateLLMInsights]);
 
   // Handler for anomaly actions menu
   const handleMenuClick = async ({ key }: { key: string }) => {
@@ -132,6 +205,39 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       console.error('[InsightPage] View failed:', error);
     }
   };
+
+  /**
+   * Handler for downloading full report (ZIP with MD + CSV)
+   */
+  const handleDownloadReport = useCallback(async () => {
+    if (!anomalyResult || !insightAction || !onDownloadAnomalies) {
+      message.warning('Report not ready for download');
+      return;
+    }
+
+    const orderIds = anomalyResult.anomalies.map(a => a.orderId);
+
+    try {
+      const hideLoading = message.loading('Preparing report...', 0);
+
+      // Fetch full anomaly data
+      const anomalyData = await onDownloadAnomalies(orderIds);
+
+      // Download ZIP (markdown + CSV)
+      await downloadReport({
+        insightOutput: insightAction,
+        anomalyData,
+        tableName,
+        algorithmType: 'anomaly',
+      });
+
+      hideLoading();
+      // Silent success - no message popup
+    } catch (error) {
+      message.error('Failed to download report: ' + (error as Error).message);
+      console.error('[InsightPage] Report download failed:', error);
+    }
+  }, [anomalyResult, insightAction, onDownloadAnomalies, tableName]);
 
   // Menu items for anomaly actions
   const anomalyMenuItems: MenuProps['items'] = [
@@ -549,16 +655,20 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 </Card>
               </Col>
             </Row>
+
+            {/* LLM Insights & Recommendations Panel */}
+            {anomalyResult.anomalyCount > 0 && (
+              <ActionPanel
+                insightAction={insightAction}
+                loading={insightLoading}
+                error={insightError}
+                onDownloadReport={handleDownloadReport}
+                onRetry={handleRetryInsight}
+              />
+            )}
           </div>
         </>
       )}
-
-      {/* Footer */}
-      <div className="insight-footer">
-        <Text type="secondary">
-          Generated {new Date().toLocaleString()} • {config?.columns.length || 0} columns analyzed
-        </Text>
-      </div>
     </div>
   );
 };

@@ -7,6 +7,7 @@
 import { storageService } from './storageService.ts';
 import { v4 as uuidv4 } from 'uuid';
 import { AnomalyDetectionSettings } from '../types/anomaly.types';
+import { InsightActionSettings } from '../types/insight-action.types';
 
 // --- Data Structures ---
 
@@ -30,7 +31,8 @@ const USER_PROFILE_KEY = 'userProfile';
 const LLM_CONFIGS_KEY = 'llmProviderConfigs';
 const USER_PERSONA_KEY = 'vaultmind_user_persona2';
 const PERSONA_PROMPT_DISMISSED_KEY = 'vaultmind_persona_prompt_dismissed2';
-const ANOMALY_DETECTION_SETTINGS_KEY = 'anomalyDetectionSettings'; // New key for anomaly settings
+const ANOMALY_DETECTION_SETTINGS_KEY = 'anomalyDetectionSettings';
+const INSIGHT_ACTION_SETTINGS_KEY = 'insightActionSettings'; // New key for insight action settings
 
 
 // --- Service Class ---
@@ -244,6 +246,40 @@ class SettingsService {
     }
     
     await storageService.setItem(ANOMALY_DETECTION_SETTINGS_KEY, updated);
+  }
+
+  // --- Insight Action Settings Methods ---
+
+  /**
+   * Get insight action settings with defaults
+   * @returns Current insight action settings
+   */
+  public async getInsightActionSettings(): Promise<InsightActionSettings> {
+    return storageService.getItem<InsightActionSettings>(
+      INSIGHT_ACTION_SETTINGS_KEY,
+      {
+        autoGenerate: true,           // Auto-generate after anomaly detection
+        maxAnomaliesForAnalysis: 500, // Max anomalies to analyze (avoid token overflow)
+      }
+    );
+  }
+
+  /**
+   * Update insight action settings
+   * @param settings Partial settings to update
+   */
+  public async updateInsightActionSettings(
+    settings: Partial<InsightActionSettings>
+  ): Promise<void> {
+    const current = await this.getInsightActionSettings();
+    const updated = { ...current, ...settings };
+    
+    // Validate settings
+    if (updated.maxAnomaliesForAnalysis <= 0) {
+      throw new Error('Max anomalies for analysis must be positive');
+    }
+    
+    await storageService.setItem(INSIGHT_ACTION_SETTINGS_KEY, updated);
   }
 }
 
