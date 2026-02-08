@@ -319,7 +319,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       event.preventDefault();
       event.stopPropagation();
       
-      // 先关闭已有菜单（如果有的话）
+      // Close existing menu first if any
       setContextMenu({ visible: false, x: 0, y: 0, customerId: '' });
       
       // Get chart container bounds
@@ -397,11 +397,11 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       
       if (foundCustomerId) {
         console.log('[ScatterChart] Setting context menu state...');
-        // 使用setTimeout确保先关闭旧菜单，再打开新菜单
+        // Use setTimeout to ensure old menu closes before opening new one
         setTimeout(() => {
           setContextMenu({
             visible: true,
-            x: offsetX,  // 使用相对于图表容器的坐标
+            x: offsetX,  // Use coordinates relative to chart container
             y: offsetY,
             customerId: String(foundCustomerId),
           });
@@ -491,7 +491,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         y={contextMenu.y}
         customerId={contextMenu.customerId}
         onClose={() => setContextMenu({ ...contextMenu, visible: false })}
-        // onViewDetails 和 onCompare 保持 undefined (禁用状态)
+        // Keep onViewDetails and onCompare as undefined (disabled state)
       />
     </div>
   );
