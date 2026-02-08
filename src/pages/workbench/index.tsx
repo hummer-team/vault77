@@ -17,6 +17,8 @@ import { useDuckDB } from '../../hooks/useDuckDB';
 import { useFileManager } from '../../hooks/useFileManager';
 import { useTableSchema } from '../../hooks/useTableSchema';
 import { useAnomaly } from '../../hooks/useAnomaly'; // Add anomaly detection hook
+import { useClustering } from '../../hooks/useClustering'; // Add customer clustering hook
+import { DEFAULT_K_VALUE } from '../../constants/clustering.constants'; // Clustering constants
 import { WorkbenchState, Attachment } from '../../types/workbench.types';
 import { settingsService } from '../../services/settingsService.ts';
 import { resolveActiveLlmConfig, isValidLlmConfig } from '../../services/llm/runtimeLlmConfig.ts';
@@ -172,6 +174,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   
   // Initialize anomaly detection hook (depends on executeQuery)
   const anomalyDetection = useAnomaly(executeQuery);
+  
+  // Initialize customer clustering hook (depends on executeQuery)
+  const clusteringAnalysis = useClustering(executeQuery);
 
   // Notify parent when DuckDB is ready
   useEffect(() => {
@@ -304,6 +309,49 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       message.error('Failed to re-detect anomalies with new threshold');
     }
   }, [insightTableName, isDBReady, anomalyDetection]);
+
+  // Handle K value change from InsightPage (re-run clustering)
+  const handleKValueChange = useCallback(async (newK: number) => {
+    if (!insightTableName || !isDBReady) return;
+
+    console.log('[Workbench] Re-running clustering with new K value:', newK);
+    
+    try {
+      await clusteringAnalysis.performClustering({
+        tableName: insightTableName,
+        customerIdColumn: '', // Auto-detect
+        orderDateColumn: '', // Auto-detect
+        orderAmountColumn: '', // Auto-detect
+        nClusters: newK,
+      });
+      console.log('[Workbench] Clustering re-run completed');
+    } catch (error) {
+      console.error('[Workbench] Clustering re-run failed:', error);
+      message.error('Failed to re-run clustering with new K value');
+    }
+  }, [insightTableName, isDBReady, clusteringAnalysis]);
+
+  // Auto-trigger clustering when Insight sidebar opens (async, non-blocking)
+  React.useEffect(() => {
+    if (!insightTableName || !isDBReady || !showInsightSidebar) return;
+
+    // Only run if clustering hasn't been executed yet
+    if (clusteringAnalysis.result === null && !clusteringAnalysis.isClustering && !clusteringAnalysis.error) {
+      console.log('[Workbench] Auto-triggering clustering analysis for table:', insightTableName);
+      
+      // Async trigger (non-blocking UI)
+      clusteringAnalysis.performClustering({
+        tableName: insightTableName,
+        customerIdColumn: '', // Auto-detect
+        orderDateColumn: '', // Auto-detect
+        orderAmountColumn: '', // Auto-detect
+        nClusters: DEFAULT_K_VALUE,
+      }).catch((error) => {
+        console.error('[Workbench] Auto-clustering failed:', error);
+        // Don't show error message here - InsightPage will handle it with retry button
+      });
+    }
+  }, [insightTableName, isDBReady, showInsightSidebar, clusteringAnalysis]);
 
   // Handle download anomalies from InsightPage
   const handleDownloadAnomalies = useCallback(async (orderIds: string[]): Promise<any[]> => {
@@ -1016,8 +1064,10 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
               <InsightPage 
                 tableName={insightTableName}
                 anomalyResult={anomalyDetection.result}
+                clusteringResult={clusteringAnalysis.result}
                 onNoValidColumns={handleNoValidColumns}
                 onAnomalyThresholdChange={handleAnomalyThresholdChange}
+                onKValueChange={handleKValueChange}
                 onDownloadAnomalies={handleDownloadAnomalies}
                 onViewAnomalies={handleViewAnomalies}
               />

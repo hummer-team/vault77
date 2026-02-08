@@ -1,15 +1,18 @@
 /**
  * Data Aggregator for Insight Action
  * Aggregates anomaly data using AnomalyRecord.features
+ * Aggregates clustering data with RFM statistics
  * Avoids re-querying database with hard-coded column names
  */
 
 import type { AnomalyRecord } from '../../types/anomaly.types';
+import type { ClusteringAnalysisOutput, CustomerClusterRecord } from '../../types/clustering.types';
 import type { 
   AggregatedFeatures, 
   NumericFeatureStats,
   InsightContext,
 } from '../../types/insight-action.types';
+import { CLUSTER_SAMPLE_SIZE } from '../../constants/clustering.constants';
 
 /**
  * Query execution function type
@@ -165,4 +168,119 @@ async function computeNumericStatsFromFeatures(
   }
   
   return stats;
+}
+
+// ============================================================================
+// Clustering Aggregation
+// ============================================================================
+
+/**
+ * Aggregate clustering results for LLM analysis
+ * Samples customers from each cluster and computes global RFM statistics
+ * 
+ * @param executeQuery Query execution function (unused for clustering, kept for API consistency)
+ * @param tableName DuckDB table name (unused, kept for API consistency)
+ * @param clusteringResult Clustering analysis result
+ * @param context Insight context (unused, kept for API consistency)
+ * @returns Aggregated features with cluster statistics and samples
+ */
+export async function aggregateClusters(
+  _executeQuery: QueryExecutor,
+  _tableName: string,
+  clusteringResult: ClusteringAnalysisOutput,
+  _context: InsightContext,
+): Promise<AggregatedFeatures> {
+  const { totalCustomers, clusters, customers } = clusteringResult;
+  
+  // Step 1: Compute global RFM statistics
+  const totalRecency = customers.reduce((sum, c) => sum + c.recency, 0);
+  const totalFrequency = customers.reduce((sum, c) => sum + c.frequency, 0);
+  const totalMonetary = customers.reduce((sum, c) => sum + c.monetary, 0);
+  
+  const rfmStats = {
+    globalAvgRecency: totalRecency / totalCustomers,
+    globalAvgFrequency: totalFrequency / totalCustomers,
+    globalAvgMonetary: totalMonetary / totalCustomers,
+  };
+  
+  // Step 2: Compute total value for percentage calculation
+  const totalValue = customers.reduce((sum, c) => sum + c.monetary, 0);
+  
+  // Step 3: Format cluster metadata with value share
+  const formattedClusters = clusters.map(cluster => ({
+    clusterId: cluster.clusterId,
+    label: cluster.label,
+    customerCount: cluster.customerCount,
+    avgRecency: cluster.avgRecency,
+    avgFrequency: cluster.avgFrequency,
+    avgMonetary: cluster.avgMonetary,
+    totalValue: cluster.totalValue,
+    valueShare: totalValue > 0 ? (cluster.totalValue / totalValue) * 100 : 0,
+  }));
+  
+  // Step 4: Sample customers from each cluster (stratified sampling)
+  const sampleCustomers = sampleCustomersFromClusters(customers, clusters.length);
+  
+  console.log('[Aggregator] Clustered data aggregated:', {
+    totalCustomers,
+    numClusters: clusters.length,
+    samplesPerCluster: CLUSTER_SAMPLE_SIZE,
+    totalSamples: sampleCustomers.reduce((sum, s) => sum + s.customers.length, 0),
+  });
+  
+  return {
+    totalCustomers,
+    clusters: formattedClusters,
+    rfmStats,
+    sampleCustomers,
+  };
+}
+
+/**
+ * Sample customers from each cluster for LLM context
+ * Uses stratified sampling with high-value priority
+ * 
+ * @param customers All customer records
+ * @param numClusters Number of clusters
+ * @returns Sampled customers per cluster
+ */
+function sampleCustomersFromClusters(
+  customers: CustomerClusterRecord[],
+  numClusters: number
+): Array<{
+  clusterId: number;
+  customers: Array<{
+    customerId: string;
+    recency: number;
+    frequency: number;
+    monetary: number;
+  }>;
+}> {
+  const samples = [];
+  
+  for (let clusterId = 0; clusterId < numClusters; clusterId++) {
+    // Get all customers in this cluster
+    const clusterCustomers = customers.filter(c => c.clusterId === clusterId);
+    
+    if (clusterCustomers.length === 0) {
+      samples.push({ clusterId, customers: [] });
+      continue;
+    }
+    
+    // Sort by monetary value (descending) for high-value priority
+    const sortedCustomers = [...clusterCustomers].sort((a, b) => b.monetary - a.monetary);
+    
+    // Sample up to CLUSTER_SAMPLE_SIZE customers
+    const sampleSize = Math.min(CLUSTER_SAMPLE_SIZE, sortedCustomers.length);
+    const sampledCustomers = sortedCustomers.slice(0, sampleSize).map(c => ({
+      customerId: c.customerId,
+      recency: c.recency,
+      frequency: c.frequency,
+      monetary: c.monetary,
+    }));
+    
+    samples.push({ clusterId, customers: sampledCustomers });
+  }
+  
+  return samples;
 }

@@ -17,10 +17,12 @@ design/refactor3.md
 design/insight.md
 design/insight_v2.md
 design/ui.md
+design/wasm.segment.md
 refactor-plan.md
 .gemini
 GEMINI.md
 CODEBUDDY.md
 TS_INTEGRATION.md
-design/wasm.md
+design/wasm.anomaly.md
 insight-action-plan-final.md
+docs

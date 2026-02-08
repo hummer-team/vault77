@@ -2,20 +2,137 @@
 
 本文档面向开发者和维护者，介绍 Vaultmind 项目中与 LLM Agent、DuckDB worker、工具（tools）及相关 hook/service 的架构、运行方式、扩展点与调试建议。
 
-简短 TL;DR
-- Vaultmind 是一个以浏览器前端为主的交互式数据分析助手：UI（React）↔ useLLMAgent / AgentExecutor ↔ LLM 客户端（OpenAI）↔ 工具（当前为 DuckDB SQL 工具）↔ DuckDB WASM Worker。
-- 主要入口/关注点文件：`src/services/llm/*`, `src/services/tools/*`, `src/workers/duckdb.worker.ts`, `src/hooks/*`, `src/pages/workbench/*`。
+---
 
-更新日志
+## 📋 目录导航
+
+1. [项目概览](#一项目概览)
+2. [快速开始](#二快速开始-3-分钟上手)
+3. [M10 系列重构](#三m10-系列重构重要)
+4. [总体架构](#四总体架构概览)
+5. [关键文件与职责](#五关键文件与职责)
+6. [Agent 执行流](#六agent-执行流详细)
+7. [环境配置](#七环境配置清单)
+8. [Chrome Extension 调试](#八chrome-extension-调试指南)
+9. [错误处理](#九错误处理与常见问题)
+10. [扩展开发](#十扩展点如何添加-prompt--tool--worker)
+11. [FAQ 常见问题](#十一faq-常见问题)
+12. [项目规范](#十二项目技术规范)
+13. [参考文件列表](#十三参考文件列表)
+
+---
+
+## 更新日志
+
+- **2026-02-08**: 
+  - **客户聚类分析功能**: 集成基于RFM的K-Means聚类分析，支持GPU加速（40x性能提升）、自动列检测、动态K值调整（2-10）、双图表可视化（散点图+雷达图）、LLM业务洞察生成、CSV导出功能。核心模块包括：聚类服务（clusteringService）、RFM特征工程（rfmColumnDetector + rfmSqlGenerator）、Web Worker（clustering.worker）、可视化组件（ScatterChart + RadarChart + ErrorBoundary + Skeleton）、策略模式（ClusteringActionStrategy）、React Hook（useClustering）。完成21个单元测试，代码量~3,400行。
+  - 文档结构重构，新增目录导航、快速开始、环境配置清单、Chrome Extension 调试指南、FAQ 章节，整合 rule.md 工作流规范。
 - **2026-01-29**: 完成 M10.6 (Multi-Industry Refactoring & M8 Regression Fixes)，实现多行业动态支持、行业功能开关、修复 7 个回归测试问题 + 1 个 BigInt 序列化问题。
 - **2026-01-25**: 完成 M10.4 (Skill System Integration) 和 M10.5 (Transparency Enhancement)，新增 User Skill L0 配置系统、Query Router、透明度标签和设置面板。
 - **2026-01-15**: 本文档基于当前代码仓库自动生成，已阅读并引用了 repository 中的关键文件。
 
-一、目的
-- 说明 Agent 的职责、执行流程、关键实现文件与如何在项目中扩展（新增 prompt 或 tool）。
-- 目标读者：想理解或扩展 Vaultmind 的开发者。
+---
 
-二、M10 系列重构（重要）
+## 一、项目概览
+
+### TL;DR
+
+**Vaultmind** 是一个 **Agent-Driven Analytics Workbench**，以 Chrome Extension 形式交付，允许用户通过自然语言进行数据分析。
+
+**核心技术架构**:
+```
+UI (React + Ant Design)
+    ↓
+useLLMAgent / AgentRuntime
+    ↓
+LLM Client (OpenAI) + Skills (nl2sql.v1, analysis.v1)
+    ↓
+Tools (sql_query_tool)
+    ↓
+DuckDB WASM Worker (In-Browser SQL Engine)
+```
+
+**主要入口文件**:
+- `src/services/llm/*` - Agent 运行时、Prompt 管理、Skills 系统
+- `src/services/tools/*` - 工具注册表（SQL 查询工具）
+- `src/workers/duckdb.worker.ts` - DuckDB WASM Worker
+- `src/hooks/*` - React Hooks（useLLMAgent, useDuckDB, useFileParsing）
+- `src/pages/workbench/*` - 主界面（Workbench, ChatPanel, ResultsDisplay）
+
+**技术栈版本** (package.json v0.2.0):
+- **Language**: TypeScript 5.2.2 (Strict Mode)
+- **Runtime**: Bun (首选), Node.js 18+ (兼容)
+- **Framework**: React 18.2.0 + React DOM 18.2.0
+- **UI Library**: Ant Design 6.1.3 (Dark Theme)
+- **Data Engine**: DuckDB-WASM 1.33.1-dev16.0 + Apache Arrow 21.1.0
+- **LLM**: OpenAI 6.15.0 / @mlc-ai/web-llm 0.2.80
+- **Build Tool**: Vite 5.2.0 + @crxjs/vite-plugin 2.3.0 (Chrome Extension)
+- **Validation**: Zod 4.3.2 + zod-gpt 0.16.0
+- **State**: Zustand 5.0.9
+- **Visualization**: ECharts 6.0.0
+- **File Processing**: ExcelJS 4.4.0, PapaParse 5.5.3, JSZip 3.10.1
+
+---
+
+## 二、快速开始 (3 分钟上手)
+
+### 步骤 1: 安装依赖
+
+```bash
+# 克隆仓库（示例）
+cd /path/to/vaultmind
+
+# 安装 Bun (如未安装)
+curl -fsSL https://bun.sh/install | bash
+
+# 安装项目依赖
+bun install
+```
+
+### 步骤 2: 配置环境变量
+
+```bash
+# 设置 LLM 配置（在 shell 中设置或创建 .env 文件）
+export VITE_LLM_PROVIDER="openai"
+export VITE_LLM_API_KEY="sk-your-api-key-here"
+export VITE_LLM_API_URL="https://api.openai.com/v1"
+export VITE_LLM_MODEL_NAME="gpt-4"
+export VITE_LLM_MOCK="false"  # 开发时可设为 "true" 使用 mock 数据
+```
+
+### 步骤 3: 构建 Chrome Extension
+
+```bash
+# 开发模式（持续监听文件变化）
+bun run dev
+
+# 生产构建
+bun run build
+```
+
+### 步骤 4: 加载到 Chrome
+
+1. 打开 Chrome，访问 `chrome://extensions/`
+2. 开启右上角"开发者模式"
+3. 点击"加载已解压的扩展程序"
+4. 选择项目的 `dist/` 目录
+5. 打开任意网页，点击浏览器右上角的 Vaultmind 图标
+6. 在侧边栏中上传 CSV/Excel 文件，开始分析！
+
+### 步骤 5: 验证安装
+
+**测试用例 A - 基础查询**:
+- **输入**: 上传包含订单数据的 CSV 文件
+- **操作**: 在聊天框输入 "总共有多少订单？"
+- **预期结果**: 返回订单总数，显示 SQL 查询和结果表格
+
+**测试用例 B - 趋势分析**:
+- **输入**: "按天统计订单数趋势"
+- **预期结果**: 返回按天聚合的订单数，显示 SQL、数据表格和图表
+
+---
+
+## 三、M10 系列重构（重要）
 
 ### M10.6：Multi-Industry Refactoring & M8 Regression Fixes
 
@@ -235,7 +352,7 @@
 
 ---
 
-二、总体架构概览
+## 四、总体架构概览
 - 组件（高层次）
   - 前端 UI（React 页面/组件）：`src/pages/workbench` 下的 Workbench、ChatPanel、FileDropzone、ResultsDisplay 等。
   - Hook 层：`src/hooks/useLLMAgent.ts`（对外的 Agent API 层）、`src/hooks/useDuckDB.ts`（与 DuckDB worker 协作）、`src/hooks/useFileParsing.ts`（文件解析与上传）等。
@@ -269,7 +386,9 @@
     - `src/services/llm/agentEvents.ts`：扩展 `AgentErrorCategory` 枚举，新增 `'INDUSTRY_NOT_ENABLED'` 类型。
   - 其他：`src/services/settingsService.ts`、`src/services/storageService.ts`、`src/status/appStatusManager.ts` 等。
 
-三、关键文件与职责（逐项）
+---
+
+## 五、关键文件与职责（逐项）
 - Hooks
   - `src/hooks/useLLMAgent.ts`：项目中暴露给组件的 Agent hook（目前是占位/封装层，具体逻辑在 `AgentExecutor`）。
   - `src/hooks/useDuckDB.ts`：封装 DuckDB 初始化、表创建、executeQuery、dropTable 等逻辑（Workbench 通过它与 DB 交互）。
@@ -481,7 +600,9 @@ LLM 模型约束与 Skills 声明
   - `src/services/llm/agentExecutor.ts`：增加 `_preflightValidateToolCall(toolName, args)` helper（检查白名单、关键字、LIMIT、permissions），以及在解析 tool_call 后调用该函数。  
   - `src/services/llm/LlmClient.ts`：把 `chatCompletions` 调用中 `max_tokens`、`timeout` 的推荐位置与示例写在注释中，确保调用方可传 `signal` 取消请求。
 
-五、Agent 执行流（详细）- M10.4 更新版
+---
+
+## 六、Agent 执行流（详细）- M10.4 更新版
 
 - **1. 用户在 UI（ChatPanel）输入请求并提交（或选择 suggestion）。**
 
@@ -541,7 +662,148 @@ LLM 模型约束与 Skills 声明
    - `renderSkillMetadataTags()`：展示 Skill/Industry/UserSkill 3 个标签。
    - `renderEffectiveSettings()`：展示 Table Name、Field Mapping、Default Filters（Top-5）、Metrics（Top-8）。
 
-六、错误处理与常见问题
+---
+
+## 七、环境配置清单
+
+### 必需环境变量
+
+| 变量名 | 说明 | 示例值 | 默认值 |
+|--------|------|--------|--------|
+| `VITE_LLM_PROVIDER` | LLM 提供商 | `"openai"` / `"webllm"` | `"openai"` |
+| `VITE_LLM_API_KEY` | LLM API 密钥 | `"sk-xxxxx"` | - |
+| `VITE_LLM_API_URL` | LLM API 端点 | `"https://api.openai.com/v1"` | `"https://api.openai.com/v1"` |
+| `VITE_LLM_MODEL_NAME` | 模型名称 | `"gpt-4"` / `"gpt-3.5-turbo"` | `"gpt-4"` |
+| `VITE_LLM_MOCK` | 是否启用 Mock 模式 | `"true"` / `"false"` | `"false"` |
+
+### 可选环境变量
+
+| 变量名 | 说明 | 示例值 |
+|--------|------|--------|
+| `VITE_ENABLE_DEBUG` | 开启调试日志 | `"true"` |
+| `VITE_MAX_FILE_SIZE` | 文件上传大小限制 (bytes) | `52428800` (50MB) |
+| `VITE_DEFAULT_INDUSTRY` | 默认行业 | `"ecommerce"` / `"finance"` / `"retail"` |
+
+### 设置方式
+
+**方法 1: Shell 环境变量**
+```bash
+export VITE_LLM_API_KEY="sk-xxxxx"
+export VITE_LLM_MOCK="false"
+bun run dev
+```
+
+**方法 2: .env 文件** (推荐)
+```bash
+# 在项目根目录创建 .env 文件
+cat > .env << EOF
+VITE_LLM_PROVIDER=openai
+VITE_LLM_API_KEY=sk-xxxxx
+VITE_LLM_API_URL=https://api.openai.com/v1
+VITE_LLM_MODEL_NAME=gpt-4
+VITE_LLM_MOCK=false
+EOF
+
+# Vite 会自动加载 .env 文件
+bun run dev
+```
+
+**注意事项**:
+- ⚠️ `.env` 文件应添加到 `.gitignore`，避免泄露密钥
+- ⚠️ `VITE_` 前缀是必需的（Vite 环境变量约定）
+- ⚠️ Mock 模式 (`VITE_LLM_MOCK=true`) 用于开发调试，不调用真实 LLM
+
+---
+
+## 八、Chrome Extension 调试指南
+
+### 8.1 加载和更新扩展
+
+**首次加载**:
+1. 运行 `bun run build` 生成 `dist/` 目录
+2. Chrome 访问 `chrome://extensions/`
+3. 开启"开发者模式"
+4. 点击"加载已解压的扩展程序"，选择 `dist/` 目录
+
+**热更新**:
+- **开发模式**: 运行 `bun run dev`，Vite 会监听文件变化并自动重新构建
+- **手动刷新**: 修改代码后，在 `chrome://extensions/` 点击扩展的"刷新"按钮
+- **Service Worker 重启**: 修改 `background.ts` 后，点击 Service Worker 的 "reload"
+
+### 8.2 调试技巧
+
+**调试 Side Panel (UI)**:
+1. 打开扩展侧边栏
+2. 在侧边栏任意位置右键 → "检查"
+3. 打开 Chrome DevTools，可查看：
+   - Console 日志（UI 层日志）
+   - Network 请求（LLM API 调用）
+   - React DevTools（组件树和状态）
+
+**调试 Service Worker (background.ts)**:
+1. 访问 `chrome://extensions/`
+2. 找到 Vaultmind 扩展
+3. 点击 "Service Worker" 链接（蓝色）
+4. 打开 Service Worker DevTools，查看后台任务日志
+
+**调试 Web Worker (duckdb.worker.ts)**:
+1. 在 Side Panel DevTools 中
+2. 切换到 "Sources" 标签页
+3. 展开左侧 "Threads" 部分
+4. 选择 `duckdb.worker.ts`，可设置断点
+5. Console 中查看 Worker 日志（`[DB Worker]` 前缀）
+
+**调试 Content Script**:
+1. 打开注入了 content-script 的网页
+2. 右键网页 → "检查"
+3. Console 中筛选来自 content-script 的日志
+
+### 8.3 常见调试场景
+
+**场景 1: LLM 调用失败**
+- 检查 Side Panel DevTools → Network → 筛选 `/chat/completions`
+- 查看请求 Headers（API Key 是否正确）
+- 查看响应状态码（401: 认证失败，429: 限流）
+
+**场景 2: DuckDB 查询错误**
+- 检查 Console 日志，搜索 `[DB Worker]`
+- 查看 Worker DevTools 的 Console
+- 检查 SQL 语句是否合法（双引号、LIMIT、关键字）
+
+**场景 3: 文件上传失败**
+- 检查 Console 错误信息
+- 确认文件格式（CSV/Excel）和大小限制
+- 检查 `useFileParsing.ts` 的 `loadFileInDuckDB` 逻辑
+
+**场景 4: 界面渲染异常**
+- React DevTools → 检查组件 props 和 state
+- Console 中查看 React 错误边界捕获的异常
+- 检查 Ant Design 组件的 API 调用是否正确
+
+### 8.4 性能分析
+
+**分析 Bundle 大小**:
+```bash
+bun run build
+# 查看 dist/ 目录，关注大文件（如 duckdb-eh.wasm 34MB）
+```
+
+**分析运行时性能**:
+1. DevTools → Performance 标签页
+2. 点击录制按钮，执行操作（如上传文件、运行查询）
+3. 停止录制，分析火焰图：
+   - 长任务（Long Tasks）: 主线程阻塞 > 50ms
+   - Worker 通信：`postMessage` / `onmessage` 耗时
+
+**内存泄漏检测**:
+1. DevTools → Memory 标签页
+2. 选择 "Heap snapshot"
+3. 执行多次查询操作
+4. 对比快照，查找未释放的对象（如 DuckDB 连接、Arrow 表）
+
+---
+
+## 九、错误处理与常见问题
 - LLM 错误
   - 401/403：检查 `VITE_LLM_API_KEY` 与 `VITE_LLM_API_URL`。
   - 超时/限流：检查 LlmClient 的超时/重试策略（当前客户端直接使用 `openai` 包，超时需在调用方外部管理）。
@@ -553,7 +815,9 @@ LLM 模型约束与 Skills 声明
 - 类型/构建错误
   - 若遇到 TS 类型错误或编译失败：检查 `tsconfig.json` 与 `vite.config.ts` 中 worker/alias 设置（例如 `apache-arrow` 的别名）。
 
-七、扩展点（如何添加 prompt / tool / worker）
+---
+
+## 十、扩展点（如何添加 prompt / tool / worker）
 - 添加新的 prompt
   1. 在 `src/prompts/` 下新建文件，例如 `finance.ts`，导出符合 `PromptTemplate` 结构（system_prompt, tool_selection_prompt_template, suggestions）。
   2. 在 `src/services/llm/promptManager.ts` 中把新的 prompt 集合注册到 `promptSets`。
@@ -609,9 +873,11 @@ LLM 模型约束与 Skills 声明
 - `src/hooks/useLLMAgent.ts`
 - `src/hooks/useDuckDB.ts`
 - `src/hooks/useFileParsing.ts`
+- `src/hooks/useClustering.ts`（**2026-02-08 新增**，客户聚类分析 Hook）
 
 ### Worker
 - `src/workers/duckdb.worker.ts`
+- `src/workers/clustering.worker.ts`（**2026-02-08 新增**，K-Means 聚类 Web Worker）
 - `src/services/duckDBService.ts`
 
 ### 前端页面
@@ -619,9 +885,50 @@ LLM 模型约束与 Skills 声明
 - `src/pages/workbench/components/ChatPanel.tsx`
 - `src/pages/workbench/components/ResultsDisplay.tsx`（**M10.5 新增透明度功能**）
 - `src/pages/settings/ProfilePage.tsx`（**M10.4 新增 User Skill 配置，M10.5 新增 System Metrics**）
+- `src/pages/insight/index.tsx`（**2026-02-08 更新**，集成客户聚类可视化）
+
+### 数据分析模块（**2026-02-08 新增**）
+#### 异常检测（Anomaly Detection）
+- `src/services/anomaly/anomalyService.ts`（孤立森林算法服务）
+- `src/workers/anomaly.worker.ts`（异常检测 Web Worker）
+- `src/components/insight/AnomalyScatterChart.tsx`（异常值散点图）
+- `src/components/insight/AnomalyHeatmapChart.tsx`（异常值热力图）
+- `src/hooks/useAnomaly.ts`（异常检测 React Hook）
+
+#### 客户聚类（Customer Clustering）
+- **核心服务**：
+  - `src/services/clustering/clusteringService.ts`（聚类分析服务，313行）
+  - `src/services/clustering/rfmColumnDetector.ts`（RFM列自动检测，179行）
+  - `src/services/clustering/rfmSqlGenerator.ts`（RFM SQL生成器，211行）
+- **Worker**：
+  - `src/workers/clustering.worker.ts`（K-Means WASM调用，172行）
+- **类型定义**：
+  - `src/types/clustering.types.ts`（完整类型系统，219行）
+  - `src/constants/clustering.constants.ts`（配置常量，180行）
+- **可视化组件**：
+  - `src/components/insight/ClusteringScatterChart.tsx`（客户分布散点图，233行）
+  - `src/components/insight/ClusteringRadarChart.tsx`（簇特征雷达图，206行）
+  - `src/components/insight/ClusteringErrorBoundary.tsx`（错误边界，115行）
+  - `src/components/insight/ClusteringSkeleton.tsx`（骨架屏，103行）
+- **业务逻辑**：
+  - `src/services/insight/strategies/ClusteringActionStrategy.ts`（策略模式，95行）
+  - `src/prompts/insight/clustering-action.ts`（LLM Prompt模板，298行）
+- **React Hook**：
+  - `src/hooks/useClustering.ts`（状态管理 + 缓存，224行）
+- **工具函数**：
+  - `src/services/utils/arrowUtils.ts`（Arrow IPC序列化，201行）
+
+#### Insight 通用模块
+- `src/services/insight/contextBuilder.ts`（上下文构建器）
+- `src/services/insight/aggregator.ts`（数据聚合器，支持异常+聚类）
+- `src/services/insight/insightActionService.ts`（LLM洞察服务）
+- `src/services/insight/strategies/index.ts`（策略注册表）
+- `src/types/insight-action.types.ts`（Insight通用类型）
 
 ### Prompts
 - `src/prompts/ecommerce.ts`
+- `src/prompts/insight/anomaly-action.ts`（异常检测Prompt）
+- `src/prompts/insight/clustering-action.ts`（**2026-02-08 新增**，客户聚类Prompt）
 
 ### 配置
 - `package.json`
@@ -635,7 +942,168 @@ LLM 模型约束与 Skills 声明
 
 ---
 
-## 项目技术规范（Coding Standards）
+---
+
+## 十一、FAQ 常见问题
+
+### Q1: 为什么构建后的 dist/ 目录很大（> 40MB）？
+
+**A**: 主要原因是 DuckDB WASM 引擎（`duckdb-eh.wasm` ~34MB）。这是浏览器内 SQL 引擎的代价，但带来了以下优势：
+- ✅ 数据不离开浏览器，隐私安全
+- ✅ 支持复杂 SQL 查询（JOIN、聚合、窗口函数）
+- ✅ 高性能（接近原生 SQLite）
+
+**优化建议**:
+- 生产环境使用 CDN 托管 WASM 文件
+- 延迟加载（仅在需要时初始化 DuckDB）
+
+---
+
+### Q2: Mock 模式下 LLM 返回什么数据？
+
+**A**: 当 `VITE_LLM_MOCK=true` 时，LLM Client 会返回预定义的 mock 响应（见 `src/services/llm/llmClient.ts`）：
+```json
+{
+  "action": {
+    "tool": "sql_query_tool",
+    "args": { "query": "SELECT COUNT(*) as total FROM main_table_1" }
+  },
+  "thought": "Mock response for testing"
+}
+```
+
+**用途**: 开发环境快速调试，避免频繁调用真实 LLM（节省 API 配额和时间）。
+
+---
+
+### Q3: 为什么 DuckDB 查询中使用双引号 `"column"` 而不是反引号 `` `column` ``？
+
+**A**: DuckDB 的 SQL 方言要求使用双引号包裹标识符（表名、列名），反引号会导致语法错误。
+
+**示例**:
+```sql
+-- ✅ 正确 (DuckDB)
+SELECT "下单时间", "订单金额" FROM "main_table_1"
+
+-- ❌ 错误 (MySQL 风格)
+SELECT `下单时间`, `订单金额` FROM `main_table_1`
+```
+
+**相关修复**: M10.6 中 `safeQuoteIdent()` 已从反引号改为双引号。
+
+---
+
+### Q4: 如何新增一个行业（如 Healthcare）？
+
+**步骤**:
+1. 创建 `src/prompts/healthcare.ts`，参考 `ecommerce.ts` 结构
+2. 在 `src/services/llm/promptManager.ts` 中注册：
+   ```typescript
+   import healthcarePrompts from '../../prompts/healthcare.ts';
+   const promptSets = {
+     ecommerce: ecommercePrompts,
+     finance: financePrompts,
+     retail: retailPrompts,
+     healthcare: healthcarePrompts,  // 新增
+   };
+   ```
+3. 在 `src/services/flags/featureFlags.ts` 中添加功能开关：
+   ```typescript
+   export interface FeatureFlags {
+     enableHealthcare?: boolean;  // 新增
+   }
+   export const DEFAULT_FEATURE_FLAGS = {
+     enableHealthcare: true,  // 默认启用
+   };
+   ```
+4. 在 `src/services/llm/skills/queryTypeRouter.ts` 的 `DOMAIN_TERMS_BY_INDUSTRY` 添加行业术语
+5. 构建并测试
+
+---
+
+### Q5: 如何限制上传文件大小？
+
+**A**: 在 `src/hooks/useFileParsing.ts` 的 `handleFileUpload` 中添加校验：
+
+```typescript
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+if (file.size > MAX_FILE_SIZE) {
+  throw new Error(`File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`);
+}
+```
+
+**前端提示**: 在 `ChatPanel.tsx` 的 Upload 组件中添加 `beforeUpload` 钩子。
+
+---
+
+### Q6: BigInt 序列化错误 `Cannot serialize BigInt` 怎么解决？
+
+**A**: M10.6 已修复此问题（`DuckDBService._normalizeBigIntFields()`）。如果仍遇到，确保：
+1. 使用最新代码（包含 M10.6 修复）
+2. 检查 `duckDBService.ts` 中 `executeQuery` 是否调用了 `_normalizeBigIntFields`
+3. 确认 DuckDB 聚合函数返回的 BigInt 被正确转换为 `number`
+
+---
+
+### Q7: 为什么查询结果只显示 500 行？
+
+**A**: 出于性能考虑，系统默认限制查询结果最多 500 行（`LIMIT 500`）。
+
+**修改方式**:
+- 在 `src/services/llm/skills/builtin/analysis.v1.ts` 中搜索 `LIMIT 500`
+- 修改为目标值（如 `LIMIT 1000`）
+- **注意**: 过大的结果集会导致浏览器内存压力
+
+---
+
+### Q8: 如何调试 Skill 选择逻辑？
+
+**A**: 在 `src/services/llm/skills/queryTypeRouter.ts` 的 `resolveSkill()` 中添加日志：
+
+```typescript
+export function resolveSkill(userInput: string, industry?: string): string {
+  console.log('[Router] Input:', userInput, 'Industry:', industry);
+  const skillId = resolveSkillId(userInput);
+  console.log('[Router] Selected Skill:', skillId);
+  return skillId;
+}
+```
+
+**查看日志**: DevTools Console → 筛选 `[Router]`
+
+---
+
+### Q9: User Skill 配置保存在哪里？
+
+**A**: 保存在 **Chrome Storage** (chrome.storage.local)，按 session 维度隔离。
+
+**查看存储**:
+1. DevTools → Application 标签页
+2. 左侧 Storage → Extension Storage → Vaultmind
+3. 查看键 `userSkill_{sessionId}`
+
+**清空配置**: 在 Settings → Profile 页面点击"重置配置"或手动删除 Chrome Storage 键。
+
+---
+
+### Q10: 如何禁用某个行业（如 Finance）？
+
+**A**: 在 `src/services/flags/featureFlags.ts` 中设置：
+
+```typescript
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  enableEcommerce: true,
+  enableFinance: false,  // 禁用金融行业
+  enableRetail: true,
+};
+```
+
+**效果**: 用户尝试使用 Finance 行业时会收到友好错误提示："Industry 'finance' is not enabled. Available: ecommerce, retail"
+
+---
+
+## 十二、项目技术规范（Coding Standards）
 
 > 本节是项目的强制工程规范汇总（来源：`.github/copilot-instructions.md` + 本项目 Chrome Extension 运行形态）。
 > 之后所有新增/修改代码应优先遵循本节；若与系统级约束冲突，以系统约束为准。
@@ -776,5 +1244,6 @@ LLM 模型约束与 Skills 声明
 
 ---
 
-**最后更新**: 2026-01-29  
-**文档维护者**: AI Agent (基于代码仓库自动生成)
+**最后更新**: 2026-02-08  
+**文档维护者**: AI Agent (基于代码仓库自动生成)  
+**文档版本**: v2.0 (重构版 - 新增目录导航、快速开始、环境配置、调试指南、FAQ、工作流规范)

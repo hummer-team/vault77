@@ -6,6 +6,7 @@
 import type { AlgorithmType } from '../../../types/insight-action.types';
 import { ActionStrategy } from './BaseActionStrategy';
 import { AnomalyActionStrategy } from './AnomalyActionStrategy';
+import { ClusteringActionStrategy } from './ClusteringActionStrategy';
 
 /**
  * Get strategy instance for the given algorithm type
@@ -19,10 +20,7 @@ export function getStrategy(algorithmType: AlgorithmType): ActionStrategy {
       return new AnomalyActionStrategy();
       
     case 'clustering':
-      throw new Error(
-        '[getStrategy] Clustering strategy not implemented yet. ' +
-        'Please implement ClusteringActionStrategy in strategies/ClusteringActionStrategy.ts'
-      );
+      return new ClusteringActionStrategy();
       
     case 'regression':
       throw new Error(
@@ -40,3 +38,4 @@ export function getStrategy(algorithmType: AlgorithmType): ActionStrategy {
 // Re-export strategy types for convenience
 export type { ActionStrategy, QueryExecutor } from './BaseActionStrategy';
 export { AnomalyActionStrategy } from './AnomalyActionStrategy';
+export { ClusteringActionStrategy } from './ClusteringActionStrategy';

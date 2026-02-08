@@ -81,11 +81,39 @@ export interface SuspiciousPatterns {
  * Aggregated features from data analysis
  */
 export interface AggregatedFeatures {
-  totalAnomalies: number;
-  averageScore: number;
-  numericFeatures: Record<string, NumericFeatureStats>;
-  topPatterns: TopPatterns;
-  suspiciousPatterns: SuspiciousPatterns;
+  // Anomaly-specific fields
+  totalAnomalies?: number;
+  averageScore?: number;
+  numericFeatures?: Record<string, NumericFeatureStats>;
+  topPatterns?: TopPatterns;
+  suspiciousPatterns?: SuspiciousPatterns;
+  
+  // Clustering-specific fields
+  totalCustomers?: number;
+  clusters?: Array<{
+    clusterId: number;
+    label?: string;
+    customerCount: number;
+    avgRecency: number;
+    avgFrequency: number;
+    avgMonetary: number;
+    totalValue: number;
+    valueShare: number;  // Percentage of total value
+  }>;
+  rfmStats?: {
+    globalAvgRecency: number;
+    globalAvgFrequency: number;
+    globalAvgMonetary: number;
+  };
+  sampleCustomers?: Array<{
+    clusterId: number;
+    customers: Array<{
+      customerId: string;
+      recency: number;
+      frequency: number;
+      monetary: number;
+    }>;
+  }>;
 }
 
 // ============================================================================
@@ -111,6 +139,7 @@ export interface InsightAction {
   recommendations: InsightRecommendation[]; // Actionable recommendations
   confidence: 'low' | 'medium' | 'high'; // Confidence level
   rawResponse: string;          // Raw LLM response for debugging
+  markdown?: string;            // Markdown formatted report (optional, for download)
   timestamp: string;            // ISO timestamp
 }
 

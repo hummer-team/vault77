@@ -19,7 +19,11 @@ export function buildAnomalyActionPrompt(
   aggregated: AggregatedFeatures
 ): string {
   const { tableMetadata, featureDefinitions } = context;
-  const anomalyRate = ((aggregated.totalAnomalies / tableMetadata.rowCount) * 100).toFixed(2);
+  const totalAnomalies = aggregated.totalAnomalies || 0;
+  const averageScore = aggregated.averageScore || 0;
+  const anomalyRate = tableMetadata.rowCount > 0 
+    ? ((totalAnomalies / tableMetadata.rowCount) * 100).toFixed(2)
+    : '0.00';
   
   return `
 # 角色定位
@@ -28,9 +32,9 @@ export function buildAnomalyActionPrompt(
 # 业务背景
 - **数据表名**: ${tableMetadata.tableName}
 - **总订单数**: ${tableMetadata.rowCount.toLocaleString()} 笔
-- **异常订单数**: ${aggregated.totalAnomalies.toLocaleString()} 笔
+- **异常订单数**: ${totalAnomalies.toLocaleString()} 笔
 - **异常率**: ${anomalyRate}%
-- **平均异常评分**: ${aggregated.averageScore.toFixed(3)}
+- **平均异常评分**: ${averageScore.toFixed(3)}
 
 # 特征说明
 ${Object.entries(featureDefinitions)
@@ -40,13 +44,13 @@ ${Object.entries(featureDefinitions)
 # 数据对比分析
 
 ## 数值特征对比（异常订单 vs 全局平均）
-${formatNumericFeatures(aggregated.numericFeatures)}
+${formatNumericFeatures(aggregated.numericFeatures || {})}
 
 ## 异常模式发现
-${formatTopPatterns(aggregated.topPatterns)}
+${formatTopPatterns(aggregated.topPatterns || {})}
 
 ## 可疑行为特征
-${formatSuspiciousPatterns(aggregated.suspiciousPatterns)}
+${formatSuspiciousPatterns(aggregated.suspiciousPatterns || {})}
 
 ---
 

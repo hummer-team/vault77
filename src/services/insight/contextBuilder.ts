@@ -52,6 +52,10 @@ export const COLUMN_PATTERNS: Record<string, RegExp[]> = {
     /(^|_)(address|location|province|city|district|street|zip|postal)($|_)/i,
     /地址|位置|省|市|区|街道|邮编/,
   ],
+  order: [
+    /(^|_)(order)($|_)/i,
+    /订单/,
+  ],
   id: [
     /_id$|^id$|uuid|guid|key|code|number$/i,
     /编号|代码$/,
@@ -70,6 +74,7 @@ const FEATURE_DESCRIPTIONS: Record<string, string> = {
   customer: '客户标识字段',
   product: '商品标识字段',
   address: '地址相关字段',
+  order: '订单标识字段',
   id: '唯一标识字段',
 };
 

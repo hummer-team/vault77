@@ -24,14 +24,19 @@ import { DistributionChart } from '../../components/insight/DistributionChart';
 import { CategoricalChart } from '../../components/insight/CategoricalChart';
 import { AnomalyScatterChart } from '../../components/insight/AnomalyScatterChart';
 import { AnomalyHeatmapChart } from '../../components/insight/AnomalyHeatmapChart';
+import { ClusteringScatterChart } from '../../components/insight/ClusteringScatterChart';
+import { ClusteringRadarChart } from '../../components/insight/ClusteringRadarChart';
+import { ClusteringErrorBoundary } from '../../components/insight/ClusteringErrorBoundary';
 import { ActionPanel } from '../../components/insight/ActionPanel';
 import { useDuckDBContext } from '../../contexts/DuckDBContext';
 import { createInsightActionService } from '../../services/insight/insightActionService';
 import { downloadReport } from '../../services/insight/reportGenerator';
 import { settingsService } from '../../services/settingsService';
 import type { AnomalyAnalysisOutput } from '../../types/anomaly.types';
+import type { ClusteringAnalysisOutput } from '../../types/clustering.types';
 import type { InsightAction } from '../../types/insight-action.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
+import { DEFAULT_K_VALUE, K_VALUE_RANGE } from '../../constants/clustering.constants';
 import './index.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -43,6 +48,8 @@ interface InsightPageProps {
   onAnomalyThresholdChange?: (threshold: number) => void; // Callback to trigger re-detection
   onDownloadAnomalies?: (orderIds: string[]) => Promise<any[]>; // Callback to download anomalies
   onViewAnomalies?: (orderIds: string[], tableName: string) => Promise<void>; // Callback to view anomalies
+  clusteringResult?: ClusteringAnalysisOutput | null; // Customer clustering result from Workbench
+  onKValueChange?: (k: number) => void; // Callback to trigger re-clustering
 }
 
 export const InsightPage: React.FC<InsightPageProps> = ({ 
@@ -52,6 +59,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
   onAnomalyThresholdChange,
   onDownloadAnomalies,
   onViewAnomalies,
+  clusteringResult,
+  onKValueChange,
 }) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
   
@@ -60,10 +69,20 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     anomalyResult?.metadata.threshold ?? 0.8
   );
 
-  // LLM Insight Action state
+  // Local state for K value adjustment (UI only)
+  const [kValue, setKValue] = useState(
+    clusteringResult?.metadata.nClusters ?? DEFAULT_K_VALUE
+  );
+
+  // LLM Insight Action state (for anomaly)
   const [insightAction, setInsightAction] = useState<InsightAction | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState<string | null>(null);
+
+  // LLM Insight Action state (for clustering)
+  const [clusteringInsightAction, setClusteringInsightAction] = useState<InsightAction | null>(null);
+  const [clusteringInsightLoading, setClusteringInsightLoading] = useState(false);
+  const [clusteringInsightError, setClusteringInsightError] = useState<string | null>(null);
 
   // Sync threshold with anomalyResult when it changes
   React.useEffect(() => {
@@ -71,6 +90,13 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       setAnomalyThreshold(anomalyResult.metadata.threshold);
     }
   }, [anomalyResult?.metadata.threshold]);
+
+  // Sync K value with clusteringResult when it changes
+  React.useEffect(() => {
+    if (clusteringResult?.metadata.nClusters) {
+      setKValue(clusteringResult.metadata.nClusters);
+    }
+  }, [clusteringResult?.metadata.nClusters]);
 
   /**
    * Generate LLM insights (extracted for reuse in retry)
@@ -134,6 +160,67 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     console.log('[InsightPage] Manual retry triggered');
     generateLLMInsights();
   }, [generateLLMInsights]);
+
+  /**
+   * Generate LLM insights for clustering
+   */
+  const generateClusteringInsights = React.useCallback(async () => {
+    if (!clusteringResult || clusteringResult.totalCustomers === 0 || !isDBReady) {
+      setClusteringInsightAction(null);
+      setClusteringInsightError(null);
+      return;
+    }
+
+    // Check if auto-generation is enabled
+    const settings = await settingsService.getInsightActionSettings();
+    if (!settings.autoGenerate) {
+      console.log('[InsightPage] Clustering insight auto-generation disabled');
+      return;
+    }
+
+    setClusteringInsightLoading(true);
+    setClusteringInsightError(null);
+
+    try {
+      const insightService = createInsightActionService(executeQuery);
+
+      console.log('[InsightPage] Generating clustering insights for', clusteringResult.totalCustomers, 'customers');
+
+      const output = await insightService.generateInsight(
+        {
+          algorithmType: 'clustering',
+          tableName,
+          analysisResult: clusteringResult,
+        },
+        settings
+      );
+
+      setClusteringInsightAction(output);
+      console.log('[InsightPage] Clustering insights generated:', output);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setClusteringInsightError(`Failed to generate clustering insights: ${errorMsg}`);
+      console.error('[InsightPage] Clustering insight generation failed:', error);
+    } finally {
+      setClusteringInsightLoading(false);
+    }
+  }, [clusteringResult, tableName, isDBReady, executeQuery]);
+
+  /**
+   * Auto-generate clustering insights when result changes
+   */
+  useEffect(() => {
+    const timer = setTimeout(generateClusteringInsights, 500);
+    return () => clearTimeout(timer);
+  }, [generateClusteringInsights]);
+
+  /**
+   * Retry clustering insight generation (manual trigger)
+   */
+  const handleRetryClusteringInsight = React.useCallback(() => {
+    console.log('[InsightPage] Manual clustering retry triggered');
+    generateClusteringInsights();
+  }, [generateClusteringInsights]);
 
   // Handler for anomaly actions menu
   const handleMenuClick = async ({ key }: { key: string }) => {
@@ -664,6 +751,172 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 error={insightError}
                 onDownloadReport={handleDownloadReport}
                 onRetry={handleRetryInsight}
+              />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Section 5: Customer Clustering (if available) */}
+      {clusteringResult && (
+        <>
+          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.3)', margin: '48px 0' }} />
+          <div className="insight-section">
+            <div className="section-header">
+              <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BulbOutlined style={{ color: '#52c41a' }} />
+                Customer Clustering (RFM Analysis)
+                <span style={{ 
+                  fontSize: '12px', 
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  marginLeft: 8,
+                  fontWeight: 'normal',
+                }}>
+                  GPU: {clusteringResult.metadata.gpuUsed ? 'Enabled' : 'Disabled'}
+                </span>
+              </Title>
+            </div>
+
+            {/* Clustering Statistics */}
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+              <Col span={6}>
+                <Statistic 
+                  title="Total Customers" 
+                  value={clusteringResult.totalCustomers}
+                  valueStyle={{ color: '#3f8600' }}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic 
+                  title="Number of Clusters" 
+                  value={clusteringResult.clusters.length}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic 
+                  title="Avg Recency" 
+                  value={clusteringResult.clusters.reduce((sum, c) => sum + c.avgRecency, 0) / clusteringResult.clusters.length}
+                  precision={0}
+                  suffix="days"
+                  valueStyle={{ color: '#cf1322' }}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic 
+                  title="Processing Time" 
+                  value={clusteringResult.metadata.durationMs}
+                  precision={0}
+                  suffix="ms"
+                  valueStyle={{ color: '#faad14' }}
+                />
+              </Col>
+            </Row>
+
+            {/* K Value Slider */}
+            <div style={{ marginBottom: 24 }}>
+              <Text strong style={{ marginRight: 16 }}>
+                Number of Clusters (K):
+              </Text>
+              <Slider
+                value={kValue}
+                min={K_VALUE_RANGE.min}
+                max={K_VALUE_RANGE.max}
+                step={1}
+                onChange={(value) => setKValue(value)}
+                onAfterChange={(value) => {
+                  if (onKValueChange) {
+                    onKValueChange(value);
+                  }
+                }}
+                style={{ width: 300, display: 'inline-block', marginRight: 16 }}
+                marks={{
+                  2: '2',
+                  3: '3',
+                  5: '5',
+                  7: '7',
+                  10: '10',
+                }}
+              />
+              <Text type="secondary">
+                (Current: {kValue})
+              </Text>
+            </div>
+
+            {/* Visualizations */}
+            <ClusteringErrorBoundary
+              onReset={() => {
+                console.log('[InsightPage] Clustering error boundary reset');
+                if (onKValueChange) {
+                  onKValueChange(kValue);
+                }
+              }}
+            >
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Card 
+                    title="Customer Distribution (Scatter Plot)"
+                    size="small"
+                    style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                  >
+                    <ClusteringScatterChart
+                      key={`clustering-scatter-${clusteringResult.totalCustomers}-${clusteringResult.metadata.nClusters}`}
+                      data={clusteringResult.customers}
+                      clusters={clusteringResult.clusters}
+                      xAxis="recency"
+                      yAxis="monetary"
+                      sizeBy="frequency"
+                      height={400}
+                    />
+                  </Card>
+                </Col>
+                <Col span={12}>
+                  <Card 
+                    title="Cluster Characteristics (Radar Chart)"
+                    size="small"
+                    style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                  >
+                    <ClusteringRadarChart
+                      key={`clustering-radar-${clusteringResult.totalCustomers}-${clusteringResult.metadata.nClusters}`}
+                      clusters={clusteringResult.clusters}
+                      height={400}
+                    />
+                  </Card>
+                </Col>
+              </Row>
+            </ClusteringErrorBoundary>
+
+            {/* LLM Insights & Recommendations Panel */}
+            {clusteringResult.totalCustomers > 0 && (
+              <ActionPanel
+                insightAction={clusteringInsightAction}
+                loading={clusteringInsightLoading}
+                error={clusteringInsightError}
+                onDownloadReport={async () => {
+                  if (!clusteringInsightAction) {
+                    return;
+                  }
+                  
+                  try {
+                    // Generate report filename
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    const filename = `clustering-report-${timestamp}.md`;
+                    
+                    // Create blob and download
+                    const reportText = clusteringInsightAction.markdown || clusteringInsightAction.rawResponse;
+                    const blob = new Blob([reportText], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (error) {
+                    console.error('[InsightPage] Failed to download clustering report:', error);
+                    message.error('下载失败');
+                  }
+                }}
+                onRetry={handleRetryClusteringInsight}
               />
             )}
           </div>
