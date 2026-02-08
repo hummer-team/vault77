@@ -5,6 +5,7 @@
 
 import { detectRFMColumns, validateRFMColumns } from './rfmColumnDetector';
 import { generateRFMSql, generateCustomerCountSql, validateCustomerCount } from './rfmSqlGenerator';
+import { labelCluster } from './clusterLabeler';
 import { buildInsightContext } from '../insight/contextBuilder';
 import type { TableMetadata } from '../../types/insight-action.types';
 import type {
@@ -124,8 +125,10 @@ async function fetchRFMFeatures(
     console.log(`[ClusteringService] RFM SQL (precomputed: ${rfmSqlResult.isPrecomputed}, sampled: ${rfmSqlResult.isSampled})`);
     
     const rfmResult = await executeQuery(rfmSqlResult.sql);
+    console.log(`[ClusteringService] RFM query returned ${rfmResult.data?.length || 0} rows`);
 
     if (!rfmResult.data || rfmResult.data.length === 0) {
+      console.error('[ClusteringService] No RFM data returned from query');
       throw new Error('No RFM data returned from query');
     }
 
@@ -171,6 +174,13 @@ function computeClusterMetadata(
   nClusters: number
 ): ClusterMetadata[] {
   const clusters: ClusterMetadata[] = [];
+
+  // Debug: Log customer cluster distribution
+  const clusterDistribution = customers.reduce((acc, c) => {
+    acc[c.clusterId] = (acc[c.clusterId] || 0) + 1;
+    return acc;
+  }, {} as Record<number, number>);
+  console.log('[ClusteringService] Cluster distribution:', clusterDistribution);
 
   for (let clusterId = 0; clusterId < nClusters; clusterId++) {
     const clusterCustomers = customers.filter(c => c.clusterId === clusterId);
@@ -292,8 +302,13 @@ export async function analyzeCustomerClustering(
     };
 
     const result = await sendMessageToWorker(request);
+    console.log('[ClusteringService] Worker response received:', {
+      type: result.type,
+      hasPayload: !!result.payload,
+    });
 
     if (isClusteringError(result)) {
+      console.error('[ClusteringService] Worker error:', result.payload.error);
       throw new Error(result.payload.error);
     }
 
@@ -306,7 +321,7 @@ export async function analyzeCustomerClustering(
       const rfm = rfmFeatures[idx];
       return {
         customerId: id,
-        clusterId: result.payload.clusterIds[idx],
+        clusterId: Number(result.payload.clusterIds[idx]),  // Convert BigInt to number
         recency: rfm.recency,
         frequency: rfm.frequency,
         monetary: rfm.monetary,
@@ -314,9 +329,19 @@ export async function analyzeCustomerClustering(
         churnRisk: 0,  // Will be computed in metadata
       };
     });
+    console.log(`[ClusteringService] Built ${customerRecords.length} customer records`);
+    console.log('[ClusteringService] Sample customer record:', customerRecords[0]);
 
     // Step 8: Compute cluster metadata
     const clusterMetadata = computeClusterMetadata(customerRecords, nClusters);
+
+    // Step 8.5: Assign business-meaningful labels to clusters
+    console.log('[ClusteringService] Assigning RFM business labels to clusters...');
+    clusterMetadata.forEach((cluster) => {
+      const classification = labelCluster(cluster, clusterMetadata);
+      cluster.label = classification.label;
+      console.log(`[ClusteringService] Cluster ${cluster.clusterId}: "${cluster.label}" (${classification.labelCn})`);
+    });
 
     // Step 9: Build output
     const totalDuration = performance.now() - startTime;

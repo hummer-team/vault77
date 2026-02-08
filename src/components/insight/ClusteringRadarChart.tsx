@@ -58,17 +58,22 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
   ];
 
   useEffect(() => {
+    console.log('[RadarChart] useEffect triggered, selectedCluster:', selectedCluster);
+    console.log('[RadarChart] Clusters radarValues:', clusters.map(c => ({
+      clusterId: c.clusterId,
+      label: c.label,
+      radarValues: c.radarValues
+    })));
+    console.log('[RadarChart] DimensionMaxValues:', dimensionMaxValues);
+    
     if (!chartRef.current || clusters.length === 0 || availableDimensions.length === 0) return;
 
-    // Dispose previous instance
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.dispose();
-      chartInstanceRef.current = null;
+    // Initialize chart only if not exists
+    if (!chartInstanceRef.current) {
+      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
     }
-
-    // Initialize chart
-    const chartInstance = echarts.init(chartRef.current, 'dark');
-    chartInstanceRef.current = chartInstance;
+    
+    const chartInstance = chartInstanceRef.current;
 
     // Prepare radar indicator (dimensions)
     const indicator = availableDimensions.map(dim => ({
@@ -76,9 +81,15 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
       max: dimensionMaxValues[dim.key] || 1,
     }));
 
-    // Prepare series data
-    const seriesData = clusters.map((cluster, idx) => {
+    // Prepare series - each cluster is a separate series
+    const series = clusters.map((cluster, idx) => {
       const isSelected = selectedCluster === null || selectedCluster === cluster.clusterId;
+      console.log('[RadarChart] Cluster', cluster.clusterId, ':', { 
+        isSelected, 
+        lineWidth: isSelected ? 3 : 1,
+        lineOpacity: isSelected ? 1 : 0.15, 
+        areaOpacity: isSelected ? 0.4 : 0.02 
+      });
       
       // Extract values for each dimension
       const values = availableDimensions.map(dim => {
@@ -88,24 +99,47 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         // E.g., lower recency is better → show as higher on radar
         if (dim.inverted) {
           const maxValue = dimensionMaxValues[dim.key];
-          return maxValue - rawValue;
+          const invertedValue = maxValue - rawValue;
+          console.log(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: raw=${rawValue}, max=${maxValue}, inverted=${invertedValue}`);
+          return invertedValue;
         }
         
+        console.log(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: value=${rawValue}`);
         return rawValue;
       });
       
+      console.log(`[RadarChart] Cluster ${cluster.clusterId} final values:`, values);
+      
       return {
         name: cluster.label || `Cluster ${cluster.clusterId}`,
-        value: values,
+        type: 'radar' as const,
+        symbol: 'circle',
+        symbolSize: isSelected ? 6 : 4,
+        data: [{
+          value: values,
+          name: cluster.label || `Cluster ${cluster.clusterId}`,
+        }],
         itemStyle: {
           color: clusterColors[idx % clusterColors.length],
         },
         lineStyle: {
-          opacity: isSelected ? 1 : 0.2,
+          width: isSelected ? 4 : 1,  // More extreme difference
+          opacity: isSelected ? 1 : 0.1,  // More extreme difference
+          type: 'solid' as const,
         },
         areaStyle: {
-          opacity: isSelected ? 0.3 : 0.05,
+          opacity: isSelected ? 0.5 : 0.01,  // More extreme difference
         },
+        emphasis: {
+          focus: 'series' as const,
+          lineStyle: {
+            width: 5,
+          },
+          areaStyle: {
+            opacity: 0.7,
+          },
+        },
+        z: isSelected ? 10 : 1,  // Selected cluster on top
       };
     });
 
@@ -118,18 +152,23 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         borderColor: '#777',
         textStyle: { color: '#fff' },
         formatter: (params: any) => {
-          const cluster = clusters[params.dataIndex];
+          const cluster = clusters[params.seriesIndex];  // Changed from dataIndex to seriesIndex
           const lines = availableDimensions.map((dim) => {
             const realValue = cluster.radarValues[dim.key];
             
+            // Safe value formatting with null check
+            if (realValue == null) {
+              return `<strong>${dim.name}:</strong> N/A`;
+            }
+            
             let displayValue = '';
-            if (dim.key === 'avgRecency') {
+            if (dim.key === 'recency') {
               displayValue = `${realValue.toFixed(0)} days`;
-            } else if (dim.key === 'avgMonetary') {
+            } else if (dim.key === 'monetary') {
               displayValue = `¥${realValue.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`;
-            } else if (dim.key === 'avgFrequency') {
+            } else if (dim.key === 'frequency') {
               displayValue = `${realValue.toFixed(1)} times`;
-            } else if (dim.key === 'avgAOV') {
+            } else if (dim.key === 'aov') {
               displayValue = `¥${realValue.toFixed(0)}`;
             } else {
               displayValue = realValue.toFixed(2);
@@ -180,15 +219,21 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
           },
         },
       },
-      series: [
-        {
-          type: 'radar',
-          data: seriesData,
-        },
-      ],
+      series,  // Multiple series, one per cluster
     };
 
-    chartInstance.setOption(option);
+    console.log('[RadarChart] Setting option with series count:', series.length);
+    console.log('[RadarChart] Series styles:', series.map(s => ({
+      name: s.name,
+      lineStyle: s.lineStyle,
+      areaStyle: s.areaStyle,
+      z: s.z
+    })));
+
+    // Use replaceMerge instead of notMerge for better incremental update
+    chartInstance.setOption(option, { replaceMerge: ['series'] });
+    
+    console.log('[RadarChart] Option set complete');
 
     // Handle resize
     const handleResize = () => {

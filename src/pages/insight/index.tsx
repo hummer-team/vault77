@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, message } from 'antd';
+import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, message, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
   ReloadOutlined, 
@@ -50,6 +50,7 @@ interface InsightPageProps {
   onViewAnomalies?: (orderIds: string[], tableName: string) => Promise<void>; // Callback to view anomalies
   clusteringResult?: ClusteringAnalysisOutput | null; // Customer clustering result from Workbench
   onKValueChange?: (k: number) => void; // Callback to trigger re-clustering
+  onViewCustomers?: (customerIds: string[], tableName: string) => Promise<void>; // Callback to view customers
 }
 
 export const InsightPage: React.FC<InsightPageProps> = ({ 
@@ -61,6 +62,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
   onViewAnomalies,
   clusteringResult,
   onKValueChange,
+  onViewCustomers,
 }) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
   
@@ -73,6 +75,12 @@ export const InsightPage: React.FC<InsightPageProps> = ({
   const [kValue, setKValue] = useState(
     clusteringResult?.metadata.nClusters ?? DEFAULT_K_VALUE
   );
+
+  // Local state for selected cluster (for chart interaction)
+  const [selectedCluster, setSelectedCluster] = useState<number | null>(null);
+
+  // Local state for scatter plot sampling info
+  const [scatterSamplingInfo, setScatterSamplingInfo] = useState<{ display: number; total: number } | null>(null);
 
   // LLM Insight Action state (for anomaly)
   const [insightAction, setInsightAction] = useState<InsightAction | null>(null);
@@ -95,6 +103,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
   React.useEffect(() => {
     if (clusteringResult?.metadata.nClusters) {
       setKValue(clusteringResult.metadata.nClusters);
+      // Reset selected cluster when clustering result changes
+      setSelectedCluster(null);
     }
   }, [clusteringResult?.metadata.nClusters]);
 
@@ -760,7 +770,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       {/* Section 5: Customer Clustering (if available) */}
       {clusteringResult && (
         <>
-          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.3)', margin: '48px 0' }} />
+          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }} />
           <div className="insight-section">
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -769,7 +779,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 <span style={{ 
                   fontSize: '12px', 
                   color: 'rgba(255, 255, 255, 0.45)',
-                  marginLeft: 8,
+                  marginLeft: 'auto',
                   fontWeight: 'normal',
                 }}>
                   GPU: {clusteringResult.metadata.gpuUsed ? 'Enabled' : 'Disabled'}
@@ -778,45 +788,154 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             </div>
 
             {/* Clustering Statistics */}
+            {(() => {
+              // console.log('[InsightPage] Clustering data:', {
+              //   totalCustomers: clusteringResult.totalCustomers,
+              //   clustersCount: clusteringResult.clusters.length,
+              //   customersCount: clusteringResult.customers.length,
+              //   sampleCluster: clusteringResult.clusters[0],
+              //   sampleCustomer: clusteringResult.customers[0],
+              // });
+              return null;
+            })()}
+
             <Row gutter={16} style={{ marginBottom: 24 }}>
               <Col span={6}>
-                <Statistic 
-                  title="Total Customers" 
-                  value={clusteringResult.totalCustomers}
-                  valueStyle={{ color: '#3f8600' }}
-                />
+                <Card 
+                  size="small" 
+                  style={{ 
+                    background: '#2a2d30', 
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Three-dot menu */}
+                  <Dropdown 
+                    menu={{ 
+                      items: [
+                        {
+                          key: 'download',
+                          label: 'CSV',
+                          icon: <DownloadOutlined />,
+                          disabled: true,
+                        },
+                        {
+                          key: 'view',
+                          label: 'View',
+                          icon: <EyeOutlined />,
+                        },
+                        {
+                          key: 'analyze',
+                          label: 'Analyze',
+                          icon: <BulbOutlined />,
+                          disabled: true,
+                        },
+                      ],
+                      onClick: async ({ key }) => {
+                        if (!clusteringResult) return;
+                        
+                        try {
+                          switch (key) {
+                            case 'download':
+                              message.info('CSV export will be implemented in future');
+                              break;
+                            case 'view':
+                              if (!onViewCustomers) {
+                                message.warning('View customers callback not available');
+                                return;
+                              }
+                              // Extract all customer IDs from clustering result
+                              const customerIds = clusteringResult.customers.map(c => c.customerId);
+                              if (customerIds.length === 0) {
+                                message.warning('No customers to display');
+                                return;
+                              }
+                              await onViewCustomers(customerIds, tableName);
+                              break;
+                            case 'analyze':
+                              message.info('LLM analysis coming soon');
+                              break;
+                          }
+                        } catch (error) {
+                          message.error(`Failed to ${key}: ${error}`);
+                        }
+                      },
+                      style: {
+                        background: '#2a2d30',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                      },
+                    }} 
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button 
+                      type="text" 
+                      icon={<MoreOutlined style={{ fontSize: 16 }} />} 
+                      size="small"
+                      style={{ 
+                        color: 'rgba(255, 255, 255, 0.85)',
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        zIndex: 1,
+                      }}
+                    />
+                  </Dropdown>
+                  
+                  <Statistic 
+                    title={
+                      <Space>
+                        <span>Total Customers</span>
+                        {scatterSamplingInfo && scatterSamplingInfo.display < scatterSamplingInfo.total && (
+                          <Tooltip 
+                            title={`${scatterSamplingInfo.display} customers shown in scatter plot. Click 'View' menu to see all ${clusteringResult.totalCustomers} customers with RFM analysis.`}
+                            placement="top"
+                          >
+                            <InfoCircleOutlined style={{ color: '#faad14', fontSize: 12, cursor: 'help' }} />
+                          </Tooltip>
+                        )}
+                      </Space>
+                    }
+                    value={clusteringResult.totalCustomers}
+                    valueStyle={{ color: '#3f8600' }}
+                  />
+                </Card>
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="Number of Clusters" 
-                  value={clusteringResult.clusters.length}
-                  valueStyle={{ color: '#1890ff' }}
-                />
+                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                  <Statistic 
+                    title="Number of Clusters" 
+                    value={clusteringResult.clusters.length}
+                    valueStyle={{ color: '#1890ff' }}
+                  />
+                </Card>
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="Avg Recency" 
-                  value={clusteringResult.clusters.reduce((sum, c) => sum + c.avgRecency, 0) / clusteringResult.clusters.length}
-                  precision={0}
-                  suffix="days"
-                  valueStyle={{ color: '#cf1322' }}
-                />
+                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                  <Statistic 
+                    title="Avg Recency" 
+                    value={clusteringResult.clusters.reduce((sum, c) => sum + c.avgRecency, 0) / clusteringResult.clusters.length}
+                    precision={0}
+                    suffix="days"
+                    valueStyle={{ color: '#cf1322' }}
+                  />
+                </Card>
               </Col>
               <Col span={6}>
-                <Statistic 
-                  title="Processing Time" 
-                  value={clusteringResult.metadata.durationMs}
-                  precision={0}
-                  suffix="ms"
-                  valueStyle={{ color: '#faad14' }}
-                />
+                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                  <Statistic 
+                    title="Total Processed" 
+                    value={clusteringResult.metadata.rowsTotal}
+                    valueStyle={{ color: 'rgba(255, 255, 255, 0.85)' }}
+                  />
+                </Card>
               </Col>
             </Row>
 
             {/* K Value Slider */}
             <div style={{ marginBottom: 24 }}>
-              <Text strong style={{ marginRight: 16 }}>
-                Number of Clusters (K):
+              <Text style={{ color: 'rgba(255, 255, 255, 0.85)', marginRight: 16 }}>
+                Number of Clusters (K): {kValue}
               </Text>
               <Slider
                 value={kValue}
@@ -829,7 +948,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                     onKValueChange(value);
                   }
                 }}
-                style={{ width: 300, display: 'inline-block', marginRight: 16 }}
+                style={{ width: 300, display: 'inline-block' }}
                 marks={{
                   2: '2',
                   3: '3',
@@ -838,8 +957,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   10: '10',
                 }}
               />
-              <Text type="secondary">
-                (Current: {kValue})
+              <Text type="secondary" style={{ marginLeft: 16 }}>
+                (Range: 2-10)
               </Text>
             </div>
 
@@ -855,7 +974,19 @@ export const InsightPage: React.FC<InsightPageProps> = ({
               <Row gutter={16}>
                 <Col span={12}>
                   <Card 
-                    title="Customer Distribution (Scatter Plot)"
+                    title={
+                      <Space>
+                        <span>Customer Distribution (Scatter Plot)</span>
+                        {scatterSamplingInfo && scatterSamplingInfo.display < scatterSamplingInfo.total && (
+                          <Tooltip 
+                            title={`For performance, showing top 100 high-value customers per cluster (${scatterSamplingInfo.display} / ${scatterSamplingInfo.total}). Click 'View' in Total Customers menu to see complete analysis.`}
+                            placement="top"
+                          >
+                            <InfoCircleOutlined style={{ color: '#faad14', cursor: 'help' }} />
+                          </Tooltip>
+                        )}
+                      </Space>
+                    }
                     size="small"
                     style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
                   >
@@ -867,6 +998,15 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       yAxis="monetary"
                       sizeBy="frequency"
                       height={400}
+                      selectedCluster={selectedCluster}
+                      onClusterClick={(clusterId) => {
+                        console.log('[InsightPage] onClusterClick received clusterId:', clusterId);
+                        setSelectedCluster(clusterId);
+                        console.log('[InsightPage] selectedCluster set to:', clusterId);
+                      }}
+                      onDataSampled={(display, total) => {
+                        setScatterSamplingInfo({ display, total });
+                      }}
                     />
                   </Card>
                 </Col>
@@ -880,6 +1020,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       key={`clustering-radar-${clusteringResult.totalCustomers}-${clusteringResult.metadata.nClusters}`}
                       clusters={clusteringResult.clusters}
                       height={400}
+                      selectedCluster={selectedCluster}
                     />
                   </Card>
                 </Col>

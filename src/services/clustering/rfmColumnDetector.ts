@@ -148,11 +148,16 @@ export function detectRFMColumns(tableMetadata: TableMetadata): RFMColumns {
   // First try to find columns that match both 'customer' AND 'id' patterns
   result.customerId = findColumnByPatterns(columns, [
     // Explicit customer ID patterns (highest priority)
-    /(^|_)(customer_id|customer_code|cust_id|client_id)($|_)/i,
-    /客户编号|客户ID/,
+    /(^|_)(customer_id|customer_code|cust_id|client_id|顾客ID|顾客编号|客户ID|客户编号)($|_)/i,
+    /^顾客ID$/i,
+    /^客户ID$/i,
+    /^客户编号$/i,
+    /^顾客编号$/i,
     // User/Member ID patterns (fallback)
-    /(^|_)(user_id|member_id|buyer_id|purchaser_id)($|_)/i,
-    /用户ID|会员编号|买家ID/,
+    /(^|_)(user_id|member_id|buyer_id|purchaser_id|用户ID|会员编号|会员ID|买家ID)($|_)/i,
+    /^用户ID$/i,
+    /^会员编号$/i,
+    /^会员ID$/i,
     // Generic patterns from COLUMN_PATTERNS (lowest priority)
     ...COLUMN_PATTERNS.customer.map(pattern => 
       // Combine customer pattern with _id suffix requirement

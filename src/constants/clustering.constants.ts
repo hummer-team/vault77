@@ -84,7 +84,7 @@ export const CLUSTER_SAMPLING_STRATEGY = 'stratified-high-value' as const;
 export const RADAR_DIMENSIONS = [
   {
     name: 'Recency',
-    key: 'avgRecency',
+    key: 'recency',  // Match ClusterMetadata.radarValues
     description: 'Days since last purchase (lower is better)',
     inverted: true,      // Lower values are better
     required: true,      // Must always be present
@@ -92,7 +92,7 @@ export const RADAR_DIMENSIONS = [
   },
   {
     name: 'Frequency',
-    key: 'avgFrequency',
+    key: 'frequency',  // Match ClusterMetadata.radarValues
     description: 'Number of purchases (higher is better)',
     inverted: false,
     required: true,
@@ -100,7 +100,7 @@ export const RADAR_DIMENSIONS = [
   },
   {
     name: 'Monetary',
-    key: 'avgMonetary',
+    key: 'monetary',  // Match ClusterMetadata.radarValues
     description: 'Total spending amount (higher is better)',
     inverted: false,
     required: true,
@@ -108,7 +108,7 @@ export const RADAR_DIMENSIONS = [
   },
   {
     name: 'AOV',
-    key: 'avgAOV',
+    key: 'aov',  // Match ClusterMetadata.radarValues
     description: 'Average Order Value (higher is better)',
     inverted: false,
     required: false,     // Optional, computed from Monetary/Frequency
@@ -116,7 +116,7 @@ export const RADAR_DIMENSIONS = [
   },
   {
     name: 'Discount',
-    key: 'avgDiscountSensitivity',
+    key: 'discountSensitivity',  // Match ClusterMetadata.radarValues
     description: 'Discount sensitivity [0-1] (context-dependent)',
     inverted: false,
     required: false,     // Optional, needs discount data
@@ -124,7 +124,7 @@ export const RADAR_DIMENSIONS = [
   },
   {
     name: 'Churn Risk',
-    key: 'avgChurnRisk',
+    key: 'churnRisk',  // Match ClusterMetadata.radarValues
     description: 'Churn risk [0-1] based on recency (lower is better)',
     inverted: true,
     required: false,     // Optional, computed from Recency
@@ -147,6 +147,12 @@ export const MIN_RADAR_DIMENSIONS = 3;
  * Prevents browser freeze with large datasets
  */
 export const MAX_CUSTOMERS_FOR_SCATTER_PLOT = 50_000;
+
+/**
+ * Scatter plot performance optimization
+ * Show top N high-value customers per cluster (sorted by monetary desc)
+ */
+export const TOP_N_PER_CLUSTER = 100;
 
 /**
  * Maximum customers to export in CSV

@@ -425,6 +425,78 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }, 100);
   }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata]);
 
+  // Handle view customers from InsightPage
+  const handleViewCustomers = useCallback(async (customerIds: string[], tableName: string) => {
+    if (!isDBReady || customerIds.length === 0) {
+      throw new Error('Database not ready or no customer IDs provided');
+    }
+
+    console.log('[Workbench] Viewing customers RFM analysis:', customerIds.length);
+
+    // Use clustering result data directly (customer-level RFM)
+    if (!clusteringAnalysis.result) {
+      throw new Error('Clustering result not available');
+    }
+
+    // Transform clustering data to table format with cluster labels
+    const rfmData = clusteringAnalysis.result.customers.map(customer => {
+      const cluster = clusteringAnalysis.result!.clusters.find(
+        c => c.clusterId === customer.clusterId
+      );
+      
+      return {
+        customer_id: customer.customerId,
+        cluster_id: customer.clusterId,
+        cluster_label: cluster?.label || `Cluster ${customer.clusterId}`,
+        recency_days: customer.recency,
+        frequency_orders: customer.frequency,
+        monetary_amount: customer.monetary,
+        avg_order_value: customer.aov,
+        churn_risk: customer.churnRisk,
+      };
+    });
+
+    console.log('[Workbench] Built RFM customer records:', rfmData.length);
+
+    // Create schema for ResultsDisplay
+    const schema = [
+      { name: 'customer_id', type: 'String' },
+      { name: 'cluster_id', type: 'Int32' },
+      { name: 'cluster_label', type: 'String' },
+      { name: 'recency_days', type: 'Double' },
+      { name: 'frequency_orders', type: 'Double' },
+      { name: 'monetary_amount', type: 'Double' },
+      { name: 'avg_order_value', type: 'Double' },
+      { name: 'churn_risk', type: 'Double' },
+    ];
+
+    // Create a new analysis record
+    const newRecord: AnalysisRecord = {
+      id: `customer-rfm-${Date.now()}`,
+      query: `View ${rfmData.length} Customers' RFM Analysis`,
+      thinkingSteps: {
+        tool: 'clustering_analysis',
+        params: { table: tableName, nClusters: clusteringAnalysis.result.metadata.nClusters },
+        thought: `Displaying RFM (Recency, Frequency, Monetary) analysis for ${rfmData.length} customers with cluster assignments`,
+      },
+      data: rfmData,
+      schema: schema,
+      status: 'resultsReady',
+      queryDurationMs: 0, // No query, data already in memory
+      attachmentsSnapshot: attachments,
+    };
+
+    // Add to analysis history
+    setAnalysisHistory(prev => [...prev, newRecord]);
+    
+    // Auto-scroll to bottom to show new result
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }
+    }, 100);
+  }, [isDBReady, attachments, clusteringAnalysis.result]);
+
   // Draggable divider handlers
   const tempWidthRef = useRef<number>(sidebarWidth);
   const chatSectionRef = useRef<HTMLDivElement>(null);
@@ -1070,6 +1142,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                 onKValueChange={handleKValueChange}
                 onDownloadAnomalies={handleDownloadAnomalies}
                 onViewAnomalies={handleViewAnomalies}
+                onViewCustomers={handleViewCustomers}
               />
             </DuckDBProvider>
           </Suspense>
