@@ -4,10 +4,11 @@
  * X-axis: Recency (days), Y-axis: Monetary (amount), Size: Frequency (purchases)
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as echarts from 'echarts';
 import type { CustomerClusterRecord, ClusterMetadata } from '../../types/clustering.types';
 import { TOP_N_PER_CLUSTER } from '../../constants/clustering.constants';
+import { CustomerContextMenu } from './CustomerContextMenu';
 
 export interface ClusteringScatterChartProps {
   data: CustomerClusterRecord[];
@@ -35,6 +36,14 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const lastDataLengthRef = useRef(0);  // Track data length to detect real changes
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    customerId: string;
+  }>({ visible: false, x: 0, y: 0, customerId: '' });
 
   // Memoize data and clusters to prevent unnecessary re-renders
   // Only update when actual content changes, not just reference
@@ -166,6 +175,8 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         borderColor: '#777',
         textStyle: { color: '#fff' },
+        z: 99999,  // Ensure tooltip is on top of all other elements
+        appendToBody: true,  // Append to body to avoid z-index stacking issues
         formatter: (params: any) => {
           // Get customer ID from stored array in series
           const seriesIndex = params.seriesIndex;
@@ -188,12 +199,27 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
           };
           
           return `
-            <strong>Customer ID:</strong> ${customerId}<br/>
-            <strong>Cluster:</strong> ${params.seriesName}<br/>
-            <strong>${xAxis}:</strong> ${formatValue(val0, xAxis === 'recency' ? 0 : 1, '', xAxis === 'recency' ? ' days' : '')}<br/>
-            <strong>${yAxis}:</strong> ${formatValue(val1, yAxis === 'monetary' ? 0 : 1, yAxis === 'monetary' ? '¥' : '', yAxis === 'frequency' ? ' times' : '')}<br/>
-            <strong>${sizeBy}:</strong> ${formatValue(val2, sizeBy === 'monetary' ? 0 : 1, sizeBy === 'monetary' ? '¥' : '', sizeBy === 'frequency' ? ' times' : '')}<br/>
-            ${cluster ? `<strong>Cluster Size:</strong> ${cluster.customerCount} customers` : ''}
+            <div style="padding: 4px 0;">
+              <div style="color: #ffa940; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 4px;">
+                📍 Individual Customer
+              </div>
+              <strong>Customer ID:</strong> ${customerId}<br/>
+              <strong>${xAxis}:</strong> ${formatValue(val0, xAxis === 'recency' ? 0 : 1, '', xAxis === 'recency' ? ' days' : '')}<br/>
+              <strong>${yAxis}:</strong> ${formatValue(val1, yAxis === 'monetary' ? 0 : 1, yAxis === 'monetary' ? '¥' : '', yAxis === 'frequency' ? ' times' : '')}<br/>
+              <strong>${sizeBy}:</strong> ${formatValue(val2, sizeBy === 'monetary' ? 0 : 1, sizeBy === 'monetary' ? '¥' : '', sizeBy === 'frequency' ? ' times' : '')}<br/>
+              ${cluster ? `
+              <div style="color: #52c41a; font-weight: bold; margin-top: 8px; margin-bottom: 4px; border-bottom: 1px solid #444; padding-bottom: 4px;">
+                📊 Cluster Information
+              </div>
+              <strong>Cluster:</strong> ${params.seriesName}<br/>
+              <strong>Total Customers:</strong> ${cluster.customerCount.toLocaleString()}<br/>
+              <strong>Avg Recency:</strong> ${cluster.avgRecency.toFixed(0)} days<br/>
+              <strong>Avg Monetary:</strong> ¥${cluster.avgMonetary.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}<br/>
+              <div style="color: #888; font-size: 11px; margin-top: 6px;">
+                💡 Click to highlight this cluster in radar chart
+              </div>
+              ` : ''}
+            </div>
           `;
         },
       },
@@ -287,6 +313,115 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       });
     }
 
+    // Handle right-click on data points to show context menu
+    // Use native DOM event listener on chart container
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // 先关闭已有菜单（如果有的话）
+      setContextMenu({ visible: false, x: 0, y: 0, customerId: '' });
+      
+      // Get chart container bounds
+      const chartDom = chartRef.current;
+      if (!chartDom) return;
+      
+      const rect = chartDom.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+      
+      console.log('[ScatterChart] Native contextmenu event:', {
+        offsetX,
+        offsetY,
+        pageX: event.pageX,
+        pageY: event.pageY,
+        clientX: event.clientX,
+        clientY: event.clientY
+      });
+      
+      // Find which data point was clicked
+      let foundCustomerId: string | null = null;
+      let foundSeriesName: string | null = null;
+      let minDistance = Infinity;
+      let debugPoints: any[] = [];
+      
+      // Iterate through series to find the clicked point
+      series.forEach((seriesItem: any, seriesIdx: number) => {
+        const data = seriesItem.data;
+        
+        data.forEach((dataPoint: any, dataIndex: number) => {
+          try {
+            // Convert data coordinates to pixel coordinates
+            const pixelPoint: any = chartInstance.convertToPixel({ seriesIndex: seriesIdx }, dataPoint);
+            
+            if (pixelPoint && Array.isArray(pixelPoint) && pixelPoint.length >= 2) {
+              // Calculate distance
+              const dx = pixelPoint[0] - offsetX;
+              const dy = pixelPoint[1] - offsetY;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              
+              // Track min distance for debugging
+              if (distance < minDistance) {
+                minDistance = distance;
+              }
+              
+              // Store first few points for debugging
+              if (debugPoints.length < 5) {
+                debugPoints.push({
+                  seriesName: seriesItem.name,
+                  customerId: seriesItem._customerIds?.[dataIndex],
+                  pixelPoint: [pixelPoint[0], pixelPoint[1]],
+                  clickPoint: [offsetX, offsetY],
+                  distance: distance.toFixed(2)
+                });
+              }
+            
+              // If click is within 30px of a point, consider it clicked (increased threshold)
+              if (distance < 30 && !foundCustomerId) {
+                foundCustomerId = seriesItem._customerIds?.[dataIndex];
+                foundSeriesName = seriesItem.name;
+                console.log('[ScatterChart] Found clicked point:', {
+                  seriesName: foundSeriesName,
+                  customerId: foundCustomerId,
+                  distance: distance.toFixed(2),
+                  pixelPoint,
+                  clickPoint: [offsetX, offsetY]
+                });
+              }
+            }
+          } catch (err) {
+            // Ignore conversion errors
+          }
+        });
+      });
+      
+      if (foundCustomerId) {
+        console.log('[ScatterChart] Setting context menu state...');
+        // 使用setTimeout确保先关闭旧菜单，再打开新菜单
+        setTimeout(() => {
+          setContextMenu({
+            visible: true,
+            x: offsetX,  // 使用相对于图表容器的坐标
+            y: offsetY,
+            customerId: String(foundCustomerId),
+          });
+          console.log('[ScatterChart] Context menu state set with offset coords:', { offsetX, offsetY });
+        }, 50);
+      } else {
+        console.log('[ScatterChart] No customer point found near click', {
+          minDistance: minDistance.toFixed(2),
+          threshold: 30,
+          samplePoints: debugPoints
+        });
+      }
+    };
+    
+    // Add native contextmenu listener to chart DOM
+    const chartDom = chartRef.current;
+    if (chartDom) {
+      chartDom.addEventListener('contextmenu', handleContextMenu);
+    }
+
     // Handle legend select (cluster filtering)
     if (onClusterClick) {
       chartInstance.on('legendselectchanged', (params: any) => {
@@ -312,6 +447,11 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       if (onClusterClick) {
         chartInstance.off('click');
         chartInstance.off('legendselectchanged');
+      }
+      // Remove native contextmenu listener
+      const chartDom = chartRef.current;
+      if (chartDom) {
+        chartDom.removeEventListener('contextmenu', handleContextMenu);
       }
     };
   }, [displayData, stableClusters, xAxis, yAxis, sizeBy, onClusterClick]);
@@ -341,5 +481,18 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
     );
   }
 
-  return <div ref={chartRef} style={{ width: '100%', height }} />;
+  return (
+    <div style={{ position: 'relative', width: '100%', height }}>
+      <div ref={chartRef} style={{ width: '100%', height }} />
+      
+      <CustomerContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        customerId={contextMenu.customerId}
+        onClose={() => setContextMenu({ ...contextMenu, visible: false })}
+        // onViewDetails 和 onCompare 保持 undefined (禁用状态)
+      />
+    </div>
+  );
 };

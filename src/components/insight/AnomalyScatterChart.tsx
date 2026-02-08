@@ -70,6 +70,8 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         borderColor: '#777',
         textStyle: { color: '#fff' },
+        z: 99999,  // Ensure tooltip is on top of all other elements
+        appendToBody: true,  // Append to body to avoid z-index stacking issues
         formatter: (params: any) => {
           const record = allRecords[params.dataIndex];
           

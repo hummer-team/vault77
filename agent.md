@@ -26,6 +26,7 @@
 
 - **2026-02-08**: 
   - **客户聚类分析功能**: 集成基于RFM的K-Means聚类分析，支持GPU加速（40x性能提升）、自动列检测、动态K值调整（2-10）、双图表可视化（散点图+雷达图）、LLM业务洞察生成、CSV导出功能。核心模块包括：聚类服务（clusteringService）、RFM特征工程（rfmColumnDetector + rfmSqlGenerator）、Web Worker（clustering.worker）、可视化组件（ScatterChart + RadarChart + ErrorBoundary + Skeleton）、策略模式（ClusteringActionStrategy）、React Hook（useClustering）。完成21个单元测试，代码量~3,400行。
+  - **右键菜单功能**: 为聚类散点图添加右键上下文菜单，支持查看客户详情和与分群平均对比（当前禁用，预留扩展）。使用原生DOM事件监听、position: absolute定位、边界检测、渐变背景和蓝色hover效果。组件代码~180行，遵循TypeScript最佳实践和英文注释规范。
   - 文档结构重构，新增目录导航、快速开始、环境配置清单、Chrome Extension 调试指南、FAQ 章节，整合 rule.md 工作流规范。
 - **2026-01-29**: 完成 M10.6 (Multi-Industry Refactoring & M8 Regression Fixes)，实现多行业动态支持、行业功能开关、修复 7 个回归测试问题 + 1 个 BigInt 序列化问题。
 - **2026-01-25**: 完成 M10.4 (Skill System Integration) 和 M10.5 (Transparency Enhancement)，新增 User Skill L0 配置系统、Query Router、透明度标签和设置面板。
