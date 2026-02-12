@@ -28,8 +28,10 @@ const SelectNodeForm: React.FC<{
   // Get available fields from all tables
   const allFields: Array<{ tableName: string; fieldName: string; type: string }> = [];
   tableNodes.forEach((tableNode) => {
-    const tableData = tableNode.data as { tableName: string; fields?: { name: string; type: string }[] };
-    if (tableData.fields) {
+    const tableData = tableNode.data as { tableName: string; fields?: { name: string; type: string; nullable?: boolean }[] };
+    console.log('[SelectNodeForm] Table node data:', tableNode.id, tableData);
+    if (tableData.fields && Array.isArray(tableData.fields)) {
+      console.log('[SelectNodeForm] Fields found:', tableData.fields.length, tableData.fields);
       tableData.fields.forEach((field) => {
         allFields.push({
           tableName: tableData.tableName,
@@ -37,8 +39,12 @@ const SelectNodeForm: React.FC<{
           type: field.type,
         });
       });
+    } else {
+      console.log('[SelectNodeForm] No fields or not an array:', tableData.fields);
     }
   });
+
+  console.log('[SelectNodeForm] All fields collected:', allFields.length, allFields);
 
   // Add new field
   const addField = useCallback(() => {

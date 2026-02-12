@@ -47,6 +47,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
+  const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const nodes = useFlowStore((state) => state.nodes);
+  const edges = useFlowStore((state) => state.edges);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -61,6 +65,63 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   const handleClick = useCallback(() => {
     setSelectedNode(id);
   }, [id, setSelectedNode]);
+
+  // Check if there's already a condition node connected to this select node
+  const hasConnectedConditionNode = React.useMemo(() => {
+    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'condition');
+  }, [edges, nodes, id]);
+
+  // Auto-create condition node after select node if not exists
+  React.useEffect(() => {
+    // Only auto-create if:
+    // 1. Fields have been selected
+    // 2. No condition node is already connected
+    // 3. The SelectNode itself exists in the flow
+    if (data.fields.length > 0 && !hasConnectedConditionNode) {
+      const selectNode = nodes.find((n) => n.id === id);
+      if (!selectNode) return;
+
+      // Check again to prevent race conditions
+      const currentEdges = useFlowStore.getState().edges;
+      const currentNodes = useFlowStore.getState().nodes;
+      const alreadyHasCondition = currentEdges.some(
+        (e) =>
+          e.source === id &&
+          currentNodes.find((n) => n.id === e.target)?.type === 'condition'
+      );
+
+      if (alreadyHasCondition) return;
+
+      const selectX = selectNode.position.x;
+      const selectY = selectNode.position.y;
+
+      // Create condition node
+      const conditionNodeId = `condition_${Date.now()}`;
+      const conditionNode = {
+        id: conditionNodeId,
+        type: 'condition' as const,
+        position: { x: selectX + 280, y: selectY },
+        data: {
+          logicType: 'AND',
+          tableName: '',
+          field: '',
+          operator: '=',
+          value: '',
+        },
+      };
+      addNode(conditionNode as unknown as Parameters<typeof addNode>[0]);
+
+      // Connect select -> condition
+      addEdge({
+        id: `e_${id}_${conditionNodeId}`,
+        source: id,
+        target: conditionNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+      } as unknown as Parameters<typeof addEdge>[0]);
+    }
+  }, [data.fields.length, hasConnectedConditionNode, id, nodes, addNode, addEdge]);
 
   const hasFields = data.fields.length > 0 || data.selectAll;
 

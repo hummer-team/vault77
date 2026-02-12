@@ -258,7 +258,7 @@ class SettingsService {
     return storageService.getItem<InsightActionSettings>(
       INSIGHT_ACTION_SETTINGS_KEY,
       {
-        autoGenerate: true,           // Auto-generate after anomaly detection
+        autoGenerate: false,          // Auto-generate disabled by default
         maxAnomaliesForAnalysis: 500, // Max anomalies to analyze (avoid token overflow)
       }
     );

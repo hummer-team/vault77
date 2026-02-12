@@ -130,11 +130,6 @@ export default defineConfig(({command, mode}) => {
         worker: {
             format: 'es',
         },
-        test: isTest ? {
-            globals: true,
-            environment: 'jsdom',
-            include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-        } : undefined,
     };
 
     if (isDev) {

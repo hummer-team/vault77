@@ -6,53 +6,62 @@
 import type { FlowColors } from './types';
 
 // ============================================================================
-// Color Scheme - Dark Theme with Orange Accent
+// Color Scheme - Premium Dark Theme with Orange Accent
+// Based on design system: Dark audio + warm accent
 // ============================================================================
 
 export const FLOW_COLORS: FlowColors = {
   conditionGroup: {
     and: {
-      background: 'rgba(250, 140, 22, 0.15)', // Orange transparent
-      border: '#fa8c16',
-      title: '#fa8c16',
+      background: 'rgba(255, 107, 0, 0.12)', // Subtle orange transparent
+      border: 'rgba(255, 107, 0, 0.6)',
+      title: '#FF8533',
     },
     or: {
-      background: 'rgba(250, 140, 22, 0.25)', // Deeper orange
-      border: '#ff9c2b',
-      title: '#ff9c2b',
+      background: 'rgba(255, 107, 0, 0.2)', // Deeper orange
+      border: 'rgba(255, 133, 51, 0.7)',
+      title: '#FF9A5C',
     },
     nested: {
-      background: 'rgba(250, 140, 22, 0.35)', // Deepest orange
-      border: '#ffac46',
-      title: '#ffac46',
+      background: 'rgba(255, 107, 0, 0.28)', // Deepest orange
+      border: 'rgba(255, 154, 92, 0.8)',
+      title: '#FFAF85',
     },
   },
   node: {
     table: {
-      background: '#1f1f1f',
-      border: '#434343',
+      background: 'rgba(28, 25, 23, 0.95)', // Warm dark
+      border: 'rgba(68, 64, 60, 0.8)', // Stone-700
+    },
+    merge: {
+      background: 'rgba(28, 25, 23, 0.98)',
+      border: '#FF6B00', // Primary orange for + node
+    },
+    operator: {
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#FA8C16', // Orange for business operator
     },
     join: {
-      background: '#1f1f1f',
-      border: '#fa8c16',
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#F97316', // Orange accent
     },
     condition: {
-      background: '#1f1f1f',
-      border: '#1890ff',
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#3B82F6', // Blue accent
     },
     select: {
-      background: '#1f1f1f',
-      border: '#52c41a',
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#10B981', // Emerald accent
     },
     end: {
-      background: '#1f1f1f',
-      border: '#fa8c16',
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#CA8A04', // Gold accent
     },
   },
   edge: {
-    default: '#8c8c8c',
-    selected: '#fa8c16',
-    error: '#ff4d4f',
+    default: 'rgba(120, 113, 108, 0.6)', // Stone-500
+    selected: '#FF6B00',
+    error: '#EF4444',
   },
 };
 

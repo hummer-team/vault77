@@ -50,6 +50,9 @@ export const NodeDetailPanel: React.FC = () => {
         return <SelectAggNodeForm node={node} onUpdate={updateNode} />;
       case 'end':
         return <EndNodeForm node={node} onUpdate={updateNode} />;
+      case 'merge':
+        // Merge node should not show detail panel
+        return null;
       default:
         return <div style={{ color: '#8c8c8c' }}>暂无配置项</div>;
     }

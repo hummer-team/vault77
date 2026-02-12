@@ -8,7 +8,7 @@ import { Handle, Position } from '@xyflow/react';
 import { Select, Tag, Space, Spin } from 'antd';
 import { DatabaseOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import { getAvailableTables } from '../../../services/flow/flowService';
+import { getAvailableTables, getTableSchema } from '../../../services/flow/flowService';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import type { StartNodeData } from '../../../services/flow/types';
@@ -22,6 +22,8 @@ interface StartNodeProps {
 export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
   const updateNode = useFlowStore((state) => state.updateNode);
   const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const nodes = useFlowStore((state) => state.nodes);
   const { executeQuery, isDBReady } = useDuckDBContext();
 
   // State for table list
@@ -70,22 +72,102 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
       // Update start node
       updateNode(id, { selectedTable: tableName });
 
-      // Add table node
-      const tableNode = {
-        id: `table_${Date.now()}`,
-        type: 'table' as const,
-        position: { x: 350, y: 250 },
-        data: {
-          tableName,
-          fields: [],
-          expanded: false,
-          alias: `t${Date.now().toString().slice(-4)}`,
-          label: tableName,
-        },
-      };
-      addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
+      // Get start node position
+      const startNode = nodes.find((n) => n.id === id);
+      const startX = startNode?.position?.x || 400;
+      const startY = startNode?.position?.y || 300;
+
+      // Load table schema
+      let tableFields: Array<{ name: string; type: string; nullable: boolean }> = [];
+      try {
+        const schema = await getTableSchema(tableName, executeQuery);
+        tableFields = schema.fields;
+        console.log('[StartNode] Loaded table fields:', tableName, tableFields);
+      } catch (error) {
+        console.error('[StartNode] Failed to load table schema:', error);
+      }
+
+      // Check if merge node already exists
+      const existingMerge = nodes.find((n) => n.type === 'merge');
+
+      if (existingMerge) {
+        // Add new table node below existing tables
+        const tableCount = nodes.filter((n) => n.type === 'table').length;
+        const tableNodeId = `table_${Date.now()}`;
+        const tableNode = {
+          id: tableNodeId,
+          type: 'table' as const,
+          position: { x: startX + 200, y: startY + tableCount * 120 },
+          data: {
+            tableName,
+            fields: tableFields,
+            expanded: false,
+            label: tableName,
+          },
+        };
+        addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect table to existing merge node
+        addEdge({
+          id: `e_${tableNodeId}_${existingMerge.id}`,
+          source: tableNodeId,
+          target: existingMerge.id,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        } as unknown as Parameters<typeof addEdge>[0]);
+      } else {
+        // First table - create table node, merge node, and connect
+        const tableNodeId = `table_${Date.now()}`;
+        const mergeNodeId = `merge_${Date.now()}`;
+
+        // Add table node with schema
+        const tableNode = {
+          id: tableNodeId,
+          type: 'table' as const,
+          position: { x: startX + 200, y: startY },
+          data: {
+            tableName,
+            fields: tableFields,
+            expanded: false,
+            label: tableName,
+          },
+        };
+        addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Add merge node (+ node)
+        const mergeNode = {
+          id: mergeNodeId,
+          type: 'merge' as const,
+          position: { x: startX + 450, y: startY },
+          data: {
+            tableCount: 1,
+          },
+        };
+        addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect start -> table
+        addEdge({
+          id: `e_${id}_${tableNodeId}`,
+          source: id,
+          target: tableNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        } as unknown as Parameters<typeof addEdge>[0]);
+
+        // Connect table -> merge
+        addEdge({
+          id: `e_${tableNodeId}_${mergeNodeId}`,
+          source: tableNodeId,
+          target: mergeNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        } as unknown as Parameters<typeof addEdge>[0]);
+      }
     },
-    [id, updateNode, addNode]
+    [id, updateNode, addNode, addEdge, nodes, executeQuery]
   );
 
   return (
@@ -133,7 +215,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
       </div>
 
       {/* Table selector */}
-      <Spin spinning={loading} size="small">
+      <Spin spinning={loading} size="small" className="nodrag">
         <Select
           placeholder="请选择数据表"
           value={data.selectedTable}
@@ -141,8 +223,10 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           style={{ width: '100%' }}
           options={tables}
           dropdownStyle={{ background: '#1f1f1f', border: '1px solid #434343' }}
+          popupClassName="start-node-select-dropdown nodrag"
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
-          getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
+          getPopupContainer={() => document.body}
+          className="nodrag"
         />
       </Spin>
 

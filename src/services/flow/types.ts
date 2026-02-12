@@ -12,6 +12,8 @@ import type { Node, Edge } from '@xyflow/react';
 export enum FlowNodeType {
   START = 'start',
   TABLE = 'table',
+  MERGE = 'merge', // + node for aggregating multiple tables
+  OPERATOR = 'operator', // Business operator selection node
   JOIN = 'join',
   CONDITION = 'condition',
   CONDITION_GROUP = 'conditionGroup',
@@ -106,6 +108,15 @@ export interface TableNodeData extends BaseNodeData {
   alias: string;
 }
 
+export interface MergeNodeData extends BaseNodeData {
+  tableCount: number;
+  nextStep?: 'join' | 'select';
+}
+
+export interface OperatorNodeData extends BaseNodeData {
+  operatorType?: OperatorType; // 'association' | 'anomaly' | 'clustering'
+}
+
 export interface JoinCondition {
   leftField: string;
   rightField: string;
@@ -162,6 +173,8 @@ export interface EndNodeData extends BaseNodeData {
 export type FlowNodeData =
   | StartNodeData
   | TableNodeData
+  | MergeNodeData
+  | OperatorNodeData
   | JoinNodeData
   | ConditionNodeData
   | ConditionGroupNodeData
@@ -216,7 +229,8 @@ export interface ValidationResult {
 export interface AnalysisResult {
   type: OperatorType;
   sql: string;
-  data: unknown;
+  data: any[];
+  schema?: any[];
   insights?: string[];
   visualizations?: {
     type: 'scatter' | 'radar' | 'table';
@@ -230,7 +244,7 @@ export interface FlowStrategy {
   buildSql(nodes: FlowNode[], edges: FlowEdge[]): string;
   validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[];
   getRequiredNodes(): FlowNodeType[];
-  postProcess(data: unknown): Promise<AnalysisResult>;
+  postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult>;
 }
 
 // ============================================================================
@@ -278,6 +292,8 @@ export interface FlowColors {
   };
   node: {
     table: { background: string; border: string };
+    merge: { background: string; border: string };
+    operator: { background: string; border: string };
     join: { background: string; border: string };
     condition: { background: string; border: string };
     select: { background: string; border: string };

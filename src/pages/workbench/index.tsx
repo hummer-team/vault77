@@ -428,6 +428,57 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }, 100);
   }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata]);
 
+  // Handle Flow SQL ready - execute and display results
+  const handleFlowSqlReady = useCallback(async (sql: string) => {
+    console.log('[Workbench] Flow SQL validated, executing query:', sql);
+    
+    // Close Flow Modal
+    setShowFlowModal(false);
+
+    if (!isDBReady) {
+      message.error('Database not ready');
+      return;
+    }
+
+    try {
+      // Execute SQL query
+      const startTime = performance.now();
+      const result = await executeQuery(sql);
+      const queryDuration = performance.now() - startTime;
+
+      console.log('[Workbench] Flow query executed, rows:', result.data.length);
+
+      // Create analysis record (similar to handleViewAnomalies)
+      const newRecord: AnalysisRecord = {
+        id: `flow-${Date.now()}`,
+        query: 'Flow Analysis Query',
+        thinkingSteps: {
+          tool: 'flow_builder',
+          params: { query: sql },
+          thought: 'Built SQL query using visual flow editor',
+        },
+        data: result.data,
+        schema: result.schema,
+        status: 'resultsReady',
+        queryDurationMs: queryDuration,
+        attachmentsSnapshot: attachments,
+      };
+
+      // Add to analysis history
+      setAnalysisHistory(prev => [...prev, newRecord]);
+
+      // Auto-scroll to bottom to show new result
+      setTimeout(() => {
+        if (contentRef.current) {
+          contentRef.current.scrollTop = contentRef.current.scrollHeight;
+        }
+      }, 100);
+    } catch (error) {
+      console.error('[Workbench] Flow query execution failed:', error);
+      message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [isDBReady, executeQuery, attachments]);
+
   // Handle view customers from InsightPage
   const handleViewCustomers = useCallback(async (customerIds: string[], tableName: string) => {
     if (!isDBReady || customerIds.length === 0) {
@@ -1175,7 +1226,93 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
     {/* Flow Modal - Analysis Flow Canvas */}
     <Modal
-      title="分析流"
+      title={
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          flexWrap: 'wrap',
+          padding: '4px 0',
+        }}>
+          {/* Title with accent line */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '4px',
+              height: '24px',
+              background: 'linear-gradient(180deg, #FF6B00 0%, #FF8533 100%)',
+              borderRadius: '2px',
+            }} />
+            <span style={{
+              fontWeight: 700,
+              fontSize: '16px',
+              background: 'linear-gradient(90deg, #FFFFFF 0%, rgba(255,255,255,0.85) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '0.5px',
+            }}>分析流</span>
+          </div>
+
+          {/* Steps with connector lines */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0',
+            fontSize: '12px',
+            fontWeight: 500,
+          }}>
+            {[
+              { num: 1, text: '选择数据源', icon: '📊' },
+              { num: 2, text: '创建关系', icon: '🔗' },
+              { num: 3, text: '选择算子', icon: '⚙️' },
+              { num: 4, text: '选择列', icon: '☰' },
+              { num: 5, text: '构建条件', icon: '🔍' },
+              { num: 6, text: '执行', icon: '▶' },
+            ].map((step, index) => (
+              <React.Fragment key={step.num}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  border: '1px solid transparent',
+                  transition: 'all 0.2s ease',
+                }}>
+                  {/* Step number with glow effect */}
+                  <div style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #FF6B00 0%, #FF8533 100%)',
+                    border: 'none',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 0 12px rgba(255, 107, 0, 0.4)',
+                  }}>{step.num}</div>
+                  <span style={{
+                    color: 'rgba(255, 255, 255, 0.95)',
+                    whiteSpace: 'nowrap',
+                  }}>{step.text}</span>
+                </div>
+                {/* Connector arrow */}
+                {index < 5 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 4px',
+                    color: 'rgba(255, 255, 255, 0.2)',
+                  }}>→</div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      }
       open={showFlowModal}
       onCancel={() => setShowFlowModal(false)}
       footer={null}
@@ -1188,7 +1325,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       }}
     >
       <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
-        <FlowCanvas />
+        <FlowCanvas onSqlValidated={handleFlowSqlReady} />
       </DuckDBProvider>
     </Modal>
   </>

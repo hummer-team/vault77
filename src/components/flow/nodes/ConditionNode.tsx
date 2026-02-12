@@ -61,6 +61,10 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
+  const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const nodes = useFlowStore((state) => state.nodes);
+  const edges = useFlowStore((state) => state.edges);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -77,6 +81,61 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
   }, [id, setSelectedNode]);
 
   const isComplete = data.field && data.operator && (data.value !== undefined || data.operator.includes('NULL'));
+
+  // Check if there's already an end node connected to this condition node
+  const hasConnectedEndNode = React.useMemo(() => {
+    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'end');
+  }, [edges, nodes, id]);
+
+  // Auto-create end node after condition node is complete
+  React.useEffect(() => {
+    // Only auto-create if:
+    // 1. Condition is complete
+    // 2. No end node is already connected
+    // 3. The ConditionNode itself exists in the flow
+    if (isComplete && !hasConnectedEndNode) {
+      const conditionNode = nodes.find((n) => n.id === id);
+      if (!conditionNode) return;
+
+      // Check again to prevent race conditions
+      const currentEdges = useFlowStore.getState().edges;
+      const currentNodes = useFlowStore.getState().nodes;
+      const alreadyHasEnd = currentEdges.some(
+        (e) =>
+          e.source === id &&
+          currentNodes.find((n) => n.id === e.target)?.type === 'end'
+      );
+
+      if (alreadyHasEnd) return;
+
+      const conditionX = conditionNode.position.x;
+      const conditionY = conditionNode.position.y;
+
+      // Create end node
+      const endNodeId = `end_${Date.now()}`;
+      const endNode = {
+        id: endNodeId,
+        type: 'end' as const,
+        position: { x: conditionX + 280, y: conditionY },
+        data: {
+          operatorType: 'association',
+          executable: true,
+          errors: [],
+        },
+      };
+      addNode(endNode as unknown as Parameters<typeof addNode>[0]);
+
+      // Connect condition -> end
+      addEdge({
+        id: `e_${id}_${endNodeId}`,
+        source: id,
+        target: endNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+      } as unknown as Parameters<typeof addEdge>[0]);
+    }
+  }, [isComplete, hasConnectedEndNode, id, nodes, addNode, addEdge]);
 
   return (
     <div

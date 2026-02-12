@@ -17,21 +17,23 @@ import { useFlowStore } from '../../../stores/flowStore';
 import type { EndNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
-import { DuckDBService } from '../../../services/duckDBService';
+import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { ValidationSeverity, FlowNodeType } from '../../../services/flow/types';
 
 interface EndNodeProps {
   id: string;
   data: EndNodeData;
   selected?: boolean;
+  onSqlValidated?: (sql: string) => void;
 }
 
-export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected }) => {
+export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValidated }) => {
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const setErrorPanelOpen = useFlowStore((state) => state.setErrorPanelOpen);
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
+  const { executeQuery, isDBReady } = useDuckDBContext();
 
   // Handle click
   const handleClick = useCallback(() => {
@@ -72,31 +74,43 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected }) => {
           return;
         }
 
+        // Check if DuckDB is ready
+        if (!isDBReady) {
+          throw new Error('DuckDB not initialized. Please wait for database to be ready.');
+        }
+
+        // Get all table nodes and verify they exist in DuckDB
+        const tableNodes = nodes.filter((n) => n.type === 'table');
+        for (const tableNode of tableNodes) {
+          const tableName = (tableNode.data as { tableName: string }).tableName;
+          try {
+            await executeQuery(`SELECT 1 FROM "${tableName}" LIMIT 1`);
+          } catch (error) {
+            throw new Error(`表 "${tableName}" 不存在于数据库中。请重新上传文件或选择正确的表。`);
+          }
+        }
+
         // Build SQL query
         const sql = strategy.buildSql(nodes, edges);
         console.log('Generated SQL:', sql);
 
         // Validate SQL with EXPLAIN
-        const duckDBService = DuckDBService.getInstance();
         try {
-          await duckDBService.executeQuery(`EXPLAIN ${sql}`);
+          await executeQuery(`EXPLAIN ${sql}`);
         } catch (explainError) {
           throw new Error(`SQL 验证失败: ${explainError instanceof Error ? explainError.message : '语法错误'}`);
         }
 
-        // Execute query via DuckDB
-        const queryResult = await duckDBService.executeQuery(sql);
+        // SQL validation successful - notify parent
+        console.log('SQL validation successful, notifying parent...');
+        if (onSqlValidated) {
+          onSqlValidated(sql);
+        }
 
-        // Post-process results (e.g., anomaly detection, clustering)
-        const analysisResult = await strategy.postProcess(queryResult);
-        analysisResult.sql = sql; // Set SQL in result
-        console.log('Analysis result:', analysisResult);
-
-        // Update node with results
+        // Update node to indicate success
         updateNode(id, {
           ...data,
           executing: false,
-          result: analysisResult,
           errors: [],
         });
       } catch (error) {
@@ -117,7 +131,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected }) => {
         setErrorPanelOpen(true);
       }
     },
-    [data, id, nodes, edges, updateNode, setErrorPanelOpen]
+    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated]
   );
 
   // Handle save (disabled)

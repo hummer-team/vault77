@@ -21,6 +21,10 @@ import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
+import { NodeToolbar } from './controls/NodeToolbar';
+import { NodeDetailPanel } from './panels/NodeDetailPanel';
+import { MergeNode } from './nodes/MergeNode';
+import { OperatorNode } from './nodes/OperatorNode';
 import { StartNode } from './nodes/StartNode';
 import { TableNode } from './nodes/TableNode';
 import { JoinNode } from './nodes/JoinNode';
@@ -31,19 +35,7 @@ import { SelectAggNode } from './nodes/SelectAggNode';
 import { EndNode } from './nodes/EndNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
-import { FlowNodeType, JoinType, type FlowEdge, type JoinNodeData } from '../../services/flow/types';
-
-// Register node types
-const nodeTypes = {
-  start: StartNode as unknown as NodeTypes[string],
-  table: TableNode as unknown as NodeTypes[string],
-  join: JoinNode as unknown as NodeTypes[string],
-  condition: ConditionNode as unknown as NodeTypes[string],
-  conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
-  select: SelectNode as unknown as NodeTypes[string],
-  selectAgg: SelectAggNode as unknown as NodeTypes[string],
-  end: EndNode as unknown as NodeTypes[string],
-};
+import type { FlowEdge } from '../../services/flow/types';
 
 // Register edge types
 const edgeTypes = {
@@ -52,9 +44,10 @@ const edgeTypes = {
 
 interface FlowCanvasProps {
   className?: string;
+  onSqlValidated?: (sql: string) => void;
 }
 
-const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
+const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated }) => {
   // Get state from store
   const storeNodes = useFlowStore((state) => state.nodes);
   const storeEdges = useFlowStore((state) => state.edges);
@@ -63,13 +56,41 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
   const addEdgeToStore = useFlowStore((state) => state.addEdge);
   const addNodeToStore = useFlowStore((state) => state.addNode);
 
+  // Create custom nodeTypes with onSqlValidated callback
+  const nodeTypesWithCallback = useMemo(
+    () => ({
+      start: StartNode as unknown as NodeTypes[string],
+      table: TableNode as unknown as NodeTypes[string],
+      merge: MergeNode as unknown as NodeTypes[string],
+      operator: OperatorNode as unknown as NodeTypes[string],
+      join: JoinNode as unknown as NodeTypes[string],
+      condition: ConditionNode as unknown as NodeTypes[string],
+      conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
+      select: SelectNode as unknown as NodeTypes[string],
+      selectAgg: SelectAggNode as unknown as NodeTypes[string],
+      end: ((props: any) => <EndNode {...props} onSqlValidated={onSqlValidated} />) as unknown as NodeTypes[string],
+    }),
+    [onSqlValidated]
+  );
+
   // Local state for React Flow
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges);
 
-  // Sync store state with React Flow state
+  // Sync store state with React Flow state (preserve positions)
   React.useEffect(() => {
-    setNodes(storeNodes);
+    setNodes((currentNodes) => {
+      // Create a map of current positions
+      const positionMap = new Map(
+        currentNodes.map((n) => [n.id, n.position])
+      );
+
+      // Update nodes while preserving user-adjusted positions
+      return storeNodes.map((storeNode) => ({
+        ...storeNode,
+        position: positionMap.get(storeNode.id) || storeNode.position,
+      }));
+    });
   }, [storeNodes, setNodes]);
 
   React.useEffect(() => {
@@ -79,6 +100,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
+      // Don't open detail panel for merge nodes
+      if (node.type === 'merge') {
+        return;
+      }
       setSelectedNode(node.id);
     },
     [setSelectedNode]
@@ -89,7 +114,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
     setSelectedNode(null);
   }, [setSelectedNode]);
 
-  // Handle connection - create JOIN node when connecting two tables
+  // Handle connection - smart connection logic
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
@@ -97,65 +122,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
       const sourceNode = storeNodes.find((n) => n.id === connection.source);
       const targetNode = storeNodes.find((n) => n.id === connection.target);
 
-      // Check if connecting two table nodes - create JOIN node
-      if (sourceNode?.type === 'table' && targetNode?.type === 'table') {
-        const sourceData = sourceNode.data as { tableName: string };
-        const targetData = targetNode.data as { tableName: string };
-
-        // Calculate position between the two tables
-        const joinX = ((sourceNode.position?.x || 0) + (targetNode.position?.x || 0)) / 2;
-        const joinY = ((sourceNode.position?.y || 0) + (targetNode.position?.y || 0)) / 2;
-
-        // Create JOIN node
-        const joinNodeId = `join_${Date.now()}`;
-        const joinNodeData: JoinNodeData = {
-          joinType: JoinType.INNER,
-          leftTable: sourceData.tableName,
-          rightTable: targetData.tableName,
-          conditions: [],
-          order: 1, // Will be calculated based on existing joins
-        };
-
-        const joinNode = {
-          id: joinNodeId,
-          type: FlowNodeType.JOIN,
-          position: { x: joinX, y: joinY },
-          data: joinNodeData,
-        };
-
-        addNodeToStore(joinNode as unknown as Parameters<typeof addNodeToStore>[0]);
-
-        // Create edges: source -> join -> target with custom join edge type
-        const edgeToJoin: FlowEdge = {
-          id: `e_${connection.source}_${joinNodeId}`,
-          source: connection.source,
-          target: joinNodeId,
-          type: 'smoothstep',
-          animated: false,
-          data: {
-            joinType: 'INNER',
-            conditions: '',
-            order: 1,
-          },
-        };
-
-        const edgeFromJoin: FlowEdge = {
-          id: `e_${joinNodeId}_${connection.target}`,
-          source: joinNodeId,
-          target: connection.target,
-          type: 'smoothstep',
-          animated: false,
-          data: {
-            joinType: 'INNER',
-            conditions: '',
-            order: 1,
-          },
-        };
-
-        addEdgeToStore(edgeToJoin);
-        addEdgeToStore(edgeFromJoin);
-      } else {
-        // Regular connection
+      // If dragging from table to merge node, allow direct connection
+      if (sourceNode?.type === 'table' && targetNode?.type === 'merge') {
         const newEdge: FlowEdge = {
           id: `e_${connection.source}_${connection.target}`,
           source: connection.source,
@@ -165,7 +133,73 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
         };
         addEdgeToStore(newEdge);
+        return;
       }
+
+      // If dragging from table to another table, create merge node in between
+      if (sourceNode?.type === 'table' && targetNode?.type === 'table') {
+        // Check if merge node already exists
+        const existingMerge = storeNodes.find((n) => n.type === 'merge');
+
+        if (existingMerge) {
+          // Connect source table to existing merge
+          const newEdge: FlowEdge = {
+            id: `e_${connection.source}_${existingMerge.id}`,
+            source: connection.source,
+            target: existingMerge.id,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          };
+          addEdgeToStore(newEdge);
+        } else {
+          // Create new merge node between tables
+          const mergeX = ((sourceNode.position?.x || 0) + (targetNode.position?.x || 0)) / 2 + 100;
+          const mergeY = ((sourceNode.position?.y || 0) + (targetNode.position?.y || 0)) / 2;
+
+          const mergeNodeId = `merge_${Date.now()}`;
+          const mergeNode = {
+            id: mergeNodeId,
+            type: 'merge' as const,
+            position: { x: mergeX, y: mergeY },
+            data: {
+              tableCount: 2,
+            },
+          };
+          addNodeToStore(mergeNode as unknown as Parameters<typeof addNodeToStore>[0]);
+
+          // Connect both tables to merge
+          addEdgeToStore({
+            id: `e_${connection.source}_${mergeNodeId}`,
+            source: connection.source,
+            target: mergeNodeId,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          } as FlowEdge);
+
+          addEdgeToStore({
+            id: `e_${connection.target}_${mergeNodeId}`,
+            source: connection.target,
+            target: mergeNodeId,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          } as FlowEdge);
+        }
+        return;
+      }
+
+      // Default: regular connection
+      const newEdge: FlowEdge = {
+        id: `e_${connection.source}_${connection.target}`,
+        source: connection.source,
+        target: connection.target,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+      };
+      addEdgeToStore(newEdge);
     },
     [addEdgeToStore, addNodeToStore, storeNodes]
   );
@@ -216,7 +250,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
         onPaneClick={onPaneClick}
         onConnect={onConnect}
         onEdgeClick={onEdgeClick}
-        nodeTypes={nodeTypes}
+        nodeTypes={nodeTypesWithCallback}
         edgeTypes={edgeTypes}
         defaultViewport={defaultViewport}
         minZoom={FLOW_LAYOUT.minZoom}
@@ -231,6 +265,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className }) => {
       >
         <Background color="#8c8c8c" gap={16} size={1} />
         <CustomControls />
+        <NodeToolbar />
+        <NodeDetailPanel />
         <MiniMap
           nodeStrokeColor={(n) => {
             if (n.type === 'start') return '#52c41a';

@@ -120,8 +120,8 @@ abstract class BaseStrategy implements FlowStrategy {
     const tableNodes = nodes.filter((n) => n.type === FlowNodeType.TABLE);
     if (tableNodes.length === 0) return '';
 
-    const firstTable = tableNodes[0].data as { tableName: string; alias?: string };
-    return `FROM ${firstTable.tableName}${firstTable.alias ? ` AS ${firstTable.alias}` : ''}`;
+    const firstTable = tableNodes[0].data as { tableName: string };
+    return `FROM "${firstTable.tableName}"`;
   }
 
   /**
@@ -157,7 +157,7 @@ abstract class BaseStrategy implements FlowStrategy {
 
     const conditions = conditionNodes.map((node) => {
       const condData = node.data as ConditionNodeData;
-      let condition = `${condData.tableName}.${condData.field} ${condData.operator}`;
+      let condition = `"${condData.tableName}"."${condData.field}" ${condData.operator}`;
 
       if (!condData.operator.includes('NULL')) {
         if (Array.isArray(condData.value)) {
@@ -187,14 +187,14 @@ abstract class BaseStrategy implements FlowStrategy {
     }
 
     const fields = selectData.fields.map((field) => {
-      let fieldExpr = `${field.tableName}.${field.fieldName}`;
+      let fieldExpr = `"${field.tableName}"."${field.fieldName}"`;
 
       if (field.aggregate) {
         fieldExpr = `${field.aggregate}(${fieldExpr})`;
       }
 
       if (field.alias) {
-        fieldExpr += ` AS ${field.alias}`;
+        fieldExpr += ` AS "${field.alias}"`;
       }
 
       return fieldExpr;
@@ -259,16 +259,17 @@ export class AssociationStrategy extends BaseStrategy {
     return parts.join('\n');
   }
 
-  async postProcess(data: unknown): Promise<AnalysisResult> {
+  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
     return {
       type: this.type,
       sql: '', // Will be filled by EndNode
-      data,
+      data: queryResult.data,
+      schema: queryResult.schema,
       insights: ['关联查询执行成功'],
       visualizations: [
         {
           type: 'table',
-          config: { data },
+          config: { data: queryResult.data },
         },
       ],
     };
@@ -307,12 +308,13 @@ export class AnomalyStrategy extends BaseStrategy {
     return parts.join('\n');
   }
 
-  async postProcess(data: unknown): Promise<AnalysisResult> {
+  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
     // In real implementation, this would call the anomaly detection algorithm
     return {
       type: this.type,
       sql: '', // Will be filled by EndNode
-      data,
+      data: queryResult.data,
+      schema: queryResult.schema,
       insights: [
         '基于孤立森林算法的异常检测',
         '已标记异常数据点',
@@ -320,7 +322,7 @@ export class AnomalyStrategy extends BaseStrategy {
       visualizations: [
         {
           type: 'scatter',
-          config: { data, anomalyField: 'is_anomaly' },
+          config: { data: queryResult.data, anomalyField: 'is_anomaly' },
         },
       ],
     };
@@ -363,12 +365,13 @@ export class ClusteringStrategy extends BaseStrategy {
     return parts.join('\n');
   }
 
-  async postProcess(data: unknown): Promise<AnalysisResult> {
+  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
     // In real implementation, this would call the K-Means clustering algorithm
     return {
       type: this.type,
       sql: '', // Will be filled by EndNode
-      data,
+      data: queryResult.data,
+      schema: queryResult.schema,
       insights: [
         '基于K-Means的用户分群',
         '已识别用户群组特征',
@@ -376,7 +379,7 @@ export class ClusteringStrategy extends BaseStrategy {
       visualizations: [
         {
           type: 'radar',
-          config: { data, clusterField: 'cluster_id' },
+          config: { data: queryResult.data, clusterField: 'cluster_id' },
         },
       ],
     };

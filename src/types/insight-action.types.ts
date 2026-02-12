@@ -186,7 +186,7 @@ export interface InsightReport {
  * Insight action generation settings
  */
 export interface InsightActionSettings {
-  autoGenerate: boolean;           // Auto-generate after analysis (default: true)
+  autoGenerate: boolean;           // Auto-generate after analysis (default: false)
   maxAnomaliesForAnalysis: number; // Max anomalies to analyze (default: 500)
 }
 

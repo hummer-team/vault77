@@ -195,9 +195,6 @@ export const TableNode: React.FC<TableNodeProps> = ({
         >
           {data.tableName}
         </span>
-        <Tag color="default" style={{ fontSize: 10, marginRight: 8 }}>
-          {data.alias}
-        </Tag>
         <Space>
           <Spin spinning={loading} size="small">
             <Button

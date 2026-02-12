@@ -305,3 +305,28 @@ body {
 .ant-table-tbody > tr:nth-child(even):hover > td {
   background: rgba(255, 255, 255, 0.05) !important;
 }
+
+/* ============================================
+   StartNode Select Dropdown Styles
+   Custom styling for dropdown in React Flow canvas
+   ============================================ */
+.start-node-select-dropdown {
+  z-index: 9999 !important;
+}
+
+.start-node-select-dropdown .ant-select-dropdown {
+  background: #1f1f1f !important;
+  border: 1px solid #434343 !important;
+}
+
+.start-node-select-dropdown .ant-select-item {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.start-node-select-dropdown .ant-select-item-option-active {
+  background: rgba(255, 107, 0, 0.2) !important;
+}
+
+.start-node-select-dropdown .ant-select-item-option-selected {
+  background: rgba(255, 107, 0, 0.3) !important;
+}
