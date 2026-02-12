@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Input, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined } from '@ant-design/icons';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -26,7 +26,6 @@ interface ChatPanelProps {
   onPersonaSetupClick?: () => void;
   onPersonaPromptDismiss?: () => void;
   onPersonaBadgeClick?: () => void;
-  // 新增：用于外部控制输入框内容
   initialMessage?: string;
   setInitialMessage?: (msg: string) => void;
   // new: inline persona hint text
@@ -38,6 +37,8 @@ interface ChatPanelProps {
   // BI Sidebar control
   showInsightSidebar?: boolean;
   onToggleInsight?: () => void;
+  // Flow button control
+  onToggleFlow?: () => void;
 }
 
 interface GroupedAttachment {
@@ -54,7 +55,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   isAnalyzing,
   isInitializing = false,
   onCancel,
-  suggestions,
+  // suggestions,
   onFileUpload,
   attachments,
   onDeleteAttachment,
@@ -70,6 +71,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   isLlmReady = true,
   showInsightSidebar = false,
   onToggleInsight,
+  onToggleFlow,
 }) => {
   const [form] = Form.useForm();
   const { userProfile } = useUserStore();
@@ -120,7 +122,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [initialMessage, form]);
 
-  // 当用户手动输入时，如果有 setInitialMessage，则更新上层状态，保持双向同步（可选）
+  // When the user manually inputs text, if setInitialMessage is present,
+  // update the parent state to maintain two-way synchronization (optional).
   const handleChangeMessage = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (error) setError(null);
     if (setInitialMessage) setInitialMessage(e.target.value);
@@ -252,22 +255,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       />
 
       {/* Suggestions */}
-      {suggestions && suggestions.length > 0 && (
-        <div style={{
-          padding: '8px 0',
-          overflowX: 'auto',
-        }}
-        className="no-scrollbar">
-          {/*<Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>*/}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap' }}>
-            {suggestions.map((s, i) => (
-              <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                {s}
-              </Tag>
-            ))}
-          </div>
-        </div>
-      )}
+      {/*{suggestions && suggestions.length > 0 && (*/}
+      {/*  <div style={{*/}
+      {/*    padding: '8px 0',*/}
+      {/*    overflowX: 'auto',*/}
+      {/*  }}*/}
+      {/*  className="no-scrollbar">*/}
+      {/*    <Typography.Text type="secondary" style={{ marginBottom: '8px', display: 'block' }}>Suggestions:</Typography.Text>*/}
+      {/*    <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap' }}>*/}
+      {/*      {suggestions.map((s, i) => (*/}
+      {/*        <Tag key={i} onClick={() => form.setFieldsValue({ message: s })} style={{ cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>*/}
+      {/*          {s}*/}
+      {/*        </Tag>*/}
+      {/*      ))}*/}
+      {/*    </div>*/}
+      {/*  </div>*/}
+      {/*)}*/}
 
       {/* Attachments Display */}
       {groupedAttachments.length > 0 && (
@@ -359,18 +362,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     boxShadow: !hasPersona ? '0 0 8px rgba(24, 144, 255, 0.5)' : undefined,
                   }}
                 >
-                  {hasPersona && <span style={{ marginLeft: 4 }}>{currentPersona.displayName}</span>}
+                  {hasPersona && <span style={{ marginLeft: 4 }}>Skills</span>}
                 </Button>
               </Tooltip>
               <Upload {...uploadProps}>
                 <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
               </Upload>
-              {/* Data Insight Button - only show when attachments exist */}
-              {onToggleInsight && attachments.length > 0 && (
-                <Tooltip title={showInsightSidebar ? "Hide Data Insights" : "Show Data Insights"}>
-                  <Button 
-                    icon={<BarChartOutlined />} 
-                    disabled={isAnalyzing}
+              {/* Data Insight Button - show always but disabled when no attachments */}
+              {onToggleInsight && (
+                <Tooltip title={
+                  attachments.length === 0
+                    ? "Please upload a file first"
+                    : showInsightSidebar ? "Hide Data Insights" : "Show Data Insights"
+                }>
+                  <Button
+                    icon={<BarChartOutlined />}
+                    disabled={isAnalyzing || attachments.length === 0}
                     onClick={onToggleInsight}
                     type={showInsightSidebar ? "default" : "default"}
                     style={{
@@ -378,6 +385,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       borderColor: showInsightSidebar ? 'rgba(24, 144, 255, 0.5)' : undefined,
                     }}
                   />
+                </Tooltip>
+              )}
+              {/* Flow Button - show always but disabled when no attachments */}
+              {onToggleFlow && (
+                <Tooltip title={
+                  attachments.length === 0
+                    ? "Please upload a file first"
+                    : "Analysis Flow"
+                }>
+                  <Button
+                    icon={<PartitionOutlined />}
+                    disabled={isAnalyzing || attachments.length === 0}
+                    onClick={onToggleFlow}
+                    type="default"
+                  >
+                  </Button>
                 </Tooltip>
               )}
               {!isLlmReady && (

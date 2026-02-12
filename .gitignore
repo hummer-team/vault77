@@ -18,6 +18,8 @@ design/insight.md
 design/insight_v2.md
 design/ui.md
 design/wasm.segment.md
+design/wasm.flow.md
+.qoder
 refactor-plan.md
 .gemini
 GEMINI.md
@@ -26,3 +28,4 @@ TS_INTEGRATION.md
 design/wasm.anomaly.md
 insight-action-plan-final.md
 docs
+.qoderignore

@@ -17,6 +17,13 @@ export class DuckDBService {
     return DuckDBService.instance;
   }
 
+  /**
+   * Check if DuckDB is initialized and ready
+   */
+  public isInitialized(): boolean {
+    return this.db !== null;
+  }
+
   public async initialize(bundle: duckdb.DuckDBBundle, workerInstance: Worker): Promise<void> {
     if (this.db) {
       console.log('[DuckDBService] DB already initialized, skipping.');

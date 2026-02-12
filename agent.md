@@ -890,7 +890,7 @@ bun run build
 
 ### 数据分析模块（**2026-02-08 新增**）
 #### 异常检测（Anomaly Detection）
-- `src/services/anomaly/anomalyService.ts`（孤立森林算法服务）
+- `src/services/insight/anomaly/anomalyService.ts`（孤立森林算法服务）
 - `src/workers/anomaly.worker.ts`（异常检测 Web Worker）
 - `src/components/insight/AnomalyScatterChart.tsx`（异常值散点图）
 - `src/components/insight/AnomalyHeatmapChart.tsx`（异常值热力图）
@@ -898,9 +898,9 @@ bun run build
 
 #### 客户聚类（Customer Clustering）
 - **核心服务**：
-  - `src/services/clustering/clusteringService.ts`（聚类分析服务，313行）
-  - `src/services/clustering/rfmColumnDetector.ts`（RFM列自动检测，179行）
-  - `src/services/clustering/rfmSqlGenerator.ts`（RFM SQL生成器，211行）
+  - `src/services/insight/clustering/clusteringService.ts`（聚类分析服务，313行）
+  - `src/services/insight/clustering/rfmColumnDetector.ts`（RFM列自动检测，179行）
+  - `src/services/insight/clustering/rfmSqlGenerator.ts`（RFM SQL生成器，211行）
 - **Worker**：
   - `src/workers/clustering.worker.ts`（K-Means WASM调用，172行）
 - **类型定义**：

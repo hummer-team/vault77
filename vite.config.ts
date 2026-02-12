@@ -79,8 +79,9 @@ const manifest: any = { // <-- Changed from defineManifest to 'any'
 };
 // --- END CRITICAL CORRECTION ---
 
-export default defineConfig(({command}) => {
+export default defineConfig(({command, mode}) => {
     const isDev = command === 'serve';
+    const isTest = mode === 'test';
 
     const config: UserConfig = {
         plugins: [
@@ -129,6 +130,11 @@ export default defineConfig(({command}) => {
         worker: {
             format: 'es',
         },
+        test: isTest ? {
+            globals: true,
+            environment: 'jsdom',
+            include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+        } : undefined,
     };
 
     if (isDev) {

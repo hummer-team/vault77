@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { Spin, App, Typography, Space, Drawer } from 'antd';
+import { Spin, App, Typography, Space, Drawer, Modal } from 'antd';
 import { 
   CodeOutlined, 
   BarChartOutlined, 
@@ -8,6 +8,7 @@ import {
   SafetyOutlined,
   ThunderboltOutlined
 } from '@ant-design/icons';
+import FlowCanvas from '../../components/flow/FlowCanvas';
 import ChatPanel from './components/ChatPanel';
 import ResultsDisplay from './components/ResultsDisplay';
 import { SheetSelector } from './components/SheetSelector';
@@ -200,6 +201,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   // BI Sidebar state
   const [showInsightSidebar, setShowInsightSidebar] = useState(false);
   const [insightTableName, setInsightTableName] = useState<string | null>(null);
+  // Flow Modal state
+  const [showFlowModal, setShowFlowModal] = useState(false);
   // 新增：当前输入框内容，用于“编辑”时回填
   const [sidebarAnimationState, setSidebarAnimationState] = useState<'entering' | 'visible' | 'exiting' | 'hidden'>('hidden');
   const [sidebarWidth, setSidebarWidth] = useState(50); // percentage (50% default)
@@ -1087,6 +1090,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             isLlmReady={isLlmReady}
             showInsightSidebar={showInsightSidebar}
             onToggleInsight={toggleInsightSidebar}
+            onToggleFlow={() => setShowFlowModal(true)}
           />
         </div>
       </div>
@@ -1168,6 +1172,25 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     >
       <ProfilePage />
     </Drawer>
+
+    {/* Flow Modal - Analysis Flow Canvas */}
+    <Modal
+      title="分析流"
+      open={showFlowModal}
+      onCancel={() => setShowFlowModal(false)}
+      footer={null}
+      width="90vw"
+      style={{ top: 20 }}
+      bodyStyle={{
+        height: '80vh',
+        padding: 0,
+        background: '#1a1a1a',
+      }}
+    >
+      <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
+        <FlowCanvas />
+      </DuckDBProvider>
+    </Modal>
   </>
 );
 };
