@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip } from 'antd';
 import {
   FilterOutlined,
@@ -125,7 +125,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
       };
       addNode(endNode as unknown as Parameters<typeof addNode>[0]);
 
-      // Connect condition -> end
+      // Connect condition -> end with arrow marker
       addEdge({
         id: `e_${id}_${endNodeId}`,
         source: id,
@@ -133,6 +133,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         type: 'smoothstep',
         animated: false,
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
   }, [isComplete, hasConnectedEndNode, id, nodes, addNode, addEdge]);
@@ -144,15 +145,26 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         border: `2px solid ${selected ? FLOW_COLORS.edge.selected : isComplete ? FLOW_COLORS.node.condition.border : '#ff4d4f'}`,
         borderRadius: '8px',
         minWidth: '180px',
-        maxWidth: '260px',
+        minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
+        position: 'relative',
       }}
       className="condition-node"
       onClick={handleClick}
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={160}
+        minHeight={120}
+        maxWidth={320}
+        maxHeight={350}
+        lineStyle={{ borderColor: '#3B82F6', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#3B82F6', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Input handle */}
       <Handle
         type="target"

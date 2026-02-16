@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.7",
+    "@dagrejs/dagre": "^2.0.4",
     "@duckdb/duckdb-wasm": "^1.33.1-dev16.0",
     "@mlc-ai/web-llm": "^0.2.80",
     "@xyflow/react": "^12.10.0",

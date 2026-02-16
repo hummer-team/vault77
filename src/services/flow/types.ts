@@ -268,6 +268,7 @@ export interface FlowState {
   // Actions
   setFlowName: (name: string) => void;
   setOperatorType: (type: OperatorType) => void;
+  setNodes: (nodes: FlowNode[]) => void;
   addNode: (node: FlowNode) => void;
   updateNode: (id: string, data: Partial<FlowNodeData>) => void;
   removeNode: (id: string) => void;

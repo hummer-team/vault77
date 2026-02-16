@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, List } from 'antd';
 import {
   TableOutlined,
@@ -111,7 +111,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       };
       addNode(conditionNode as unknown as Parameters<typeof addNode>[0]);
 
-      // Connect select -> condition
+      // Connect select -> condition with arrow marker
       addEdge({
         id: `e_${id}_${conditionNodeId}`,
         source: id,
@@ -119,6 +119,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         type: 'smoothstep',
         animated: false,
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
   }, [data.fields.length, data.selectAll, hasConnectedConditionNode, id, nodes, addNode, addEdge]);
@@ -131,16 +132,27 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         background: FLOW_COLORS.node.select.background,
         border: `2px solid ${selected ? FLOW_COLORS.edge.selected : hasFields ? FLOW_COLORS.node.select.border : '#ff4d4f'}`,
         borderRadius: '8px',
-        minWidth: '220px',
-        maxWidth: '300px',
+        minWidth: '200px',
+        minHeight: '80px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
+        position: 'relative',
       }}
       className="select-node"
       onClick={handleClick}
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={180}
+        minHeight={80}
+        maxWidth={400}
+        maxHeight={400}
+        lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#52c41a', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Input handle */}
       <Handle
         type="target"

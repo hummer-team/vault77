@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Tooltip, Space, Spin } from 'antd';
 import {
   TableOutlined,
@@ -132,15 +132,26 @@ export const TableNode: React.FC<TableNodeProps> = ({
         background: FLOW_COLORS.node.table.background,
         border: `2px solid ${selected ? FLOW_COLORS.edge.selected : FLOW_COLORS.node.table.border}`,
         borderRadius: '8px',
-        minWidth: '240px',
-        maxWidth: '280px',
+        minWidth: '200px',
+        minHeight: '60px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
+        position: 'relative',
       }}
       className="table-node"
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={200}
+        minHeight={60}
+        maxWidth={400}
+        maxHeight={500}
+        lineStyle={{ borderColor: '#FF6B00', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#FF6B00', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Input handle */}
       <Handle
         type="target"

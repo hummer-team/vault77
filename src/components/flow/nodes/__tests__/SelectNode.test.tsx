@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SelectNode } from '../SelectNode';
 import * as flowStore from '../../../../stores/flowStore';
 import type { SelectNodeData } from '../../../../services/flow/types';
 

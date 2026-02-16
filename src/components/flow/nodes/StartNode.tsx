@@ -4,8 +4,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
-import { Select, Tag, Space, Spin } from 'antd';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
+import { Select, Tag, Spin } from 'antd';
 import { DatabaseOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { getAvailableTables, getTableSchema } from '../../../services/flow/flowService';
@@ -24,16 +24,16 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
-  const { executeQuery, isDBReady } = useDuckDBContext();
+  const { executeQuery, isDBReady, refreshKey } = useDuckDBContext();
 
   // State for table list
   const [tables, setTables] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load available tables when DB is ready
+  // Load available tables when DB is ready or when refreshKey changes (modal reopened)
   useEffect(() => {
     const loadTables = async () => {
-      console.log('[StartNode] loadTables called, isDBReady:', isDBReady);
+      console.log('[StartNode] loadTables called, isDBReady:', isDBReady, 'refreshKey:', refreshKey);
       if (!isDBReady) {
         console.log('[StartNode] DB not ready, skipping table load');
         return;
@@ -59,7 +59,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
     };
 
     loadTables();
-  }, [isDBReady, executeQuery]);
+  }, [isDBReady, executeQuery, refreshKey]);
 
   // Debug: log tables state changes
   useEffect(() => {
@@ -119,7 +119,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         };
         addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
 
-        // Connect start -> table
+        // Connect start -> table with arrow marker
         addEdge({
           id: `e_${id}_${tableNodeId}`,
           source: id,
@@ -127,10 +127,11 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           type: 'smoothstep',
           animated: false,
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
         } as unknown as Parameters<typeof addEdge>[0]);
 
         if (existingMerge) {
-          // Connect table to existing merge node
+          // Connect table to existing merge node with arrow marker
           addEdge({
             id: `e_${tableNodeId}_${existingMerge.id}`,
             source: tableNodeId,
@@ -138,6 +139,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
             type: 'smoothstep',
             animated: false,
             style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
           } as unknown as Parameters<typeof addEdge>[0]);
         } else {
           // First table - create merge node
@@ -152,7 +154,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           };
           addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
 
-          // Connect table -> merge
+          // Connect table -> merge with arrow marker
           addEdge({
             id: `e_${tableNodeId}_${mergeNodeId}`,
             source: tableNodeId,
@@ -160,6 +162,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
             type: 'smoothstep',
             animated: false,
             style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
           } as unknown as Parameters<typeof addEdge>[0]);
         }
       }
@@ -175,12 +178,24 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         borderRadius: '8px',
         padding: '12px 16px',
         minWidth: '200px',
+        minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        position: 'relative',
       }}
       className="start-node"
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={200}
+        minHeight={120}
+        maxWidth={400}
+        maxHeight={400}
+        lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#52c41a', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Output handle */}
       <Handle
         type="source"
@@ -225,12 +240,12 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
           getPopupContainer={() => document.body}
           className="nodrag"
-          maxTagCount={2}
-          maxTagPlaceholder={(omitted) => `+${omitted.length} 更多`}
+          maxTagCount={1}
+          maxTagPlaceholder={(omitted) => `+${omitted.length}`}
         />
       </Spin>
 
-      {/* Selected table hint */}
+      {/* Selected table count hint */}
       {data.selectedTables && data.selectedTables.length > 0 && (
         <div
           style={{
@@ -239,12 +254,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
             color: '#8c8c8c',
           }}
         >
-          <Space wrap>
-            <span>已选择:</span>
-            {data.selectedTables.map((tableName) => (
-              <Tag key={tableName} color="processing">{tableName}</Tag>
-            ))}
-          </Space>
+          <span>已选择: {data.selectedTables.length}</span>
         </div>
       )}
     </div>

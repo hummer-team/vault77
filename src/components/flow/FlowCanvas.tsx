@@ -21,7 +21,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
-import { NodeToolbar } from './controls/NodeToolbar';
+import { CanvasToolbar } from './controls/CanvasToolbar';
 import { NodeDetailPanel } from './panels/NodeDetailPanel';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
@@ -100,8 +100,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Don't open detail panel for start, table, merge, and operator nodes
-      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator') {
+      // Don't open detail panel for start, table, merge, operator, and end nodes
+      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end') {
         return;
       }
       setSelectedNode(node.id);
@@ -131,6 +131,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
           type: 'smoothstep',
           animated: false,
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
         };
         addEdgeToStore(newEdge);
         return;
@@ -150,6 +151,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
             type: 'smoothstep',
             animated: false,
             style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
           };
           addEdgeToStore(newEdge);
         } else {
@@ -168,7 +170,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
           };
           addNodeToStore(mergeNode as unknown as Parameters<typeof addNodeToStore>[0]);
 
-          // Connect both tables to merge
+          // Connect both tables to merge with arrow markers
           addEdgeToStore({
             id: `e_${connection.source}_${mergeNodeId}`,
             source: connection.source,
@@ -176,6 +178,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
             type: 'smoothstep',
             animated: false,
             style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
           } as FlowEdge);
 
           addEdgeToStore({
@@ -185,12 +188,13 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
             type: 'smoothstep',
             animated: false,
             style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
           } as FlowEdge);
         }
         return;
       }
 
-      // Default: regular connection
+      // Default: regular connection with arrow marker
       const newEdge: FlowEdge = {
         id: `e_${connection.source}_${connection.target}`,
         source: connection.source,
@@ -198,6 +202,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
         type: 'smoothstep',
         animated: false,
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
       };
       addEdgeToStore(newEdge);
     },
@@ -265,7 +270,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
       >
         <Background color="#8c8c8c" gap={16} size={1} />
         <CustomControls />
-        <NodeToolbar />
+        <CanvasToolbar />
         <NodeDetailPanel />
         <MiniMap
           nodeStrokeColor={(n) => {

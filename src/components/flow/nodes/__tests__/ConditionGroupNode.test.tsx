@@ -4,9 +4,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { ConditionGroupNode } from '../ConditionGroupNode';
 import * as flowStore from '../../../../stores/flowStore';
 import type { ConditionGroupNodeData, FlowNode } from '../../../../services/flow/types';
+import { LogicType, FlowNodeType } from '../../../../services/flow/types';
 
 // Mock the flow store
 vi.mock('../../../../stores/flowStore', () => ({
@@ -18,33 +20,33 @@ describe('ConditionGroupNode', () => {
   const mockSetSelectedNode = vi.fn();
 
   const mockData: ConditionGroupNodeData = {
-    logicType: 'AND',
+    logicType: LogicType.AND,
     conditionIds: ['cond-1', 'cond-2'],
   };
 
   const mockNodes: FlowNode[] = [
     {
       id: 'cond-1',
-      type: 'condition',
+      type: FlowNodeType.CONDITION,
       position: { x: 0, y: 0 },
       data: {
         tableName: 'users',
         field: 'age',
         operator: '>',
         value: '18',
-        logicType: 'AND',
+        logicType: LogicType.AND,
       },
     },
     {
       id: 'cond-2',
-      type: 'condition',
+      type: FlowNodeType.CONDITION,
       position: { x: 0, y: 0 },
       data: {
         tableName: 'orders',
         field: 'status',
         operator: '=',
         value: 'completed',
-        logicType: 'AND',
+        logicType: LogicType.AND,
       },
     },
   ];
@@ -81,7 +83,7 @@ describe('ConditionGroupNode', () => {
   });
 
   it('should render condition group with OR logic type', () => {
-    const orData: ConditionGroupNodeData = { ...mockData, logicType: 'OR' };
+    const orData: ConditionGroupNodeData = { ...mockData, logicType: LogicType.OR };
     render(
       <ConditionGroupNode
         id="group-1"

@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Space, Button } from 'antd';
 import { ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
@@ -70,38 +70,132 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       const mergeNode = inputEdges
         .map((e) => nodes.find((n) => n.id === e.source))
         .find((n) => n?.type === 'merge');
-      const connectedTableCount = mergeNode?.id
-        ? (edges || []).filter((e) => e.target === mergeNode.id).length
-        : 0;
+      
+      // Get all connected table nodes from merge node
+      const connectedTableEdges = mergeNode?.id
+        ? (edges || []).filter((e) => e.target === mergeNode.id)
+        : [];
+      const connectedTableNodes = connectedTableEdges
+        .map((e) => nodes.find((n) => n.id === e.source))
+        .filter((n): n is NonNullable<typeof n> => n?.type === 'table');
+      
+      const tableNames = connectedTableNodes.map((n) => (n.data as { tableName: string }).tableName);
+      const connectedTableCount = tableNames.length;
 
-      // If multiple tables, create JOIN node first
+      // If multiple tables, create JOIN nodes for each pair
       if (connectedTableCount > 1) {
-        const joinNodeId = `join_${Date.now()}`;
-        const joinNode = {
-          id: joinNodeId,
-          type: FlowNodeType.JOIN,
-          position: { x: operatorX + 280, y: operatorY },
+        let previousNodeId = id;
+        const createdJoinNodes: Array<{ id: string; conditions: any[] }> = [];
+        
+        // Create a JOIN node for each table pair
+        // For N tables, we need (N-1) JOIN operations
+        for (let i = 1; i < connectedTableCount; i++) {
+          const joinNodeId = `join_${Date.now()}_${i}`;
+          const leftTable = tableNames[0]; // First table is always the left table
+          const rightTable = tableNames[i]; // Current table is the right table
+          
+          const joinNode = {
+            id: joinNodeId,
+            type: FlowNodeType.JOIN,
+            position: { x: operatorX + 280 + (i - 1) * 50, y: operatorY + (i - 1) * 30 },
+            data: {
+              joinType: 'INNER',
+              leftTable: leftTable,
+              rightTable: rightTable,
+              conditions: [],
+              order: i,
+            },
+          };
+          addNode(joinNode as unknown as Parameters<typeof addNode>[0]);
+          createdJoinNodes.push({ id: joinNodeId, conditions: [] });
+
+          // Connect previous node -> join with arrow marker
+          addEdge({
+            id: `e_${previousNodeId}_${joinNodeId}`,
+            source: previousNodeId,
+            target: joinNodeId,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          } as unknown as Parameters<typeof addEdge>[0]);
+          
+          previousNodeId = joinNodeId;
+        }
+        
+        // Validate all created JOIN nodes have conditions configured
+        // If any JOIN node lacks conditions, don't create downstream nodes
+        // and keep the detail panel open for the first incomplete JOIN node
+        const state = useFlowStore.getState();
+        const incompleteJoinNode = createdJoinNodes.find(joinInfo => {
+          const joinNode = state.nodes.find(n => n.id === joinInfo.id);
+          return !joinNode?.data?.conditions || (joinNode.data.conditions as any[]).length === 0;
+        });
+        
+        if (incompleteJoinNode) {
+          // Select the first incomplete JOIN node to show its detail panel
+          setTimeout(() => {
+            const { setSelectedNode } = useFlowStore.getState();
+            setSelectedNode(incompleteJoinNode.id);
+          }, 100);
+          return; // Don't create downstream nodes until all JOINs are configured
+        }
+        
+        // After all JOIN nodes, create a merge node (+ node) and select node
+        const lastJoinNodeId = previousNodeId;
+        const lastJoinNode = nodes.find((n) => n.id === lastJoinNodeId);
+        const lastJoinX = lastJoinNode?.position?.x || operatorX + 280;
+        const lastJoinY = lastJoinNode?.position?.y || operatorY;
+        
+        // Create merge node (+ node) with "选择列" label
+        const mergeNodeId = `merge_after_join_${Date.now()}`;
+        const mergeNode = {
+          id: mergeNodeId,
+          type: FlowNodeType.MERGE,
+          position: { x: lastJoinX + 200, y: lastJoinY },
           data: {
-            joinType: 'inner',
-            leftTable: '',
-            rightTable: '',
-            conditions: [],
-            order: 0,
+            tableCount: 1,
+            label: '选择列',
           },
         };
-        addNode(joinNode as unknown as Parameters<typeof addNode>[0]);
-
-        // Connect operator -> join
+        addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+        
+        // Connect last JOIN -> merge node with arrow marker
         addEdge({
-          id: `e_${id}_${joinNodeId}`,
-          source: id,
-          target: joinNodeId,
+          id: `e_${lastJoinNodeId}_${mergeNodeId}`,
+          source: lastJoinNodeId,
+          target: mergeNodeId,
           type: 'smoothstep',
           animated: false,
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        } as unknown as Parameters<typeof addEdge>[0]);
+        
+        // Create select node (default select all columns)
+        const selectNodeId = `select_${Date.now()}`;
+        const selectNode = {
+          id: selectNodeId,
+          type: FlowNodeType.SELECT,
+          position: { x: lastJoinX + 450, y: lastJoinY },
+          data: {
+            fields: [],
+            selectAll: true, // Default to selecting all columns
+          },
+        };
+        addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
+        
+        // Connect merge node -> select node with arrow marker
+        addEdge({
+          id: `e_${mergeNodeId}_${selectNodeId}`,
+          source: mergeNodeId,
+          target: selectNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
         } as unknown as Parameters<typeof addEdge>[0]);
       } else {
-        // Single table - create SELECT node directly
+        // Single table - create SELECT node directly with selectAll enabled by default
         const selectNodeId = `select_${Date.now()}`;
         const selectNode = {
           id: selectNodeId,
@@ -109,12 +203,12 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           position: { x: operatorX + 280, y: operatorY },
           data: {
             fields: [],
-            selectAll: false,
+            selectAll: true, // Default to selecting all columns
           },
         };
         addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
 
-        // Connect operator -> select
+        // Connect operator -> select with arrow marker
         addEdge({
           id: `e_${id}_${selectNodeId}`,
           source: id,
@@ -122,6 +216,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           type: 'smoothstep',
           animated: false,
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
         } as unknown as Parameters<typeof addEdge>[0]);
       }
     },
@@ -140,12 +235,24 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         borderRadius: '8px',
         padding: '12px 16px',
         minWidth: '220px',
+        minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        position: 'relative',
       }}
       className="operator-node"
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={200}
+        minHeight={120}
+        maxWidth={350}
+        maxHeight={300}
+        lineStyle={{ borderColor: '#fa8c16', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#fa8c16', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Input handle */}
       <Handle
         type="target"

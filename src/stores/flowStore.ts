@@ -52,12 +52,19 @@ export const useFlowStore = create<FlowState>()(
       set((state) => {
         state.operatorType = type;
       });
-      
+
       // Re-validate entire flow when operator type changes
       const state = get();
       const errors = validateFlow(state.nodes, state.edges);
       set((state) => {
         state.validationErrors = errors;
+      });
+    },
+
+    // Set all nodes (for layout updates)
+    setNodes: (nodes: FlowNode[]) => {
+      set((state) => {
+        state.nodes = nodes;
       });
     },
 

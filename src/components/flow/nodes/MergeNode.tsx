@@ -12,11 +12,11 @@ import type { MergeNodeData } from '../../../services/flow/types';
 
 interface MergeNodeProps {
   id: string;
-  data: MergeNodeData;
+  data: MergeNodeData & { label?: string };
   selected?: boolean;
 }
 
-export const MergeNode: React.FC<MergeNodeProps> = ({ id, selected }) => {
+export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
@@ -24,7 +24,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, selected }) => {
 
   const handleCreateNextNode = useCallback(
     () => {
-      console.log('[MergeNode] Creating operator node from merge:', id);
+      console.log('[MergeNode] Creating next node from merge:', id);
       const mergeNode = nodes.find((n) => n.id === id);
       if (!mergeNode) {
         console.log('[MergeNode] Merge node not found:', id);
@@ -34,32 +34,76 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, selected }) => {
       const mergeX = mergeNode.position.x;
       const mergeY = mergeNode.position.y;
 
-      // Always create OPERATOR node first
-      const operatorNodeId = `operator_${Date.now()}`;
-      const operatorNode = {
-        id: operatorNodeId,
-        type: FlowNodeType.OPERATOR,
-        position: { x: mergeX + 250, y: mergeY },
-        data: {
-          operatorType: undefined,
-        },
-      };
-      console.log('[MergeNode] Adding operator node:', operatorNode);
-      addNode(operatorNode as unknown as Parameters<typeof addNode>[0]);
+      // If label is '选择列', create SELECT node directly
+      if (data.label === '选择列') {
+        // Check if select node already exists
+        const existingSelect = nodes.find((n) => n.type === FlowNodeType.SELECT);
+        if (existingSelect) {
+          console.log('[MergeNode] Select node already exists:', existingSelect.id);
+          return;
+        }
 
-      // Connect merge to operator
-      const edge = {
-        id: `e_${id}_${operatorNodeId}`,
-        source: id,
-        target: operatorNodeId,
-        type: 'smoothstep',
-        animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-      };
-      console.log('[MergeNode] Adding edge:', edge);
-      addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
+        // Create SELECT node (default select all columns)
+        const selectNodeId = `select_${Date.now()}`;
+        const selectNode = {
+          id: selectNodeId,
+          type: FlowNodeType.SELECT,
+          position: { x: mergeX + 250, y: mergeY },
+          data: {
+            fields: [],
+            selectAll: true, // Default to selecting all columns
+          },
+        };
+        console.log('[MergeNode] Adding select node:', selectNode);
+        addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect merge to select with arrow marker
+        const edge = {
+          id: `e_${id}_${selectNodeId}`,
+          source: id,
+          target: selectNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        };
+        console.log('[MergeNode] Adding edge:', edge);
+        addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
+      } else {
+        // Default: create OPERATOR node (only one allowed)
+        const existingOperator = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
+        if (existingOperator) {
+          console.log('[MergeNode] Operator node already exists:', existingOperator.id);
+          return;
+        }
+
+        const operatorNodeId = `operator_${Date.now()}`;
+        const operatorNode = {
+          id: operatorNodeId,
+          type: FlowNodeType.OPERATOR,
+          position: { x: mergeX + 250, y: mergeY },
+          data: {
+            operatorType: undefined,
+          },
+        };
+        console.log('[MergeNode] Adding operator node:', operatorNode);
+        addNode(operatorNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect merge to operator with arrow marker
+        const edge = {
+          id: `e_${id}_${operatorNodeId}`,
+          source: id,
+          target: operatorNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        };
+        console.log('[MergeNode] Adding edge:', edge);
+        addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
+      }
     },
-    [id, addNode, addEdge, nodes]
+    [id, addNode, addEdge, nodes, data.label]
   );
 
   return (
@@ -149,7 +193,9 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, selected }) => {
             handleCreateNextNode();
           }}
         >
-          <span style={{ fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>选择算子</span>
+          <span style={{ fontSize: '11px', color: '#fff', fontWeight: 'bold' }}>
+            {data.label || '选择算子'}
+          </span>
         </div>
       )}
     </div>

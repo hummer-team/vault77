@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Badge, Tooltip, Spin } from 'antd';
 import {
   PlayCircleOutlined,
@@ -156,15 +156,27 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         borderRadius: '8px',
         padding: '12px 16px',
         minWidth: '200px',
+        minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : hasErrors
           ? `0 0 0 2px ${FLOW_COLORS.edge.error}`
           : `0 2px 8px rgba(0, 0, 0, 0.3)`,
+        position: 'relative',
       }}
       className="end-node"
       onClick={handleClick}
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={180}
+        minHeight={120}
+        maxWidth={350}
+        maxHeight={400}
+        lineStyle={{ borderColor: '#CA8A04', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#CA8A04', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Input handle */}
       <Handle
         type="target"
@@ -205,29 +217,31 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </Tag>
       </div>
 
-      {/* Operator info */}
+      {/* Status info */}
       <div
         style={{
           padding: '8px 12px',
-          background: 'rgba(250, 140, 22, 0.1)',
+          background: hasErrors ? 'rgba(255, 77, 79, 0.1)' : 'rgba(82, 196, 26, 0.1)',
           borderRadius: '4px',
           marginBottom: 12,
         }}
       >
         <Space>
-          <span style={{ fontSize: 16 }}>{operatorConfig.icon}</span>
+          <span style={{ fontSize: 16 }}>{hasErrors ? '⚠️' : '✓'}</span>
           <span style={{ color: '#d9d9d9', fontSize: 13 }}>
-            {operatorConfig.name}
+            {hasErrors ? '配置异常' : '配置完整'}
           </span>
         </Space>
         <div
           style={{
             fontSize: 11,
-            color: '#8c8c8c',
+            color: hasErrors ? '#ff4d4f' : '#8c8c8c',
             marginTop: 4,
           }}
         >
-          {operatorConfig.description}
+          {hasErrors 
+            ? `存在 ${errorCount} 个错误，请修复后执行` 
+            : '流程配置正确，可以执行'}
         </div>
       </div>
 

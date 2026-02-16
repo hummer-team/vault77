@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip } from 'antd';
 import {
   LinkOutlined,
@@ -82,16 +82,27 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         background: FLOW_COLORS.node.join.background,
         border: `2px solid ${selected ? FLOW_COLORS.edge.selected : FLOW_COLORS.node.join.border}`,
         borderRadius: '8px',
-        minWidth: '200px',
-        maxWidth: '280px',
+        minWidth: '180px',
+        minHeight: '100px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
+        position: 'relative',
       }}
       className="join-node"
       onClick={handleClick}
     >
+      {/* Node Resizer - only show when selected */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={180}
+        minHeight={100}
+        maxWidth={350}
+        maxHeight={300}
+        lineStyle={{ borderColor: '#F97316', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: '#F97316', borderColor: '#fff', width: 10, height: 10 }}
+      />
       {/* Left handle (from source table) */}
       <Handle
         type="target"

@@ -1325,7 +1325,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         background: '#1a1a1a',
       }}
     >
-      <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady}>
+      <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady} refreshKey={showFlowModal ? Date.now() : 0}>
         <FlowCanvas onSqlValidated={handleFlowSqlReady} />
       </DuckDBProvider>
     </Modal>

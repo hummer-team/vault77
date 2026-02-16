@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message } from 'antd';
-import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
-import ReactMarkdown from 'react-markdown';
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 
@@ -423,6 +422,7 @@ const buildSafeSchema = (schema: unknown, data: unknown): Array<{ name: string; 
 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
+  const [queryExpanded, setQueryExpanded] = useState(false);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -458,34 +458,44 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   };
 
   const renderContent = () => {
-    const iconStyle = { fontSize: '16px' };
+    const iconStyle = { fontSize: '16px', color: '#9CA3AF', transition: 'all 0.2s' };
     const commonActions = (
       <div style={{ padding: '2px 0' }}>
         <Space size="small">
-          <Button
-            type="text"
-            icon={voted === 'up'
-              ? <LikeFilled style={{ ...iconStyle, color: '#1890ff' }} />
-              : <LikeOutlined style={iconStyle} />
-            }
-            onClick={handleUpvoteClick}
-          />
-          <Button
-            type="text"
-            icon={<DislikeOutlined style={iconStyle} />}
-            onClick={() => onDownvote(query)}
-          />
-          <Button
-            type="text"
-            icon={<RedoOutlined style={iconStyle} />}
-            onClick={() => onRetry(query)}
-          />
-          <Tooltip>
+          <Tooltip title="有用">
+            <Button
+              type="text"
+              icon={voted === 'up'
+                ? <LikeFilled style={{ ...iconStyle, color: '#FB923C' }} />
+                : <LikeOutlined style={iconStyle} />
+              }
+              onClick={handleUpvoteClick}
+              className="hover:bg-orange-500/15"
+            />
+          </Tooltip>
+          <Tooltip title="没用">
+            <Button
+              type="text"
+              icon={<DislikeOutlined style={iconStyle} />}
+              onClick={() => onDownvote(query)}
+              className="hover:bg-red-500/15"
+            />
+          </Tooltip>
+          <Tooltip title="重试">
+            <Button
+              type="text"
+              icon={<RedoOutlined style={iconStyle} />}
+              onClick={() => onRetry(query)}
+              className="hover:bg-amber-500/15"
+            />
+          </Tooltip>
+          <Tooltip title={canExport ? "导出CSV" : "暂无可导出数据"}>
             <Button
               type="text"
               icon={<DownloadOutlined style={iconStyle} />}
               onClick={handleExportClick}
               disabled={!canExport}
+              className="hover:bg-green-500/15"
             />
           </Tooltip>
           <Popconfirm
@@ -494,61 +504,116 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             okText="确定"
             cancelText="取消"
           >
-            <Button
-              type="text"
-              icon={<DeleteOutlined style={{ ...iconStyle, color: '#ff4d4f' }} />}
-              danger
-            />
+            <Tooltip title="删除">
+              <Button
+                type="text"
+                icon={<DeleteOutlined style={{ ...iconStyle, color: '#EF4444' }} />}
+                danger
+                className="hover:bg-red-500/15"
+              />
+            </Tooltip>
           </Popconfirm>
         </Space>
       </div>
     );
 
     // 公共的 Card 标题：左侧为 Markdown 渲染的 Query，右侧是编辑/复制按钮（右上角对齐）
-    const renderCardTitle = () => (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start', // 关键：两侧都从容器顶部对齐
-          gap: 8,
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Typography.Text style={{ whiteSpace: 'pre-wrap' }}>
-            <ReactMarkdown>{`**Query:** ${query}`}</ReactMarkdown>
-          </Typography.Text>
-        </div>
-        <Space
-          size="small"
+    const renderCardTitle = () => {
+      const QUERY_PREVIEW_LENGTH = 200;
+      const shouldTruncate = query.length > QUERY_PREVIEW_LENGTH;
+      const displayQuery = queryExpanded || !shouldTruncate 
+        ? query 
+        : query.slice(0, QUERY_PREVIEW_LENGTH) + '...';
+
+      return (
+        <div
           style={{
-            flexShrink: 0,
-            alignSelf: 'flex-start', // 确保按钮组本身贴着上边缘
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 8,
           }}
         >
-          <Button
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ 
+                fontFamily: 'Fira Code, monospace',
+                fontSize: '14px',
+                lineHeight: '1.6',
+                color: '#F3F4F6',
+              }}>
+                <span style={{ 
+                  color: '#FB923C',
+                  fontWeight: 600,
+                  letterSpacing: '0.5px',
+                }}>Query:</span>{' '}
+                <span style={{ 
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}>{displayQuery}</span>
+              </div>
+              {shouldTruncate && (
+                <Button
+                  type="link"
+                  size="small"
+                  icon={queryExpanded ? <UpOutlined /> : <DownOutlined />}
+                  onClick={() => setQueryExpanded(!queryExpanded)}
+                  style={{
+                    padding: 0,
+                    height: 'auto',
+                    color: '#FB923C',
+                    fontSize: '12px',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  {queryExpanded ? '收起' : '展开全部'}
+                </Button>
+              )}
+            </div>
+          </div>
+          <Space
             size="small"
-            type="text"
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditQuery(query);
+            style={{
+              flexShrink: 0,
+              alignSelf: 'flex-start',
             }}
           >
-          </Button>
-          <Button
-            size="small"
-            type="text"
-            icon={<CopyOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCopyQuery(query);
-            }}
-          >
-          </Button>
-        </Space>
-      </div>
-    );
+            <Tooltip title="编辑查询">
+              <Button
+                size="small"
+                type="text"
+                icon={<EditOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditQuery(query);
+                }}
+                style={{
+                  color: '#9CA3AF',
+                  transition: 'all 0.2s',
+                }}
+                className="hover:text-orange hover:bg-orange-500/10"
+              />
+            </Tooltip>
+            <Tooltip title="复制查询">
+              <Button
+                size="small"
+                type="text"
+                icon={<CopyOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyQuery(query);
+                }}
+                style={{
+                  color: '#9CA3AF',
+                  transition: 'all 0.2s',
+                }}
+                className="hover:text-orange hover:bg-orange-500/10"
+              />
+            </Tooltip>
+          </Space>
+        </div>
+      );
+    };
 
     // 每条记录专属附件展示，靠近 Query 区域
     const renderAttachmentsInline = () => {
@@ -612,7 +677,16 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       return (
         <Card
           title={renderCardTitle()}
-          style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+          style={{ 
+            background: 'linear-gradient(135deg, #18181B 0%, #09090B 100%)',
+            border: '1px solid rgba(251, 146, 60, 0.25)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
+          }}
+          headStyle={{
+            borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
+            background: 'rgba(24, 24, 27, 0.5)',
+          }}
         >
           {/* 附件展示区域放在 Query 下方 */}
           {renderAttachmentsInline()}
@@ -626,15 +700,27 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     if (status === 'resultsReady') {
       const cardProps = {
         title: renderCardTitle(),
-        style: { background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' },
-        bodyStyle: { padding: '0 24px 16px 24px' },
+        style: { 
+          background: 'linear-gradient(135deg, #18181B 0%, #09090B 100%)',
+          border: '1px solid rgba(251, 146, 60, 0.25)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
+        },
+        bodyStyle: { 
+          padding: '0 24px 16px 24px',
+          background: 'transparent',
+        },
+        headStyle: {
+          borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
+          background: 'rgba(24, 24, 27, 0.5)',
+        },
       };
 
       const commonContent = (
         <Space direction="vertical" style={{ width: '100%' }}>
           {renderAttachmentsInline()}
           {renderThinkingPanel()}
-          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.15)', margin: '0' }} />
+          <Divider style={{ borderColor: 'rgba(251, 146, 60, 0.25)', margin: '0' }} />
           <div
             style={{
               paddingTop: '16px',
@@ -643,13 +729,40 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               justifyContent: 'space-between',
             }}
           >
-            <Paragraph style={{ margin: 0 }}>
-              <strong>分析结果:</strong>
-            </Paragraph>
-            {queryDurationLabel && (
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {queryDurationLabel}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 8,
+            }}>
+              <div style={{
+                width: 3,
+                height: 20,
+                background: 'linear-gradient(180deg, #F97316 0%, #FB923C 100%)',
+                borderRadius: 2,
+              }} />
+              <Typography.Text style={{ 
+                margin: 0,
+                fontSize: '15px',
+                fontWeight: 600,
+                color: '#FAFAFA',
+                fontFamily: 'Fira Sans, sans-serif',
+              }}>
+                分析结果
               </Typography.Text>
+            </div>
+            {queryDurationLabel && (
+              <Tag 
+                color="orange" 
+                style={{ 
+                  fontSize: 11,
+                  fontFamily: 'Fira Code, monospace',
+                  background: 'rgba(249, 115, 22, 0.15)',
+                  border: '1px solid rgba(251, 146, 60, 0.4)',
+                  color: '#FB923C',
+                }}
+              >
+                {queryDurationLabel}
+              </Tag>
             )}
           </div>
         </Space>
@@ -742,6 +855,23 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           dataIndex: col.name, // dataIndex should match the key in the data objects
           key: col.name,
           render: renderFunction,
+          onHeaderCell: () => ({
+            style: {
+              background: 'rgba(24, 24, 27, 0.9)',
+              color: '#FB923C',
+              fontWeight: 600,
+              fontFamily: 'Fira Sans, sans-serif',
+              fontSize: '13px',
+              borderBottom: '2px solid rgba(251, 146, 60, 0.4)',
+            },
+          }),
+          onCell: () => ({
+            style: {
+              fontFamily: 'Fira Code, monospace',
+              fontSize: '12px',
+              color: '#F3F4F6',
+            },
+          }),
         };
       });
 
@@ -761,10 +891,51 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               defaultPageSize: 20,
               showSizeChanger: true,
               pageSizeOptions: ['10', '20', '50', '100'],
+              style: {
+                marginTop: 16,
+              },
             }}
             size="small"
-            scroll={{ x: 'max-content' }} // Enable horizontal scrolling for many columns
+            scroll={{ x: 'max-content' }}
+            style={{
+              marginTop: 16,
+            }}
+            className="data-analysis-table"
+            rowClassName={(_, index) => 
+              index % 2 === 0 ? 'table-row-even' : 'table-row-odd'
+            }
           />
+          <style>{`
+            .data-analysis-table .ant-table {
+              background: transparent;
+            }
+            .data-analysis-table .ant-table-tbody > tr.table-row-even > td {
+              background: rgba(9, 9, 11, 0.4);
+            }
+            .data-analysis-table .ant-table-tbody > tr.table-row-odd > td {
+              background: rgba(24, 24, 27, 0.4);
+            }
+            .data-analysis-table .ant-table-tbody > tr:hover > td {
+              background: rgba(249, 115, 22, 0.2) !important;
+            }
+            .data-analysis-table .ant-table-cell {
+              border-bottom: 1px solid rgba(251, 146, 60, 0.15);
+            }
+            .data-analysis-table .ant-pagination-item {
+              background: rgba(24, 24, 27, 0.6);
+              border-color: rgba(251, 146, 60, 0.3);
+            }
+            .data-analysis-table .ant-pagination-item-active {
+              background: rgba(249, 115, 22, 0.25);
+              border-color: #F97316;
+            }
+            .data-analysis-table .ant-pagination-item a {
+              color: #E5E7EB;
+            }
+            .data-analysis-table .ant-pagination-item-active a {
+              color: #FB923C;
+            }
+          `}</style>
           {/* Action buttons aligned with pagination */}
           <div
             style={{
@@ -773,7 +944,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               alignItems: 'center',
               marginTop: '16px',
               paddingTop: '12px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+              borderTop: '1px solid rgba(251, 146, 60, 0.2)',
             }}
           >
             {commonActions}

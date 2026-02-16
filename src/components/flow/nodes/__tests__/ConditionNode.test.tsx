@@ -4,9 +4,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { ConditionNode } from '../ConditionNode';
 import * as flowStore from '../../../../stores/flowStore';
 import type { ConditionNodeData } from '../../../../services/flow/types';
+import { LogicType } from '../../../../services/flow/types';
 
 // Mock the flow store
 vi.mock('../../../../stores/flowStore', () => ({
@@ -22,7 +24,7 @@ describe('ConditionNode', () => {
     field: 'age',
     operator: '>',
     value: '18',
-    logicType: 'AND',
+    logicType: LogicType.AND,
   };
 
   beforeEach(() => {
@@ -69,7 +71,7 @@ describe('ConditionNode', () => {
   });
 
   it('should show OR logic type badge when logicType is OR', () => {
-    const orData: ConditionNodeData = { ...mockData, logicType: 'OR' };
+    const orData: ConditionNodeData = { ...mockData, logicType: LogicType.OR };
     render(
       <ConditionNode
         id="cond-1"

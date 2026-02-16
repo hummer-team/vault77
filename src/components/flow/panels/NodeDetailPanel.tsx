@@ -87,29 +87,43 @@ export const NodeDetailPanel: React.FC = () => {
       title={
         selectedNode ? (
           <Space>
-            <InfoCircleOutlined />
-            <span>{getNodeTitle(selectedNode)}</span>
+            <InfoCircleOutlined style={{ color: '#FF6B00' }} />
+            <span style={{ color: '#fff', fontWeight: 500 }}>{getNodeTitle(selectedNode)}</span>
           </Space>
         ) : (
           '节点详情'
         )
       }
       placement="right"
-      width={360}
+      width={380}
       open={detailPanelOpen}
       onClose={handleClose}
-      mask={false}
+      mask={true}
+      maskStyle={{
+        background: 'rgba(0, 0, 0, 0.3)',
+        backdropFilter: 'blur(2px)',
+      }}
       style={{
-        background: '#141414',
+        background: 'transparent',
       }}
       headerStyle={{
-        background: '#1f1f1f',
-        borderBottom: '1px solid #303030',
+        background: 'rgba(28, 25, 23, 0.98)',
+        borderBottom: '1px solid rgba(68, 64, 60, 0.6)',
         color: '#fff',
+        padding: '16px 20px',
       }}
       bodyStyle={{
-        padding: '16px',
+        padding: '20px',
+        background: 'rgba(28, 25, 23, 0.98)',
       }}
+      drawerStyle={{
+        background: 'rgba(28, 25, 23, 0.98)',
+        borderLeft: '1px solid rgba(68, 64, 60, 0.6)',
+        boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.4), -1px 0 0 rgba(255, 107, 0, 0.1)',
+      }}
+      closeIcon={
+        <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '16px' }}>✕</span>
+      }
     >
       {selectedNode ? (
         renderNodeForm(selectedNode)
@@ -155,6 +169,10 @@ const JoinNodeForm: React.FC<{
 }> = ({ node, onUpdate }) => {
   const data = node.data as JoinNodeData;
   const nodes = useFlowStore((state) => state.nodes);
+  const edges = useFlowStore((state) => state.edges);
+  const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
 
   // Get available fields from left and right tables
   const leftTableNode = nodes.find(
@@ -166,6 +184,96 @@ const JoinNodeForm: React.FC<{
 
   const leftFields = (leftTableNode?.data as { fields?: { name: string; type: string }[] })?.fields || [];
   const rightFields = (rightTableNode?.data as { fields?: { name: string; type: string }[] })?.fields || [];
+
+  // Check if conditions are configured
+  const hasConditions = data.conditions && data.conditions.length > 0;
+
+  // Auto-create downstream nodes when conditions are configured
+  React.useEffect(() => {
+    if (!hasConditions) return;
+    
+    // Check if this is the last JOIN node in the chain
+    const hasDownstreamNode = edges.some((e) => e.source === node.id);
+    if (hasDownstreamNode) return; // Already has downstream node
+    
+    // Check if all JOIN nodes in the flow have conditions
+    const allJoinNodes = nodes.filter((n) => n.type === 'join');
+    const allJoinsHaveConditions = allJoinNodes.every((joinNode) => {
+      const joinData = joinNode.data as JoinNodeData;
+      return joinData.conditions && joinData.conditions.length > 0;
+    });
+    
+    if (!allJoinsHaveConditions) return; // Wait for all JOINs to be configured
+    
+    // Find the last JOIN node (highest order)
+    const lastJoinNode = allJoinNodes.reduce((max, current) => {
+      const maxOrder = (max.data as JoinNodeData).order || 0;
+      const currentOrder = (current.data as JoinNodeData).order || 0;
+      return currentOrder > maxOrder ? current : max;
+    }, allJoinNodes[0]);
+    
+    // Only create downstream nodes from the last JOIN node
+    if (lastJoinNode.id !== node.id) return;
+    
+    // Auto-create merge node and select node after a short delay
+    const timer = setTimeout(() => {
+      const joinX = node.position.x;
+      const joinY = node.position.y;
+      
+      // Create merge node (+ node) with "选择列" label
+      const mergeNodeId = `merge_after_join_${Date.now()}`;
+      const mergeNode = {
+        id: mergeNodeId,
+        type: 'merge' as const,
+        position: { x: joinX + 200, y: joinY },
+        data: {
+          tableCount: 1,
+          label: '选择列',
+        },
+      };
+      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+      
+      // Connect JOIN -> merge node with arrow marker
+      addEdge({
+        id: `e_${node.id}_${mergeNodeId}`,
+        source: node.id,
+        target: mergeNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+      } as unknown as Parameters<typeof addEdge>[0]);
+      
+      // Create select node (default select all columns)
+      const selectNodeId = `select_${Date.now()}`;
+      const selectNode = {
+        id: selectNodeId,
+        type: 'select' as const,
+        position: { x: joinX + 450, y: joinY },
+        data: {
+          fields: [],
+          selectAll: true, // Default to selecting all columns
+        },
+      };
+      addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
+      
+      // Connect merge node -> select node with arrow marker
+      addEdge({
+        id: `e_${mergeNodeId}_${selectNodeId}`,
+        source: mergeNodeId,
+        target: selectNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+      } as unknown as Parameters<typeof addEdge>[0]);
+      
+      // Select the merge node to show it to user
+      setSelectedNode(mergeNodeId);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [hasConditions, node.id, node.position.x, node.position.y, nodes, edges, addNode, addEdge, setSelectedNode]);
 
   // Add new condition
   const addCondition = useCallback(() => {
@@ -225,10 +333,31 @@ const JoinNodeForm: React.FC<{
         <Input value={data.rightTable} disabled />
       </Form.Item>
       <Divider style={{ borderColor: '#303030' }} />
-      <Form.Item label="关联条件">
-        {data.conditions.length === 0 ? (
-          <div style={{ color: '#8c8c8c', fontSize: 12, marginBottom: 12 }}>
-            暂无关联条件，请添加
+      <Form.Item 
+        label={
+          <span>
+            <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>
+            关联条件
+          </span>
+        }
+        style={{ marginBottom: 0 }}
+      >
+        {!hasConditions ? (
+          <div 
+            style={{ 
+              color: '#ff4d4f', 
+              fontSize: 12, 
+              marginBottom: 12,
+              padding: '8px 12px',
+              background: 'rgba(255, 77, 79, 0.1)',
+              borderRadius: 4,
+              border: '1px solid rgba(255, 77, 79, 0.3)',
+            }}
+          >
+            <span style={{ fontWeight: 500 }}>⚠️ 必须配置至少一个关联条件</span>
+            <div style={{ marginTop: 4, fontSize: 11, color: '#ff7875' }}>
+              请添加关联条件以继续创建下游节点
+            </div>
           </div>
         ) : (
           data.conditions.map((cond, index) => (
@@ -302,6 +431,7 @@ const JoinNodeForm: React.FC<{
             cursor: 'pointer',
             color: '#1890ff',
             fontSize: 13,
+            marginTop: 12,
           }}
           onClick={addCondition}
         >
@@ -545,32 +675,21 @@ const ConditionGroupNodeForm: React.FC<{
 // End Node Form
 const EndNodeForm: React.FC<{
   node: FlowNode;
-  onUpdate: (id: string, data: Partial<Record<string, unknown>>) => void;
-}> = ({ node, onUpdate }) => {
+  onUpdate?: (id: string, data: Partial<Record<string, unknown>>) => void;
+}> = ({ node }) => {
   const data = node.data as EndNodeData;
 
   return (
     <Form layout="vertical">
-      <Form.Item label="业务算子">
-        <Select
-          value={data.operatorType}
-          onChange={(value) => onUpdate(node.id, { operatorType: value })}
-          style={{ width: '100%' }}
-        >
-          <Option value="association">关联查询</Option>
-          <Option value="anomaly">异常洞察</Option>
-          <Option value="clustering">用户聚类</Option>
-        </Select>
-      </Form.Item>
       <Form.Item label="状态">
-        {data.executable ? (
-          <Tag color="success">可执行</Tag>
+        {data.errors.length === 0 ? (
+          <Tag color="success">配置完整</Tag>
         ) : (
-          <Tag color="error">配置不完整</Tag>
+          <Tag color="error">配置异常</Tag>
         )}
       </Form.Item>
       {data.errors.length > 0 && (
-        <Form.Item label="错误">
+        <Form.Item label="错误列表">
           {data.errors.map((error, index) => (
             <div key={index} style={{ color: '#ff4d4f', fontSize: 12, marginBottom: 4 }}>
               • {error.message}
