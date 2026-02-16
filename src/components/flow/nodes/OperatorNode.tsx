@@ -46,16 +46,17 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       // Update operator node
       updateNode(id, { operatorType });
 
-      // Check if there's already a SELECT node connected to this operator node
+      // Check if there's already a next node connected to this operator node
       const edges = useFlowStore.getState().edges;
-      const hasConnectedSelectNode = edges.some(
+      const hasConnectedNextNode = edges.some(
         (e) =>
           e.source === id &&
-          nodes.find((n) => n.id === e.target)?.type === FlowNodeType.SELECT
+          (nodes.find((n) => n.id === e.target)?.type === FlowNodeType.SELECT ||
+           nodes.find((n) => n.id === e.target)?.type === FlowNodeType.JOIN)
       );
 
       // Don't create if already exists
-      if (hasConnectedSelectNode) return;
+      if (hasConnectedNextNode) return;
 
       // Get operator node position
       const operatorNode = nodes.find((n) => n.id === id);
@@ -64,28 +65,65 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       const operatorX = operatorNode.position.x;
       const operatorY = operatorNode.position.y;
 
-      // Create SELECT node after operator selection
-      const selectNodeId = `select_${Date.now()}`;
-      const selectNode = {
-        id: selectNodeId,
-        type: FlowNodeType.SELECT,
-        position: { x: operatorX + 280, y: operatorY },
-        data: {
-          fields: [],
-          selectAll: false,
-        },
-      };
-      addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
+      // Check if merge node has multiple table inputs
+      const inputEdges = edges?.filter((e) => e.target === id) || [];
+      const mergeNode = inputEdges
+        .map((e) => nodes.find((n) => n.id === e.source))
+        .find((n) => n?.type === 'merge');
+      const connectedTableCount = mergeNode?.id
+        ? (edges || []).filter((e) => e.target === mergeNode.id).length
+        : 0;
 
-      // Connect operator -> select
-      addEdge({
-        id: `e_${id}_${selectNodeId}`,
-        source: id,
-        target: selectNodeId,
-        type: 'smoothstep',
-        animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-      } as unknown as Parameters<typeof addEdge>[0]);
+      // If multiple tables, create JOIN node first
+      if (connectedTableCount > 1) {
+        const joinNodeId = `join_${Date.now()}`;
+        const joinNode = {
+          id: joinNodeId,
+          type: FlowNodeType.JOIN,
+          position: { x: operatorX + 280, y: operatorY },
+          data: {
+            joinType: 'inner',
+            leftTable: '',
+            rightTable: '',
+            conditions: [],
+            order: 0,
+          },
+        };
+        addNode(joinNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect operator -> join
+        addEdge({
+          id: `e_${id}_${joinNodeId}`,
+          source: id,
+          target: joinNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        } as unknown as Parameters<typeof addEdge>[0]);
+      } else {
+        // Single table - create SELECT node directly
+        const selectNodeId = `select_${Date.now()}`;
+        const selectNode = {
+          id: selectNodeId,
+          type: FlowNodeType.SELECT,
+          position: { x: operatorX + 280, y: operatorY },
+          data: {
+            fields: [],
+            selectAll: false,
+          },
+        };
+        addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
+
+        // Connect operator -> select
+        addEdge({
+          id: `e_${id}_${selectNodeId}`,
+          source: id,
+          target: selectNodeId,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        } as unknown as Parameters<typeof addEdge>[0]);
+      }
     },
     [id, updateNode, addNode, addEdge, nodes]
   );

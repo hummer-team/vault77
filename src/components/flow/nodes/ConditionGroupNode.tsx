@@ -56,7 +56,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
   // Get child condition nodes
   const childNodes = nodes.filter((n) =>
-    data.conditionIds.includes(n.id)
+    (data.conditionIds || []).includes(n.id)
   );
 
   // Handle delete

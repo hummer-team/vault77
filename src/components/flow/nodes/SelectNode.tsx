@@ -74,10 +74,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   // Auto-create condition node after select node if not exists
   React.useEffect(() => {
     // Only auto-create if:
-    // 1. Fields have been selected
+    // 1. Fields have been selected OR selectAll is true
     // 2. No condition node is already connected
     // 3. The SelectNode itself exists in the flow
-    if (data.fields.length > 0 && !hasConnectedConditionNode) {
+    if ((data.selectAll || data.fields.length > 0) && !hasConnectedConditionNode) {
       const selectNode = nodes.find((n) => n.id === id);
       if (!selectNode) return;
 
@@ -121,7 +121,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
-  }, [data.fields.length, hasConnectedConditionNode, id, nodes, addNode, addEdge]);
+  }, [data.fields.length, data.selectAll, hasConnectedConditionNode, id, nodes, addNode, addEdge]);
 
   const hasFields = data.fields.length > 0 || data.selectAll;
 

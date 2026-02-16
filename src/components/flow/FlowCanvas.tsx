@@ -100,8 +100,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Don't open detail panel for merge nodes
-      if (node.type === 'merge') {
+      // Don't open detail panel for start, table, merge, and operator nodes
+      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator') {
         return;
       }
       setSelectedNode(node.id);

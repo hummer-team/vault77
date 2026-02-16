@@ -14,12 +14,11 @@ export async function getAvailableTables(
   executeQuery: (sql: string) => Promise<{ data: any[]; schema: any[] }>
 ): Promise<string[]> {
   try {
-    // Query information_schema for tables
+    // Query information_schema for tables (remove table_schema filter to match useDuckDB behavior)
     const result = await executeQuery(`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'main' 
-      AND table_name LIKE 'main_table_%'
+      WHERE table_name LIKE 'main_table_%'
       ORDER BY table_name
     `);
 

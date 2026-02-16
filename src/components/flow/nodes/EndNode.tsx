@@ -45,7 +45,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     async (e: React.MouseEvent) => {
       e.stopPropagation();
 
-      if (data.errors.length > 0) {
+      if ((data.errors?.length || 0) > 0) {
         // Show error panel
         setErrorPanelOpen(true);
         return;
@@ -64,7 +64,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
         // Validate flow configuration
         const validationErrors = strategy.validate(nodes, edges);
-        if (validationErrors.length > 0) {
+        if ((validationErrors?.length || 0) > 0) {
           updateNode(id, {
             ...data,
             executing: false,
@@ -145,21 +145,22 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const operatorConfig = OPERATOR_CONFIG[data.operatorType];
 
   // Error count
-  const errorCount = data.errors.length;
+  const errorCount = data.errors?.length || 0;
+  const hasErrors = errorCount > 0;
 
   return (
     <div
       style={{
         background: FLOW_COLORS.node.end.background,
-        border: `2px solid ${selected ? FLOW_COLORS.edge.selected : data.errors.length > 0 ? FLOW_COLORS.edge.error : FLOW_COLORS.node.end.border}`,
+        border: `2px solid ${selected ? FLOW_COLORS.edge.selected : hasErrors ? FLOW_COLORS.edge.error : FLOW_COLORS.node.end.border}`,
         borderRadius: '8px',
         padding: '12px 16px',
         minWidth: '200px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : data.errors.length > 0
+          : hasErrors
           ? `0 0 0 2px ${FLOW_COLORS.edge.error}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : `0 2px 8px rgba(0, 0, 0, 0.3)`,
       }}
       className="end-node"
       onClick={handleClick}
@@ -247,13 +248,12 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           </Badge>
         </Tooltip>
 
-        <Tooltip title="保存功能暂未开放">
+        <Tooltip>
           <Button
             icon={<SaveOutlined />}
             onClick={handleSave}
-            disabled
           >
-            保存
+            保存为模板
           </Button>
         </Tooltip>
       </Space>

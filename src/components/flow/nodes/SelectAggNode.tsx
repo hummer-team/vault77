@@ -62,8 +62,8 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
     setSelectedNode(id);
   }, [id, setSelectedNode]);
 
-  const hasFields = data.fields.length > 0;
-  const hasGroupBy = data.groupByFields.length > 0;
+  const hasFields = (data.fields?.length || 0) > 0;
+  const hasGroupBy = (data.groupByFields?.length || 0) > 0;
 
   return (
     <div
@@ -135,7 +135,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         {/* Field count badge */}
         {hasFields && (
           <Badge
-            count={data.fields.length}
+            count={data.fields?.length || 0}
             style={{ backgroundColor: FLOW_COLORS.node.select.border, marginRight: 8 }}
           />
         )}

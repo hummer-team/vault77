@@ -65,14 +65,15 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
 
   // Format conditions display
   const formatConditions = useCallback(() => {
-    if (data.conditions.length === 0) {
+    const conditions = data.conditions || [];
+    if (conditions.length === 0) {
       return '未配置条件';
     }
-    if (data.conditions.length === 1) {
-      const cond = data.conditions[0];
+    if (conditions.length === 1) {
+      const cond = conditions[0];
       return `${cond.leftTable}.${cond.leftField} = ${cond.rightTable}.${cond.rightField}`;
     }
-    return `${data.conditions.length} 个关联条件`;
+    return `${conditions.length} 个关联条件`;
   }, [data.conditions]);
 
   return (
@@ -196,7 +197,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
       <div
         style={{
           padding: '8px 12px',
-          borderBottom: data.conditions.length > 0 ? '1px solid #303030' : 'none',
+          borderBottom: (data.conditions?.length || 0) > 0 ? '1px solid #303030' : 'none',
         }}
       >
         <div
@@ -234,7 +235,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
       </div>
 
       {/* Conditions summary */}
-      {data.conditions.length > 0 && (
+      {(data.conditions?.length || 0) > 0 && (
         <div
           style={{
             padding: '8px 12px',
@@ -266,7 +267,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
       )}
 
       {/* Empty conditions warning */}
-      {data.conditions.length === 0 && (
+      {(data.conditions?.length || 0) === 0 && (
         <div
           style={{
             padding: '8px 12px',

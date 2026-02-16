@@ -66,38 +66,50 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
     console.log('[StartNode] tables state changed:', tables);
   }, [tables]);
 
-  // Handle table selection
+  // Handle table selection (multi-select)
   const handleTableSelect = useCallback(
-    async (tableName: string) => {
-      // Update start node
-      updateNode(id, { selectedTable: tableName });
+    async (selectedTableNames: string[]) => {
+      // Update start node with all selected tables
+      updateNode(id, { selectedTables: selectedTableNames });
 
       // Get start node position
       const startNode = nodes.find((n) => n.id === id);
       const startX = startNode?.position?.x || 400;
       const startY = startNode?.position?.y || 300;
 
-      // Load table schema
-      let tableFields: Array<{ name: string; type: string; nullable: boolean }> = [];
-      try {
-        const schema = await getTableSchema(tableName, executeQuery);
-        tableFields = schema.fields;
-        console.log('[StartNode] Loaded table fields:', tableName, tableFields);
-      } catch (error) {
-        console.error('[StartNode] Failed to load table schema:', error);
-      }
+      // Find existing table nodes to determine which tables are new
+      const existingTableNodes = nodes.filter((n) => n.type === 'table');
+      const existingTableNames = existingTableNodes.map((n) => n.data?.tableName);
+
+      // Only process newly added tables
+      const newTableNames = selectedTableNames.filter(
+        (name) => !existingTableNames.includes(name)
+      );
+
+      if (newTableNames.length === 0) return;
 
       // Check if merge node already exists
       const existingMerge = nodes.find((n) => n.type === 'merge');
 
-      if (existingMerge) {
-        // Add new table node below existing tables
-        const tableCount = nodes.filter((n) => n.type === 'table').length;
-        const tableNodeId = `table_${Date.now()}`;
+      // Process each new table
+      for (const tableName of newTableNames) {
+        // Load table schema
+        let tableFields: Array<{ name: string; type: string; nullable: boolean }> = [];
+        try {
+          const schema = await getTableSchema(tableName, executeQuery);
+          tableFields = schema.fields;
+          console.log('[StartNode] Loaded table fields:', tableName, tableFields);
+        } catch (error) {
+          console.error('[StartNode] Failed to load table schema:', error);
+        }
+
+        // Get current table count for positioning
+        const currentTableCount = nodes.filter((n) => n.type === 'table').length;
+        const tableNodeId = `table_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const tableNode = {
           id: tableNodeId,
           type: 'table' as const,
-          position: { x: startX + 200, y: startY + tableCount * 120 },
+          position: { x: startX + 200, y: startY + currentTableCount * 120 },
           data: {
             tableName,
             fields: tableFields,
@@ -106,45 +118,6 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           },
         };
         addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
-
-        // Connect table to existing merge node
-        addEdge({
-          id: `e_${tableNodeId}_${existingMerge.id}`,
-          source: tableNodeId,
-          target: existingMerge.id,
-          type: 'smoothstep',
-          animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        } as unknown as Parameters<typeof addEdge>[0]);
-      } else {
-        // First table - create table node, merge node, and connect
-        const tableNodeId = `table_${Date.now()}`;
-        const mergeNodeId = `merge_${Date.now()}`;
-
-        // Add table node with schema
-        const tableNode = {
-          id: tableNodeId,
-          type: 'table' as const,
-          position: { x: startX + 200, y: startY },
-          data: {
-            tableName,
-            fields: tableFields,
-            expanded: false,
-            label: tableName,
-          },
-        };
-        addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
-
-        // Add merge node (+ node)
-        const mergeNode = {
-          id: mergeNodeId,
-          type: 'merge' as const,
-          position: { x: startX + 450, y: startY },
-          data: {
-            tableCount: 1,
-          },
-        };
-        addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
 
         // Connect start -> table
         addEdge({
@@ -156,15 +129,39 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           style: { stroke: '#8c8c8c', strokeWidth: 2 },
         } as unknown as Parameters<typeof addEdge>[0]);
 
-        // Connect table -> merge
-        addEdge({
-          id: `e_${tableNodeId}_${mergeNodeId}`,
-          source: tableNodeId,
-          target: mergeNodeId,
-          type: 'smoothstep',
-          animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        } as unknown as Parameters<typeof addEdge>[0]);
+        if (existingMerge) {
+          // Connect table to existing merge node
+          addEdge({
+            id: `e_${tableNodeId}_${existingMerge.id}`,
+            source: tableNodeId,
+            target: existingMerge.id,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          } as unknown as Parameters<typeof addEdge>[0]);
+        } else {
+          // First table - create merge node
+          const mergeNodeId = `merge_${Date.now()}`;
+          const mergeNode = {
+            id: mergeNodeId,
+            type: 'merge' as const,
+            position: { x: startX + 450, y: startY },
+            data: {
+              tableCount: 1,
+            },
+          };
+          addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+
+          // Connect table -> merge
+          addEdge({
+            id: `e_${tableNodeId}_${mergeNodeId}`,
+            source: tableNodeId,
+            target: mergeNodeId,
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          } as unknown as Parameters<typeof addEdge>[0]);
+        }
       }
     },
     [id, updateNode, addNode, addEdge, nodes, executeQuery]
@@ -217,8 +214,9 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
       {/* Table selector */}
       <Spin spinning={loading} size="small" className="nodrag">
         <Select
+          mode="multiple"
           placeholder="请选择数据表"
-          value={data.selectedTable}
+          value={data.selectedTables || []}
           onChange={handleTableSelect}
           style={{ width: '100%' }}
           options={tables}
@@ -227,11 +225,13 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
           getPopupContainer={() => document.body}
           className="nodrag"
+          maxTagCount={2}
+          maxTagPlaceholder={(omitted) => `+${omitted.length} 更多`}
         />
       </Spin>
 
       {/* Selected table hint */}
-      {data.selectedTable && (
+      {data.selectedTables && data.selectedTables.length > 0 && (
         <div
           style={{
             marginTop: 8,
@@ -239,9 +239,11 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
             color: '#8c8c8c',
           }}
         >
-          <Space>
+          <Space wrap>
             <span>已选择:</span>
-            <Tag color="processing">{data.selectedTable}</Tag>
+            {data.selectedTables.map((tableName) => (
+              <Tag key={tableName} color="processing">{tableName}</Tag>
+            ))}
           </Space>
         </div>
       )}

@@ -98,7 +98,7 @@ export interface BaseNodeData extends Record<string, unknown> {
 }
 
 export interface StartNodeData extends BaseNodeData {
-  selectedTable?: string;
+  selectedTables?: string[];
 }
 
 export interface TableNodeData extends BaseNodeData {

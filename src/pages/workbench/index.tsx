@@ -1233,6 +1233,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           gap: '20px',
           flexWrap: 'wrap',
           padding: '4px 0',
+          justifyContent: "center"
         }}>
           {/* Title with accent line */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

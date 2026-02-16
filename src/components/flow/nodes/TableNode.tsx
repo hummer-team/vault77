@@ -82,13 +82,12 @@ export const TableNode: React.FC<TableNodeProps> = ({
 }) => {
   const updateNode = useFlowStore((state) => state.updateNode);
   const removeNode = useFlowStore((state) => state.removeNode);
-  const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const { executeQuery } = useDuckDBContext();
   const [loading, setLoading] = useState(false);
 
   // Toggle expand and load fields
   const handleExpand = useCallback(async () => {
-    if (!data.expanded && data.fields.length === 0) {
+    if (!data.expanded && (data.fields?.length || 0) === 0) {
       // Load fields from DuckDB
       setLoading(true);
       try {
@@ -119,14 +118,11 @@ export const TableNode: React.FC<TableNodeProps> = ({
     [id, removeNode]
   );
 
-  // Handle click
-  const handleClick = useCallback(() => {
-    setSelectedNode(id);
-  }, [id, setSelectedNode]);
+
 
   // Field list height
   const fieldListHeight = Math.min(
-    data.fields.length * PERFORMANCE.virtualScrollItemHeight,
+    (data.fields?.length || 0) * PERFORMANCE.virtualScrollItemHeight,
     320
   );
 
@@ -144,7 +140,6 @@ export const TableNode: React.FC<TableNodeProps> = ({
         overflow: 'hidden',
       }}
       className="table-node"
-      onClick={handleClick}
     >
       {/* Input handle */}
       <Handle
@@ -222,9 +217,9 @@ export const TableNode: React.FC<TableNodeProps> = ({
       </div>
 
       {/* Field list */}
-      {data.expanded && data.fields.length > 0 && (
+      {data.expanded && (data.fields?.length || 0) > 0 && (
         <div style={{ height: fieldListHeight }}>
-          {data.fields.map((field) => (
+          {data.fields?.map((field) => (
             <FieldItem
               key={field.name}
               field={field}
@@ -235,7 +230,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
       )}
 
       {/* Empty state */}
-      {data.expanded && data.fields.length === 0 && !loading && (
+      {data.expanded && (data.fields?.length || 0) === 0 && !loading && (
         <div
           style={{
             padding: '16px',
@@ -249,7 +244,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
       )}
 
       {/* Field count hint */}
-      {data.expanded && data.fields.length > PERFORMANCE.maxFieldsDisplay && (
+      {data.expanded && (data.fields?.length || 0) > PERFORMANCE.maxFieldsDisplay && (
         <div
           style={{
             padding: '4px 12px',
@@ -259,7 +254,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
             borderTop: '1px solid #303030',
           }}
         >
-          共 {data.fields.length} 个字段
+          共 {data.fields?.length || 0} 个字段
         </div>
       )}
     </div>
