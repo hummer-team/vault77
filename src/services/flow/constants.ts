@@ -49,6 +49,11 @@ export const FLOW_COLORS: FlowColors = {
       background: 'rgba(28, 25, 23, 0.95)',
       border: '#3B82F6', // Blue accent
     },
+    conditionDefinition: {
+      background: 'rgba(28, 25, 23, 0.95)',
+      border: '#8B5CF6', // Purple accent for condition definition nodes (CG1, CG2, etc.)
+      title: '#A78BFA',
+    },
     select: {
       background: 'rgba(28, 25, 23, 0.95)',
       border: '#10B981', // Emerald accent
@@ -225,3 +230,42 @@ export const JOIN_TYPE_LABELS: Record<string, string> = {
   RIGHT: '右连',
   CROSS: '交叉连接',
 };
+
+// ============================================================================
+// Placeholder Naming Constants
+// ============================================================================
+
+/**
+ * Placeholder naming rules:
+ * - Prefix: CG (Condition Group)
+ * - Group number: auto-incrementing (1, 2, 3...)
+ * - Condition number: auto-incrementing within group (1, 2, 3...)
+ * - Format: CG{group}_{condition} (e.g., CG1_1, CG1_2, CG2_1)
+ */
+export const PLACEHOLDER_CONSTANTS = {
+  DEFAULT_PREFIX: 'CG',
+  MAX_REF_ID_LENGTH: 5, // Q18: 5 character limit for node name
+  ALLOWED_REF_ID_PATTERN: /^[a-zA-Z0-9]+$/, // Q18: alphanumeric only
+  SEPARATOR: '_',
+} as const;
+
+// ============================================================================
+// Merge Node Hint Texts (Q17: dynamically calculated based on upstream node)
+// ============================================================================
+
+export const MERGE_NODE_HINTS = {
+  DEFAULT: '选择算子',
+  AFTER_SELECT: '定义条件',
+  AFTER_CONDITION_DEFINITION: '定义条件关系',
+  AFTER_RELATION: '执行OR保存',
+} as const;
+
+// ============================================================================
+// Custom Expression Validation (Q3: only AND/OR/并且/或者 and parentheses)
+// ============================================================================
+
+export const CUSTOM_EXPRESSION_CONSTANTS = {
+  ALLOWED_OPERATORS: ['AND', 'OR', '并且', '或者'],
+  ALLOWED_PATTERNS: /^[a-zA-Z0-9_\s\(\)]+$/,
+  MAX_NESTING_DEPTH: Infinity, // Q3: no limit
+} as const;

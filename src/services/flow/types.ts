@@ -17,6 +17,7 @@ export enum FlowNodeType {
   JOIN = 'join',
   CONDITION = 'condition',
   CONDITION_GROUP = 'conditionGroup',
+  CONDITION_DEFINITION = 'conditionDefinition', // Condition group with placeholders (CG1, CG2, etc.)
   SELECT = 'select',
   SELECT_AGG = 'selectAgg',
   END = 'end',
@@ -143,6 +144,33 @@ export interface ConditionNodeData extends BaseNodeData {
 export interface ConditionGroupNodeData extends BaseNodeData {
   logicType: LogicType;
   conditionIds: string[];
+  customExpression?: string; // For CUSTOM type (Q14): e.g., "CG1 AND (CG2 OR CG3)"
+  relationType?: 'AND' | 'OR' | 'CUSTOM'; // Extended logic type for relation node
+}
+
+/**
+ * Condition item within a condition definition node
+ * Represents a single condition line with placeholder
+ */
+export interface ConditionItem {
+  id: string;
+  field: string;
+  operator: string;
+  placeholder: string; // e.g., "CG1_1", "CG1_2"
+  valueType: FieldType;
+  value?: string | number | null | string[]; // Actual value filled later
+}
+
+/**
+ * Condition Definition Node Data
+ * Represents a condition group with placeholders (CG1, CG2, etc.)
+ * Used for deferred value filling
+ */
+export interface ConditionDefinitionNodeData extends BaseNodeData {
+  refId: string; // User-visible name, e.g., "CG1", editable, max 5 chars, alphanumeric
+  tableName: string;
+  logicType: LogicType.AND; // Fixed to AND for internal conditions (Q4)
+  conditions: ConditionItem[];
 }
 
 export interface SelectField {
@@ -178,6 +206,7 @@ export type FlowNodeData =
   | JoinNodeData
   | ConditionNodeData
   | ConditionGroupNodeData
+  | ConditionDefinitionNodeData
   | SelectNodeData
   | SelectAggNodeData
   | EndNodeData;
@@ -241,7 +270,7 @@ export interface AnalysisResult {
 export interface FlowStrategy {
   readonly type: OperatorType;
   readonly name: string;
-  buildSql(nodes: FlowNode[], edges: FlowEdge[]): string;
+  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string;
   validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[];
   getRequiredNodes(): FlowNodeType[];
   postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult>;
@@ -258,6 +287,9 @@ export interface FlowState {
   operatorType: OperatorType;
   nodes: FlowNode[];
   edges: FlowEdge[];
+
+  // Placeholder values for deferred filling (Q13: stored in flowStore)
+  placeholderValues: Record<string, unknown>; // { "CG1_1": value, "CG1_2": value }
 
   // UI state
   selectedNodeId: string | null;
@@ -279,6 +311,12 @@ export interface FlowState {
   setErrorPanelOpen: (open: boolean) => void;
   setValidationErrors: (errors: ValidationError[]) => void;
   resetFlow: () => void;
+
+  // Placeholder value actions
+  setPlaceholderValue: (placeholder: string, value: unknown) => void;
+  getPlaceholderValue: (placeholder: string) => unknown;
+  getAllPlaceholderValues: () => Record<string, unknown>;
+  clearPlaceholderValues: () => void;
 }
 
 // ============================================================================
@@ -297,6 +335,7 @@ export interface FlowColors {
     operator: { background: string; border: string };
     join: { background: string; border: string };
     condition: { background: string; border: string };
+    conditionDefinition: { background: string; border: string; title: string };
     select: { background: string; border: string };
     end: { background: string; border: string };
   };

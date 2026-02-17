@@ -24,6 +24,15 @@
 
 ## 更新日志
 
+- **2026-02-17**:
+  - **SQL条件节点构建器功能**: 实现基于占位符的SQL WHERE子句构建系统，支持延迟值填充、条件组定义、关系表达式解析。核心模块包括：条件定义节点（ConditionDefinitionNode）、值填充面板（ValueFillPanel）、关系节点增强（ConditionGroupNode支持AND/OR/CUSTOM）、解析引擎（strategies.ts支持占位符替换）。完成10个Phase开发，包含31个单元测试。
+  - **条件定义节点（ConditionDefinitionNode）**: 支持表选择、多条件配置（字段/操作符/占位符）、AND/OR逻辑切换、自动占位符命名（CG1_1, CG1_2）、节点名称可编辑（最大5字符，仅字母数字）。UI优化包括：下拉框使用document.body渲染避免事件冲突、nodrag类防止拖拽冲突、不触发右侧详情面板。
+  - **值填充面板（ValueFillPanel）**: 右侧抽屉式面板，支持按条件组分组展示、基于字段类型的输入控件（DatePicker/Input/Select）、实时保存到flowStore、未填充占位符检测。
+  - **关系节点增强（ConditionGroupNode）**: 支持AND/OR/CUSTOM三种关系类型、自定义表达式输入与验证、中文操作符自动转换（"并且"→AND）、占位符引用解析。
+  - **衔接节点优化（MergeNode）**: 动态提示基于上游节点类型、自动创建条件定义节点、关系节点单例模式（全局仅创建一个）、节点间距优化（250px→180px）。
+  - **执行前验证（EndNode）**: 检测未填充占位符、自动打开值填充面板、传递占位符值到解析引擎。
+  - **删除验证（validator.ts）**: 节点引用检查（checkNodeReferences）、删除前验证（validateNodeRemoval）、防止删除被引用节点。
+  - **解析引擎（strategies.ts）**: 占位符感知WHERE子句构建（buildWhereClauseWithPlaceholders）、自定义表达式解析（parseCustomExpression）、字符串替换策略、条件跳过未填充占位符。
 - **2026-02-08**: 
   - **客户聚类分析功能**: 集成基于RFM的K-Means聚类分析，支持GPU加速（40x性能提升）、自动列检测、动态K值调整（2-10）、双图表可视化（散点图+雷达图）、LLM业务洞察生成、CSV导出功能。核心模块包括：聚类服务（clusteringService）、RFM特征工程（rfmColumnDetector + rfmSqlGenerator）、Web Worker（clustering.worker）、可视化组件（ScatterChart + RadarChart + ErrorBoundary + Skeleton）、策略模式（ClusteringActionStrategy）、React Hook（useClustering）。完成21个单元测试，代码量~3,400行。
   - **右键菜单功能**: 为聚类散点图添加右键上下文菜单，支持查看客户详情和与分群平均对比（当前禁用，预留扩展）。使用原生DOM事件监听、position: absolute定位、边界检测、渐变背景和蓝色hover效果。组件代码~180行，遵循TypeScript最佳实践和英文注释规范。
@@ -506,12 +515,68 @@ bun run build
     - **M10.5 更新**：扩展 `AnalysisRecord.thinkingSteps` 类型，包含元数据（skillName、industry、userSkillApplied 等）和 effectiveSettings。
   - `src/pages/workbench/components/ChatPanel.tsx`
     - UI 层：消息输入、文件上传（通过 antd Upload beforeUpload 调用 Workbench 的 onFileUpload）、显示 suggestions 与 attachments。
+  - `src/pages/workbench/components/FlowCanvas.tsx`（**2026-02-17 新增**）
+    - SQL Flow 可视化画布，基于 ReactFlow 实现拖拽式节点连接。
+    - 节点类型注册（FlowNodeType）：START、TABLE、SELECT、CONDITION、CONDITION_DEFINITION（新增）、CONDITION_GROUP、MERGE、END。
+    - 画布交互：节点点击事件（排除特定类型打开详情面板）、边点击删除、快捷键删除（Delete/Backspace）、节点拖拽与连接。
+    - 事件处理：onNodeClick（过滤 conditionDefinition 节点，不触发详情面板）、onConnect（智能连接逻辑）、onPaneClick（取消选择）。
   - `src/pages/workbench/components/ResultsDisplay.tsx`（**M10.5 新增透明度功能**）
     - 展示查询结果和分析过程。
     - **新增功能**：
       - `renderSkillMetadataTags()`：渲染 3 个元数据标签（Skill/Industry/UserSkill）。
       - `renderEffectiveSettings()`：渲染 Effective Settings Panel（Table/Field Mapping/Filters/Metrics）。
       - 自动折叠长列表（Filters > 5, Metrics > 8）。
+  - `src/components/flow/nodes/ConditionDefinitionNode.tsx`（**2026-02-17 新增**）
+    - 条件定义节点核心组件，支持：
+      - **表选择**：从 DuckDB 动态加载 table list（通过 getAvailableTables），等待 isDBReady 后加载
+      - **多条件配置**：字段/操作符/占位符三元组，支持增删条件（Add/Remove 按钮）
+      - **AND/OR 逻辑切换**：Radio.Group 实时切换，默认 AND
+      - **节点名称编辑**：refId 可编辑（最大5字符，仅字母数字），校验唯一性
+      - **占位符自动生成**：格式 {refId}_{index}（如 CG1_1, CG1_2）
+    - **UI 优化**：
+      - 下拉框渲染到 `document.body`（`getPopupContainer`）避免节点内事件冲突
+      - 使用 `nodrag` 类防止拖拽冲突
+      - 点击节点不触发右侧详情面板（FlowCanvas 排除 conditionDefinition 类型）
+      - Select 组件添加 `popupClassName="nodrag"` 防止下拉菜单触发拖拽
+    - **完整性验证**：检查 tableName 和所有 conditions 是否完整，红色边框提示
+  - `src/components/flow/panels/ValueFillPanel.tsx`（**2026-02-17 新增**）
+    - 值填充面板（右侧抽屉），功能包括：
+      - **按条件组分组展示**：CG1、CG2、CG3 分组显示占位符
+      - **基于字段类型的输入控件**：
+        - `date` → DatePicker
+        - `number`/`integer` → InputNumber
+        - `boolean` → Select (true/false)
+        - 其他 → Input
+      - **实时保存**：onChange 触发 `setPlaceholderValue` 保存到 flowStore
+      - **状态显示**：显示占位符值状态（已填充/未填充）
+      - **清空功能**：按钮清空所有占位符值
+  - `src/components/flow/nodes/MergeNode.tsx`（**2026-02-17 更新**）
+    - 衔接节点"+"，用于连接不同阶段的节点。
+    - **动态提示文本**：基于上游节点类型显示不同提示：
+      - SELECT/SELECT_AGG → "定义条件"
+      - CONDITION_DEFINITION → "定义条件关系"
+      - CONDITION_GROUP → "执行"
+    - **智能节点创建**：
+      - `createConditionDefinitionNode`：创建条件定义节点，自动分配 refId（CG1、CG2...）
+      - `createRelationNode`：创建关系节点（全局单例，仅创建一次）
+      - `createEndNode`：创建执行节点
+    - **关系节点单例模式**：检测到已存在 CONDITION_GROUP 节点后，不再自动连接，用户需手动连接条件定义节点到关系节点
+    - **节点间距优化**：250px → 180px（ConditionDefinitionNode），500px → 400px（NextMergeNode）
+  - `src/components/flow/nodes/ConditionGroupNode.tsx`（**2026-02-17 更新**）
+    - 关系节点（原 RelationNode），支持：
+      - **三种关系类型**：AND、OR、CUSTOM
+      - **自定义表达式输入**：支持 `CG1 AND (CG2 OR CG3)` 语法
+      - **表达式验证**：
+        - 检测占位符引用（CG1、CG2 是否存在）
+        - 检测操作符合法性（AND、OR、括号）
+        - 中文操作符自动转换（"并且"→AND、"或者"→OR）
+      - **实时表达式编辑**：Input 组件支持多行输入
+  - `src/components/flow/nodes/EndNode.tsx`（**2026-02-17 更新**）
+    - 执行节点，新增功能：
+      - **占位符检测**：`getAllPlaceholdersFromNodes` 扫描所有 CONDITION_DEFINITION 节点
+      - **自动打开值填充面板**：未填充时点击执行按钮，自动打开 ValueFillPanel
+      - **传递占位符值**：executeQuery 时调用 `getAllPlaceholderValues()` 并传递到 buildSql
+      - **执行前验证**：检测到未填充占位符时显示提示并阻止执行
   - `src/pages/settings/ProfilePage.tsx`（**M10.4 新增 User Skill 配置，M10.5 新增 System Metrics 显示**）
     - User Skill 配置界面，包含 4 个配置区块：
       - **Industry Selection**：选择行业（ecommerce/finance/retail/custom）。

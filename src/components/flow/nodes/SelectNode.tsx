@@ -66,63 +66,58 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     setSelectedNode(id);
   }, [id, setSelectedNode]);
 
-  // Check if there's already a condition node connected to this select node
-  const hasConnectedConditionNode = React.useMemo(() => {
-    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'condition');
+  // Check if there's already a merge node (衔接节点) connected to this select node
+  const hasConnectedMergeNode = React.useMemo(() => {
+    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'merge');
   }, [edges, nodes, id]);
 
-  // Auto-create condition node after select node if not exists
+  // Auto-create merge node (衔接节点 "+") after select node if not exists
+  // This allows user to enter condition definition flow (Q17)
   React.useEffect(() => {
     // Only auto-create if:
     // 1. Fields have been selected OR selectAll is true
-    // 2. No condition node is already connected
+    // 2. No merge node is already connected
     // 3. The SelectNode itself exists in the flow
-    if ((data.selectAll || data.fields.length > 0) && !hasConnectedConditionNode) {
+    if ((data.selectAll || data.fields.length > 0) && !hasConnectedMergeNode) {
       const selectNode = nodes.find((n) => n.id === id);
       if (!selectNode) return;
 
       // Check again to prevent race conditions
       const currentEdges = useFlowStore.getState().edges;
       const currentNodes = useFlowStore.getState().nodes;
-      const alreadyHasCondition = currentEdges.some(
+      const alreadyHasMerge = currentEdges.some(
         (e) =>
           e.source === id &&
-          currentNodes.find((n) => n.id === e.target)?.type === 'condition'
+          currentNodes.find((n) => n.id === e.target)?.type === 'merge'
       );
 
-      if (alreadyHasCondition) return;
+      if (alreadyHasMerge) return;
 
       const selectX = selectNode.position.x;
       const selectY = selectNode.position.y;
 
-      // Create condition node
-      const conditionNodeId = `condition_${Date.now()}`;
-      const conditionNode = {
-        id: conditionNodeId,
-        type: 'condition' as const,
+      // Create merge node (衔接节点 "+") to enter condition definition flow
+      const mergeNodeId = `merge_${Date.now()}`;
+      const mergeNode = {
+        id: mergeNodeId,
+        type: 'merge' as const,
         position: { x: selectX + 280, y: selectY },
-        data: {
-          logicType: 'AND',
-          tableName: '',
-          field: '',
-          operator: '=',
-          value: '',
-        },
+        data: { tableCount: 1 },
       };
-      addNode(conditionNode as unknown as Parameters<typeof addNode>[0]);
+      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
 
-      // Connect select -> condition with arrow marker
+      // Connect select -> merge with arrow marker
       addEdge({
-        id: `e_${id}_${conditionNodeId}`,
+        id: `e_${id}_${mergeNodeId}`,
         source: id,
-        target: conditionNodeId,
+        target: mergeNodeId,
         type: 'smoothstep',
         animated: false,
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
         markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
-  }, [data.fields.length, data.selectAll, hasConnectedConditionNode, id, nodes, addNode, addEdge]);
+  }, [data.fields.length, data.selectAll, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
 
   const hasFields = data.fields.length > 0 || data.selectAll;
 

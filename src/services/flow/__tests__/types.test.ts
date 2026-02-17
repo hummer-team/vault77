@@ -21,6 +21,7 @@ describe('Flow Enums', () => {
       expect(FlowNodeType.JOIN).toBe('join');
       expect(FlowNodeType.CONDITION).toBe('condition');
       expect(FlowNodeType.CONDITION_GROUP).toBe('conditionGroup');
+      expect(FlowNodeType.CONDITION_DEFINITION).toBe('conditionDefinition');
       expect(FlowNodeType.SELECT).toBe('select');
       expect(FlowNodeType.SELECT_AGG).toBe('selectAgg');
       expect(FlowNodeType.END).toBe('end');

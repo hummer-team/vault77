@@ -30,6 +30,7 @@ import { TableNode } from './nodes/TableNode';
 import { JoinNode } from './nodes/JoinNode';
 import { ConditionNode } from './nodes/ConditionNode';
 import { ConditionGroupNode } from './nodes/ConditionGroupNode';
+import { ConditionDefinitionNode } from './nodes/ConditionDefinitionNode';
 import { SelectNode } from './nodes/SelectNode';
 import { SelectAggNode } from './nodes/SelectAggNode';
 import { EndNode } from './nodes/EndNode';
@@ -66,6 +67,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
       join: JoinNode as unknown as NodeTypes[string],
       condition: ConditionNode as unknown as NodeTypes[string],
       conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
+      conditionDefinition: ConditionDefinitionNode as unknown as NodeTypes[string],
       select: SelectNode as unknown as NodeTypes[string],
       selectAgg: SelectAggNode as unknown as NodeTypes[string],
       end: ((props: any) => <EndNode {...props} onSqlValidated={onSqlValidated} />) as unknown as NodeTypes[string],
@@ -100,8 +102,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Don't open detail panel for start, table, merge, operator, and end nodes
-      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end') {
+      // Don't open detail panel for start, table, merge, operator, end, and conditionDefinition nodes
+      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end' || node.type === 'conditionDefinition') {
         return;
       }
       setSelectedNode(node.id);
@@ -266,6 +268,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
         deleteKeyCode={null} // Handle delete manually
         selectionKeyCode={null}
         multiSelectionKeyCode={null}
+        nodesDraggable={true}
+        nodesConnectable={true}
+        elementsSelectable={true}
+        selectNodesOnDrag={false}
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#8c8c8c" gap={16} size={1} />

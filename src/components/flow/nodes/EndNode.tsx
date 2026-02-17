@@ -1,9 +1,10 @@
 /**
  * End Node Component
  * Final node for the analysis flow - shows execute button and flow status
+ * Supports placeholder value filling before execution (Q15)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Badge, Tooltip, Spin } from 'antd';
 import {
@@ -14,11 +15,12 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { EndNodeData } from '../../../services/flow/types';
+import type { EndNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { ValidationSeverity, FlowNodeType } from '../../../services/flow/types';
+import { ValueFillPanel } from '../panels/ValueFillPanel';
 
 interface EndNodeProps {
   id: string;
@@ -33,20 +35,64 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
+  const placeholderValues = useFlowStore((state) => state.placeholderValues);
   const { executeQuery, isDBReady } = useDuckDBContext();
+
+  // State for value fill panel
+  const [valueFillPanelOpen, setValueFillPanelOpen] = useState(false);
+
+  // Collect all placeholders from condition definition nodes
+  const allPlaceholders = useMemo(() => {
+    const placeholders: string[] = [];
+    nodes.forEach((node) => {
+      if (node.type === 'conditionDefinition') {
+        const nodeData = node.data as ConditionDefinitionNodeData;
+        nodeData.conditions.forEach((cond) => {
+          placeholders.push(cond.placeholder);
+        });
+      }
+    });
+    return placeholders;
+  }, [nodes]);
+
+  // Check if there are unfilled placeholders
+  const hasUnfilledPlaceholders = useMemo(() => {
+    return allPlaceholders.some((p) => placeholderValues[p] === undefined);
+  }, [allPlaceholders, placeholderValues]);
 
   // Handle click
   const handleClick = useCallback(() => {
     setSelectedNode(id);
   }, [id, setSelectedNode]);
 
-  // Handle execute
-  const handleExecute = useCallback(
-    async (e: React.MouseEvent) => {
+  // Handle execute button click
+  const handleExecuteClick = useCallback(
+    (e: React.MouseEvent) => {
       e.stopPropagation();
 
       if ((data.errors?.length || 0) > 0) {
         // Show error panel
+        setErrorPanelOpen(true);
+        return;
+      }
+
+      // Check if there are unfilled placeholders (Q15)
+      if (hasUnfilledPlaceholders) {
+        // Open value fill panel
+        setValueFillPanelOpen(true);
+        return;
+      }
+
+      // All placeholders filled, execute directly
+      executeFlow();
+    },
+    [data.errors, hasUnfilledPlaceholders, setErrorPanelOpen]
+  );
+
+  // Handle execute after value filling
+  const executeFlow = useCallback(
+    async () => {
+      if ((data.errors?.length || 0) > 0) {
         setErrorPanelOpen(true);
         return;
       }
@@ -90,8 +136,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           }
         }
 
-        // Build SQL query
-        const sql = strategy.buildSql(nodes, edges);
+        // Build SQL query with placeholder values
+        const sql = strategy.buildSql(nodes, edges, placeholderValues);
         console.log('Generated SQL:', sql);
 
         // Validate SQL with EXPLAIN
@@ -131,8 +177,19 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         setErrorPanelOpen(true);
       }
     },
-    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated]
+    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, placeholderValues]
   );
+
+  // Handle value fill panel close
+  const handleValueFillClose = useCallback(() => {
+    setValueFillPanelOpen(false);
+  }, []);
+
+  // Handle value fill and execute
+  const handleValueFillExecute = useCallback(() => {
+    setValueFillPanelOpen(false);
+    executeFlow();
+  }, [executeFlow]);
 
   // Handle save (disabled)
   const handleSave = useCallback((e: React.MouseEvent) => {
@@ -247,17 +304,29 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
       {/* Action buttons */}
       <Space style={{ width: '100%', justifyContent: 'center' }}>
-        <Tooltip title={errorCount > 0 ? '请先修复错误' : data.executing ? '执行中...' : '执行分析'}>
-          <Badge count={errorCount} dot={errorCount > 0}>
+        <Tooltip title={
+          errorCount > 0
+            ? '请先修复错误'
+            : hasUnfilledPlaceholders
+            ? '需要填充条件值'
+            : data.executing
+            ? '执行中...'
+            : '执行分析'
+        }>
+          <Badge
+            count={hasUnfilledPlaceholders ? allPlaceholders.length : errorCount}
+            dot={errorCount > 0}
+            color={hasUnfilledPlaceholders ? 'blue' : undefined}
+          >
             <Button
               type="primary"
               icon={data.executing ? <Spin indicator={<LoadingOutlined spin />} size="small" /> : <PlayCircleOutlined />}
-              onClick={handleExecute}
+              onClick={handleExecuteClick}
               disabled={errorCount > 0 || data.executing}
               danger={errorCount > 0}
               loading={data.executing}
             >
-              {data.executing ? '执行中' : '执行'}
+              {data.executing ? '执行中' : hasUnfilledPlaceholders ? '填充值并执行' : '执行'}
             </Button>
           </Badge>
         </Tooltip>
@@ -271,6 +340,13 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           </Button>
         </Tooltip>
       </Space>
+
+      {/* Value Fill Panel */}
+      <ValueFillPanel
+        open={valueFillPanelOpen}
+        onClose={handleValueFillClose}
+        onExecute={handleValueFillExecute}
+      />
     </div>
   );
 };

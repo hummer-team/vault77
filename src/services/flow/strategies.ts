@@ -16,8 +16,12 @@ import {
   type ConditionNodeData,
   type SelectNodeData,
   type SelectAggNodeData,
+  type ConditionDefinitionNodeData,
+  type ConditionGroupNodeData,
+  type ConditionItem,
 } from './types';
 import { VALIDATION_MESSAGES } from './constants';
+import { LogicType } from './types';
 
 /**
  * Base Strategy Class
@@ -215,6 +219,169 @@ abstract class BaseStrategy implements FlowStrategy {
 
     return `GROUP BY ${aggData.groupByFields.join(', ')}`;
   }
+
+  /**
+   * Helper: Build WHERE clause with placeholders (Q8)
+   * Supports condition definition nodes with placeholder values
+   */
+  protected buildWhereClauseWithPlaceholders(
+    nodes: FlowNode[],
+    placeholderValues: Record<string, unknown>
+  ): string {
+    // Get condition definition nodes
+    const conditionDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+    if (conditionDefNodes.length === 0) return '';
+
+    // Get condition group nodes (relation nodes)
+    const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+
+    // If no relation nodes, combine all condition definitions with AND
+    if (conditionGroupNodes.length === 0) {
+      const allConditions = this.buildConditionDefinitionSql(
+        conditionDefNodes,
+        placeholderValues,
+        LogicType.AND
+      );
+      return allConditions ? `WHERE ${allConditions}` : '';
+    }
+
+    // Use the first condition group node to determine logic
+    const groupNode = conditionGroupNodes[0];
+    const groupData = groupNode.data as ConditionGroupNodeData;
+
+    // Handle custom expression (Q9: string replacement approach)
+    if (groupData.relationType === 'CUSTOM' && groupData.customExpression) {
+      const sql = this.parseCustomExpression(
+        groupData.customExpression,
+        conditionDefNodes,
+        placeholderValues
+      );
+      return sql ? `WHERE ${sql}` : '';
+    }
+
+    // Handle AND/OR mode
+    const selectedConditionIds = groupData.conditionIds || [];
+    const selectedNodes = conditionDefNodes.filter((n) =>
+      selectedConditionIds.includes(n.id)
+    );
+
+    if (selectedNodes.length === 0) return '';
+
+    const logicType = groupData.logicType || LogicType.AND;
+    const conditions = this.buildConditionDefinitionSql(
+      selectedNodes,
+      placeholderValues,
+      logicType
+    );
+
+    return conditions ? `WHERE ${conditions}` : '';
+  }
+
+  /**
+   * Helper: Build SQL for condition definition nodes
+   */
+  private buildConditionDefinitionSql(
+    nodes: FlowNode[],
+    placeholderValues: Record<string, unknown>,
+    logicType: LogicType
+  ): string {
+    const conditions: string[] = [];
+
+    for (const node of nodes) {
+      const nodeData = node.data as ConditionDefinitionNodeData;
+      if (!nodeData.tableName) continue;
+
+      const nodeConditions = nodeData.conditions
+        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues))
+        .filter(Boolean);
+
+      if (nodeConditions.length > 0) {
+        // Group conditions within the same node with AND
+        conditions.push(`(${nodeConditions.join(' AND ')})`);
+      }
+    }
+
+    return conditions.join(` ${logicType} `);
+  }
+
+  /**
+   * Helper: Build SQL for a single condition item
+   */
+  private buildSingleConditionSql(
+    condition: ConditionItem,
+    placeholderValues: Record<string, unknown>
+  ): string {
+    const value = placeholderValues[condition.placeholder];
+
+    // If value is not filled, skip this condition
+    if (value === undefined || value === null) {
+      return '';
+    }
+
+    let sqlValue: string;
+
+    // Format value based on type
+    if (Array.isArray(value)) {
+      sqlValue = `(${value.map((v) => this.escapeSqlValue(v)).join(', ')})`;
+    } else {
+      sqlValue = this.escapeSqlValue(value);
+    }
+
+    return `"${condition.field}" ${condition.operator} ${sqlValue}`;
+  }
+
+  /**
+   * Helper: Escape SQL value
+   */
+  private escapeSqlValue(value: unknown): string {
+    if (typeof value === 'number') {
+      return String(value);
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'TRUE' : 'FALSE';
+    }
+    if (value === null) {
+      return 'NULL';
+    }
+    // Escape single quotes for string values
+    return `'${String(value).replace(/'/g, "''")}'`;
+  }
+
+  /**
+   * Helper: Parse custom expression (Q9: string replacement)
+   * Replaces CG1, CG2, etc. with actual SQL conditions
+   */
+  private parseCustomExpression(
+    expression: string,
+    conditionDefNodes: FlowNode[],
+    placeholderValues: Record<string, unknown>
+  ): string {
+    let sql = expression;
+
+    // Replace Chinese operators with English
+    sql = sql.replace(/并且/gi, 'AND');
+    sql = sql.replace(/或者/gi, 'OR');
+
+    // Replace each condition definition ref with its SQL
+    for (const node of conditionDefNodes) {
+      const nodeData = node.data as ConditionDefinitionNodeData;
+      const refId = nodeData.refId;
+
+      // Build SQL for this condition group
+      const nodeConditions = nodeData.conditions
+        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues))
+        .filter(Boolean);
+
+      if (nodeConditions.length > 0) {
+        const nodeSql = `(${nodeConditions.join(' AND ')})`;
+        // Replace refId with SQL (word boundary to avoid partial matches)
+        const refPattern = new RegExp(`\\b${refId}\\b`, 'gi');
+        sql = sql.replace(refPattern, nodeSql);
+      }
+    }
+
+    return sql;
+  }
 }
 
 /**
@@ -229,7 +396,7 @@ export class AssociationStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
+  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const parts: string[] = [];
 
     // SELECT
@@ -244,10 +411,18 @@ export class AssociationStrategy extends BaseStrategy {
       parts.push(joinClause);
     }
 
-    // WHERE
-    const whereClause = this.buildWhereClause(nodes);
-    if (whereClause) {
-      parts.push(whereClause);
+    // WHERE - use placeholder-aware version if values provided
+    if (placeholderValues && Object.keys(placeholderValues).length > 0) {
+      const whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
+      if (whereClause) {
+        parts.push(whereClause);
+      }
+    } else {
+      // Fallback to legacy where clause
+      const whereClause = this.buildWhereClause(nodes);
+      if (whereClause) {
+        parts.push(whereClause);
+      }
     }
 
     // GROUP BY

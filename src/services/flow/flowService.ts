@@ -3,7 +3,8 @@
  * Integration with DuckDB for analysis flow data operations
  */
 
-import type { Field, FieldType, TableSchema } from './types';
+import type { Field, FieldType, TableSchema, FlowNode } from './types';
+import { PLACEHOLDER_CONSTANTS } from './constants';
 
 /**
  * Get list of available tables from DuckDB
@@ -172,4 +173,86 @@ export async function getTableRowCount(
     console.error(`[FlowService] Failed to get row count for ${tableName}:`, error);
     return 0;
   }
+}
+
+// ============================================================================
+// Placeholder Name Generation
+// ============================================================================
+
+/**
+ * Generate a unique refId for condition definition node (e.g., CG1, CG2)
+ * @param nodes Current flow nodes
+ * @returns Unique refId (max 5 chars, alphanumeric)
+ */
+export function generateConditionGroupRefId(nodes: FlowNode[]): string {
+  const prefix = PLACEHOLDER_CONSTANTS.DEFAULT_PREFIX;
+  const existingIds = new Set(
+    nodes
+      .filter((n) => n.type === 'conditionDefinition')
+      .map((n) => (n.data as { refId?: string }).refId)
+      .filter(Boolean)
+  );
+
+  let counter = 1;
+  let refId = `${prefix}${counter}`;
+
+  while (existingIds.has(refId)) {
+    counter++;
+    refId = `${prefix}${counter}`;
+  }
+
+  return refId;
+}
+
+/**
+ * Generate placeholder name for a condition within a group
+ * @param refId Group refId (e.g., CG1)
+ * @param conditionIndex Condition index within group (0-based)
+ * @returns Placeholder name (e.g., CG1_1, CG1_2)
+ */
+export function generatePlaceholderName(refId: string, conditionIndex: number): string {
+  return `${refId}${PLACEHOLDER_CONSTANTS.SEPARATOR}${conditionIndex + 1}`;
+}
+
+/**
+ * Validate refId format (Q18: max 5 chars, alphanumeric only)
+ * @param refId RefId to validate
+ * @returns Validation result
+ */
+export function validateRefId(refId: string): { valid: boolean; error?: string } {
+  if (refId.length > PLACEHOLDER_CONSTANTS.MAX_REF_ID_LENGTH) {
+    return {
+      valid: false,
+      error: `RefId must be at most ${PLACEHOLDER_CONSTANTS.MAX_REF_ID_LENGTH} characters`,
+    };
+  }
+
+  if (!PLACEHOLDER_CONSTANTS.ALLOWED_REF_ID_PATTERN.test(refId)) {
+    return {
+      valid: false,
+      error: 'RefId must contain only alphanumeric characters',
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Check if refId is unique within the flow (Q18: unique within flow)
+ * @param refId RefId to check
+ * @param nodes Current flow nodes
+ * @param excludeNodeId Optional node ID to exclude (for editing)
+ * @returns Whether refId is unique
+ */
+export function isRefIdUnique(
+  refId: string,
+  nodes: FlowNode[],
+  excludeNodeId?: string
+): boolean {
+  return !nodes.some(
+    (n) =>
+      n.type === 'conditionDefinition' &&
+      n.id !== excludeNodeId &&
+      (n.data as { refId?: string }).refId === refId
+  );
 }

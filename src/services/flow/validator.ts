@@ -17,6 +17,8 @@ import {
   type SelectNodeData,
   type SelectAggNodeData,
   type EndNodeData,
+  type ConditionGroupNodeData,
+  type ConditionDefinitionNodeData,
 } from './types';
 import { VALIDATION_MESSAGES } from './constants';
 
@@ -592,6 +594,79 @@ export function validateNode(
   }
 
   return errors;
+}
+
+/**
+ * Check if a node is referenced by other nodes (Q16)
+ * Returns an array of referencing node IDs
+ */
+export function checkNodeReferences(
+  nodeId: string,
+  nodes: FlowNode[]
+): { nodeId: string; nodeType: string; refId?: string }[] {
+  const referencingNodes: { nodeId: string; nodeType: string; refId?: string }[] = [];
+
+  // Get the node being checked
+  const targetNode = nodes.find((n) => n.id === nodeId);
+  if (!targetNode) return referencingNodes;
+
+  // Check ConditionGroupNode references (via conditionIds)
+  const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+  for (const groupNode of conditionGroupNodes) {
+    const groupData = groupNode.data as ConditionGroupNodeData;
+    if (groupData.conditionIds?.includes(nodeId)) {
+      referencingNodes.push({
+        nodeId: groupNode.id,
+        nodeType: groupNode.type,
+      });
+    }
+  }
+
+  // Check custom expression references (for condition definition nodes)
+  if (targetNode.type === FlowNodeType.CONDITION_DEFINITION) {
+    const targetRefId = (targetNode.data as ConditionDefinitionNodeData).refId;
+
+    for (const node of nodes) {
+      if (node.type === FlowNodeType.CONDITION_GROUP) {
+        const groupData = node.data as ConditionGroupNodeData;
+        if (groupData.customExpression) {
+          // Check if expression contains the refId (simple string check)
+          const expression = groupData.customExpression;
+          const refPattern = new RegExp(`\\b${targetRefId}\\b`, 'i');
+          if (refPattern.test(expression)) {
+            referencingNodes.push({
+              nodeId: node.id,
+              nodeType: node.type,
+              refId: targetRefId,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return referencingNodes;
+}
+
+/**
+ * Validate if a node can be safely removed
+ * Returns validation result with error message if cannot remove
+ */
+export function validateNodeRemoval(
+  nodeId: string,
+  nodes: FlowNode[]
+): { canRemove: boolean; error?: string; referencingNodes?: { nodeId: string; nodeType: string }[] } {
+  const references = checkNodeReferences(nodeId, nodes);
+
+  if (references.length > 0) {
+    return {
+      canRemove: false,
+      error: `This node is referenced by ${references.length} other node(s). Please remove the references first.`,
+      referencingNodes: references,
+    };
+  }
+
+  return { canRemove: true };
 }
 
 /**

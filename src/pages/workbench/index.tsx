@@ -1115,7 +1115,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           </div>
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-          <div style={{ flex: 1, overflow: 'auto', padding: '0', paddingBottom: '160px' }} ref={contentRef}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '0', paddingBottom: '200px' }} ref={contentRef}>
             {renderAnalysisView()}
           </div>
           

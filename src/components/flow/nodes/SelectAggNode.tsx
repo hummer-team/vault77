@@ -47,6 +47,10 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
+  const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const nodes = useFlowStore((state) => state.nodes);
+  const edges = useFlowStore((state) => state.edges);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -61,6 +65,60 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
   const handleClick = useCallback(() => {
     setSelectedNode(id);
   }, [id, setSelectedNode]);
+
+  // Check if there's already a merge node (衔接节点) connected to this select node
+  const hasConnectedMergeNode = React.useMemo(() => {
+    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'merge');
+  }, [edges, nodes, id]);
+
+  // Auto-create merge node (衔接节点 "+") after select agg node if not exists
+  // This allows user to enter condition definition flow (Q17)
+  React.useEffect(() => {
+    // Only auto-create if:
+    // 1. Fields have been selected
+    // 2. No merge node is already connected
+    // 3. The SelectAggNode itself exists in the flow
+    const hasFields = (data.fields?.length || 0) > 0;
+    if (hasFields && !hasConnectedMergeNode) {
+      const selectNode = nodes.find((n) => n.id === id);
+      if (!selectNode) return;
+
+      // Check again to prevent race conditions
+      const currentEdges = useFlowStore.getState().edges;
+      const currentNodes = useFlowStore.getState().nodes;
+      const alreadyHasMerge = currentEdges.some(
+        (e) =>
+          e.source === id &&
+          currentNodes.find((n) => n.id === e.target)?.type === 'merge'
+      );
+
+      if (alreadyHasMerge) return;
+
+      const selectX = selectNode.position.x;
+      const selectY = selectNode.position.y;
+
+      // Create merge node (衔接节点 "+") to enter condition definition flow
+      const mergeNodeId = `merge_${Date.now()}`;
+      const mergeNode = {
+        id: mergeNodeId,
+        type: 'merge' as const,
+        position: { x: selectX + 280, y: selectY },
+        data: { tableCount: 1 },
+      };
+      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+
+      // Connect select -> merge with arrow marker
+      addEdge({
+        id: `e_${id}_${mergeNodeId}`,
+        source: id,
+        target: mergeNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#8c8c8c', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+      } as unknown as Parameters<typeof addEdge>[0]);
+    }
+  }, [data.fields, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
 
   const hasFields = (data.fields?.length || 0) > 0;
   const hasGroupBy = (data.groupByFields?.length || 0) > 0;

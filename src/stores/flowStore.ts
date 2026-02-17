@@ -5,15 +5,17 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type {
-  FlowState,
-  FlowNode,
-  FlowEdge,
-  FlowNodeData,
-  ValidationError,
-  OperatorType,
+import {
+  FlowNodeType,
+  ValidationSeverity,
+  type FlowState,
+  type FlowNode,
+  type FlowEdge,
+  type FlowNodeData,
+  type ValidationError,
+  type OperatorType,
 } from '../services/flow/types';
-import { validateNode, validateFlow } from '../services/flow/validator';
+import { validateNode, validateFlow, validateNodeRemoval } from '../services/flow/validator';
 
 // Initial state factory
 const createInitialState = () => ({
@@ -30,6 +32,7 @@ const createInitialState = () => ({
     },
   ] as FlowNode[],
   edges: [] as FlowEdge[],
+  placeholderValues: {} as Record<string, unknown>,
   selectedNodeId: null as string | null,
   detailPanelOpen: false,
   errorPanelOpen: false,
@@ -108,6 +111,27 @@ export const useFlowStore = create<FlowState>()(
 
     // Remove node and related edges
     removeNode: (id: string) => {
+      const state = get();
+
+      // Check if node can be safely removed (Q16)
+      const removalValidation = validateNodeRemoval(id, state.nodes);
+      if (!removalValidation.canRemove) {
+        console.warn('[FlowStore] Cannot remove node:', removalValidation.error);
+        // Add error to validation errors
+        const targetNode = state.nodes.find((n) => n.id === id);
+        const newError: ValidationError = {
+          nodeId: id,
+          nodeType: targetNode?.type || FlowNodeType.END,
+          message: removalValidation.error || 'Node is referenced by other nodes',
+          severity: ValidationSeverity.ERROR,
+        };
+        set((state) => {
+          state.validationErrors.push(newError);
+          state.errorPanelOpen = true;
+        });
+        return;
+      }
+
       set((state) => {
         // Remove node
         state.nodes = state.nodes.filter((n) => n.id !== id);
@@ -121,10 +145,10 @@ export const useFlowStore = create<FlowState>()(
           state.detailPanelOpen = false;
         }
       });
-      
+
       // Re-validate entire flow after removing node
-      const state = get();
-      const errors = validateFlow(state.nodes, state.edges);
+      const newState = get();
+      const errors = validateFlow(newState.nodes, newState.edges);
       set((state) => {
         state.validationErrors = errors;
       });
@@ -193,6 +217,27 @@ export const useFlowStore = create<FlowState>()(
     // Reset flow
     resetFlow: () => {
       set(() => createInitialState());
+    },
+
+    // Placeholder value actions
+    setPlaceholderValue: (placeholder: string, value: unknown) => {
+      set((state) => {
+        state.placeholderValues[placeholder] = value;
+      });
+    },
+
+    getPlaceholderValue: (placeholder: string) => {
+      return get().placeholderValues[placeholder];
+    },
+
+    getAllPlaceholderValues: () => {
+      return get().placeholderValues;
+    },
+
+    clearPlaceholderValues: () => {
+      set((state) => {
+        state.placeholderValues = {};
+      });
     },
   }))
 );

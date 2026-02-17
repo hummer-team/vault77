@@ -223,7 +223,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const currentPersona = getPersonaById(currentPersonaId);
 
   return (
-    <div className="floating-chat-container">
+    <div className="floating-chat-container" style={{
+      position: 'absolute',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '100%',
+      maxWidth: '896px',
+      zIndex: 10,
+    }}>
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 

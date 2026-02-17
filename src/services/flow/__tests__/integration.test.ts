@@ -3,7 +3,7 @@
  * End-to-End tests for complete analysis flow execution
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   FlowNodeType,
   JoinType,
@@ -331,7 +331,7 @@ describe('Integration Tests - Complete Flow Execution', () => {
         { id: 3, amount: 50, score: 0.1 },
       ];
 
-      const result = await strategy.postProcess(mockData);
+      const result = await strategy.postProcess(mockData as any);
 
       expect(result.type).toBe(OperatorType.ANOMALY);
       expect(result.insights).toBeDefined();
@@ -408,7 +408,7 @@ describe('Integration Tests - Complete Flow Execution', () => {
         { id: 3, recency: 30, frequency: 1, monetary: 100 },
       ];
 
-      const result = await strategy.postProcess(mockData);
+      const result = await strategy.postProcess(mockData as any);
 
       expect(result.type).toBe(OperatorType.CLUSTERING);
       expect(result.insights).toBeDefined();

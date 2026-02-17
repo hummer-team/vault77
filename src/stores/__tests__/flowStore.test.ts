@@ -18,11 +18,13 @@ describe('Flow Store', () => {
       const state = useFlowStore.getState();
       expect(state.flowName).toBe('');
       expect(state.operatorType).toBe(OperatorType.ASSOCIATION);
-      expect(state.nodes).toEqual([]);
+      expect(state.nodes).toHaveLength(1); // Start node is initialized by default
+      expect(state.nodes[0].type).toBe(FlowNodeType.START);
       expect(state.edges).toEqual([]);
       expect(state.selectedNodeId).toBeNull();
       expect(state.detailPanelOpen).toBe(false);
       expect(state.validationErrors).toEqual([]);
+      expect(state.placeholderValues).toEqual({});
     });
   });
 
@@ -55,8 +57,8 @@ describe('Flow Store', () => {
       };
 
       useFlowStore.getState().addNode(node as never);
-      expect(useFlowStore.getState().nodes).toHaveLength(1);
-      expect(useFlowStore.getState().nodes[0].id).toBe('node-1');
+      expect(useFlowStore.getState().nodes).toHaveLength(2); // Start node + added node
+      expect(useFlowStore.getState().nodes[1].id).toBe('node-1');
     });
 
     it('should update a node', () => {
@@ -75,8 +77,8 @@ describe('Flow Store', () => {
       useFlowStore.getState().addNode(node as never);
       useFlowStore.getState().updateNode('node-1', { alias: 'updated_alias' });
 
-      const updatedNode = useFlowStore.getState().nodes[0];
-      expect((updatedNode.data as { alias: string }).alias).toBe('updated_alias');
+      const updatedNode = useFlowStore.getState().nodes.find((n) => n.id === 'node-1');
+      expect((updatedNode?.data as { alias: string }).alias).toBe('updated_alias');
     });
 
     it('should remove a node', () => {
@@ -94,7 +96,7 @@ describe('Flow Store', () => {
 
       useFlowStore.getState().addNode(node as never);
       useFlowStore.getState().removeNode('node-1');
-      expect(useFlowStore.getState().nodes).toHaveLength(0);
+      expect(useFlowStore.getState().nodes).toHaveLength(1); // Only start node remains
     });
 
     it('should remove related edges when removing a node', () => {
@@ -215,7 +217,45 @@ describe('Flow Store', () => {
 
       expect(useFlowStore.getState().flowName).toBe('');
       expect(useFlowStore.getState().operatorType).toBe(OperatorType.ASSOCIATION);
-      expect(useFlowStore.getState().nodes).toEqual([]);
+      expect(useFlowStore.getState().nodes).toHaveLength(1); // Start node remains
+      expect(useFlowStore.getState().nodes[0].type).toBe(FlowNodeType.START);
+    });
+  });
+
+  describe('Placeholder Values', () => {
+    it('should set placeholder value', () => {
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'test_value');
+      expect(useFlowStore.getState().placeholderValues['CG1_1']).toBe('test_value');
+    });
+
+    it('should get placeholder value', () => {
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'test_value');
+      const value = useFlowStore.getState().getPlaceholderValue('CG1_1');
+      expect(value).toBe('test_value');
+    });
+
+    it('should return undefined for non-existent placeholder', () => {
+      const value = useFlowStore.getState().getPlaceholderValue('NON_EXISTENT');
+      expect(value).toBeUndefined();
+    });
+
+    it('should get all placeholder values', () => {
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'value1');
+      useFlowStore.getState().setPlaceholderValue('CG1_2', 'value2');
+      const values = useFlowStore.getState().getAllPlaceholderValues();
+      expect(values).toEqual({ CG1_1: 'value1', CG1_2: 'value2' });
+    });
+
+    it('should clear all placeholder values', () => {
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'value1');
+      useFlowStore.getState().clearPlaceholderValues();
+      expect(useFlowStore.getState().placeholderValues).toEqual({});
+    });
+
+    it('should update existing placeholder value', () => {
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'old_value');
+      useFlowStore.getState().setPlaceholderValue('CG1_1', 'new_value');
+      expect(useFlowStore.getState().placeholderValues['CG1_1']).toBe('new_value');
     });
   });
 });
