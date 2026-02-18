@@ -60,9 +60,12 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   }, [allPlaceholders, getAllPlaceholderValues]);
 
   // Handle click - open value fill panel to allow editing
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    // Prevent event bubbling to avoid conflicts with Drawer
+    e.stopPropagation();
     // Always open value fill panel when END node is clicked
     // This allows users to re-edit filled values
+    console.log('[EndNode] Node clicked, opening value fill panel');
     setValueFillPanelOpen(true);
   }, []);
 
@@ -160,10 +163,14 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   );
 
   // Handle value fill panel close
-  const handleValueFillClose = useCallback(() => {
-    console.log('[EndNode] handleValueFillClose called');
+  const handleValueFillClose = useCallback((e?: React.MouseEvent | React.KeyboardEvent) => {
+    console.log('[EndNode] handleValueFillClose called, event:', e?.type);
+    // Prevent any potential event bubbling issues
+    if (e) {
+      e.stopPropagation();
+    }
     setValueFillPanelOpen(false);
-    console.log('[EndNode] setValueFillPanelOpen(false) called');
+    console.log('[EndNode] setValueFillPanelOpen(false) called, state should update');
   }, []);
 
   // Handle value fill and execute

@@ -226,13 +226,11 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       placement="right"
       width={420}
       open={open}
-      onClose={(e) => {
-        console.log('[ValueFillPanel] Drawer onClose triggered, event:', e);
-        onClose();
-      }}
+      onClose={onClose}
       maskClosable={true}
       closable={true}
       destroyOnClose={false}
+      keyboard={true}
       styles={{
         header: {
           background: '#1a1a1a',
