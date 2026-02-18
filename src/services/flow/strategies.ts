@@ -230,13 +230,16 @@ abstract class BaseStrategy implements FlowStrategy {
   ): string {
     // Get condition definition nodes
     const conditionDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+    console.log('[buildWhereClauseWithPlaceholders] Condition definition nodes:', conditionDefNodes.length);
     if (conditionDefNodes.length === 0) return '';
 
     // Get condition group nodes (relation nodes)
     const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+    console.log('[buildWhereClauseWithPlaceholders] Condition group nodes:', conditionGroupNodes.length);
 
     // If no relation nodes, combine all condition definitions with AND
     if (conditionGroupNodes.length === 0) {
+      console.log('[buildWhereClauseWithPlaceholders] No group nodes, using all conditions with AND');
       const allConditions = this.buildConditionDefinitionSql(
         conditionDefNodes,
         placeholderValues,
@@ -248,9 +251,16 @@ abstract class BaseStrategy implements FlowStrategy {
     // Use the first condition group node to determine logic
     const groupNode = conditionGroupNodes[0];
     const groupData = groupNode.data as ConditionGroupNodeData;
+    console.log('[buildWhereClauseWithPlaceholders] Group data:', {
+      relationType: groupData.relationType,
+      logicType: groupData.logicType,
+      conditionIds: groupData.conditionIds,
+      customExpression: groupData.customExpression,
+    });
 
     // Handle custom expression (Q9: string replacement approach)
     if (groupData.relationType === 'CUSTOM' && groupData.customExpression) {
+      console.log('[buildWhereClauseWithPlaceholders] Using CUSTOM expression');
       const sql = this.parseCustomExpression(
         groupData.customExpression,
         conditionDefNodes,
@@ -261,11 +271,18 @@ abstract class BaseStrategy implements FlowStrategy {
 
     // Handle AND/OR mode
     const selectedConditionIds = groupData.conditionIds || [];
-    const selectedNodes = conditionDefNodes.filter((n) =>
-      selectedConditionIds.includes(n.id)
-    );
+    console.log('[buildWhereClauseWithPlaceholders] Selected condition IDs:', selectedConditionIds);
+    
+    const selectedNodes = conditionDefNodes.filter((n) => {
+      const nodeData = n.data as ConditionDefinitionNodeData;
+      return selectedConditionIds.includes(nodeData.refId);
+    });
+    console.log('[buildWhereClauseWithPlaceholders] Selected nodes:', selectedNodes.length);
 
-    if (selectedNodes.length === 0) return '';
+    if (selectedNodes.length === 0) {
+      console.log('[buildWhereClauseWithPlaceholders] No selected nodes, returning empty WHERE');
+      return '';
+    }
 
     const logicType = groupData.logicType || LogicType.AND;
     const conditions = this.buildConditionDefinitionSql(
@@ -273,6 +290,7 @@ abstract class BaseStrategy implements FlowStrategy {
       placeholderValues,
       logicType
     );
+    console.log('[buildWhereClauseWithPlaceholders] Generated conditions:', conditions);
 
     return conditions ? `WHERE ${conditions}` : '';
   }
@@ -292,7 +310,7 @@ abstract class BaseStrategy implements FlowStrategy {
       if (!nodeData.tableName) continue;
 
       const nodeConditions = nodeData.conditions
-        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues))
+        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues, nodeData.tableName))
         .filter(Boolean);
 
       if (nodeConditions.length > 0) {
@@ -309,7 +327,8 @@ abstract class BaseStrategy implements FlowStrategy {
    */
   private buildSingleConditionSql(
     condition: ConditionItem,
-    placeholderValues: Record<string, unknown>
+    placeholderValues: Record<string, unknown>,
+    tableName: string
   ): string {
     const value = placeholderValues[condition.placeholder];
 
@@ -327,7 +346,8 @@ abstract class BaseStrategy implements FlowStrategy {
       sqlValue = this.escapeSqlValue(value);
     }
 
-    return `"${condition.field}" ${condition.operator} ${sqlValue}`;
+    // Use table-qualified field name to avoid ambiguity
+    return `"${tableName}"."${condition.field}" ${condition.operator} ${sqlValue}`;
   }
 
   /**
@@ -369,7 +389,7 @@ abstract class BaseStrategy implements FlowStrategy {
 
       // Build SQL for this condition group
       const nodeConditions = nodeData.conditions
-        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues))
+        .map((cond) => this.buildSingleConditionSql(cond, placeholderValues, nodeData.tableName))
         .filter(Boolean);
 
       if (nodeConditions.length > 0) {
@@ -412,12 +432,18 @@ export class AssociationStrategy extends BaseStrategy {
     }
 
     // WHERE - use placeholder-aware version if values provided
+    console.log('[AssociationStrategy.buildSql] placeholderValues:', placeholderValues);
+    console.log('[AssociationStrategy.buildSql] placeholderValues keys:', placeholderValues ? Object.keys(placeholderValues) : 'null');
+    
     if (placeholderValues && Object.keys(placeholderValues).length > 0) {
+      console.log('[AssociationStrategy.buildSql] Using buildWhereClauseWithPlaceholders');
       const whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
+      console.log('[AssociationStrategy.buildSql] whereClause:', whereClause);
       if (whereClause) {
         parts.push(whereClause);
       }
     } else {
+      console.log('[AssociationStrategy.buildSql] Using legacy buildWhereClause');
       // Fallback to legacy where clause
       const whereClause = this.buildWhereClause(nodes);
       if (whereClause) {

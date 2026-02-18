@@ -6,13 +6,12 @@
 
 import React, { useCallback, useState, useMemo } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
-import { Button, Tag, Space, Badge, Tooltip, Spin } from 'antd';
+import { Button, Tag, Space, Tooltip } from 'antd';
 import {
   PlayCircleOutlined,
   SaveOutlined,
   FlagOutlined,
   ExclamationCircleOutlined,
-  LoadingOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { EndNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
@@ -30,12 +29,11 @@ interface EndNodeProps {
 }
 
 export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValidated }) => {
-  const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const setErrorPanelOpen = useFlowStore((state) => state.setErrorPanelOpen);
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
-  const placeholderValues = useFlowStore((state) => state.placeholderValues);
+  const getAllPlaceholderValues = useFlowStore((state) => state.getAllPlaceholderValues);
   const { executeQuery, isDBReady } = useDuckDBContext();
 
   // State for value fill panel
@@ -57,37 +55,16 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
   // Check if there are unfilled placeholders
   const hasUnfilledPlaceholders = useMemo(() => {
+    const placeholderValues = getAllPlaceholderValues();
     return allPlaceholders.some((p) => placeholderValues[p] === undefined);
-  }, [allPlaceholders, placeholderValues]);
+  }, [allPlaceholders, getAllPlaceholderValues]);
 
-  // Handle click
+  // Handle click - open value fill panel to allow editing
   const handleClick = useCallback(() => {
-    setSelectedNode(id);
-  }, [id, setSelectedNode]);
-
-  // Handle execute button click
-  const handleExecuteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-
-      if ((data.errors?.length || 0) > 0) {
-        // Show error panel
-        setErrorPanelOpen(true);
-        return;
-      }
-
-      // Check if there are unfilled placeholders (Q15)
-      if (hasUnfilledPlaceholders) {
-        // Open value fill panel
-        setValueFillPanelOpen(true);
-        return;
-      }
-
-      // All placeholders filled, execute directly
-      executeFlow();
-    },
-    [data.errors, hasUnfilledPlaceholders, setErrorPanelOpen]
-  );
+    // Always open value fill panel when END node is clicked
+    // This allows users to re-edit filled values
+    setValueFillPanelOpen(true);
+  }, []);
 
   // Handle execute after value filling
   const executeFlow = useCallback(
@@ -136,7 +113,9 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           }
         }
 
-        // Build SQL query with placeholder values
+        // Build SQL query with placeholder values - get fresh values from store
+        const placeholderValues = getAllPlaceholderValues();
+        console.log('[EndNode.executeFlow] About to build SQL with placeholderValues:', placeholderValues);
         const sql = strategy.buildSql(nodes, edges, placeholderValues);
         console.log('Generated SQL:', sql);
 
@@ -177,17 +156,21 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         setErrorPanelOpen(true);
       }
     },
-    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, placeholderValues]
+    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues]
   );
 
   // Handle value fill panel close
   const handleValueFillClose = useCallback(() => {
+    console.log('[EndNode] handleValueFillClose called');
     setValueFillPanelOpen(false);
+    console.log('[EndNode] setValueFillPanelOpen(false) called');
   }, []);
 
   // Handle value fill and execute
   const handleValueFillExecute = useCallback(() => {
+    console.log('[EndNode] handleValueFillExecute called');
     setValueFillPanelOpen(false);
+    console.log('[EndNode] setValueFillPanelOpen(false) called, will execute flow');
     executeFlow();
   }, [executeFlow]);
 
@@ -302,36 +285,24 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - only show save button, execute is handled via ValueFillPanel */}
       <Space style={{ width: '100%', justifyContent: 'center' }}>
-        <Tooltip title={
-          errorCount > 0
-            ? '请先修复错误'
-            : hasUnfilledPlaceholders
-            ? '需要填充条件值'
-            : data.executing
-            ? '执行中...'
-            : '执行分析'
-        }>
-          <Badge
-            count={hasUnfilledPlaceholders ? allPlaceholders.length : errorCount}
-            dot={errorCount > 0}
-            color={hasUnfilledPlaceholders ? 'blue' : undefined}
+        <Tooltip title="点击节点填充条件值并执行">
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              setValueFillPanelOpen(true);
+            }}
+            disabled={errorCount > 0}
+            danger={errorCount > 0}
           >
-            <Button
-              type="primary"
-              icon={data.executing ? <Spin indicator={<LoadingOutlined spin />} size="small" /> : <PlayCircleOutlined />}
-              onClick={handleExecuteClick}
-              disabled={errorCount > 0 || data.executing}
-              danger={errorCount > 0}
-              loading={data.executing}
-            >
-              {data.executing ? '执行中' : hasUnfilledPlaceholders ? '填充值并执行' : '执行'}
-            </Button>
-          </Badge>
+            {hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
+          </Button>
         </Tooltip>
 
-        <Tooltip>
+        <Tooltip title="保存为模板">
           <Button
             icon={<SaveOutlined />}
             onClick={handleSave}

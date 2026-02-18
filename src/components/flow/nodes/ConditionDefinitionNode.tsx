@@ -13,6 +13,8 @@ import {
   PlusOutlined,
   MinusOutlined,
   EditOutlined,
+  DownOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
@@ -60,6 +62,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const [isLoadingFields, setIsLoadingFields] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [contentExpanded, setContentExpanded] = useState(true); // Content section expanded by default
 
   // Debug: log availableTables state changes
   React.useEffect(() => {
@@ -350,7 +353,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         )}
 
         {/* Logic type radio - AND/OR switch */}
-        <div className="nodrag" style={{ marginLeft: 8 }}>
+        <div className="nodrag" style={{ marginLeft: 8, marginRight: 8 }}>
           <Radio.Group
             value={data.logicType}
             onChange={(e) => handleLogicTypeChange(e.target.value)}
@@ -362,33 +365,44 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
           </Radio.Group>
         </div>
 
-        {/* Actions */}
-        {selected && (
-          <Space size={4}>
+        {/* Actions - always visible */}
+        <Space size={4}>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditingName(true);
+            }}
+            style={{ color: '#8c8c8c' }}
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
+          <Tooltip title={contentExpanded ? 'Collapse' : 'Expand'}>
             <Button
               type="text"
               size="small"
-              icon={<EditOutlined />}
+              icon={contentExpanded ? <DownOutlined /> : <RightOutlined />}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsEditingName(true);
+                setContentExpanded((prev) => !prev);
               }}
               style={{ color: '#8c8c8c' }}
             />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          </Space>
-        )}
+          </Tooltip>
+        </Space>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: '12px' }}>
+      {/* Content - collapsible */}
+      {contentExpanded && (
+        <div style={{ padding: '12px' }}>
         {/* Table selection */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
@@ -521,7 +535,8 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
             Please select table and configure all conditions
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

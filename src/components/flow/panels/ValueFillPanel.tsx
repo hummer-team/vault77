@@ -169,23 +169,32 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
+    console.log('[ValueFillPanel] Submit clicked');
     if (!validateAllValues()) {
+      console.log('[ValueFillPanel] Validation failed');
       return;
     }
 
     const values = form.getFieldsValue();
+    console.log('[ValueFillPanel] Form values:', values);
 
     // Convert and save all values
     placeholders.forEach((p) => {
       const convertedValue = convertValue(values[p.placeholder], p.fieldType);
       setPlaceholderValue(p.placeholder, convertedValue);
+      console.log(`[ValueFillPanel] Set ${p.placeholder} = ${convertedValue}`);
     });
 
-    onExecute();
+    // Use setTimeout to ensure state updates are flushed before executing
+    console.log('[ValueFillPanel] Calling onExecute() after state flush');
+    setTimeout(() => {
+      onExecute();
+    }, 0);
   }, [form, placeholders, setPlaceholderValue, onExecute, validateAllValues]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
+    console.log('[ValueFillPanel] Cancel clicked');
     form.resetFields();
     setValidationErrors({});
     onClose();
@@ -217,8 +226,13 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       placement="right"
       width={420}
       open={open}
-      onClose={handleCancel}
-      maskClosable={false}
+      onClose={(e) => {
+        console.log('[ValueFillPanel] Drawer onClose triggered, event:', e);
+        onClose();
+      }}
+      maskClosable={true}
+      closable={true}
+      destroyOnClose={false}
       styles={{
         header: {
           background: '#1a1a1a',

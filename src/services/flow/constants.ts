@@ -256,7 +256,7 @@ export const PLACEHOLDER_CONSTANTS = {
 export const MERGE_NODE_HINTS = {
   DEFAULT: '选择算子',
   AFTER_SELECT: '定义条件',
-  AFTER_CONDITION_DEFINITION: '定义条件关系',
+  AFTER_CONDITION_DEFINITION: '绑定关系',
   AFTER_RELATION: '执行OR保存',
 } as const;
 

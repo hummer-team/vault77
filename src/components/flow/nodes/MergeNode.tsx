@@ -9,7 +9,7 @@ import { Handle, Position } from '@xyflow/react';
 import { PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType } from '../../../services/flow/types';
-import type { MergeNodeData } from '../../../services/flow/types';
+import type { MergeNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
 import { generateConditionGroupRefId } from '../../../services/flow/flowService';
 
 interface MergeNodeProps {
@@ -40,7 +40,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       case FlowNodeType.SELECT_AGG:
         return '定义条件';
       case FlowNodeType.CONDITION_DEFINITION:
-        return '定义条件关系';
+        return '绑定关系';
       case FlowNodeType.CONDITION_GROUP:
       case FlowNodeType.CONDITION:
         return '执行OR保存';
@@ -140,17 +140,31 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     [id, addNode, addEdge, nodes, edges]
   );
 
-  // Create relation node
+  // Create relation node with connection to end merge
   const createRelationNode = useCallback(
     (mergeX: number, mergeY: number) => {
-      const relationNodeId = `relation_${Date.now()}`;
+      const timestamp = Date.now();
+
+      // Get all available condition definition nodes (CG1, CG2, etc.)
+      const availableConditionDefs = nodes.filter(
+        (n) => n.type === FlowNodeType.CONDITION_DEFINITION
+      );
+
+      // Auto-select all available condition definition nodes by refId
+      const conditionIds = availableConditionDefs.map(
+        (n) => (n.data as ConditionDefinitionNodeData).refId
+      );
+
+      console.log('[MergeNode] Auto-selecting conditions:', conditionIds);
+
+      const relationNodeId = `relation_${timestamp}`;
       const relationNode = {
         id: relationNodeId,
         type: FlowNodeType.CONDITION_GROUP,
         position: { x: mergeX + 180, y: mergeY },
         data: {
           logicType: LogicType.AND,
-          conditionIds: [],
+          conditionIds: conditionIds,
         },
       };
       console.log('[MergeNode] Adding relation node:', relationNode);
@@ -168,21 +182,40 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
 
-      // Auto-create next merge node for end
-      const nextMergeNodeId = `merge_${Date.now()}_2`;
-      const nextMergeNode = {
-        id: nextMergeNodeId,
-        type: FlowNodeType.MERGE,
-        position: { x: mergeX + 500, y: mergeY },
-        data: { tableCount: 1 },
-      };
-      addNode(nextMergeNode as unknown as Parameters<typeof addNode>[0]);
+      // Find or create the "执行OR保存" merge node
+      const existingEndMerge = nodes.find((n) => {
+        if (n.type !== FlowNodeType.MERGE) return false;
+        // Check if this merge node is connected from any CONDITION_GROUP node
+        return edges.some(e => {
+          const sourceNode = nodes.find(node => node.id === e.source);
+          return sourceNode?.type === FlowNodeType.CONDITION_GROUP && e.target === n.id;
+        });
+      });
 
-      // Connect relation to next merge
+      let endMergeNodeId: string;
+      let endMergeNode: { id: string; type: FlowNodeType.MERGE; position: { x: number; y: number }; data: { tableCount: number } };
+
+      if (!existingEndMerge) {
+        // Create new "执行OR保存" merge node
+        endMergeNodeId = `merge_${timestamp}_end`;
+        endMergeNode = {
+          id: endMergeNodeId,
+          type: FlowNodeType.MERGE,
+          position: { x: mergeX + 450, y: mergeY },
+          data: { tableCount: 1 },
+        };
+        console.log('[MergeNode] Creating new end merge node:', endMergeNodeId);
+        addNode(endMergeNode as unknown as Parameters<typeof addNode>[0]);
+      } else {
+        endMergeNodeId = existingEndMerge.id;
+        console.log('[MergeNode] Reusing existing end merge node:', endMergeNodeId);
+      }
+
+      // Connect relation to end merge
       const nextEdge = {
-        id: `e_${relationNodeId}_${nextMergeNodeId}`,
+        id: `e_${relationNodeId}_${endMergeNodeId}`,
         source: relationNodeId,
-        target: nextMergeNodeId,
+        target: endMergeNodeId,
         type: 'smoothstep',
         animated: false,
         style: { stroke: '#8c8c8c', strokeWidth: 2 },
@@ -190,12 +223,31 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       };
       addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
     },
-    [id, addNode, addEdge]
+    [id, addNode, addEdge, nodes, edges]
   );
 
-  // Create end node
+  // Create end node (only once)
   const createEndNode = useCallback(
     (mergeX: number, mergeY: number) => {
+      // Check if END node already exists in the flow
+      const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
+      if (existingEnd) {
+        console.log('[MergeNode] End node already exists:', existingEnd.id);
+        // Connect current merge to existing end node
+        const edge = {
+          id: `e_${id}_${existingEnd.id}`,
+          source: id,
+          target: existingEnd.id,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: '#8c8c8c', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        };
+        addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
+        return;
+      }
+
+      // Create new END node (only if none exists)
       const endNodeId = `end_${Date.now()}`;
       const endNode = {
         id: endNodeId,
@@ -222,7 +274,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
     },
-    [id, addNode, addEdge]
+    [id, addNode, addEdge, nodes]
   );
 
   const handleCreateNextNode = useCallback(
@@ -246,43 +298,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           break;
 
         case FlowNodeType.CONDITION_DEFINITION:
-          // After condition definition, check if relation node already exists
-          const existingRelation = nodes.find((n) => n.type === FlowNodeType.CONDITION_GROUP);
-          if (existingRelation) {
-            console.log('[MergeNode] Relation node already exists, will NOT connect automatically');
-            // Don't auto-connect - user needs to manually connect from condition definition to relation
-            // Just create the next merge node if it doesn't exist
-            const existingNextMerge = nodes.find((n) => 
-              n.type === FlowNodeType.MERGE && 
-              edges.some(e => e.source === existingRelation.id && e.target === n.id)
-            );
-            if (!existingNextMerge) {
-              // Create merge node after relation if not exists
-              const nextMergeNodeId = `merge_${Date.now()}`;
-              const nextMergeNode = {
-                id: nextMergeNodeId,
-                type: FlowNodeType.MERGE,
-                position: { x: existingRelation.position.x + 220, y: existingRelation.position.y },
-                data: { tableCount: 1 },
-              };
-              addNode(nextMergeNode as unknown as Parameters<typeof addNode>[0]);
-              
-              // Connect relation to new merge
-              const nextEdge = {
-                id: `e_${existingRelation.id}_${nextMergeNodeId}`,
-                source: existingRelation.id,
-                target: nextMergeNodeId,
-                type: 'smoothstep',
-                animated: false,
-                style: { stroke: '#8c8c8c', strokeWidth: 2 },
-                markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
-              };
-              addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
-            }
-          } else {
-            // Create new relation node (only first time)
-            createRelationNode(mergeX, mergeY);
-          }
+          // After condition definition, create a new relation node every time (support multiple)
+          // Each relation node will be auto-connected to the "执行OR保存" merge node
+          console.log('[MergeNode] Creating new relation node from condition definition');
+          createRelationNode(mergeX, mergeY);
           break;
 
         case FlowNodeType.CONDITION_GROUP:

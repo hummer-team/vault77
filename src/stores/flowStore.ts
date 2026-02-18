@@ -221,9 +221,11 @@ export const useFlowStore = create<FlowState>()(
 
     // Placeholder value actions
     setPlaceholderValue: (placeholder: string, value: unknown) => {
+      console.log('[FlowStore] setPlaceholderValue called:', placeholder, '=', value);
       set((state) => {
         state.placeholderValues[placeholder] = value;
       });
+      console.log('[FlowStore] Current placeholderValues:', get().placeholderValues);
     },
 
     getPlaceholderValue: (placeholder: string) => {

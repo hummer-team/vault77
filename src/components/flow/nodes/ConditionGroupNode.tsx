@@ -6,13 +6,12 @@
 
 import React, { useCallback, useState, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Button, Space, Tooltip, Badge, Radio, Input, Select, Tag, message } from 'antd';
+import { Button, Space, Tooltip, Radio, Input, Select, Tag } from 'antd';
 import {
   FilterOutlined,
   DeleteOutlined,
   DownOutlined,
   RightOutlined,
-  EditOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
@@ -27,20 +26,20 @@ interface ConditionGroupNodeProps {
 // Extended relation type for AND/OR/CUSTOM
  type RelationType = 'AND' | 'OR' | 'CUSTOM';
 
-// Logic type colors
+// Logic type colors - opaque backgrounds
 const LOGIC_TYPE_COLORS: Record<RelationType, { bg: string; border: string; text: string }> = {
   AND: {
-    bg: 'rgba(82, 196, 26, 0.15)',
+    bg: '#1a2e15',
     border: '#52c41a',
     text: '#52c41a',
   },
   OR: {
-    bg: 'rgba(250, 140, 22, 0.15)',
+    bg: '#2e1a0f',
     border: '#fa8c16',
     text: '#fa8c16',
   },
   CUSTOM: {
-    bg: 'rgba(139, 92, 246, 0.15)',
+    bg: '#261a40',
     border: '#8B5CF6',
     text: '#A78BFA',
   },
@@ -59,24 +58,36 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   selected,
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
-  const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
-  const [expanded, setExpanded] = useState(true);
+  const [configExpanded, setConfigExpanded] = useState(true); // Config section always expanded by default
 
   // Get current relation type (default to data.logicType for backward compatibility)
   const relationType: RelationType = data.relationType || data.logicType;
+
+  // Check if ANY condition group node in the flow has CUSTOM mode enabled
+  const hasCustomModeEnabled = useMemo(() => {
+    return nodes.some((n) => {
+      if (n.type !== 'conditionGroup' || n.id === id) return false;
+      const nodeData = n.data as ConditionGroupNodeData;
+      return nodeData.relationType === 'CUSTOM';
+    });
+  }, [nodes, id]);
+
+  // Current node is disabled if another node is in CUSTOM mode
+  const isDisabledByCustomMode = hasCustomModeEnabled && relationType !== 'CUSTOM';
 
   // Get all available condition definition nodes (CG1, CG2, etc.)
   const availableConditionDefs = useMemo(() => {
     return nodes.filter((n) => n.type === 'conditionDefinition');
   }, [nodes]);
 
-  // Get selected condition definition nodes
+  // Get selected condition definition nodes by refId
   const selectedConditionDefs = useMemo(() => {
-    return nodes.filter((n) =>
-      (data.conditionIds || []).includes(n.id)
-    );
+    return nodes.filter((n) => {
+      const refId = (n.data as ConditionDefinitionNodeData).refId;
+      return (data.conditionIds || []).includes(refId);
+    });
   }, [nodes, data.conditionIds]);
 
   // Validate custom expression (Q3: only AND/OR/并且/或者 and parentheses)
@@ -118,15 +129,28 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   const handleRelationTypeChange = useCallback(
     (newType: RelationType) => {
       if (newType === 'CUSTOM') {
-        // When switching to CUSTOM, show warning about AND/OR being disabled (Q14)
-        message.info('Custom expression mode disables AND/OR selection');
+        // Save current state before switching to CUSTOM
+        updateNode(id, {
+          relationType: newType,
+          logicType: 'AND' as const,
+          savedConditionIds: data.conditionIds || [], // Backup current selection
+          savedLogicType: data.logicType, // Backup current logic type
+          conditionIds: [], // Clear selection in CUSTOM mode
+        } as Partial<ConditionGroupNodeData>);
+      } else {
+        // Restore saved state when switching back from CUSTOM
+        const restoredConditionIds = data.savedConditionIds || [];
+        
+        updateNode(id, {
+          relationType: newType,
+          logicType: newType,
+          conditionIds: restoredConditionIds, // Restore previous selection
+          savedConditionIds: undefined, // Clear backup
+          savedLogicType: undefined, // Clear backup
+        } as Partial<ConditionGroupNodeData>);
       }
-      updateNode(id, {
-        relationType: newType,
-        logicType: newType === 'CUSTOM' ? 'AND' : newType,
-      } as Partial<ConditionGroupNodeData>);
     },
-    [id, updateNode]
+    [id, updateNode, data.conditionIds, data.logicType, data.savedConditionIds, data.savedLogicType]
   );
 
   // Handle custom expression change
@@ -154,15 +178,16 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
     [id, removeNode]
   );
 
-  // Handle click
-  const handleClick = useCallback(() => {
-    setSelectedNode(id);
-  }, [id, setSelectedNode]);
-
-  // Toggle expand
-  const handleExpand = useCallback((e: React.MouseEvent) => {
+  // Handle click - do not trigger selection to prevent detail panel
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    // Prevent node selection - no detail panel should open for condition group node
     e.stopPropagation();
-    setExpanded((prev) => !prev);
+  }, []);
+
+  // Toggle config section expand
+  const handleConfigExpand = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfigExpanded((prev) => !prev);
   }, []);
 
   const colors = LOGIC_TYPE_COLORS[relationType];
@@ -187,6 +212,8 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
+        opacity: isDisabledByCustomMode ? 0.5 : 1, // Visual feedback when disabled
+        pointerEvents: isDisabledByCustomMode ? 'none' : 'auto', // Disable interaction when disabled
       }}
       className="condition-group-node"
       onClick={handleClick}
@@ -224,7 +251,6 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           alignItems: 'center',
           padding: '10px 12px',
           background: selected ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-          borderBottom: selectedConditionDefs.length > 0 && expanded ? `1px solid ${colors.border}` : 'none',
         }}
       >
         {/* Logic type icon */}
@@ -259,51 +285,30 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           {LOGIC_TYPE_LABELS[relationType]}
         </span>
 
-        {/* Condition count */}
-        <Badge
-          count={selectedConditionDefs.length}
-          style={{
-            backgroundColor: colors.border,
-            marginRight: 8,
-          }}
-        />
-
-        {/* Expand button */}
-        {selectedConditionDefs.length > 0 && (
+        {/* Actions - delete button always visible */}
+        <Space size={4}>
           <Button
             type="text"
             size="small"
-            icon={expanded ? <DownOutlined /> : <RightOutlined />}
-            onClick={handleExpand}
-            style={{ color: '#8c8c8c', marginRight: 4 }}
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
           />
-        )}
-
-        {/* Actions */}
-        {selected && (
-          <Space size={4}>
-            <Tooltip title="Edit relation">
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                style={{ color: '#8c8c8c' }}
-              />
-            </Tooltip>
+          <Tooltip title={configExpanded ? 'Collapse config' : 'Expand config'}>
             <Button
               type="text"
               size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
+              icon={configExpanded ? <DownOutlined /> : <RightOutlined />}
+              onClick={handleConfigExpand}
+              style={{ color: '#8c8c8c' }}
             />
-          </Space>
-        )}
+          </Tooltip>
+        </Space>
       </div>
 
-      {/* Relation type selector (when selected) */}
-      {selected && (
+      {/* Relation type selector - always visible when config is expanded */}
+      {configExpanded && (
         <div
           style={{
             padding: '12px',
@@ -312,27 +317,42 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           }}
         >
           <div style={{ marginBottom: 8, fontSize: 12, color: '#8c8c8c' }}>Relation Type</div>
-          <Radio.Group
-            value={relationType}
-            onChange={(e) => handleRelationTypeChange(e.target.value)}
-            size="small"
-            buttonStyle="solid"
-          >
-            <Radio.Button value="AND">AND</Radio.Button>
-            <Radio.Button value="OR">OR</Radio.Button>
-            <Radio.Button value="CUSTOM">Custom</Radio.Button>
-          </Radio.Group>
+          <div className="nodrag">
+            <Radio.Group
+              value={relationType}
+              onChange={(e) => handleRelationTypeChange(e.target.value)}
+              size="small"
+              buttonStyle="solid"
+              disabled={isDisabledByCustomMode}
+            >
+              <Radio.Button value="AND">AND</Radio.Button>
+              <Radio.Button value="OR">OR</Radio.Button>
+              <Tooltip title="Custom mode disables other condition group nodes. Only one node can use custom expressions at a time.">
+                <Radio.Button value="CUSTOM">Custom</Radio.Button>
+              </Tooltip>
+            </Radio.Group>
+          </div>
+
+          {/* Warning message when disabled by CUSTOM mode */}
+          {isDisabledByCustomMode && (
+            <div style={{ marginTop: 8, fontSize: 11, color: '#ff4d4f' }}>
+              Disabled: Another node is in Custom mode
+            </div>
+          )}
 
           {/* Custom expression input */}
           {relationType === 'CUSTOM' && (
             <div style={{ marginTop: 12 }}>
-              <Input.TextArea
-                value={data.customExpression || ''}
-                onChange={(e) => handleExpressionChange(e.target.value)}
-                placeholder="Enter expression: CG1 AND (CG2 OR CG3)"
-                rows={2}
-                status={!expressionValidation.valid ? 'error' : undefined}
-              />
+              <div className="nodrag">
+                <Input.TextArea
+                  value={data.customExpression || ''}
+                  onChange={(e) => handleExpressionChange(e.target.value)}
+                  placeholder="Enter expression: CG1 AND (CG2 OR CG3)"
+                  rows={2}
+                  status={!expressionValidation.valid ? 'error' : undefined}
+                  className="nodrag"
+                />
+              </div>
               {!expressionValidation.valid && (
                 <div style={{ marginTop: 4, fontSize: 11, color: '#ff4d4f' }}>
                   {expressionValidation.error}
@@ -346,68 +366,53 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
             </div>
           )}
 
-          {/* Condition definition selector (for AND/OR mode) */}
-          {relationType !== 'CUSTOM' && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ marginBottom: 4, fontSize: 12, color: '#8c8c8c' }}>Select Conditions</div>
+          {/* Condition definition selector (for AND/OR mode only, disabled in CUSTOM mode) */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#8c8c8c' }}>
+              Select Conditions {selectedConditionDefs.length}
+            </div>
+            <div className="nodrag nowheel">
               <Select
                 mode="multiple"
                 value={data.conditionIds || []}
                 onChange={handleConditionDefSelect}
                 style={{ width: '100%' }}
                 placeholder="Select condition groups"
-                options={availableConditionDefs.map((n) => ({
-                  value: n.id,
-                  label: (n.data as ConditionDefinitionNodeData).refId,
-                }))}
+                disabled={relationType === 'CUSTOM' || isDisabledByCustomMode}
+                maxTagCount={1}
+                maxTagPlaceholder={(omitted) => `+${omitted.length}`}
+                optionRender={(option) => {
+                  // Find the node by refId
+                  const node = availableConditionDefs.find(
+                    (n) => (n.data as ConditionDefinitionNodeData).refId === option.value
+                  );
+                  if (!node) return option.label;
+                  
+                  const nodeData = node.data as ConditionDefinitionNodeData;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>
+                        {nodeData.refId}
+                      </Tag>
+                      <span style={{ color: '#d9d9d9', fontSize: 12 }}>
+                        {nodeData.tableName || 'No table'} {nodeData.conditions.length} conditions
+                      </span>
+                    </div>
+                  );
+                }}
+                options={availableConditionDefs.map((n) => {
+                  const refId = (n.data as ConditionDefinitionNodeData).refId;
+                  return {
+                    value: refId,
+                    label: refId,
+                  };
+                })}
+                getPopupContainer={() => document.body}
+                popupClassName="condition-group-select-dropdown nodrag"
+                className="nodrag"
               />
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Child conditions list */}
-      {expanded && selectedConditionDefs.length > 0 && (
-        <div
-          style={{
-            padding: '8px 12px',
-            background: 'rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          {selectedConditionDefs.map((childNode, index) => {
-            const childData = childNode.data as ConditionDefinitionNodeData;
-            return (
-              <div
-                key={childNode.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '6px 8px',
-                  marginBottom: index < selectedConditionDefs.length - 1 ? 4 : 0,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '4px',
-                  fontSize: 12,
-                }}
-              >
-                <Tag color="purple" style={{ marginRight: 8, fontSize: 11 }}>
-                  {childData.refId}
-                </Tag>
-                <span
-                  style={{
-                    flex: 1,
-                    color: '#d9d9d9',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {childData.tableName
-                    ? `${childData.tableName} (${childData.conditions.length} conditions)`
-                    : 'Table not selected'}
-                </span>
-              </div>
-            );
-          })}
+          </div>
         </div>
       )}
 

@@ -146,6 +146,8 @@ export interface ConditionGroupNodeData extends BaseNodeData {
   conditionIds: string[];
   customExpression?: string; // For CUSTOM type (Q14): e.g., "CG1 AND (CG2 OR CG3)"
   relationType?: 'AND' | 'OR' | 'CUSTOM'; // Extended logic type for relation node
+  savedConditionIds?: string[]; // Backup of conditionIds when switching to CUSTOM mode
+  savedLogicType?: LogicType; // Backup of logicType when switching to CUSTOM mode
 }
 
 /**

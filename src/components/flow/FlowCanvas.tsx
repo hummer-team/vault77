@@ -102,8 +102,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Don't open detail panel for start, table, merge, operator, end, and conditionDefinition nodes
-      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end' || node.type === 'conditionDefinition') {
+      // Don't open detail panel for start, table, merge, operator, end, conditionDefinition, and conditionGroup nodes
+      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end' || node.type === 'conditionDefinition' || node.type === 'conditionGroup') {
         return;
       }
       setSelectedNode(node.id);
