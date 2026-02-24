@@ -36,7 +36,6 @@ const manifest: any = { // <-- Changed from defineManifest to 'any'
         "unlimitedStorage",
         "activeTab",
         "scripting",
-        "sidePanel", // Added sidePanel permission
         "tabs"
     ],
     // --- Ensure host_permissions are here ---
@@ -72,10 +71,7 @@ const manifest: any = { // <-- Changed from defineManifest to 'any'
             "resources": ["index.html", "sandbox.html", "empty.html", "assets/*", "extensions/*", "assets/content-script.js", "wasm/*"], // Added wasm/* for WASM module
             "matches": ["<all_urls>"]
         }
-    ],
-    side_panel: { // Added side_panel configuration
-        "default_path": "index.html"
-    }
+    ]
 };
 // --- END CRITICAL CORRECTION ---
 

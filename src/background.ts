@@ -1,21 +1,54 @@
 console.log("VaultMind Service Worker: Script loading and running.");
 
-chrome.action.onClicked.addListener(async (tab) => {
-    if (!tab.id) {
-        console.error("[action.onClicked] Tab ID is missing.");
-        return;
-    }
+/**
+ * Opens Vaultmind in a new tab (same window)
+ */
+async function openInNewTab(): Promise<void> {
+    await chrome.tabs.create({
+        url: chrome.runtime.getURL('index.html')
+    });
+    console.log('[openInNewTab] New tab opened successfully');
+}
 
-    console.log(`[action.onClicked] Triggered for tab ID: ${tab.id}. Attempting to open side panel.`);
+/**
+ * Opens Vaultmind in a new separate window
+ */
+async function openInNewWindow(): Promise<void> {
+    await chrome.windows.create({
+        url: chrome.runtime.getURL('index.html'),
+        type: 'popup',
+        width: 1400,
+        height: 900,
+    });
+    console.log('[openInNewWindow] New window opened successfully');
+}
+
+/**
+ * Configuration object for Vaultmind open mode.
+ * Modify the 'mode' property to change behavior:
+ * - 'new_tab': Open in new tab within same window (default)
+ * - 'new_window': Open in new separate window
+ */
+const VAULTMIND_CONFIG: { mode: 'new_tab' | 'new_window' } = {
+    mode: 'new_tab' // <-- Change this to 'new_window' for new window mode
+};
+
+chrome.action.onClicked.addListener(async () => {
+    console.log(`[action.onClicked] Opening Vaultmind with mode: ${VAULTMIND_CONFIG.mode}`);
 
     try {
-
-        await chrome.sidePanel.open({tabId: tab.id});
-        //await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-
-        console.log(`[action.onClicked] Side panel opened successfully for tab ID: ${tab.id}.`);
+        // Use switch to handle different open modes
+        switch (VAULTMIND_CONFIG.mode) {
+            case 'new_window':
+                await openInNewWindow();
+                break;
+            case 'new_tab':
+            default:
+                await openInNewTab();
+                break;
+        }
     } catch (error) {
-        console.error("[action.onClicked] Error opening side panel:", error);
+        console.error('[action.onClicked] Error opening Vaultmind:', error);
     }
 });
 
