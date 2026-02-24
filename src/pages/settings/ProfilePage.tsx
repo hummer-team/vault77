@@ -704,12 +704,13 @@ const ProfilePage: React.FC = () => {
         boxSizing: 'border-box',
       }}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         <Card
           styles={{
             body: {
               background: 'rgba(24, 24, 28, 0.98)',
               borderRadius: 12,
+              padding: '16px 20px',
             },
           }}
           style={{
@@ -727,31 +728,43 @@ const ProfilePage: React.FC = () => {
                 skills: userProfile.skills?.[0] || undefined
               }}
             >
-              <Form.Item label="Avatar" name="avatar">
-                <Upload {...uploadProps}>
-                  <Avatar size={64} src={userProfile.avatar} icon={<UserOutlined />} style={{ cursor: 'pointer' }} />
-                </Upload>
+              {/* Compact Avatar + Nickname row */}
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 12 }}>
+                <Form.Item label="Avatar" name="avatar" style={{ marginBottom: 0 }}>
+                  <Upload {...uploadProps}>
+                    <Avatar size={48} src={userProfile.avatar} icon={<UserOutlined />} style={{ cursor: 'pointer' }} />
+                  </Upload>
+                </Form.Item>
+                <Form.Item label="Nickname" name="nickname" style={{ flex: 1, marginBottom: 0 }}>
+                  <Input size="middle" />
+                </Form.Item>
+              </div>
+
+              <Form.Item label="Occupation" name="occupation" style={{ marginBottom: 12 }}>
+                <Input size="middle" />
               </Form.Item>
-              <Form.Item label="Nickname" name="nickname"><Input /></Form.Item>
-              <Form.Item label="Occupation" name="occupation"><Input /></Form.Item>
+
               <Form.Item
                 label="Role"
                 name="skills"
                 tooltip="Select your primary role for personalized analysis suggestions"
+                style={{ marginBottom: 12 }}
               >
                 <Select
                   placeholder="Select your role"
                   options={personaOptions}
                   optionLabelProp="label"
+                  size="middle"
                 />
               </Form.Item>
 
               {/* User Skill Configuration Button */}
-              <Form.Item label="User Skill Configuration">
+              <Form.Item label="User Skill Configuration" style={{ marginBottom: 12 }}>
                 <Button
                   type="default"
                   onClick={() => setIsSkillModalVisible(true)}
                   block
+                  size="middle"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -769,8 +782,8 @@ const ProfilePage: React.FC = () => {
                 </Button>
               </Form.Item>
 
-              <Form.Item>
-                <Button type="primary" htmlType="submit">Update Profile</Button>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" htmlType="submit" size="middle">Update Profile</Button>
               </Form.Item>
             </Form>
           )}
@@ -782,6 +795,7 @@ const ProfilePage: React.FC = () => {
               body: {
                 background: 'rgba(24, 24, 28, 0.98)',
                 borderRadius: 12,
+                padding: '16px 20px',
               },
             }}
             style={{
@@ -789,23 +803,21 @@ const ProfilePage: React.FC = () => {
               border: '1px solid rgba(255, 255, 255, 0.10)',
             }}
           >
-            {/* Title removed to reduce visual height and test layout behavior */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => handleShowModal()}>
-                Add New Config
-              </Button>
-              <span style={{ fontSize: 12, color: '#fadb14' }}>
-                Tip: You can only enable one LLM config at a time.
-              </span>
+            {/* Compact header with title and tip in one line */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <Typography.Text strong style={{ fontSize: 14 }}>LLM Provider Configurations</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Tip: Only one LLM config can be enabled at a time.
+              </Typography.Text>
             </div>
             <div
               className="profile-llm-table-scroller"
               style={{
                 background: 'rgba(24, 24, 28, 0.98)',
-                borderRadius: 12,
+                borderRadius: 8,
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                /* Fixed viewport for table content */
-                height: 220,
+                /* Auto height based on content, max height for large lists */
+                maxHeight: 200,
                 overflowY: 'auto',
                 overflowX: 'hidden',
               }}
@@ -816,6 +828,7 @@ const ProfilePage: React.FC = () => {
                 rowKey="id"
                 scroll={{ x: 800 }}
                 pagination={false}
+                size="small"
                 style={{ background: 'rgba(24, 24, 28, 0.98)' }}
                 components={{
                   table: (props: React.HTMLAttributes<HTMLTableElement>) => (
@@ -830,9 +843,16 @@ const ProfilePage: React.FC = () => {
                 }}
                 className="profile-llm-table"
               />
-              {/* Pagination / empty area background guard */}
-              <div style={{ height: 1, background: 'rgba(24, 24, 28, 0.98)' }} />
             </div>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => handleShowModal()}
+              size="middle"
+              style={{ marginTop: 12 }}
+            >
+              Add Config
+            </Button>
           </Card>
         )}
 
