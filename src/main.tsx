@@ -7,10 +7,10 @@ const Workbench = React.lazy(() => import('./pages/workbench')); // 懒加载 Wo
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import 'antd/dist/reset.css';
 import './global.css';
-import SessionListPage from "./pages/session/SessionListPage.tsx";
 import TemplateListPage from "./pages/asset-center/TemplateListPage.tsx";
 import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 import ProfilePage from "./pages/settings/ProfilePage.tsx";
+import BizKernelMarketPage from "./pages/biz-kernel-market/BizKernelMarketPage.tsx";
 import { Agentation } from "agentation";
 
 const App = () => {
@@ -72,9 +72,9 @@ const App = () => {
           </Suspense>
         </div>
 
-        {/* Session History */}
-        <div style={{ display: currentPage === 'SessionHistory' ? 'contents' : 'none' }}>
-          <SessionListPage />
+        {/* Biz Kernel Market - replaces Session History */}
+        <div style={{ display: currentPage === 'BizKernelMarket' ? 'contents' : 'none' }}>
+          <BizKernelMarketPage />
         </div>
 
         {/* Template List */}

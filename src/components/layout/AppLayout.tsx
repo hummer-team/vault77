@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  HistoryOutlined,
+  AppstoreOutlined,
   PieChartOutlined,
   DatabaseOutlined,
   UserOutlined,
@@ -29,7 +29,7 @@ function getItem(
 
 const items: MenuItem[] = [
   getItem('Workbench', 'Workbench', <PieChartOutlined />),
-  getItem('SessionHistory', 'SessionHistory', <HistoryOutlined />),
+  getItem('Analysis Hub', 'BizKernelMarket', <AppstoreOutlined />),
   getItem('Template', 'TemplateList', <DatabaseOutlined />),
   getItem('Subscription', 'Subscription', <CrownOutlined />),
   getItem('Feedback', 'feedback', <MessageOutlined />),

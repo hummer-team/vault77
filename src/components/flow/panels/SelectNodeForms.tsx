@@ -3,14 +3,16 @@
  * Form components for SelectNode and SelectAggNode
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Form, Input, Select, Divider, Space, Tag } from 'antd';
 import { useFlowStore } from '../../../stores/flowStore';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService.ts';
 import type {
   FlowNode,
   SelectNodeData,
   SelectAggNodeData,
 } from '../../../services/flow/types';
+import type { BizKernelMetadata } from '../../../services/biz-kernels/types';
 
 const { Option } = Select;
 
@@ -22,11 +24,24 @@ const SelectNodeForm: React.FC<{
   const data = node.data as SelectNodeData;
   const nodes = useFlowStore((state) => state.nodes);
 
+  // State for applied kernels
+  const [appliedKernels, setAppliedKernels] = useState<BizKernelMetadata[]>([]);
+
+  // Load applied kernels on mount
+  useEffect(() => {
+    const loadKernels = async () => {
+      await bizKernelService.initialize();
+      const kernels = bizKernelService.getAppliedKernels();
+      setAppliedKernels(kernels);
+    };
+    loadKernels();
+  }, []);
+
   // Get all table nodes
   const tableNodes = nodes.filter((n) => n.type === 'table');
 
   // Get available fields from all tables
-  const allFields: Array<{ tableName: string; fieldName: string; type: string }> = [];
+  const allFields: Array<{ tableName: string; fieldName: string; type: string; isKernel?: boolean }> = [];
   tableNodes.forEach((tableNode) => {
     const tableData = tableNode.data as { tableName: string; fields?: { name: string; type: string; nullable?: boolean }[] };
     console.log('[SelectNodeForm] Table node data:', tableNode.id, tableData);
@@ -42,6 +57,17 @@ const SelectNodeForm: React.FC<{
     } else {
       console.log('[SelectNodeForm] No fields or not an array:', tableData.fields);
     }
+  });
+
+  // Add applied kernels as selectable options
+  // Format: "算子名称(行业/属性)"
+  appliedKernels.forEach((kernel) => {
+    allFields.push({
+      tableName: kernel.displayName,
+      fieldName: `(${kernel.industry}/${kernel.category})`,
+      type: 'kernel',
+      isKernel: true,
+    });
   });
 
   console.log('[SelectNodeForm] All fields collected:', allFields.length, allFields);
@@ -118,12 +144,37 @@ const SelectNodeForm: React.FC<{
                       style={{ width: '100%' }}
                       size="small"
                       showSearch
+                      optionLabelProp="label"
                     >
-                      {allFields.map((f) => (
-                        <Option key={`${f.tableName}.${f.fieldName}`} value={`${f.tableName}.${f.fieldName}`}>
-                          {f.tableName}.{f.fieldName} ({f.type})
-                        </Option>
-                      ))}
+                      {/* Table Fields Group */}
+                      {allFields.filter(f => !f.isKernel).length > 0 && (
+                        <Select.OptGroup label="表字段">
+                          {allFields.filter(f => !f.isKernel).map((f) => (
+                            <Option
+                              key={`${f.tableName}.${f.fieldName}`}
+                              value={`${f.tableName}.${f.fieldName}`}
+                              label={`${f.tableName}.${f.fieldName}`}
+                            >
+                              {f.tableName}.{f.fieldName} ({f.type})
+                            </Option>
+                          ))}
+                        </Select.OptGroup>
+                      )}
+                      {/* Applied Kernels Group */}
+                      {allFields.filter(f => f.isKernel).length > 0 && (
+                        <Select.OptGroup label="已应用算子">
+                          {allFields.filter(f => f.isKernel).map((f) => (
+                            <Option
+                              key={`${f.tableName}.${f.fieldName}`}
+                              value={`${f.tableName}.${f.fieldName}`}
+                              label={`${f.tableName}${f.fieldName}`}
+                            >
+                              <Tag color="blue" style={{ marginRight: 4 }}>算子</Tag>
+                              {f.tableName}{f.fieldName}
+                            </Option>
+                          ))}
+                        </Select.OptGroup>
+                      )}
                     </Select>
                   </div>
                   <div style={{ marginBottom: 8 }}>
