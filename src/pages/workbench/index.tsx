@@ -118,13 +118,13 @@ const InitialWelcomeView: React.FC = () => (
           color: 'rgba(255, 255, 255, 0.95)'
         }}
       >
-        Hi, <span style={{ 
+        <span style={{
           fontFamily: 'monospace', 
           color: '#FF6B00', 
           fontStyle: 'italic',
           textTransform: 'uppercase',
           padding: '0 8px'
-        }} className="neon-glow-text">Natural Language</span> is Insight.
+        }} className="neon-glow-text">You Private BI</span> Assistant.
       </Typography.Title>
       <Typography.Text style={{ 
         fontSize: 12, 

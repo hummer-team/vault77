@@ -7,6 +7,7 @@
 import { storageService } from '../storageService';
 import { getAllKernels } from './bizKernelMeta.ts';
 import type { BizKernelMetadata, UserBizKernel, KernelFilter } from './types';
+import { CATEGORY_SORT_ORDER } from './types';
 
 // Storage key for user kernels
 const USER_KERNELS_KEY = 'biz-kernel:user-kernels';
@@ -74,10 +75,20 @@ class BizKernelService {
 
   /**
    * Get all kernel metadata
+   * Sorted by: category order (ascending) first, then likes (descending)
    */
   public getAllKernels(): BizKernelMetadata[] {
     this.ensureInitialized();
-    return [...this.kernels];
+    return [...this.kernels].sort((a, b) => {
+      // First sort by category order (ascending)
+      const categoryOrderA = CATEGORY_SORT_ORDER[a.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      const categoryOrderB = CATEGORY_SORT_ORDER[b.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      if (categoryOrderA !== categoryOrderB) {
+        return categoryOrderA - categoryOrderB;
+      }
+      // Then sort by likes (descending)
+      return b.likes - a.likes;
+    });
   }
 
   /**
@@ -91,11 +102,12 @@ class BizKernelService {
   /**
    * Search kernels by filter criteria
    * In future phases, this will use DuckDB SQL queries
+   * Sorted by: category order (ascending) first, then likes (descending)
    */
   public searchKernels(filter: KernelFilter): BizKernelMetadata[] {
     this.ensureInitialized();
 
-    return this.kernels.filter((kernel) => {
+    const filtered = this.kernels.filter((kernel) => {
       // Keyword search (name and description)
       if (filter.keyword) {
         const keyword = filter.keyword.toLowerCase();
@@ -126,14 +138,34 @@ class BizKernelService {
 
       return true;
     });
+
+    // Sort by category order (ascending) first, then likes (descending)
+    return filtered.sort((a, b) => {
+      const categoryOrderA = CATEGORY_SORT_ORDER[a.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      const categoryOrderB = CATEGORY_SORT_ORDER[b.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      if (categoryOrderA !== categoryOrderB) {
+        return categoryOrderA - categoryOrderB;
+      }
+      return b.likes - a.likes;
+    });
   }
 
   /**
    * Get kernels sorted by popularity (likes)
+   * Sorted by: category order (ascending) first, then likes (descending)
    */
   public getKernelsByPopularity(): BizKernelMetadata[] {
     this.ensureInitialized();
-    return [...this.kernels].sort((a, b) => b.likes - a.likes);
+    return [...this.kernels].sort((a, b) => {
+      // First sort by category order (ascending)
+      const categoryOrderA = CATEGORY_SORT_ORDER[a.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      const categoryOrderB = CATEGORY_SORT_ORDER[b.category as keyof typeof CATEGORY_SORT_ORDER] ?? 999;
+      if (categoryOrderA !== categoryOrderB) {
+        return categoryOrderA - categoryOrderB;
+      }
+      // Then sort by likes (descending)
+      return b.likes - a.likes;
+    });
   }
 
   /**

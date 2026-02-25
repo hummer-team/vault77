@@ -24,9 +24,9 @@ interface BizKernelGridProps {
 const GRID_COL_SPAN = {
   xs: 24, // 1 column on mobile
   sm: 12, // 2 columns on small screens
-  md: 12, // 2 columns on medium screens
-  lg: 8,  // 3 columns on large screens
-  xl: 8,  // 3 columns on extra large screens
+  md: 8,  // 3 columns on medium screens
+  lg: 6,  // 4 columns on large screens
+  xl: 6,  // 4 columns on extra large screens
 };
 
 const BizKernelGrid: React.FC<BizKernelGridProps> = ({
@@ -78,14 +78,14 @@ const BizKernelGrid: React.FC<BizKernelGridProps> = ({
     return (
       <Empty
         description="呃，无法找到你需要的算子，请尝试修改搜索关键字"
-        style={{ padding: 64 }}
+        style={{ padding: 64, minHeight: 300 }}
       />
     );
   }
 
   return (
-    <div>
-      <Row gutter={[16, 16]}>
+    <div style={{ width: '100%' }}>
+      <Row gutter={[16, 16]} style={{ width: '100%' }}>
         {kernels.map((kernel) => (
           <Col key={kernel.name} {...GRID_COL_SPAN}>
             <BizKernelCard

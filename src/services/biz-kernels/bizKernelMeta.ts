@@ -8,10 +8,32 @@
 import type { BizKernelMetadata } from './types';
 
 /**
- * Seed business kernels - 10 initial operators
+ * Seed business kernels - 11 initial operators
  * Based on suanzi.md business logic
  */
 export const SEED_KERNELS: BizKernelMetadata[] = [
+  // 基础洞察 - 关联查询（单表/多表查询）
+  {
+    name: 'fn_ecom_association_query',
+    displayName: '关联查询',
+    industry: '电商/订单',
+    category: '基础洞察',
+    version: '1.0.0',
+    description: '支持单表或多表关联查询，灵活筛选数据',
+    detailedDescription:
+      '灵活的单表或多表查询算子，支持 INNER/LEFT/RIGHT JOIN 关联，可配置查询字段、筛选条件和聚合分组。适用于数据探索、报表生成、多维分析等场景。',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['至少需要一个数据表'],
+    },
+  },
+
   // 基础洞察 - 订单分布
   {
     name: 'fn_ecom_order_distribution',

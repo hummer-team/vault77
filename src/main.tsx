@@ -73,7 +73,11 @@ const App = () => {
         </div>
 
         {/* Biz Kernel Market - replaces Session History */}
-        <div style={{ display: currentPage === 'BizKernelMarket' ? 'contents' : 'none' }}>
+        <div style={{
+          display: currentPage === 'BizKernelMarket' ? 'flex' : 'none',
+          width: '100%',
+          flexDirection: 'column'
+        }}>
           <BizKernelMarketPage />
         </div>
 

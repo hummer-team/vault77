@@ -101,5 +101,17 @@ export const KERNEL_CATEGORIES = [
   '运营细节',
 ] as const;
 
+/**
+ * Category sort order - lower number = higher priority (ascending sort)
+ * 基础洞察: 0, 风险风控: 1, 用户增长: 2, 经营决策: 3, 运营细节: 4
+ */
+export const CATEGORY_SORT_ORDER: Record<KernelCategory, number> = {
+  '基础洞察': 0,
+  '风险风控': 1,
+  '用户增长': 2,
+  '经营决策': 3,
+  '运营细节': 4,
+};
+
 export type KernelIndustry = (typeof KERNEL_INDUSTRIES)[number];
 export type KernelCategory = (typeof KERNEL_CATEGORIES)[number];

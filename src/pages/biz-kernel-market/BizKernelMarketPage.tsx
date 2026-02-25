@@ -86,8 +86,8 @@ const BizKernelMarketPage: React.FC = () => {
         };
 
         const results = bizKernelService.searchKernels(filter);
-        // Sort by popularity
-        results.sort((a: BizKernelMetadata, b: BizKernelMetadata) => b.likes - a.likes);
+        // Sorting is already handled by bizKernelService.searchKernels
+        // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
         console.error('[BizKernelMarketPage] Search failed:', error);
@@ -113,7 +113,8 @@ const BizKernelMarketPage: React.FC = () => {
         };
 
         const results = bizKernelService.searchKernels(filter);
-        results.sort((a: BizKernelMetadata, b: BizKernelMetadata) => b.likes - a.likes);
+        // Sorting is already handled by bizKernelService.searchKernels
+        // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
         console.error('[BizKernelMarketPage] Filter failed:', error);
@@ -139,7 +140,8 @@ const BizKernelMarketPage: React.FC = () => {
         };
 
         const results = bizKernelService.searchKernels(filter);
-        results.sort((a: BizKernelMetadata, b: BizKernelMetadata) => b.likes - a.likes);
+        // Sorting is already handled by bizKernelService.searchKernels
+        // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
         console.error('[BizKernelMarketPage] Filter failed:', error);
@@ -155,7 +157,6 @@ const BizKernelMarketPage: React.FC = () => {
     try {
       await bizKernelService.applyKernel(name);
       setAppliedKernelNames((prev) => new Set([...prev, name]));
-      message.success('算子应用成功');
     } catch (error) {
       console.error('[BizKernelMarketPage] Apply failed:', error);
       message.error('算子应用失败');
@@ -178,7 +179,6 @@ const BizKernelMarketPage: React.FC = () => {
             next.delete(name);
             return next;
           });
-          message.success('已取消应用');
         } catch (error) {
           console.error('[BizKernelMarketPage] Cancel failed:', error);
           message.error('取消应用失败');
@@ -208,60 +208,62 @@ const BizKernelMarketPage: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto', height: '100%', overflow: 'auto' }}>
-      {/* Header */}
-      <Title level={3} style={{ marginBottom: 24 }}>
-        Analysis Hub
-      </Title>
+    <div style={{ width: '100%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+      <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
+        {/* Header */}
+        <Title level={3} style={{ marginBottom: 24 }}>
+          Analysis Hub
+        </Title>
 
-      {/* Search Bar */}
-      <Card style={{ marginBottom: 16 }}>
-        <SearchBar onSearch={handleSearch} />
-      </Card>
+        {/* Search Bar */}
+        <Card style={{ marginBottom: 16, width: '100%' }}>
+          <SearchBar onSearch={handleSearch} />
+        </Card>
 
-      {/* Category Filter */}
-      <Card style={{ marginBottom: 16 }}>
-        <CategoryFilter
-          industries={industries}
-          categories={categories}
-          selectedIndustry={selectedIndustry}
-          selectedCategory={selectedCategory}
-          onIndustryChange={handleIndustryChange}
-          onCategoryChange={handleCategoryChange}
+        {/* Category Filter */}
+        <Card style={{ marginBottom: 16, width: '100%' }}>
+          <CategoryFilter
+            industries={industries}
+            categories={categories}
+            selectedIndustry={selectedIndustry}
+            selectedCategory={selectedCategory}
+            onIndustryChange={handleIndustryChange}
+            onCategoryChange={handleCategoryChange}
+          />
+        </Card>
+
+        {/* Kernel Grid */}
+        <BizKernelGrid
+          kernels={kernels}
+          appliedKernelNames={appliedKernelNames}
+          onApply={handleApply}
+          onCancel={handleCancel}
+          onViewDetail={handleViewDetail}
+          loading={loading}
         />
-      </Card>
 
-      {/* Kernel Grid */}
-      <BizKernelGrid
-        kernels={kernels}
-        appliedKernelNames={appliedKernelNames}
-        onApply={handleApply}
-        onCancel={handleCancel}
-        onViewDetail={handleViewDetail}
-        loading={loading}
-      />
-
-      {/* Detail Modal */}
-      <BizKernelDetailModal
-        kernel={selectedKernel}
-        isApplied={
-          selectedKernel ? appliedKernelNames.has(selectedKernel.name) : false
-        }
-        visible={detailModalVisible}
-        onClose={handleCloseDetail}
-        onApply={() => {
-          if (selectedKernel) {
-            handleApply(selectedKernel.name);
-            setDetailModalVisible(false);
+        {/* Detail Modal */}
+        <BizKernelDetailModal
+          kernel={selectedKernel}
+          isApplied={
+            selectedKernel ? appliedKernelNames.has(selectedKernel.name) : false
           }
-        }}
-        onCancel={() => {
-          if (selectedKernel) {
-            handleCancel(selectedKernel.name);
-            setDetailModalVisible(false);
-          }
-        }}
-      />
+          visible={detailModalVisible}
+          onClose={handleCloseDetail}
+          onApply={() => {
+            if (selectedKernel) {
+              handleApply(selectedKernel.name);
+              setDetailModalVisible(false);
+            }
+          }}
+          onCancel={() => {
+            if (selectedKernel) {
+              handleCancel(selectedKernel.name);
+              setDetailModalVisible(false);
+            }
+          }}
+        />
+      </div>
     </div>
   );
 };

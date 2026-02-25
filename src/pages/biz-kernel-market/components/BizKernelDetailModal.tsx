@@ -146,12 +146,12 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       </Space>
 
       {/* Description - 紧接标题，减少空白 */}
-      <Paragraph style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 12 }}>
+      <Paragraph style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 8 }}>
         {kernel.description}
       </Paragraph>
 
       {/* Stats Cards */}
-      <Row gutter={16} style={{ marginBottom: 0 }}>
+      <Row gutter={16} style={{ marginBottom: 8 }}>
         <Col span={6}>
           <Card
             size="small"
@@ -160,13 +160,13 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               borderColor: 'rgba(255,77,79,0.3)',
               textAlign: 'center',
             }}
-            bodyStyle={{ padding: '8px' }}
+            bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>热度</span>}
+              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>热度</span>}
               value={kernel.likes}
               prefix={<LikeOutlined style={{ color: '#ff4d4f' }} />}
-              valueStyle={{ color: '#fff', fontSize: 16 }}
+              valueStyle={{ color: '#fff', fontSize: 14 }}
             />
           </Card>
         </Col>
@@ -178,13 +178,13 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               borderColor: 'rgba(250,173,20,0.3)',
               textAlign: 'center',
             }}
-            bodyStyle={{ padding: '8px' }}
+            bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>积分</span>}
+              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>积分</span>}
               value={kernel.credits}
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
-              valueStyle={{ color: '#fff', fontSize: 16 }}
+              valueStyle={{ color: '#fff', fontSize: 14 }}
             />
           </Card>
         </Col>
@@ -196,13 +196,13 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               borderColor: 'rgba(82,196,26,0.3)',
               textAlign: 'center',
             }}
-            bodyStyle={{ padding: '8px' }}
+            bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>数据量</span>}
+              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>数据量</span>}
               value={kernel.dataVolume}
               prefix={<DatabaseOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#fff', fontSize: 14 }}
+              valueStyle={{ color: '#fff', fontSize: 12 }}
             />
           </Card>
         </Col>
@@ -214,19 +214,19 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               borderColor: 'rgba(24,144,255,0.3)',
               textAlign: 'center',
             }}
-            bodyStyle={{ padding: '8px' }}
+            bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>预估耗时</span>}
+              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>预估耗时</span>}
               value={kernel.estimatedTime}
               prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#fff', fontSize: 14 }}
+              valueStyle={{ color: '#fff', fontSize: 12 }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+      <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
 
       {/* Description */}
       <Title level={5} style={{ color: '#fff', marginBottom: 6 }}>功能详情</Title>

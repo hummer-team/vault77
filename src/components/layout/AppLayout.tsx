@@ -127,7 +127,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
           display: 'flex',
           flexDirection: 'column',
           height: 'calc(100vh - 32px)',
-          overflow: 'hidden'
+          overflow: 'auto'
         }}>
           {children}
         </Content>

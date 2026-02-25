@@ -3,6 +3,7 @@
  * @description Business kernel card component displaying kernel metadata
  */
 
+import './BizKernelCard.css';
 import React from 'react';
 import { Card, Tag, Button, Space, Typography, Tooltip, Badge } from 'antd';
 import {
@@ -40,11 +41,13 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
     <Card
       hoverable
       style={{
-        height: 320,
+        height: '100%',
+        minHeight: 280,
         display: 'flex',
         flexDirection: 'column',
         transition: 'all 0.3s ease',
       }}
+      className="biz-kernel-card"
       bodyStyle={{
         flex: 1,
         display: 'flex',
@@ -88,7 +91,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
       {/* Description */}
       <Paragraph
         ellipsis={{ rows: 2 }}
-        style={{ marginBottom: 12, fontSize: 13, color: 'rgba(255,255,255,0.75)', minHeight: 40 }}
+        style={{ marginBottom: 8, fontSize: 13, color: 'rgba(255,255,255,0.75)', minHeight: 40 }}
       >
         {kernel.description}
       </Paragraph>
@@ -97,7 +100,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
       <Space
         wrap
         size="middle"
-        style={{ marginBottom: 12, fontSize: 12, marginTop: 'auto' }}
+        style={{ marginBottom: 8, fontSize: 12, marginTop: 'auto' }}
       >
         <Tooltip title="热度">
           <Space size={4} style={{ color: 'rgba(255,255,255,0.65)' }}>
