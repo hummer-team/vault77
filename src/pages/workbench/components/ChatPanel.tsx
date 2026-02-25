@@ -225,7 +225,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   return (
     <div className="floating-chat-container" style={{
       position: 'absolute',
-      bottom: '20px',
+      bottom: '8px',
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',

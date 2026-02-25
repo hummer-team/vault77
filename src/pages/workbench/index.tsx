@@ -1320,7 +1320,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       width="90vw"
       style={{ top: 20 }}
       bodyStyle={{
-        height: '80vh',
+        height: '90vh',
         padding: 0,
         background: '#1a1a1a',
       }}
