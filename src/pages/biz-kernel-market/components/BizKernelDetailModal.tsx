@@ -229,14 +229,14 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
 
       {/* Description */}
-      <Title level={5} style={{ color: '#fff', marginBottom: 6 }}>功能详情</Title>
+      <Title level={5} style={{ color: '#fff', marginBottom: 6 }}>解决痛点</Title>
       <Paragraph style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, marginBottom: 12 }}>
         {kernel.description}
       </Paragraph>
 
       {kernel.detailedDescription && (
         <>
-          <Title level={5} style={{ color: '#fff', marginTop: 12, marginBottom: 8 }}>详细说明</Title>
+          <Title level={5} style={{ color: '#fff', marginTop: 12, marginBottom: 8 }}>核心洞察</Title>
           <Paragraph style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, marginBottom: 12 }}>
             {kernel.detailedDescription}
           </Paragraph>
@@ -249,7 +249,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
           <Title level={5} style={{ color: '#fff', marginBottom: 8 }}>
             <CodeOutlined style={{ marginRight: 8 }} />
-            技术参数
+            配置需求
           </Title>
           <Card
             size="small"

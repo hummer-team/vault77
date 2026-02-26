@@ -19,9 +19,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '基础洞察',
     version: '1.0.0',
-    description: '支持单表或多表关联查询，灵活筛选数据',
+    description: '寻找不同维度间的隐藏相关性，而非仅仅合并报表',
     detailedDescription:
-      '灵活的单表或多表查询算子，支持 INNER/LEFT/RIGHT JOIN 关联，可配置查询字段、筛选条件和聚合分组。适用于数据探索、报表生成、多维分析等场景。',
+      '当单表数据无法解释业务异动（如：销量下滑但流量没变）时，应关联用户信息或促销表进行多维交叉',
     author: 'official',
     likes: 234,
     credits: 100,
@@ -41,7 +41,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '基础洞察',
     version: '1.0.0',
-    description: '快速分析订单金额分布，洞察订单量趋势',
+    description: '观察订单在地域、时间、金额上的集中度',
     detailedDescription:
       '基于订单数据，分析订单金额分布、订单量趋势、客单价变化等核心指标。支持按日/周/月维度聚合，帮助运营人员快速掌握业务走势。',
     author: 'official',
@@ -87,7 +87,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     version: '1.0.0',
     description: '快速分析订单金额分布，洞察非正常订单',
     detailedDescription:
-      '通过统计分析和 Z-Score 算法，识别异常订单金额。可发现刷单、价格错误、优惠叠加异常等风险订单，帮助财务及时止损。',
+      '识别异常订单金额。可发现刷单、价格错误、优惠叠加异常等风险订单，帮助财务及时止损。',
     author: 'official',
     likes: 156,
     credits: 150,
@@ -107,7 +107,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '风险风控',
     version: '1.0.0',
-    description: '发现利润流失点，保障资产安全',
+    description: '对比实付价格与成本红线',
     detailedDescription:
       '扫描异常毛利（Margin < 0）或异常折扣比例，找出价格明显低于均值的订单。结合 LLM 总结异常原因，如人为设置错误或营销规则重叠。',
     author: 'official',
@@ -129,9 +129,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '用户增长',
     version: '1.0.0',
-    description: '提升 LTV，识别流失风险',
+    description: '识别“重要深耕”与“濒临流失”用户',
     detailedDescription:
-      '基于 RFM 模型（Recency, Frequency, Monetary）对用户进行分群。自动识别高价值用户、流失风险用户，支持 K-Means 聚类分析。',
+      '不要对所有人发券。对高贡献用户做服务升级，对流失边缘用户做定向激励，实现 ROI 最大化',
     author: 'official',
     likes: 245,
     credits: 200,
@@ -151,7 +151,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '用户增长',
     version: '1.0.0',
-    description: '识别流失边缘用户，直接用于私域挽回',
+    description: '计算品类的平均消耗时间',
     detailedDescription:
       '自动识别用户的首次下单时间、末次下单时间，计算平均下单间隔（AOV）。实时标记处于"流失边缘"的用户名单，一键生成流失预警表。',
     author: 'official',
@@ -173,7 +173,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/商品',
     category: '经营决策',
     version: '1.0.0',
-    description: '指导备货与营销策略',
+    description: '结合销售趋势与采购周期',
     detailedDescription:
       '基于历史销售数据和趋势分析，预测未来库存需求。帮助商家优化库存周转，避免缺货或积压。',
     author: 'official',
@@ -195,9 +195,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/商品',
     category: '经营决策',
     version: '1.0.0',
-    description: '直接生成搭配套餐建议，提升客单价',
+    description: '分析 A 产品与 B 产品的共同购买概率',
     detailedDescription:
-      '利用 DuckDB 的 Self-Join 能力快速计算商品共现矩阵。LLM 将相关系数转化为业务建议："建议将商品 A 和 B 捆绑销售，因为 70% 的高端用户会同时下单"。',
+      '发现“非直觉型”关联（如：买尿布的人常买啤酒）。基于此调整页面布局或套装组合，而非仅推荐同类品',
     author: 'official',
     likes: 189,
     credits: 200,
@@ -217,9 +217,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '运营细节',
     version: '1.0.0',
-    description: '优化服务细节，从数据到直觉的跨越',
+    description: '拆解从下单、出库到签收的全链路时长',
     detailedDescription:
-      '计算各地区、各快递服务商、各时段的履约时序分布。利用 DuckDB 的时间序列函数找出延迟节点，一眼看出哪家快递在拖后腿。',
+      '若异常点集中在“出库”，重点优化仓储流程；若在“末端派送”，则需重新评估物流承运商。',
     author: 'official',
     likes: 112,
     credits: 120,
@@ -239,9 +239,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/营销',
     category: '运营细节',
     version: '1.0.0',
-    description: '将订单行变成鲜活的用户画像',
+    description: '将非结构化的评价转化为情感标签',
     detailedDescription:
-      'LLM 采样分析订单中的备注、商品描述，结合 DuckDB 的聚合结果，为用户自动打标签（如："精致妈妈"、"羊毛党"、"大宗团购商"）。让数据分析具有"叙事性"。',
+      '采样分析订单中的备注、商品描述，为用户自动打标签（如："精致妈妈"、"羊毛党"、"大宗团购商"）。',
     author: 'official',
     likes: 167,
     credits: 250,
@@ -251,6 +251,27 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
       inputFields: ['user_id', 'remark', 'product_name', 'address'],
       outputFields: ['user_id', 'tags', 'persona'],
       constraints: ['需要备注或商品描述字段'],
+    },
+  },
+  // 运营细节 - 业务指标复杂度评估
+  {
+    name: 'fn_ecom_biz_complexity_calc',
+    displayName: '业务指标复杂度评估',
+    industry: '电商/营销',
+    category: '运营细节',
+    version: '1.0.0',
+    description: '对多维度业务指标进行综合评估',
+    detailedDescription:
+        '识别业务复杂度，如极度复杂，复杂，适中，简单等。帮助运营人员快速聚焦在“极度复杂”或“复杂”的指标上进行优化，而非平均分配精力在所有指标上。',
+    author: 'official',
+    likes: 167,
+    credits: 250,
+    dataVolume: '10w order',
+    estimatedTime: '<5s',
+    metadata: {
+      inputFields: ['biz_type', 'score1', 'score2', 'score3','...'],
+      outputFields: ['biz_type', 'complexity_range'],
+      constraints: ['多维度业务指标数据，如订单金额、订单频次、用户活跃度等'],
     },
   },
 ];

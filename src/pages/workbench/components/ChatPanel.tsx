@@ -212,7 +212,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const defaultPlaceholder = [
     '1. Upload supported formats: Excel, CSV. Max file size: 200MB.',
-    '2. Enter your question or analysis instruction.',
+    '2. Create analysis flow or enter your question or analysis instruction.',
     '3. Press Control+Enter to submit.',
   ].join('\n');
   const placeholderText = isInitializing ? 'Vaultmind 引擎初始化中...' : defaultPlaceholder;
@@ -376,6 +376,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               <Upload {...uploadProps}>
                 <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
               </Upload>
+              {/* Flow Button - show always but disabled when no attachments */}
+              {onToggleFlow && (
+                  <Tooltip title={
+                    attachments.length === 0
+                        ? "Please upload a file first"
+                        : "Analysis Flow"
+                  }>
+                    <Button
+                        icon={<PartitionOutlined />}
+                        disabled={isAnalyzing || attachments.length === 0}
+                        onClick={onToggleFlow}
+                        type="default"
+                    >
+                    </Button>
+                  </Tooltip>
+              )}
               {/* Data Insight Button - show always but disabled when no attachments */}
               {onToggleInsight && (
                 <Tooltip title={
@@ -393,22 +409,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       borderColor: showInsightSidebar ? 'rgba(24, 144, 255, 0.5)' : undefined,
                     }}
                   />
-                </Tooltip>
-              )}
-              {/* Flow Button - show always but disabled when no attachments */}
-              {onToggleFlow && (
-                <Tooltip title={
-                  attachments.length === 0
-                    ? "Please upload a file first"
-                    : "Analysis Flow"
-                }>
-                  <Button
-                    icon={<PartitionOutlined />}
-                    disabled={isAnalyzing || attachments.length === 0}
-                    onClick={onToggleFlow}
-                    type="default"
-                  >
-                  </Button>
                 </Tooltip>
               )}
               {!isLlmReady && (
