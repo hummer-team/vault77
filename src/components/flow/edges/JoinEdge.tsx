@@ -7,7 +7,7 @@ import React, { useCallback } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
-  getSmoothStepPath,
+  getBezierPath,
   useReactFlow,
   type EdgeProps,
 } from '@xyflow/react';
@@ -44,7 +44,7 @@ export const JoinEdge: React.FC<EdgeProps> = ({
   const { setEdges } = useReactFlow();
   const removeEdge = useFlowStore((state) => state.removeEdge);
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,

@@ -13,14 +13,15 @@ import {
   LockOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
-import { useReactFlow } from '@xyflow/react';
+import { useReactFlow, useViewport } from '@xyflow/react';
 
 interface CustomControlsProps {
   className?: string;
 }
 
 export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { zoomIn, zoomOut, fitView, zoomTo } = useReactFlow();
+  const { zoom } = useViewport();
   const [isLocked, setIsLocked] = useState(false);
 
   const toggleLock = () => {
@@ -48,6 +49,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
         backdropFilter: 'blur(12px)',
       }}
     >
+      {/* Zoom group: zoom-in / percentage / zoom-out — no dividers inside */}
       <Tooltip title="放大" placement="right">
         <Button
           type="text"
@@ -77,7 +79,36 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
         />
       </Tooltip>
 
-      <div style={{ height: '1px', background: 'rgba(68, 64, 60, 0.5)', margin: '2px 4px' }} />
+      {/* Zoom percentage — click to reset to 100% */}
+      <Tooltip title="重置缩放" placement="right">
+        <div
+          onClick={() => zoomTo(1)}
+          style={{
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'rgba(255, 255, 255, 0.5)',
+            fontSize: '11px',
+            fontVariantNumeric: 'tabular-nums',
+            userSelect: 'none',
+            borderRadius: '6px',
+            transition: 'all 0.2s ease',
+            padding: '0 4px',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLDivElement).style.background = 'rgba(255, 107, 0, 0.15)';
+            (e.currentTarget as HTMLDivElement).style.color = '#FF6B00';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+            (e.currentTarget as HTMLDivElement).style.color = 'rgba(255, 255, 255, 0.5)';
+          }}
+        >
+          {Math.round(zoom * 100)}%
+        </div>
+      </Tooltip>
 
       <Tooltip title="缩小" placement="right">
         <Button

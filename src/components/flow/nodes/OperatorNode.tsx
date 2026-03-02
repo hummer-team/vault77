@@ -114,10 +114,10 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             id: `e_${previousNodeId}_${joinNodeId}`,
             source: previousNodeId,
             target: joinNodeId,
-            type: 'smoothstep',
+            type: 'default',
             animated: false,
-            style: { stroke: '#8c8c8c', strokeWidth: 2 },
-            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
           } as unknown as Parameters<typeof addEdge>[0]);
           
           previousNodeId = joinNodeId;
@@ -165,10 +165,10 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           id: `e_${lastJoinNodeId}_${mergeNodeId}`,
           source: lastJoinNodeId,
           target: mergeNodeId,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         } as unknown as Parameters<typeof addEdge>[0]);
         
         // Create select node (default select all columns)
@@ -189,10 +189,10 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           id: `e_${mergeNodeId}_${selectNodeId}`,
           source: mergeNodeId,
           target: selectNodeId,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         } as unknown as Parameters<typeof addEdge>[0]);
       } else {
         // Single table - create SELECT node directly with selectAll enabled by default
@@ -213,10 +213,10 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           id: `e_${id}_${selectNodeId}`,
           source: id,
           target: selectNodeId,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         } as unknown as Parameters<typeof addEdge>[0]);
       }
     },

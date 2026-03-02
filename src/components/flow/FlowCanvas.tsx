@@ -130,10 +130,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
           id: `e_${connection.source}_${connection.target}`,
           source: connection.source,
           target: connection.target,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         };
         addEdgeToStore(newEdge);
         return;
@@ -150,10 +150,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
             id: `e_${connection.source}_${existingMerge.id}`,
             source: connection.source,
             target: existingMerge.id,
-            type: 'smoothstep',
+            type: 'default',
             animated: false,
-            style: { stroke: '#8c8c8c', strokeWidth: 2 },
-            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
           };
           addEdgeToStore(newEdge);
         } else {
@@ -177,20 +177,20 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
             id: `e_${connection.source}_${mergeNodeId}`,
             source: connection.source,
             target: mergeNodeId,
-            type: 'smoothstep',
+            type: 'default',
             animated: false,
-            style: { stroke: '#8c8c8c', strokeWidth: 2 },
-            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
           } as FlowEdge);
 
           addEdgeToStore({
             id: `e_${connection.target}_${mergeNodeId}`,
             source: connection.target,
             target: mergeNodeId,
-            type: 'smoothstep',
+            type: 'default',
             animated: false,
-            style: { stroke: '#8c8c8c', strokeWidth: 2 },
-            markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
           } as FlowEdge);
         }
         return;
@@ -201,10 +201,10 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated 
         id: `e_${connection.source}_${connection.target}`,
         source: connection.source,
         target: connection.target,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       };
       addEdgeToStore(newEdge);
     },

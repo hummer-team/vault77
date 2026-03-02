@@ -130,10 +130,10 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         id: `e_${id}_${endNodeId}`,
         source: id,
         target: endNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
   }, [isComplete, hasConnectedEndNode, id, nodes, addNode, addEdge]);

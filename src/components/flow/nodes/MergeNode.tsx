@@ -81,10 +81,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         id: `e_${id}_${conditionDefNodeId}`,
         source: id,
         target: conditionDefNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
 
@@ -116,10 +116,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           id: `e_${conditionDefNodeId}_${nextMergeNodeId}`,
           source: conditionDefNodeId,
           target: nextMergeNodeId,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         };
         addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
       } else {
@@ -129,10 +129,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           id: `e_${conditionDefNodeId}_${existingNextMerge.id}`,
           source: conditionDefNodeId,
           target: existingNextMerge.id,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         };
         addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
       }
@@ -175,10 +175,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         id: `e_${id}_${relationNodeId}`,
         source: id,
         target: relationNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
 
@@ -216,10 +216,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         id: `e_${relationNodeId}_${endMergeNodeId}`,
         source: relationNodeId,
         target: endMergeNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       };
       addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
     },
@@ -238,10 +238,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           id: `e_${id}_${existingEnd.id}`,
           source: id,
           target: existingEnd.id,
-          type: 'smoothstep',
+          type: 'default',
           animated: false,
-          style: { stroke: '#8c8c8c', strokeWidth: 2 },
-          markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         };
         addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
         return;
@@ -267,10 +267,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         id: `e_${id}_${endNodeId}`,
         source: id,
         target: endNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
     },
@@ -339,10 +339,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               id: `e_${id}_${selectNodeId}`,
               source: id,
               target: selectNodeId,
-              type: 'smoothstep',
+              type: 'default',
               animated: false,
-              style: { stroke: '#8c8c8c', strokeWidth: 2 },
-              markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+              style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
             };
             console.log('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
@@ -371,10 +371,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               id: `e_${id}_${operatorNodeId}`,
               source: id,
               target: operatorNodeId,
-              type: 'smoothstep',
+              type: 'default',
               animated: false,
-              style: { stroke: '#8c8c8c', strokeWidth: 2 },
-              markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+              style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
             };
             console.log('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);

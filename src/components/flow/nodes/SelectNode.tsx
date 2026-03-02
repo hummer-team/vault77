@@ -111,10 +111,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         id: `e_${id}_${mergeNodeId}`,
         source: id,
         target: mergeNodeId,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: { stroke: '#8c8c8c', strokeWidth: 2 },
-        markerEnd: { type: 'arrowclosed', color: '#8c8c8c' },
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
   }, [data.fields.length, data.selectAll, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
