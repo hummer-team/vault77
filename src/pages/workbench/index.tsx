@@ -36,6 +36,8 @@ const InsightPage = React.lazy(() => import('../insight'));
 
 // Configuration
 const MAX_FILES = Number(import.meta.env.VITE_MAX_FILES ?? 1); // Default to 1
+// Cap analysis history to prevent unbounded memory growth (each record holds full query result data)
+const MAX_HISTORY_RECORDS = 20;
 
 interface AnalysisRecord {
   id: string;
@@ -194,6 +196,15 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const [chatError, setChatError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRecord[]>([]);
+
+  // Append a new record and evict the oldest ones when the cap is exceeded.
+  // Prevents unbounded memory growth since each record holds full query result data.
+  const appendAnalysisRecord = useCallback((record: AnalysisRecord) => {
+    setAnalysisHistory(prev => {
+      const next = [...prev, record];
+      return next.length > MAX_HISTORY_RECORDS ? next.slice(next.length - MAX_HISTORY_RECORDS) : next;
+    });
+  }, []);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [profileDrawerVisible, setProfileDrawerVisible] = useState(false);
 
@@ -418,7 +429,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     };
 
     // Add to analysis history
-    setAnalysisHistory(prev => [...prev, newRecord]);
+    appendAnalysisRecord(newRecord);
     
     // Auto-scroll to bottom to show new result
     setTimeout(() => {
@@ -426,7 +437,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         contentRef.current.scrollTop = contentRef.current.scrollHeight;
       }
     }, 100);
-  }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata]);
+  }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata, appendAnalysisRecord]);
 
   // Handle Flow SQL ready - execute and display results
   const handleFlowSqlReady = useCallback(async (sql: string) => {
@@ -465,7 +476,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       };
 
       // Add to analysis history
-      setAnalysisHistory(prev => [...prev, newRecord]);
+      appendAnalysisRecord(newRecord);
 
       // Auto-scroll to bottom to show new result
       setTimeout(() => {
@@ -477,7 +488,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       console.error('[Workbench] Flow query execution failed:', error);
       message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [isDBReady, executeQuery, attachments]);
+  }, [isDBReady, executeQuery, attachments, appendAnalysisRecord]);
 
   // Handle view customers from InsightPage
   const handleViewCustomers = useCallback(async (customerIds: string[], tableName: string) => {
@@ -541,7 +552,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     };
 
     // Add to analysis history
-    setAnalysisHistory(prev => [...prev, newRecord]);
+    appendAnalysisRecord(newRecord);
     
     // Auto-scroll to bottom to show new result
     setTimeout(() => {
@@ -549,7 +560,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         contentRef.current.scrollTop = contentRef.current.scrollHeight;
       }
     }, 100);
-  }, [isDBReady, attachments, clusteringAnalysis.result]);
+  }, [isDBReady, attachments, clusteringAnalysis.result, appendAnalysisRecord]);
 
   // Draggable divider handlers
   const tempWidthRef = useRef<number>(sidebarWidth);
@@ -836,7 +847,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       // take snapshot of current attachments
       attachmentsSnapshot: attachments,
     };
-    setAnalysisHistory((prev) => [...prev, newRecord]);
+    appendAnalysisRecord(newRecord); // add 'analyzing' placeholder, respects MAX_HISTORY_RECORDS cap
     setUiState('analyzing');
 
     try {

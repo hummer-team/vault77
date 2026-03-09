@@ -88,6 +88,11 @@ export class DuckDBService {
       await c.query('LOAD arrow;');
       console.log('[DuckDBService] LOAD arrow; executed successfully.');
 
+      // Cap buffer pool to prevent unbounded growth on full-table-scan queries (e.g. COUNT(*)).
+      // DuckDB will evict cached pages when approaching the limit rather than failing queries.
+      await c.query("SET memory_limit='800MB';");
+      console.log('[DuckDBService] memory_limit set to 800MB.');
+
       const res = await c.query(
         "SELECT name, value FROM duckdb_settings() WHERE name like  '%threads%' or name like '%memory%';"
       );
@@ -261,8 +266,9 @@ export class DuckDBService {
   public async executeQuery(sql: string): Promise<{ data: any[]; schema: any[] }> {
     if (!this.db) throw new Error('DuckDB not initialized.');
     const conn: any = await this.db.connect();
+    let rawResult: any = null;
     try {
-      const rawResult = await this._queryRaw(conn, sql);
+      rawResult = await this._queryRaw(conn, sql);
       const data = this._extractData(rawResult);
       const schema = this._extractSchema(rawResult, data);
       this._normalizeTimeFields(data, schema);
@@ -270,6 +276,10 @@ export class DuckDBService {
       console.log('[DuckDBService] Standardized query result:', { data, schema });
       return { data, schema };
     } finally {
+      // Release Arrow Table WASM heap memory explicitly.
+      // Arrow Tables hold references to WASM-allocated ArrayBuffers that JS GC cannot reclaim.
+      // Without this, each query permanently leaks its result set into the WASM heap.
+      try { rawResult?.delete?.(); } catch (_) { /* ignore */ }
       await conn.close();
     }
   }
@@ -529,40 +539,36 @@ export class DuckDBService {
   }
 
   /**
-   * Convert BigInt values to Number for JSON serialization.
+   * Convert BigInt values to Number in-place for JSON serialization.
    * DuckDB returns BIGINT columns as BigInt, which cannot be JSON.stringify'd.
-   * This method recursively traverses data and converts all BigInt values to Number.
+   * Mutates each row object directly to avoid creating duplicate object copies.
    */
   private _normalizeBigIntFields(data: any[]): void {
     if (!data || data.length === 0) return;
-    
-    const convertBigInt = (obj: any): any => {
-      if (obj === null || obj === undefined) return obj;
-      
-      if (typeof obj === 'bigint') {
-        // Convert BigInt to Number (safe for values within Number.MAX_SAFE_INTEGER)
-        return Number(obj);
+
+    const convertValue = (val: unknown): unknown => {
+      if (typeof val === 'bigint') return Number(val);
+      if (Array.isArray(val)) {
+        for (let i = 0; i < val.length; i++) val[i] = convertValue(val[i]);
+        return val;
       }
-      
-      if (Array.isArray(obj)) {
-        return obj.map(convertBigInt);
+      if (val !== null && typeof val === 'object') {
+        convertObjectInPlace(val as Record<string, unknown>);
+        return val;
       }
-      
-      if (typeof obj === 'object') {
-        const converted: any = {};
-        for (const key in obj) {
-          if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            converted[key] = convertBigInt(obj[key]);
-          }
-        }
-        return converted;
-      }
-      
-      return obj;
+      return val;
     };
 
-    for (let i = 0; i < data.length; i++) {
-      data[i] = convertBigInt(data[i]);
+    const convertObjectInPlace = (obj: Record<string, unknown>): void => {
+      for (const key of Object.keys(obj)) {
+        obj[key] = convertValue(obj[key]);
+      }
+    };
+
+    for (const row of data) {
+      if (row !== null && typeof row === 'object') {
+        convertObjectInPlace(row as Record<string, unknown>);
+      }
     }
   }
 
