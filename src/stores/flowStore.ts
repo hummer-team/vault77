@@ -22,6 +22,7 @@ const createInitialState = () => ({
   flowId: `flow_${Date.now()}`,
   flowName: '',
   operatorType: 'association' as OperatorType,
+  defaultKernelName: null as string | null,
   nodes: [
     // Initialize with START NODE at center
     {
@@ -217,6 +218,12 @@ export const useFlowStore = create<FlowState>()(
     // Reset flow
     resetFlow: () => {
       set(() => createInitialState());
+    },
+
+    setDefaultKernelName: (name: string | null) => {
+      set((state) => {
+        state.defaultKernelName = name;
+      });
     },
 
     // Placeholder value actions

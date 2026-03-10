@@ -12,6 +12,111 @@ import type { BizKernelMetadata } from './types';
  * Based on suanzi.md business logic
  */
 export const SEED_KERNELS: BizKernelMetadata[] = [
+  // 数据清洗
+  {
+    name: 'fn_ecom_data_clean_replace_spec_column_value',
+    displayName: '数据清洗，替换特定列值',
+    industry: '电商/订单',
+    category: '数据清洗',
+    version: '1.0.0',
+    description: '简单，快速替换指定列的值',
+    detailedDescription:
+        '简单，快速替换指定列的值，支持多列，动态绑定条件',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['单个文档替换'],
+    },
+  },
+  // 数据清洗
+  {
+    name: 'fn_ecom_data_clean_up_lower',
+    displayName: '数据清洗，转换大小写',
+    industry: '电商/订单',
+    category: '数据清洗',
+    version: '1.0.0',
+    description: '简单，快速转换列值大小写',
+    detailedDescription:
+        '简单，快速转换列值大小写，支持多列，动态绑定条件',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['单个文档替换'],
+    },
+  },
+  // 数据清洗
+  {
+    name: 'fn_ecom_data_clean_number_precision_control',
+    displayName: '数据清洗，金额相关数字精度控制',
+    industry: '电商/订单',
+    category: '数据清洗',
+    version: '1.0.0',
+    description: '简单，快速金额相关数字精度控制',
+    detailedDescription:
+        '简单，快速金额相关数字精度控制，支持多列，动态绑定条件',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['单个文档替换'],
+    },
+  },
+  // 数据清洗
+  {
+    name: 'fn_ecom_data_clean_data_flag',
+    displayName: '数据清洗，数据标记',
+    industry: '电商/订单',
+    category: '数据清洗',
+    version: '1.0.0',
+    description: '简单，快速自定义数据标记',
+    detailedDescription:
+        '简单，快速自定义数据标记，支持多列，动态绑定条件',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['单个文档替换'],
+    },
+  },
+  // 数据清洗
+  {
+    name: 'fn_ecom_data_format_date',
+    displayName: '数据清洗，时间格式化',
+    industry: '电商/订单',
+    category: '数据清洗',
+    version: '1.0.0',
+    description: '简单，快速自定义时间列格式',
+    detailedDescription:
+        '简单，快速自定义时间列格式，支持多列，动态绑定条件',
+    author: 'official',
+    likes: 234,
+    credits: 100,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['*'],
+      outputFields: ['*'],
+      constraints: ['单个文档替换'],
+    },
+  },
   // 基础洞察 - 关联查询（单表/多表查询）
   {
     name: 'fn_ecom_association_query',

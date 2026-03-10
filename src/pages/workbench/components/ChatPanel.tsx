@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { Input, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip } from 'antd';
+import { Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions } from 'antd';
 import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
@@ -8,6 +8,7 @@ import { getPersonaById } from '../../../config/personas';
 import { useUserStore } from '../../../status/appStatusManager.ts';
 import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 
 interface ChatPanelProps {
   onSendMessage: (message: string) => void;
@@ -39,6 +40,9 @@ interface ChatPanelProps {
   onToggleInsight?: () => void;
   // Flow button control
   onToggleFlow?: () => void;
+  // Kernel @ mention
+  onKernelSelected?: (kernelName: string) => void;
+  kernelFlowHint?: string | null;
 }
 
 interface GroupedAttachment {
@@ -72,10 +76,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   showInsightSidebar = false,
   onToggleInsight,
   onToggleFlow,
+  onKernelSelected,
+  kernelFlowHint,
 }) => {
   const [form] = Form.useForm();
   const { userProfile } = useUserStore();
   const [userSkillConfigs, setUserSkillConfigs] = useState<Record<string, TableSkillConfig>>({});
+
+  // Kernel @ mention: options for dropdown + lookup map for kernelName
+  const [kernelMentionOptions, setKernelMentionOptions] = useState<{ value: string; label: string }[]>([]);
+  const [kernelNameByValue, setKernelNameByValue] = useState<Record<string, string>>({});
+  useEffect(() => {
+    try {
+      const applied = bizKernelService.getAppliedKernels();
+      const options = applied.map(k => ({
+        value: `${k.category}/${k.displayName}`,
+        label: `${k.category}/${k.displayName}`,
+      }));
+      const nameMap: Record<string, string> = {};
+      applied.forEach(k => { nameMap[`${k.category}/${k.displayName}`] = k.name; });
+      setKernelMentionOptions(options);
+      setKernelNameByValue(nameMap);
+    } catch {
+      // service not yet initialized — options stay empty
+    }
+  }, []);
 
   // Load User Skill configurations and listen for updates
   useEffect(() => {
@@ -124,9 +149,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // When the user manually inputs text, if setInitialMessage is present,
   // update the parent state to maintain two-way synchronization (optional).
-  const handleChangeMessage = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Mentions onChange passes text directly (not an event)
+  const handleChangeMessage = (text: string) => {
     if (error) setError(null);
-    if (setInitialMessage) setInitialMessage(e.target.value);
+    if (setInitialMessage) setInitialMessage(text);
   };
 
   const groupedAttachments = useMemo((): GroupedAttachment[] => {
@@ -306,10 +332,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <Form form={form} onFinish={handleFinish} layout="vertical">
         <div style={{ position: 'relative' }}>
           <Form.Item name="message" noStyle>
-            <Input.TextArea
+            <Mentions
+              prefix="/"
+              options={kernelMentionOptions}
+              onSelect={(option) => {
+                const kernelName = kernelNameByValue[option.value ?? ''];
+                if (kernelName) onKernelSelected?.(kernelName);
+              }}
               placeholder={placeholderText}
               disabled={isAnalyzing || isInitializing}
-              style={{ height: 120, resize: 'none', paddingBottom: '52px', paddingRight: '40px' }}
+              style={{ minHeight: 120, resize: 'none' }}
+              className="chat-mentions"
               onKeyDown={handleKeyDown}
               onChange={handleChangeMessage}
             />
@@ -342,11 +375,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               left: '8px',
               right: '48px',
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '8px',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: '4px',
             }}
           >
+            {/* Action buttons row */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               {/* Enhanced Persona Badge */}
               <Tooltip
@@ -411,32 +445,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   />
                 </Tooltip>
               )}
-              {!isLlmReady && (
-                <Typography.Text style={{ fontSize: 12, color: '#fadb14' }}>
-                  Connect an LLM in Settings to enable analysis.
-                </Typography.Text>
-              )}
-              {userSkillStatusText && (
-                <Typography.Text style={{ fontSize: 12, color: '#d4b106' }}>
-                  {userSkillStatusText}
-                </Typography.Text>
-              )}
-              {uploadHint && (
-                <Typography.Text style={{ fontSize: 12, color: '#fadb14' }}>
-                  {uploadHint}
-                </Typography.Text>
-              )}
-              {error && (
-                <Typography.Text type="danger" style={{ fontSize: '12px' }}>
-                  {error}
-                </Typography.Text>
-              )}
             </div>
-            {/* inline hints on the right side */}
-            {personaHint && (
-              <Typography.Text style={{ fontSize: 12, color: '#fadb14' }}>
-                {personaHint}
-              </Typography.Text>
+            {/* Hints column — unified color, left-aligned, vertically stacked */}
+            {(kernelFlowHint || !isLlmReady || userSkillStatusText || uploadHint || personaHint || error) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
+                {kernelFlowHint && (
+                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                    {kernelFlowHint}
+                  </Typography.Text>
+                )}
+                {!isLlmReady && (
+                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                    Connect an LLM in Settings to enable analysis.
+                  </Typography.Text>
+                )}
+                {userSkillStatusText && (
+                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                    {userSkillStatusText}
+                  </Typography.Text>
+                )}
+                {uploadHint && (
+                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                    {uploadHint}
+                  </Typography.Text>
+                )}
+                {personaHint && (
+                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                    {personaHint}
+                  </Typography.Text>
+                )}
+                {error && (
+                  <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                    {error}
+                  </Typography.Text>
+                )}
+              </div>
             )}
           </div>
           {/* Send/Cancel Button - Always visible */}

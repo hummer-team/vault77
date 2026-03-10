@@ -52,3 +52,14 @@
     z-index: 100;
     padding: 16px 0 20px;
 }
+/* Mentions — keep same inner padding as the replaced TextArea */
+.chat-mentions .ant-mentions-affix-wrapper,
+.chat-mentions {
+    min-height: 120px;
+}
+.chat-mentions textarea {
+    padding-bottom: 72px !important;
+    padding-right: 40px !important;
+    min-height: 120px;
+    resize: none;
+}

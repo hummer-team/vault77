@@ -263,6 +263,31 @@ class BizKernelService {
     return [...this.userKernels];
   }
 
+  // ── Flow Template Storage ────────────────────────────────────────────
+  private readonly KERNEL_TEMPLATES_KEY = 'vaultmind_kernel_flow_templates';
+
+  /**
+   * Check whether the kernel has a FlowCanvas-built template saved.
+   * @param kernelName - The kernel's internal name
+   */
+  public hasFlowTemplate(kernelName: string): boolean {
+    const raw = localStorage.getItem(this.KERNEL_TEMPLATES_KEY);
+    const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    return !!map[kernelName];
+  }
+
+  /**
+   * Persist a FlowCanvas-validated SQL string as the template for a kernel.
+   * @param kernelName - The kernel's internal name
+   * @param sql - Validated SQL from FlowCanvas
+   */
+  public saveFlowTemplate(kernelName: string, sql: string): void {
+    const raw = localStorage.getItem(this.KERNEL_TEMPLATES_KEY);
+    const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    map[kernelName] = sql;
+    localStorage.setItem(this.KERNEL_TEMPLATES_KEY, JSON.stringify(map));
+  }
+
   /**
    * Reset all user kernels (for testing)
    */

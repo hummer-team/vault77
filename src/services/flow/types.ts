@@ -116,6 +116,8 @@ export interface MergeNodeData extends BaseNodeData {
 
 export interface OperatorNodeData extends BaseNodeData {
   operatorType?: OperatorType; // 'association' | 'anomaly' | 'clustering'
+  /** Business kernel name selected from applied kernels */
+  kernelName?: string;
 }
 
 export interface JoinCondition {
@@ -313,6 +315,10 @@ export interface FlowState {
   setErrorPanelOpen: (open: boolean) => void;
   setValidationErrors: (errors: ValidationError[]) => void;
   resetFlow: () => void;
+
+  // Default kernel pre-selected from ChatPanel "/" trigger
+  defaultKernelName: string | null;
+  setDefaultKernelName: (name: string | null) => void;
 
   // Placeholder value actions
   setPlaceholderValue: (placeholder: string, value: unknown) => void;

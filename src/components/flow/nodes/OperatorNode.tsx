@@ -1,16 +1,17 @@
 /**
  * Operator Node Component
- * Allows user to select business operator (association, anomaly, clustering)
+ * Allows user to select business operator from applied kernels
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Space, Button } from 'antd';
 import { ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
-import { FlowNodeType, OperatorType } from '../../../services/flow/types';
+import { FLOW_COLORS } from '../../../services/flow/constants';
 import type { OperatorNodeData } from '../../../services/flow/types';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
+import type { BizKernelMetadata } from '../../../services/biz-kernels/types';
 
 interface OperatorNodeProps {
   id: string;
@@ -18,19 +19,31 @@ interface OperatorNodeProps {
   selected?: boolean;
 }
 
-const operatorOptions = Object.entries(OPERATOR_CONFIG).map(([key, config]) => ({
-  value: key as OperatorType,
-  label: config.name,
-  description: config.description,
-  icon: config.icon,
-}));
-
 export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }) => {
   const updateNode = useFlowStore((state) => state.updateNode);
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const removeNode = useFlowStore((state) => state.removeNode);
   const nodes = useFlowStore((state) => state.nodes);
+  const defaultKernelName = useFlowStore((state) => state.defaultKernelName);
+
+  const [appliedKernels, setAppliedKernels] = useState<BizKernelMetadata[]>([]);
+
+  // Load applied kernels
+  useEffect(() => {
+    const load = async () => {
+      await bizKernelService.initialize();
+      setAppliedKernels(bizKernelService.getAppliedKernels());
+    };
+    load();
+  }, []);
+
+  // Auto-select default kernel when node has no selection yet
+  useEffect(() => {
+    if (!data.kernelName && defaultKernelName) {
+      updateNode(id, { kernelName: defaultKernelName });
+    }
+  }, [id, data.kernelName, defaultKernelName, updateNode]);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -41,21 +54,13 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
     [id, removeNode]
   );
 
-  const handleOperatorChange = useCallback(
-    (operatorType: OperatorType) => {
-      // Update operator node
-      updateNode(id, { operatorType });
+  const handleKernelChange = useCallback(
+    (kernelName: string) => {
+      updateNode(id, { kernelName });
 
       // Check if there's already a next node connected to this operator node
       const edges = useFlowStore.getState().edges;
-      const hasConnectedNextNode = edges.some(
-        (e) =>
-          e.source === id &&
-          (nodes.find((n) => n.id === e.target)?.type === FlowNodeType.SELECT ||
-           nodes.find((n) => n.id === e.target)?.type === FlowNodeType.JOIN)
-      );
-
-      // Don't create if already exists
+      const hasConnectedNextNode = edges.some((e) => e.source === id);
       if (hasConnectedNextNode) return;
 
       // Get operator node position
@@ -70,46 +75,27 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       const mergeNode = inputEdges
         .map((e) => nodes.find((n) => n.id === e.source))
         .find((n) => n?.type === 'merge');
-      
-      // Get all connected table nodes from merge node
+
       const connectedTableEdges = mergeNode?.id
         ? (edges || []).filter((e) => e.target === mergeNode.id)
         : [];
       const connectedTableNodes = connectedTableEdges
         .map((e) => nodes.find((n) => n.id === e.source))
         .filter((n): n is NonNullable<typeof n> => n?.type === 'table');
-      
+
       const tableNames = connectedTableNodes.map((n) => (n.data as { tableName: string }).tableName);
       const connectedTableCount = tableNames.length;
 
-      // If multiple tables, create JOIN nodes for each pair
       if (connectedTableCount > 1) {
         let previousNodeId = id;
-        const createdJoinNodes: Array<{ id: string; conditions: any[] }> = [];
-        
-        // Create a JOIN node for each table pair
-        // For N tables, we need (N-1) JOIN operations
         for (let i = 1; i < connectedTableCount; i++) {
           const joinNodeId = `join_${Date.now()}_${i}`;
-          const leftTable = tableNames[0]; // First table is always the left table
-          const rightTable = tableNames[i]; // Current table is the right table
-          
-          const joinNode = {
+          addNode({
             id: joinNodeId,
-            type: FlowNodeType.JOIN,
+            type: 'join',
             position: { x: operatorX + 280 + (i - 1) * 50, y: operatorY + (i - 1) * 30 },
-            data: {
-              joinType: 'INNER',
-              leftTable: leftTable,
-              rightTable: rightTable,
-              conditions: [],
-              order: i,
-            },
-          };
-          addNode(joinNode as unknown as Parameters<typeof addNode>[0]);
-          createdJoinNodes.push({ id: joinNodeId, conditions: [] });
-
-          // Connect previous node -> join with arrow marker
+            data: { joinType: 'INNER', leftTable: tableNames[0], rightTable: tableNames[i], conditions: [], order: i },
+          } as Parameters<typeof addNode>[0]);
           addEdge({
             id: `e_${previousNodeId}_${joinNodeId}`,
             source: previousNodeId,
@@ -118,97 +104,17 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             animated: false,
             style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
             markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as unknown as Parameters<typeof addEdge>[0]);
-          
+          } as Parameters<typeof addEdge>[0]);
           previousNodeId = joinNodeId;
         }
-        
-        // Validate all created JOIN nodes have conditions configured
-        // If any JOIN node lacks conditions, don't create downstream nodes
-        // and keep the detail panel open for the first incomplete JOIN node
-        const state = useFlowStore.getState();
-        const incompleteJoinNode = createdJoinNodes.find(joinInfo => {
-          const joinNode = state.nodes.find(n => n.id === joinInfo.id);
-          return !joinNode?.data?.conditions || (joinNode.data.conditions as any[]).length === 0;
-        });
-        
-        if (incompleteJoinNode) {
-          // Select the first incomplete JOIN node to show its detail panel
-          setTimeout(() => {
-            const { setSelectedNode } = useFlowStore.getState();
-            setSelectedNode(incompleteJoinNode.id);
-          }, 100);
-          return; // Don't create downstream nodes until all JOINs are configured
-        }
-        
-        // After all JOIN nodes, create a merge node (+ node) and select node
-        const lastJoinNodeId = previousNodeId;
-        const lastJoinNode = nodes.find((n) => n.id === lastJoinNodeId);
-        const lastJoinX = lastJoinNode?.position?.x || operatorX + 280;
-        const lastJoinY = lastJoinNode?.position?.y || operatorY;
-        
-        // Create merge node (+ node) with "选择列" label
-        const mergeNodeId = `merge_after_join_${Date.now()}`;
-        const mergeNode = {
-          id: mergeNodeId,
-          type: FlowNodeType.MERGE,
-          position: { x: lastJoinX + 200, y: lastJoinY },
-          data: {
-            tableCount: 1,
-            label: '选择列',
-          },
-        };
-        addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
-        
-        // Connect last JOIN -> merge node with arrow marker
-        addEdge({
-          id: `e_${lastJoinNodeId}_${mergeNodeId}`,
-          source: lastJoinNodeId,
-          target: mergeNodeId,
-          type: 'default',
-          animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-        } as unknown as Parameters<typeof addEdge>[0]);
-        
-        // Create select node (default select all columns)
-        const selectNodeId = `select_${Date.now()}`;
-        const selectNode = {
-          id: selectNodeId,
-          type: FlowNodeType.SELECT,
-          position: { x: lastJoinX + 450, y: lastJoinY },
-          data: {
-            fields: [],
-            selectAll: true, // Default to selecting all columns
-          },
-        };
-        addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
-        
-        // Connect merge node -> select node with arrow marker
-        addEdge({
-          id: `e_${mergeNodeId}_${selectNodeId}`,
-          source: mergeNodeId,
-          target: selectNodeId,
-          type: 'default',
-          animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-        } as unknown as Parameters<typeof addEdge>[0]);
       } else {
-        // Single table - create SELECT node directly with selectAll enabled by default
         const selectNodeId = `select_${Date.now()}`;
-        const selectNode = {
+        addNode({
           id: selectNodeId,
-          type: FlowNodeType.SELECT,
+          type: 'select',
           position: { x: operatorX + 280, y: operatorY },
-          data: {
-            fields: [],
-            selectAll: true, // Default to selecting all columns
-          },
-        };
-        addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
-
-        // Connect operator -> select with arrow marker
+          data: { fields: [], selectAll: true },
+        } as Parameters<typeof addNode>[0]);
         addEdge({
           id: `e_${id}_${selectNodeId}`,
           source: id,
@@ -217,21 +123,19 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           animated: false,
           style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
           markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-        } as unknown as Parameters<typeof addEdge>[0]);
+        } as Parameters<typeof addEdge>[0]);
       }
     },
     [id, updateNode, addNode, addEdge, nodes]
   );
 
-  const selectedOperator = data.operatorType
-    ? OPERATOR_CONFIG[data.operatorType]
-    : null;
+  const selectedKernel = appliedKernels.find((k) => k.name === data.kernelName);
 
   return (
     <div
       style={{
         background: FLOW_COLORS.node.select.background,
-        border: `2px solid ${selected ? FLOW_COLORS.edge.selected : data.operatorType ? FLOW_COLORS.node.select.border : '#ff4d4f'}`,
+        border: `2px solid ${selected ? FLOW_COLORS.edge.selected : data.kernelName ? FLOW_COLORS.node.select.border : '#ff4d4f'}`,
         borderRadius: '8px',
         padding: '12px 16px',
         minWidth: '220px',
@@ -258,44 +162,23 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         type="target"
         position={Position.Left}
         id="target"
-        style={{
-          width: 8,
-          height: 8,
-          background: FLOW_COLORS.edge.selected,
-          border: '2px solid #fff',
-        }}
+        style={{ width: 8, height: 8, background: FLOW_COLORS.edge.selected, border: '2px solid #fff' }}
       />
-
       {/* Output handle */}
       <Handle
         type="source"
         position={Position.Right}
         id="source"
-        style={{
-          width: 8,
-          height: 8,
-          background: FLOW_COLORS.edge.selected,
-          border: '2px solid #fff',
-        }}
+        style={{ width: 8, height: 8, background: FLOW_COLORS.edge.selected, border: '2px solid #fff' }}
       />
 
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: 12,
-          color: '#fff',
-          fontWeight: 500,
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, color: '#fff', fontWeight: 500 }}>
         <ThunderboltOutlined style={{ marginRight: 8, color: '#fa8c16' }} />
         <span>业务算子</span>
         <Space size={4} style={{ marginLeft: 'auto' }}>
-          {data.operatorType && (
-            <Tag color="processing" style={{ fontSize: 10 }}>
-              已选择
-            </Tag>
+          {data.kernelName && (
+            <Tag color="processing" style={{ fontSize: 10 }}>已选择</Tag>
           )}
           {selected && (
             <Button
@@ -310,34 +193,31 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         </Space>
       </div>
 
-      {/* Operator selector */}
+      {/* Kernel selector — shows applied kernels, defaults to ChatPanel selection */}
       <Select
         placeholder="请选择业务算子"
-        value={data.operatorType}
-        onChange={handleOperatorChange}
+        value={data.kernelName}
+        onChange={handleKernelChange}
         style={{ width: '100%' }}
         className="nodrag"
         dropdownStyle={{ background: '#1f1f1f', border: '1px solid #434343' }}
         popupClassName="operator-select-dropdown nodrag"
         getPopupContainer={() => document.body}
       >
-        {operatorOptions.map((opt) => (
-          <Select.Option key={opt.value} value={opt.value}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>{opt.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500 }}>{opt.label}</div>
-                <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
-                  {opt.description}
-                </div>
-              </div>
+        {appliedKernels.map((k) => (
+          <Select.Option key={k.name} value={k.name}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 500 }}>{k.displayName}</span>
+              <span style={{ fontSize: '11px', color: '#8c8c8c' }}>
+                {k.category}
+              </span>
             </div>
           </Select.Option>
         ))}
       </Select>
 
-      {/* Selected operator display */}
-      {selectedOperator && (
+      {/* Selected kernel display */}
+      {selectedKernel && (
         <div
           style={{
             marginTop: 12,
@@ -347,18 +227,17 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             border: '1px solid rgba(255, 107, 0, 0.3)',
           }}
         >
-          <div style={{ fontSize: '12px', color: '#fff', marginBottom: 4 }}>
-            <span style={{ marginRight: '6px' }}>{selectedOperator.icon}</span>
-            <span style={{ fontWeight: 500 }}>{selectedOperator.name}</span>
+          <div style={{ fontSize: '12px', color: '#fff', marginBottom: 2 }}>
+            <span style={{ fontWeight: 500 }}>{selectedKernel.displayName}</span>
           </div>
           <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
-            {selectedOperator.description}
+            {selectedKernel.category}
           </div>
         </div>
       )}
 
       {/* Empty state */}
-      {!data.operatorType && (
+      {!data.kernelName && (
         <div
           style={{
             marginTop: 8,
@@ -368,9 +247,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             borderRadius: '4px',
           }}
         >
-          <span style={{ fontSize: '11px', color: '#ff4d4f' }}>
-            请选择业务算子
-          </span>
+          <span style={{ fontSize: '11px', color: '#ff4d4f' }}>请选择业务算子</span>
         </div>
       )}
     </div>

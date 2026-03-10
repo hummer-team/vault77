@@ -3,7 +3,7 @@
  * Main canvas component for the analysis flow using React Flow
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -46,9 +46,31 @@ const edgeTypes = {
 interface FlowCanvasProps {
   className?: string;
   onSqlValidated?: (sql: string) => void;
+  /** Pre-selected kernel name from ChatPanel "/" trigger */
+  defaultKernelName?: string;
+  /** Called when user changes the kernel selection inside canvas */
+  onKernelChange?: (kernelName: string) => void;
 }
 
-const FlowCanvasInner: React.FC<FlowCanvasProps> = ({ className, onSqlValidated }) => {
+const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
+  className,
+  onSqlValidated,
+  defaultKernelName,
+}) => {
+  const setDefaultKernelName = useFlowStore((state) => state.setDefaultKernelName);
+
+  // Sync defaultKernelName into flowStore so OperatorNode can read it
+  useEffect(() => {
+    setDefaultKernelName(defaultKernelName ?? null);
+    return () => setDefaultKernelName(null);
+  }, [defaultKernelName, setDefaultKernelName]);
+
+  // Expose onKernelChange via a ref in store-accessible callback is not possible cleanly;
+  // OperatorNode calls onKernelChange through a store action we expose via context instead.
+  // We pass it via FlowCanvas's own prop drilling is not needed — Workbench reads pendingKernelTemplate
+  // from its own state which is already updated via onKernelChange callback.
+  // OperatorNode will call store.setDefaultKernelName on selection change (no-op for parent).
+
   // Get state from store
   const storeNodes = useFlowStore((state) => state.nodes);
   const storeEdges = useFlowStore((state) => state.edges);

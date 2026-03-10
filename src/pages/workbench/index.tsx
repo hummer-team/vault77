@@ -30,6 +30,7 @@ import { getPersonaSuggestions } from '../../config/personaSuggestions';
 import { useUserStore } from '../../status/appStatusManager.ts';
 import { runAgent } from '../../services/llm/agentRuntime.ts';
 import { DuckDBProvider } from '../../contexts/DuckDBContext';
+import { bizKernelService } from '../../services/biz-kernels/bizKernelService';
 import './workbench.css';
 
 const InsightPage = React.lazy(() => import('../insight'));
@@ -214,6 +215,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const [insightTableName, setInsightTableName] = useState<string | null>(null);
   // Flow Modal state
   const [showFlowModal, setShowFlowModal] = useState(false);
+  // Kernel @ mention: pending template save + hint text
+  const [pendingKernelTemplate, setPendingKernelTemplate] = useState<string | null>(null);
+  const [kernelFlowHint, setKernelFlowHint] = useState<string | null>(null);
   // 新增：当前输入框内容，用于“编辑”时回填
   const [sidebarAnimationState, setSidebarAnimationState] = useState<'entering' | 'visible' | 'exiting' | 'hidden'>('hidden');
   const [sidebarWidth, setSidebarWidth] = useState(50); // percentage (50% default)
@@ -446,6 +450,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     // Close Flow Modal
     setShowFlowModal(false);
 
+    // Save as kernel template if a kernel was pending
+    if (pendingKernelTemplate) {
+      bizKernelService.saveFlowTemplate(pendingKernelTemplate, sql);
+      setPendingKernelTemplate(null);
+      setKernelFlowHint(null);
+    }
+
     if (!isDBReady) {
       message.error('Database not ready');
       return;
@@ -488,7 +499,19 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       console.error('[Workbench] Flow query execution failed:', error);
       message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [isDBReady, executeQuery, attachments, appendAnalysisRecord]);
+  }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate]);
+
+  // Handle kernel selected via @ mention in ChatPanel
+  const handleKernelSelected = useCallback((kernelName: string) => {
+    if (!bizKernelService.hasFlowTemplate(kernelName)) {
+      setKernelFlowHint('由于你选择的算子未构建模板，请先构建模板');
+      setPendingKernelTemplate(kernelName);
+      setTimeout(() => setShowFlowModal(true), 200);
+    } else {
+      setKernelFlowHint(null);
+      setPendingKernelTemplate(null);
+    }
+  }, []);
 
   // Handle view customers from InsightPage
   const handleViewCustomers = useCallback(async (customerIds: string[], tableName: string) => {
@@ -1153,6 +1176,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             showInsightSidebar={showInsightSidebar}
             onToggleInsight={toggleInsightSidebar}
             onToggleFlow={() => setShowFlowModal(true)}
+            onKernelSelected={handleKernelSelected}
+            kernelFlowHint={kernelFlowHint}
           />
         </div>
       </div>
@@ -1337,7 +1362,11 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       }}
     >
       <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady} refreshKey={showFlowModal ? Date.now() : 0}>
-        <FlowCanvas onSqlValidated={handleFlowSqlReady} />
+        <FlowCanvas
+          onSqlValidated={handleFlowSqlReady}
+          defaultKernelName={pendingKernelTemplate ?? undefined}
+          onKernelChange={(name) => setPendingKernelTemplate(name)}
+        />
       </DuckDBProvider>
     </Modal>
   </>
