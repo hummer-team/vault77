@@ -58,12 +58,83 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   defaultKernelName,
 }) => {
   const setDefaultKernelName = useFlowStore((state) => state.setDefaultKernelName);
+  const resetFlow = useFlowStore((state) => state.resetFlow);
+  const addNode = useFlowStore((state) => state.addNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
+  const updateNode = useFlowStore((state) => state.updateNode);
 
   // Sync defaultKernelName into flowStore so OperatorNode can read it
   useEffect(() => {
     setDefaultKernelName(defaultKernelName ?? null);
     return () => setDefaultKernelName(null);
   }, [defaultKernelName, setDefaultKernelName]);
+
+  // Auto-initialize nodes based on whether a kernel was selected
+  useEffect(() => {
+    // No kernel selected — reset to clean state with only the start node
+    if (!defaultKernelName) {
+      resetFlow();
+      return;
+    }
+
+    // Kernel selected — reset and create the full node chain
+    resetFlow();
+
+    const startX = 50;
+    const startY = 300;
+
+    // Update start node to pre-select main_table_1
+    updateNode('start', { selectedTables: ['main_table_1'] });
+
+    // Table node for main_table_1
+    const tableNodeId = 'table_init_1';
+    addNode({
+      id: tableNodeId,
+      type: 'table',
+      position: { x: startX + 260, y: startY },
+      data: { tableName: 'main_table_1', fields: [], expanded: false, label: 'main_table_1' },
+    } as Parameters<typeof addNode>[0]);
+
+    // Merge node
+    const mergeNodeId = 'merge_init_1';
+    addNode({
+      id: mergeNodeId,
+      type: 'merge',
+      position: { x: startX + 480, y: startY },
+      data: { tableCount: 1 },
+    } as Parameters<typeof addNode>[0]);
+
+    // Operator node with pre-selected kernel
+    const operatorNodeId = 'operator_init_1';
+    addNode({
+      id: operatorNodeId,
+      type: 'operator',
+      position: { x: startX + 700, y: startY },
+      data: { kernelName: defaultKernelName },
+    } as Parameters<typeof addNode>[0]);
+
+    // Select node (选择列) — mirrors the single-table branch in OperatorNode.handleKernelChange
+    const selectNodeId = 'select_init_1';
+    addNode({
+      id: selectNodeId,
+      type: 'select',
+      position: { x: startX + 700 + 280, y: startY },
+      data: { fields: [], selectAll: true },
+    } as Parameters<typeof addNode>[0]);
+
+    const edgeStyle = { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 };
+    const markerEnd = { type: 'arrowclosed' as const, width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' };
+
+    // start → table
+    addEdge({ id: `e_start_${tableNodeId}`, source: 'start', target: tableNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+    // table → merge
+    addEdge({ id: `e_${tableNodeId}_${mergeNodeId}`, source: tableNodeId, target: mergeNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+    // merge → operator
+    addEdge({ id: `e_${mergeNodeId}_${operatorNodeId}`, source: mergeNodeId, target: operatorNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+    // operator → select (选择列)
+    addEdge({ id: `e_${operatorNodeId}_${selectNodeId}`, source: operatorNodeId, target: selectNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultKernelName]);
 
   // Expose onKernelChange via a ref in store-accessible callback is not possible cleanly;
   // OperatorNode calls onKernelChange through a store action we expose via context instead.

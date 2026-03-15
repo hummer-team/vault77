@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Space, Button } from 'antd';
-import { ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import type { OperatorNodeData } from '../../../services/flow/types';
@@ -129,7 +129,6 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
     [id, updateNode, addNode, addEdge, nodes]
   );
 
-  const selectedKernel = appliedKernels.find((k) => k.name === data.kernelName);
 
   return (
     <div
@@ -178,7 +177,10 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         <span>业务算子</span>
         <Space size={4} style={{ marginLeft: 'auto' }}>
           {data.kernelName && (
-            <Tag color="processing" style={{ fontSize: 10 }}>已选择</Tag>
+            <Space size={4} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <Tag color="processing" style={{ fontSize: 10 }}>已选择</Tag>
+              <EyeOutlined style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }} />
+            </Space>
           )}
           {selected && (
             <Button
@@ -217,24 +219,6 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       </Select>
 
       {/* Selected kernel display */}
-      {selectedKernel && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: '8px',
-            background: 'rgba(255, 107, 0, 0.1)',
-            borderRadius: '4px',
-            border: '1px solid rgba(255, 107, 0, 0.3)',
-          }}
-        >
-          <div style={{ fontSize: '12px', color: '#fff', marginBottom: 2 }}>
-            <span style={{ fontWeight: 500 }}>{selectedKernel.displayName}</span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
-            {selectedKernel.category}
-          </div>
-        </div>
-      )}
 
       {/* Empty state */}
       {!data.kernelName && (

@@ -28,7 +28,7 @@ const createInitialState = () => ({
     {
       id: 'start',
       type: 'start',
-      position: { x: 400, y: 300 },
+      position: { x: 50, y: 300 },
       data: {},
     },
   ] as FlowNode[],

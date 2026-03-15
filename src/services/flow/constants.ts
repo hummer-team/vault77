@@ -93,7 +93,7 @@ export const FLOW_LAYOUT = {
   // Canvas bounds
   minZoom: 0.2,
   maxZoom: 2,
-  defaultZoom: 1,
+  defaultZoom: 0.83,
 };
 
 // ============================================================================

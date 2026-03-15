@@ -252,7 +252,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       const endNode = {
         id: endNodeId,
         type: FlowNodeType.END,
-        position: { x: mergeX + 250, y: mergeY },
+        position: { x: mergeX + 220, y: mergeY },
         data: {
           operatorType: 'association',
           executable: true,
@@ -325,7 +325,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
             const selectNode = {
               id: selectNodeId,
               type: FlowNodeType.SELECT,
-              position: { x: mergeX + 250, y: mergeY },
+              position: { x: mergeX + 220, y: mergeY },
               data: {
                 fields: [],
                 selectAll: true, // Default to selecting all columns
@@ -358,7 +358,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
             const operatorNode = {
               id: operatorNodeId,
               type: FlowNodeType.OPERATOR,
-              position: { x: mergeX + 250, y: mergeY },
+              position: { x: mergeX + 220, y: mergeY },
               data: {
                 operatorType: undefined,
               },
