@@ -127,7 +127,7 @@ const InitialWelcomeView: React.FC = () => (
           fontStyle: 'italic',
           textTransform: 'uppercase',
           padding: '0 8px'
-        }} className="neon-glow-text">You Private BI</span> Assistant.
+        }} className="neon-glow-text">You Private BI</span> Buddy.
       </Typography.Title>
       <Typography.Text style={{ 
         fontSize: 12, 
