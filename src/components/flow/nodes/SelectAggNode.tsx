@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { SelectAggNodeData } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 
 interface SelectAggNodeProps {
@@ -101,7 +102,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
       const mergeNodeId = `merge_${Date.now()}`;
       const mergeNode = {
         id: mergeNodeId,
-        type: 'merge' as const,
+        type: FlowNodeType.MERGE,
         position: { x: selectX + 280, y: selectY },
         data: { tableCount: 1 },
       };

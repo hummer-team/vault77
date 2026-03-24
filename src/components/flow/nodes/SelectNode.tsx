@@ -17,7 +17,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { SelectNodeData, ReplaceRule } from '../../../services/flow/types';
-import { OperatorType } from '../../../services/flow/types';
+import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
 
@@ -101,63 +101,59 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode, nodes]
   );
 
+  // For UDF nodes: configured when replacementRules has at least one valid entry
+  const isUdfConfigured = isUdfNode &&
+    (data.replacementRules?.length ?? 0) > 0 &&
+    data.replacementRules?.some((r) => r.sourceTable && r.targetColumn?.length > 0);
+
   // Check if there's already a merge node (衔接节点) connected to this select node
   const hasConnectedMergeNode = React.useMemo(() => {
     return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'merge');
   }, [edges, nodes, id]);
 
-  // Auto-create merge node (衔接节点 "+") after select node if not exists
-  // This allows user to enter condition definition flow (Q17)
+  // Auto-create merge node (衔接节点 "+") after select node if not exists.
+  // For standard nodes: triggers when fields are selected or selectAll is true.
+  // For UDF nodes: triggers when replacement rules are fully configured (isUdfConfigured).
+  // This is the gateway to the "定义条件" (condition definition) flow.
   React.useEffect(() => {
-    // Only auto-create if:
-    // 1. Fields have been selected OR selectAll is true
-    // 2. No merge node is already connected
-    // 3. The SelectNode itself exists in the flow
-    if ((data.selectAll || data.fields.length > 0) && !hasConnectedMergeNode) {
-      const selectNode = nodes.find((n) => n.id === id);
-      if (!selectNode) return;
+    const shouldCreate = data.selectAll || data.fields.length > 0 || isUdfConfigured;
+    if (!shouldCreate || hasConnectedMergeNode) return;
 
-      // Check again to prevent race conditions
-      const currentEdges = useFlowStore.getState().edges;
-      const currentNodes = useFlowStore.getState().nodes;
-      const alreadyHasMerge = currentEdges.some(
-        (e) =>
-          e.source === id &&
-          currentNodes.find((n) => n.id === e.target)?.type === 'merge'
-      );
+    const selectNode = nodes.find((n) => n.id === id);
+    if (!selectNode) return;
 
-      if (alreadyHasMerge) return;
+    // Double-check store state to prevent race conditions
+    const currentEdges = useFlowStore.getState().edges;
+    const currentNodes = useFlowStore.getState().nodes;
+    const alreadyHasMerge = currentEdges.some(
+      (e) =>
+        e.source === id &&
+        currentNodes.find((n) => n.id === e.target)?.type === 'merge'
+    );
+    if (alreadyHasMerge) return;
 
-      const selectX = selectNode.position.x;
-      const selectY = selectNode.position.y;
+    const { x: selectX, y: selectY } = selectNode.position;
 
-      // Create merge node (衔接节点 "+") to enter condition definition flow
-      const mergeNodeId = `merge_${Date.now()}`;
-      const mergeNode = {
-        id: mergeNodeId,
-        type: 'merge' as const,
-        position: { x: selectX + 280, y: selectY },
-        data: { tableCount: 1 },
-      };
-      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
+    // Create merge node (衔接节点 "+") — entry point for defining conditions
+    const mergeNodeId = `merge_${Date.now()}`;
+    addNode({
+      id: mergeNodeId,
+      type: FlowNodeType.MERGE,
+      position: { x: selectX + 280, y: selectY },
+      data: { tableCount: 1 },
+    } as unknown as Parameters<typeof addNode>[0]);
 
-      // Connect select -> merge with arrow marker
-      addEdge({
-        id: `e_${id}_${mergeNodeId}`,
-        source: id,
-        target: mergeNodeId,
-        type: 'default',
-        animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-      } as unknown as Parameters<typeof addEdge>[0]);
-    }
-  }, [data.fields.length, data.selectAll, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
-
-  // For UDF nodes: configured when replacementRules has valid entries
-  const isUdfConfigured = isUdfNode &&
-    (data.replacementRules?.length ?? 0) > 0 &&
-    data.replacementRules?.some((r) => r.sourceTable && r.targetColumn);
+    // Connect select → merge
+    addEdge({
+      id: `e_${id}_${mergeNodeId}`,
+      source: id,
+      target: mergeNodeId,
+      type: 'default',
+      animated: false,
+      style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+      markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+    } as unknown as Parameters<typeof addEdge>[0]);
+  }, [data.fields.length, data.selectAll, isUdfConfigured, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
 
   const hasFields = isUdfNode
     ? isUdfConfigured

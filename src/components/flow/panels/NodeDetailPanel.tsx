@@ -17,6 +17,7 @@ import type {
   EndNodeData,
 } from '../../../services/flow/types';
 import { JOIN_TYPE_LABELS, SQL_OPERATORS } from '../../../services/flow/constants';
+import { FlowNodeType } from '../../../services/flow/types';
 
 const { Option } = Select;
 
@@ -176,10 +177,10 @@ const JoinNodeForm: React.FC<{
 
   // Get available fields from left and right tables
   const leftTableNode = nodes.find(
-    (n) => n.type === 'table' && (n.data as { tableName: string }).tableName === data.leftTable
+    (n) => n.type === FlowNodeType.TABLE && (n.data as { tableName: string }).tableName === data.leftTable
   );
   const rightTableNode = nodes.find(
-    (n) => n.type === 'table' && (n.data as { tableName: string }).tableName === data.rightTable
+    (n) => n.type === FlowNodeType.TABLE && (n.data as { tableName: string }).tableName === data.rightTable
   );
 
   const leftFields = (leftTableNode?.data as { fields?: { name: string; type: string }[] })?.fields || [];
@@ -197,7 +198,7 @@ const JoinNodeForm: React.FC<{
     if (hasDownstreamNode) return; // Already has downstream node
     
     // Check if all JOIN nodes in the flow have conditions
-    const allJoinNodes = nodes.filter((n) => n.type === 'join');
+    const allJoinNodes = nodes.filter((n) => n.type === FlowNodeType.JOIN);
     const allJoinsHaveConditions = allJoinNodes.every((joinNode) => {
       const joinData = joinNode.data as JoinNodeData;
       return joinData.conditions && joinData.conditions.length > 0;
@@ -224,7 +225,7 @@ const JoinNodeForm: React.FC<{
       const mergeNodeId = `merge_after_join_${Date.now()}`;
       const mergeNode = {
         id: mergeNodeId,
-        type: 'merge' as const,
+        type: FlowNodeType.MERGE,
         position: { x: joinX + 200, y: joinY },
         data: {
           tableCount: 1,
@@ -248,7 +249,7 @@ const JoinNodeForm: React.FC<{
       const selectNodeId = `select_${Date.now()}`;
       const selectNode = {
         id: selectNodeId,
-        type: 'select' as const,
+        type: FlowNodeType.SELECT,
         position: { x: joinX + 450, y: joinY },
         data: {
           fields: [],
@@ -451,7 +452,7 @@ const ConditionNodeForm: React.FC<{
   const nodes = useFlowStore((state) => state.nodes);
 
   // Get all table nodes for selection
-  const tableNodes = nodes.filter((n) => n.type === 'table');
+  const tableNodes = nodes.filter((n) => n.type === FlowNodeType.TABLE);
 
   // Get fields for selected table
   const selectedTableNode = tableNodes.find(

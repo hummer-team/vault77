@@ -153,7 +153,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           const joinNodeId = `join_${Date.now()}_${i}`;
           addNode({
             id: joinNodeId,
-            type: 'join',
+            type: FlowNodeType.JOIN,
             position: { x: operatorX + 280 + (i - 1) * 50, y: operatorY + (i - 1) * 30 },
             data: { joinType: 'INNER', leftTable: tableNames[0], rightTable: tableNames[i], conditions: [], order: i },
           } as Parameters<typeof addNode>[0]);
@@ -172,7 +172,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         const selectNodeId = `select_${Date.now()}`;
         addNode({
           id: selectNodeId,
-          type: 'select',
+          type: FlowNodeType.SELECT,
           position: { x: operatorX + 280, y: operatorY },
           data: { fields: [], selectAll: true },
         } as Parameters<typeof addNode>[0]);

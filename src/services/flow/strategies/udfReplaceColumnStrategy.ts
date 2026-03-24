@@ -68,7 +68,7 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
     }
 
     const incompleteRules = nodeData.replacementRules?.filter(
-      (r) => !r.sourceTable || !r.targetColumn || r.originalValue === '' || r.targetValue === ''
+      (r) => !r.sourceTable || !r.targetColumn || r.targetColumn.length === 0 || r.originalValue === '' || r.targetValue === ''
     );
     if (incompleteRules && incompleteRules.length > 0) {
       errors.push({
@@ -178,9 +178,12 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
    */
   private _buildUdfCall(tableName: string, rules: ReplaceRule[]): string {
     // Build swap_map: { "col1": ["from1", "to1"], "col2": ["from2", "to2"] }
+    // Each rule may target multiple columns that share the same originalValue → targetValue mapping.
     const swapMapObj: Record<string, [string, string]> = {};
     for (const rule of rules) {
-      swapMapObj[rule.targetColumn] = [rule.originalValue, rule.targetValue];
+      for (const col of rule.targetColumn) {
+        swapMapObj[col] = [rule.originalValue, rule.targetValue];
+      }
     }
     const swapMapJson = JSON.stringify(swapMapObj);
 

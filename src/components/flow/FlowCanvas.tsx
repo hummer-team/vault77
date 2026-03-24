@@ -38,6 +38,7 @@ import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
 import { duckDBUdfService } from '../../services/duckDBUdfService';
+import { FlowNodeType } from '../../services/flow/types';
 import type { FlowEdge } from '../../services/flow/types';
 
 // Register edge types
@@ -92,7 +93,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     const tableNodeId = 'table_init_1';
     addNode({
       id: tableNodeId,
-      type: 'table',
+      type: FlowNodeType.TABLE,
       position: { x: startX + 260, y: startY },
       data: { tableName: 'main_table_1', fields: [], expanded: false, label: 'main_table_1' },
     } as Parameters<typeof addNode>[0]);
@@ -101,7 +102,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     const mergeNodeId = 'merge_init_1';
     addNode({
       id: mergeNodeId,
-      type: 'merge',
+      type: FlowNodeType.MERGE,
       position: { x: startX + 480, y: startY },
       data: { tableCount: 1 },
     } as Parameters<typeof addNode>[0]);
@@ -110,7 +111,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     const operatorNodeId = 'operator_init_1';
     addNode({
       id: operatorNodeId,
-      type: 'operator',
+      type: FlowNodeType.OPERATOR,
       position: { x: startX + 700, y: startY },
       data: { kernelName: defaultKernelName },
     } as Parameters<typeof addNode>[0]);
@@ -121,7 +122,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     const udfFunctionName = isUdfKernel ? (duckDBUdfService.getUdfFunctionName(defaultKernelName) ?? '') : '';
     addNode({
       id: selectNodeId,
-      type: 'select',
+      type: FlowNodeType.SELECT,
       position: { x: startX + 700 + 280, y: startY },
       data: isUdfKernel
         ? { fields: [], selectAll: false, udfFunctionName, udfKernelName: defaultKernelName, replacementRules: [] }
@@ -277,7 +278,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
           const mergeNodeId = `merge_${Date.now()}`;
           const mergeNode = {
             id: mergeNodeId,
-            type: 'merge' as const,
+            type: FlowNodeType.MERGE,
             position: { x: mergeX, y: mergeY },
             data: {
               tableCount: 2,

@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionNodeData, LogicType } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS, SQL_OPERATORS } from '../../../services/flow/constants';
 
 interface ConditionNodeProps {
@@ -84,7 +85,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
 
   // Check if there's already an end node connected to this condition node
   const hasConnectedEndNode = React.useMemo(() => {
-    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'end');
+    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === FlowNodeType.END);
   }, [edges, nodes, id]);
 
   // Auto-create end node after condition node is complete
@@ -103,7 +104,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
       const alreadyHasEnd = currentEdges.some(
         (e) =>
           e.source === id &&
-          currentNodes.find((n) => n.id === e.target)?.type === 'end'
+          currentNodes.find((n) => n.id === e.target)?.type === FlowNodeType.END
       );
 
       if (alreadyHasEnd) return;
@@ -115,7 +116,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
       const endNodeId = `end_${Date.now()}`;
       const endNode = {
         id: endNodeId,
-        type: 'end' as const,
+        type: FlowNodeType.END,
         position: { x: conditionX + 280, y: conditionY },
         data: {
           operatorType: 'association',

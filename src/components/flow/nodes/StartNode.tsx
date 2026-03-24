@@ -12,6 +12,7 @@ import { getAvailableTables, getTableSchema } from '../../../services/flow/flowS
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import type { StartNodeData } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
 
 interface StartNodeProps {
   id: string;
@@ -78,7 +79,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
       const startY = startNode?.position?.y || 300;
 
       // Find existing table nodes to determine which tables are new
-      const existingTableNodes = nodes.filter((n) => n.type === 'table');
+      const existingTableNodes = nodes.filter((n) => n.type === FlowNodeType.TABLE);
       const existingTableNames = existingTableNodes.map((n) => n.data?.tableName);
 
       // Only process newly added tables
@@ -89,7 +90,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
       if (newTableNames.length === 0) return;
 
       // Check if merge node already exists
-      const existingMerge = nodes.find((n) => n.type === 'merge');
+      const existingMerge = nodes.find((n) => n.type === FlowNodeType.MERGE);
 
       // Process each new table
       for (const tableName of newTableNames) {
@@ -104,11 +105,11 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         }
 
         // Get current table count for positioning
-        const currentTableCount = nodes.filter((n) => n.type === 'table').length;
+        const currentTableCount = nodes.filter((n) => n.type === FlowNodeType.TABLE).length;
         const tableNodeId = `table_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const tableNode = {
           id: tableNodeId,
-          type: 'table' as const,
+          type: FlowNodeType.TABLE,
           position: { x: startX + 200, y: startY + currentTableCount * 120 },
           data: {
             tableName,
@@ -146,7 +147,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           const mergeNodeId = `merge_${Date.now()}`;
           const mergeNode = {
             id: mergeNodeId,
-            type: 'merge' as const,
+            type: FlowNodeType.MERGE,
             position: { x: startX + 450, y: startY },
             data: {
               tableCount: 1,

@@ -25,6 +25,7 @@ import {
   ColumnWidthOutlined,
   FilterOutlined,
   EditOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
@@ -90,7 +91,7 @@ function createEmptyRule(): ReplaceRule {
   return {
     id: uuidv4(),
     sourceTable: '',
-    targetColumn: '',
+    targetColumn: [],
     conditionType: 'all',
     conditionValue: '',
     originalValue: '',
@@ -107,7 +108,8 @@ const HeaderCell: React.FC<{
   icon?: React.ReactNode;
   label: string;
   width?: number | string;
-}> = ({ icon, label }) => (
+  required?: boolean;
+}> = ({ icon, label, required }) => (
   <div
     style={{
       display: 'flex',
@@ -133,6 +135,9 @@ const HeaderCell: React.FC<{
     >
       {label}
     </Text>
+    {required && (
+      <span style={{ color: TOKEN.primary, fontSize: 10, lineHeight: 1, flexShrink: 0 }}>*</span>
+    )}
   </div>
 );
 
@@ -158,6 +163,8 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   const [tableColumns, setTableColumns] = useState<Record<string, string[]>>({});
   // Hover state for row highlight
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  // IDs of rows that failed required-field validation
+  const [invalidRuleIds, setInvalidRuleIds] = useState<Set<string>>(new Set());
 
   // ── Load tables when drawer opens ──────────────────────────────────────────
   useEffect(() => {
@@ -180,6 +187,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
       setRules(
         initialRules && initialRules.length > 0 ? initialRules : [createEmptyRule()]
       );
+      setInvalidRuleIds(new Set());
     }
   }, [open, initialRules]);
 
@@ -206,6 +214,16 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
     setRules((prev) =>
       prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
     );
+    // Clear validation error on the row when user fills in any required field
+    const requiredKeys: (keyof ReplaceRule)[] = ['sourceTable', 'targetColumn', 'originalValue'];
+    if (requiredKeys.some((k) => k in patch)) {
+      setInvalidRuleIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }, []);
 
   const addRule = useCallback(() => {
@@ -228,6 +246,22 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
 
   // ── Confirm ────────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
+    // Validate required fields: sourceTable (*), targetColumn (*), originalValue (*)
+    const failedIds = rules
+      .filter(
+        (r) =>
+          !r.sourceTable ||
+          r.targetColumn.length === 0 ||
+          !r.originalValue.trim()
+      )
+      .map((r) => r.id);
+
+    if (failedIds.length > 0) {
+      setInvalidRuleIds(new Set(failedIds));
+      return;
+    }
+
+    setInvalidRuleIds(new Set());
     onConfirm(rules);
   }, [rules, onConfirm]);
 
@@ -238,6 +272,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   const renderRuleRow = (rule: ReplaceRule, index: number) => {
     const columns = tableColumns[rule.sourceTable] ?? [];
     const isHovered = hoveredRowId === rule.id;
+    const isInvalid = invalidRuleIds.has(rule.id);
 
     return (
       <div
@@ -251,10 +286,21 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           alignItems: 'center',
           marginBottom: 5,
           padding: '8px 10px',
-          background: isHovered ? TOKEN.bgRowHover : TOKEN.bgRow,
+          background: isInvalid
+            ? 'rgba(255, 107, 0, 0.06)'
+            : isHovered
+            ? TOKEN.bgRowHover
+            : TOKEN.bgRow,
           borderRadius: TOKEN.radius,
-          border: `1px solid ${isHovered ? TOKEN.borderPrimary : TOKEN.borderSubtle}`,
+          border: `1px solid ${
+            isInvalid
+              ? TOKEN.primary
+              : isHovered
+              ? TOKEN.borderPrimary
+              : TOKEN.borderSubtle
+          }`,
           transition: 'background 0.18s ease, border-color 0.18s ease',
+          boxShadow: isInvalid ? `0 0 0 1px rgba(255,107,0,0.25)` : undefined,
         }}
       >
         {/* Row number badge */}
@@ -284,14 +330,14 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           </Text>
         </div>
 
-        {/* Data source */}
+        {/* Data source — required (*) */}
         <Select
           placeholder={
             <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>选择数据源</span>
           }
           value={rule.sourceTable || undefined}
           onChange={(val) => {
-            updateRule(rule.id, { sourceTable: val, targetColumn: '' });
+            updateRule(rule.id, { sourceTable: val, targetColumn: [] });
             loadColumns(val);
           }}
           style={{ width: '100%' }}
@@ -313,21 +359,38 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           ))}
         </Select>
 
-        {/* Target column */}
+        {/* Target column — multi-select, required (*) */}
         <Select
+          mode="multiple"
+          menuItemSelectedIcon={null}
           placeholder={
             <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>
               {rule.sourceTable ? '选择列' : '—'}
             </span>
           }
-          value={rule.targetColumn || undefined}
-          onChange={(val) => updateRule(rule.id, { targetColumn: val })}
+          value={rule.targetColumn}
+          onChange={(val: string[]) => updateRule(rule.id, { targetColumn: val })}
           style={{ width: '100%' }}
           className="nodrag"
           getPopupContainer={() => document.body}
           popupClassName="nodrag"
           size="small"
           disabled={!rule.sourceTable}
+          maxTagCount={0}
+          maxTagPlaceholder={() => {
+            const cols = rule.targetColumn;
+            if (cols.length === 0) return null;
+            return (
+              <span style={{ fontSize: 11, color: TOKEN.textPrimary }}>
+                {cols[0]}
+                {cols.length > 1 && (
+                  <span style={{ color: TOKEN.primary, fontWeight: 600, marginLeft: 2 }}>
+                    +{cols.length - 1}
+                  </span>
+                )}
+              </span>
+            );
+          }}
           suffixIcon={
             <ColumnWidthOutlined
               style={{
@@ -337,11 +400,19 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             />
           }
         >
-          {columns.map((col) => (
-            <Select.Option key={col} value={col}>
-              <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
-            </Select.Option>
-          ))}
+          {columns.map((col) => {
+            const isSelected = rule.targetColumn.includes(col);
+            return (
+              <Select.Option key={col} value={col}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
+                  {isSelected && (
+                    <CheckOutlined style={{ fontSize: 11, color: TOKEN.primary, flexShrink: 0 }} />
+                  )}
+                </div>
+              </Select.Option>
+            );
+          })}
         </Select>
 
         {/* Condition type */}
@@ -586,10 +657,10 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             }}
           >
             <div />
-            <HeaderCell icon={<DatabaseOutlined />} label="数据源" />
-            <HeaderCell icon={<ColumnWidthOutlined />} label="目标列" />
+            <HeaderCell icon={<DatabaseOutlined />} label="数据源" required />
+            <HeaderCell icon={<ColumnWidthOutlined />} label="目标列" required />
             <HeaderCell icon={<FilterOutlined />} label="条件" />
-            <HeaderCell icon={<EditOutlined />} label="原值" />
+            <HeaderCell icon={<EditOutlined />} label="原值" required />
             <HeaderCell icon={<SwapOutlined />} label="目标值" />
             <HeaderCell label="新增列" />
             <div />
@@ -661,6 +732,15 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               borderColor: 'rgba(255,255,255,0.12)',
               color: TOKEN.textSecondary,
               background: 'rgba(255,255,255,0.03)',
+              transition: 'border-color 0.18s ease, color 0.18s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = TOKEN.primary;
+              e.currentTarget.style.color = TOKEN.primary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = TOKEN.textSecondary;
             }}
           >
             取消

@@ -53,7 +53,7 @@ function makeRule(overrides: Partial<ReplaceRule> = {}): ReplaceRule {
   return {
     id: 'rule-1',
     sourceTable: 'order_1',
-    targetColumn: 'order_type',
+    targetColumn: ['order_type'],
     conditionType: 'all',
     conditionValue: '',
     originalValue: 'pre_pay',
@@ -119,7 +119,7 @@ describe('UdfReplaceColumnStrategy.buildSql', () => {
   });
 
   it('should produce swap_map with correct JSON shape [originalValue, targetValue]', () => {
-    const rule = makeRule({ targetColumn: 'status', originalValue: 'A', targetValue: 'B' });
+    const rule = makeRule({ targetColumn: ['status'], originalValue: 'A', targetValue: 'B' });
     const node = makeUdfSelectNode([rule]);
     const sql = strategy.buildSql([node], []);
 
@@ -143,8 +143,8 @@ describe('UdfReplaceColumnStrategy.buildSql', () => {
 
   it('should group multiple rules on the same table into one SQL call', () => {
     const rules = [
-      makeRule({ id: 'r1', targetColumn: 'col_a', originalValue: 'x', targetValue: 'y' }),
-      makeRule({ id: 'r2', targetColumn: 'col_b', originalValue: 'foo', targetValue: 'bar' }),
+      makeRule({ id: 'r1', targetColumn: ['col_a'], originalValue: 'x', targetValue: 'y' }),
+      makeRule({ id: 'r2', targetColumn: ['col_b'], originalValue: 'foo', targetValue: 'bar' }),
     ];
     const node = makeUdfSelectNode(rules);
     const sql = strategy.buildSql([node], []);
@@ -203,7 +203,7 @@ describe('UdfReplaceColumnStrategy.validate', () => {
   });
 
   it('should return an error for an incomplete rule missing targetColumn', () => {
-    const incompleteRule = makeRule({ targetColumn: '' });
+    const incompleteRule = makeRule({ targetColumn: [] });
     const node = makeUdfSelectNode([incompleteRule]);
     const errors = strategy.validate([node], []);
     expect(errors.length).toBeGreaterThan(0);
@@ -225,7 +225,7 @@ describe('UdfReplaceColumnStrategy.validate', () => {
 
   it('should return the count of incomplete rules in the error message', () => {
     const incomplete = [
-      makeRule({ id: 'r1', targetColumn: '' }),
+      makeRule({ id: 'r1', targetColumn: [] }),
       makeRule({ id: 'r2', originalValue: '' }),
     ];
     const node = makeUdfSelectNode(incomplete);

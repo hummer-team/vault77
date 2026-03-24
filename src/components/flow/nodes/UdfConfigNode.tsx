@@ -36,7 +36,7 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
 
   // Determine configured rule count
   const ruleCount = data.replacementRules?.length ?? 0;
-  const isConfigured = ruleCount > 0 && data.replacementRules?.some((r) => r.sourceTable && r.targetColumn);
+  const isConfigured = ruleCount > 0 && data.replacementRules?.some((r) => r.sourceTable && r.targetColumn?.length > 0);
 
   const operatorType = UDF_OPERATOR_TYPE_MAP[data.udfFunctionName];
 

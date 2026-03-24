@@ -213,8 +213,8 @@ export interface ReplaceRule {
   id: string;
   /** Source table name */
   sourceTable: string;
-  /** Column to apply replacement on */
-  targetColumn: string;
+  /** Column(s) to apply replacement on (supports multi-select) */
+  targetColumn: string[];
   /** 'contains' = apply WHERE condition; 'all' = no condition filter */
   conditionType: 'contains' | 'all';
   /** Optional condition expression string (used when conditionType = 'contains') */
