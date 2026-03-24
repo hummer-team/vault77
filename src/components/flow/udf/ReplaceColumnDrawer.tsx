@@ -12,9 +12,7 @@ import {
   Input,
   Switch,
   Space,
-  Tag,
   Typography,
-  Divider,
   Tooltip,
 } from 'antd';
 import {
@@ -23,6 +21,10 @@ import {
   RedoOutlined,
   CloseOutlined,
   SwapOutlined,
+  DatabaseOutlined,
+  ColumnWidthOutlined,
+  FilterOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
@@ -50,6 +52,37 @@ const CONDITION_OPTIONS = [
 ] as const;
 
 // ============================================================================
+// Design tokens (aligned with system global.css + NodeDetailPanel pattern)
+// ============================================================================
+
+const TOKEN = {
+  bgBase: 'rgba(14, 14, 16, 0.99)',
+  bgHeader: 'rgba(22, 20, 18, 0.99)',
+  bgSection: 'rgba(255, 255, 255, 0.02)',
+  bgRow: 'rgba(255, 255, 255, 0.015)',
+  bgRowHover: 'rgba(255, 107, 0, 0.045)',
+  bgRowComplete: 'rgba(114, 46, 209, 0.04)',
+  borderSubtle: 'rgba(255, 255, 255, 0.06)',
+  borderMid: 'rgba(255, 255, 255, 0.1)',
+  borderPrimary: 'rgba(255, 107, 0, 0.35)',
+  borderPurple: 'rgba(114, 46, 209, 0.4)',
+  primary: '#FF6B00',
+  primaryHover: '#FF8533',
+  primaryGlow: 'rgba(255, 107, 0, 0.2)',
+  purple: '#722ed1',
+  purpleLight: '#b37feb',
+  purpleBg: 'rgba(114, 46, 209, 0.12)',
+  textPrimary: 'rgba(255, 255, 255, 0.88)',
+  textSecondary: 'rgba(255, 255, 255, 0.45)',
+  textMuted: 'rgba(255, 255, 255, 0.25)',
+  textDanger: '#8c3030',
+  success: '#389e0d',
+  successLight: 'rgba(56, 158, 13, 0.12)',
+  radius: '6px',
+  radiusLg: '8px',
+};
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -65,6 +98,43 @@ function createEmptyRule(): ReplaceRule {
     addNewColumn: false,
   };
 }
+
+// ============================================================================
+// Sub-component: Column header cell
+// ============================================================================
+
+const HeaderCell: React.FC<{
+  icon?: React.ReactNode;
+  label: string;
+  width?: number | string;
+}> = ({ icon, label }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      overflow: 'hidden',
+    }}
+  >
+    {icon && (
+      <span style={{ color: TOKEN.textMuted, fontSize: 10, flexShrink: 0 }}>{icon}</span>
+    )}
+    <Text
+      style={{
+        fontSize: 10,
+        color: TOKEN.textSecondary,
+        fontWeight: 600,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {label}
+    </Text>
+  </div>
+);
 
 // ============================================================================
 // Component
@@ -168,7 +238,6 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   const renderRuleRow = (rule: ReplaceRule, index: number) => {
     const columns = tableColumns[rule.sourceTable] ?? [];
     const isHovered = hoveredRowId === rule.id;
-    const isComplete = Boolean(rule.sourceTable && rule.targetColumn && rule.originalValue && rule.targetValue);
 
     return (
       <div
@@ -177,17 +246,15 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
         onMouseLeave={() => setHoveredRowId(null)}
         style={{
           display: 'grid',
-          gridTemplateColumns: '28px 140px 118px 118px 98px 98px 58px 52px',
-          gap: '6px',
+          gridTemplateColumns: '26px 1fr 104px 104px 92px 92px 56px 44px',
+          gap: '5px',
           alignItems: 'center',
-          marginBottom: 6,
-          padding: '7px 10px',
-          background: isHovered
-            ? 'rgba(255, 107, 0, 0.04)'
-            : 'rgba(255, 255, 255, 0.02)',
-          borderRadius: 6,
-          border: `1px solid ${isHovered ? 'rgba(255, 107, 0, 0.25)' : isComplete ? '#2a2a2a' : '#1f1f1f'}`,
-          transition: 'background 0.15s ease, border-color 0.15s ease',
+          marginBottom: 5,
+          padding: '8px 10px',
+          background: isHovered ? TOKEN.bgRowHover : TOKEN.bgRow,
+          borderRadius: TOKEN.radius,
+          border: `1px solid ${isHovered ? TOKEN.borderPrimary : TOKEN.borderSubtle}`,
+          transition: 'background 0.18s ease, border-color 0.18s ease',
         }}
       >
         {/* Row number badge */}
@@ -196,22 +263,32 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             width: 20,
             height: 20,
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid #303030',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <Text style={{ fontSize: 10, color: '#595959', fontFamily: 'monospace', lineHeight: 1 }}>
+          <Text
+            style={{
+              fontSize: 9,
+              color: TOKEN.textSecondary,
+              fontFamily: 'monospace',
+              lineHeight: 1,
+              fontWeight: 700,
+            }}
+          >
             {String(index + 1).padStart(2, '0')}
           </Text>
         </div>
 
         {/* Data source */}
         <Select
-          placeholder="选择数据源"
+          placeholder={
+            <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>选择数据源</span>
+          }
           value={rule.sourceTable || undefined}
           onChange={(val) => {
             updateRule(rule.id, { sourceTable: val, targetColumn: '' });
@@ -222,17 +299,27 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           getPopupContainer={() => document.body}
           popupClassName="nodrag"
           size="small"
+          suffixIcon={
+            <DatabaseOutlined style={{ color: TOKEN.textMuted, fontSize: 10 }} />
+          }
         >
           {availableTables.map((t) => (
             <Select.Option key={t} value={t}>
-              {t}
+              <Space size={5}>
+                <DatabaseOutlined style={{ color: TOKEN.primary, fontSize: 10 }} />
+                <span style={{ fontSize: 12 }}>{t}</span>
+              </Space>
             </Select.Option>
           ))}
         </Select>
 
         {/* Target column */}
         <Select
-          placeholder={rule.sourceTable ? '选择列' : '—'}
+          placeholder={
+            <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>
+              {rule.sourceTable ? '选择列' : '—'}
+            </span>
+          }
           value={rule.targetColumn || undefined}
           onChange={(val) => updateRule(rule.id, { targetColumn: val })}
           style={{ width: '100%' }}
@@ -241,10 +328,18 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           popupClassName="nodrag"
           size="small"
           disabled={!rule.sourceTable}
+          suffixIcon={
+            <ColumnWidthOutlined
+              style={{
+                color: rule.sourceTable ? TOKEN.textSecondary : TOKEN.textMuted,
+                fontSize: 10,
+              }}
+            />
+          }
         >
           {columns.map((col) => (
             <Select.Option key={col} value={col}>
-              {col}
+              <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
             </Select.Option>
           ))}
         </Select>
@@ -258,28 +353,39 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           getPopupContainer={() => document.body}
           popupClassName="nodrag"
           size="small"
+          suffixIcon={
+            <FilterOutlined style={{ color: TOKEN.textMuted, fontSize: 10 }} />
+          }
         >
           {CONDITION_OPTIONS.map((opt) => (
             <Select.Option key={opt.value} value={opt.value}>
-              {opt.label}
+              <span style={{ fontSize: 12 }}>{opt.label}</span>
             </Select.Option>
           ))}
         </Select>
 
         {/* Original value */}
         <Input
-          placeholder="原值"
+          placeholder="原始值"
           value={rule.originalValue}
           onChange={(e) => updateRule(rule.id, { originalValue: e.target.value })}
           size="small"
+          style={{ fontSize: 12 }}
+          prefix={
+            <EditOutlined style={{ color: TOKEN.textMuted, fontSize: 9 }} />
+          }
         />
 
         {/* Target value */}
         <Input
-          placeholder="目标值"
+          placeholder="替换为"
           value={rule.targetValue}
           onChange={(e) => updateRule(rule.id, { targetValue: e.target.value })}
           size="small"
+          style={{ fontSize: 12 }}
+          prefix={
+            <SwapOutlined style={{ color: rule.targetValue ? TOKEN.primary : TOKEN.textMuted, fontSize: 9 }} />
+          }
         />
 
         {/* Add new column toggle */}
@@ -288,42 +394,78 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 2,
+            gap: 3,
           }}
         >
-          <Text style={{ fontSize: 10, color: rule.addNewColumn ? '#FF6B00' : '#595959', lineHeight: 1 }}>
-            {rule.addNewColumn ? '新增' : '覆盖'}
-          </Text>
           <Switch
             checked={rule.addNewColumn}
             onChange={(checked) => updateRule(rule.id, { addNewColumn: checked })}
             size="small"
+            style={
+              rule.addNewColumn
+                ? { background: TOKEN.purple }
+                : {}
+            }
           />
+          <Text
+            style={{
+              fontSize: 9,
+              color: rule.addNewColumn ? TOKEN.purpleLight : TOKEN.textMuted,
+              lineHeight: 1,
+              letterSpacing: '0.02em',
+              transition: 'color 0.18s ease',
+            }}
+          >
+            {rule.addNewColumn ? '新增列' : '覆盖'}
+          </Text>
         </div>
 
         {/* Action buttons: reset + delete */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Tooltip title="重置此行">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            opacity: isHovered ? 1 : 0.4,
+            transition: 'opacity 0.18s ease',
+          }}
+        >
+          <Tooltip placement="top">
             <Button
               type="text"
               size="small"
-              icon={<RedoOutlined style={{ fontSize: 12, color: '#595959' }} />}
+              icon={
+                <RedoOutlined style={{ fontSize: 11, color: TOKEN.textSecondary }} />
+              }
               onClick={() => resetRule(rule.id)}
-              style={{ padding: '2px 4px', minWidth: 'unset' }}
+              style={{
+                padding: '2px 3px',
+                minWidth: 'unset',
+                height: 22,
+                borderRadius: 4,
+              }}
             />
           </Tooltip>
-          <Tooltip title="删除此行">
+          <Tooltip placement="top">
             <Button
               type="text"
               size="small"
               icon={
                 <DeleteOutlined
-                  style={{ fontSize: 12, color: rules.length <= 1 ? '#303030' : '#8c3030' }}
+                  style={{
+                    fontSize: 11,
+                    color: rules.length <= 1 ? TOKEN.textMuted : '#cf1322',
+                  }}
                 />
               }
               onClick={() => removeRule(rule.id)}
               disabled={rules.length <= 1}
-              style={{ padding: '2px 4px', minWidth: 'unset' }}
+              style={{
+                padding: '2px 3px',
+                minWidth: 'unset',
+                height: 22,
+                borderRadius: 4,
+              }}
             />
           </Tooltip>
         </div>
@@ -338,169 +480,155 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   return (
     <Drawer
       title={
-        <Space size={8}>
-          <SwapOutlined style={{ color: '#FF6B00', fontSize: 15 }} />
-          {/* Category tag */}
-          <Tag
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Icon badge */}
+          <div
             style={{
-              fontSize: 12,
-              padding: '2px 10px',
-              background: 'rgba(114, 46, 209, 0.15)',
-              color: '#b37feb',
-              border: '1px solid rgba(114, 46, 209, 0.4)',
-              borderRadius: 3,
-              margin: 0,
+              width: 30,
+              height: 30,
+              borderRadius: 7,
+              background: 'rgba(255, 107, 0, 0.12)',
+              border: '1px solid rgba(255, 107, 0, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            数据清洗算子
-          </Tag>
-          {/* Breadcrumb separator */}
-          <span style={{ color: '#434343', fontSize: 14, lineHeight: 1 }}>/</span>
-          {/* Operator unit tag — same style */}
-          <Tag
-            style={{
-              fontSize: 12,
-              padding: '2px 10px',
-              background: 'rgba(114, 46, 209, 0.15)',
-              color: '#b37feb',
-              border: '1px solid rgba(114, 46, 209, 0.4)',
-              borderRadius: 3,
-              margin: 0,
-            }}
-          >
-            替换特定列
-          </Tag>
-        </Space>
+            <SwapOutlined style={{ color: TOKEN.primary, fontSize: 14 }} />
+          </div>
+
+          {/* Breadcrumb: plain text, no borders */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>数据清洗</span>
+            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>替换特定列值</span>
+          </div>
+        </div>
       }
       placement="right"
-      width={860}
+      width={880}
       open={open}
       onClose={onClose}
       closable
-      closeIcon={<CloseOutlined style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }} />}
+      closeIcon={
+        <CloseOutlined
+          style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}
+        />
+      }
       style={{ background: 'transparent' }}
       styles={{
         header: {
-          background: 'rgba(28, 25, 23, 0.98)',
-          borderBottom: '1px solid rgba(68, 64, 60, 0.6)',
-          padding: '16px 20px',
+          background: TOKEN.bgHeader,
+          borderBottom: `1px solid rgba(68, 64, 60, 0.5)`,
+          padding: '13px 20px',
+          boxShadow: `inset 0 -1px 0 rgba(255, 107, 0, 0.06)`,
         },
         body: {
-          background: 'rgba(20, 20, 20, 0.98)',
-          padding: '24px 28px',
+          background: TOKEN.bgBase,
+          padding: '22px 26px 28px',
           overflowX: 'hidden',
         },
         mask: {
-          background: 'rgba(0, 0, 0, 0.55)',
-          backdropFilter: 'blur(2px)',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(3px)',
         },
       }}
       drawerStyle={{
-        background: 'rgba(20, 20, 20, 0.98)',
-        borderLeft: '1px solid rgba(68, 64, 60, 0.6)',
-        boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.5), -1px 0 0 rgba(255, 107, 0, 0.08)',
+        background: TOKEN.bgBase,
+        borderLeft: `1px solid rgba(68, 64, 60, 0.55)`,
+        boxShadow: `-6px 0 32px rgba(0, 0, 0, 0.6), -1px 0 0 rgba(255, 107, 0, 0.07)`,
       }}
     >
-      {/* Operator unit section */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: 20,
-          gap: 14,
-          padding: '10px 14px',
-          background: 'rgba(255, 255, 255, 0.02)',
-          borderRadius: 6,
-          border: '1px solid #242424',
-          borderLeft: '3px solid #FF6B00',
-        }}
-      >
-        <Text style={{ fontSize: 13, color: '#8c8c8c', minWidth: 52 }}>算子单元</Text>
-        <Tag
-          style={{
-            fontSize: 13,
-            padding: '3px 14px',
-            background: 'rgba(114, 46, 209, 0.12)',
-            color: '#b37feb',
-            border: '1px solid rgba(114, 46, 209, 0.35)',
-            borderRadius: 4,
-            fontWeight: 500,
-          }}
-        >
-          替换特定值
-        </Tag>
-        <Text style={{ fontSize: 12, color: '#595959', marginLeft: 'auto' }}>
-          共 {rules.length} 条规则
-        </Text>
-      </div>
 
-      <Divider style={{ margin: '0 0 20px', borderColor: '#242424' }} />
+      {/* ── Build section ─────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 14 }}>
 
-      {/* Build operation section */}
-      <div style={{ display: 'flex', gap: 16 }}>
         {/* Left label */}
-        <Text
+        <div
           style={{
-            fontSize: 13,
-            color: '#8c8c8c',
-            minWidth: 52,
-            paddingTop: 6,
-            letterSpacing: '0.02em',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop: 36,
+            gap: 6,
           }}
         >
-          构建
-        </Text>
+          <Text
+            style={{
+              fontSize: 11,
+              color: TOKEN.textMuted,
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            构建规则
+          </Text>
+        </div>
 
         {/* Right: header + rows + add button */}
         <div style={{ flex: 1, minWidth: 0 }}>
+
           {/* Column headers */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '28px 140px 118px 118px 98px 98px 58px 52px',
-              gap: '6px',
-              marginBottom: 6,
-              padding: '6px 10px',
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: 6,
-              border: '1px solid #2a2a2a',
-              borderLeft: '3px solid rgba(255, 107, 0, 0.3)',
+              gridTemplateColumns: '26px 1fr 104px 104px 92px 92px 56px 44px',
+              gap: '5px',
+              marginBottom: 8,
+              padding: '7px 10px',
+              background: 'rgba(255,255,255,0.025)',
+              borderRadius: TOKEN.radius,
+              border: `1px solid ${TOKEN.borderSubtle}`,
+              borderLeft: `3px solid rgba(255, 107, 0, 0.4)`,
             }}
           >
-            {['', '数据源', '目标列', '条件', '原值', '目标值', '新增列', ''].map(
-              (header, idx) => (
-                <Text
-                  key={idx}
-                  style={{
-                    fontSize: 11,
-                    color: '#8c8c8c',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase' as const,
-                  }}
-                >
-                  {header}
-                </Text>
-              )
-            )}
+            <div />
+            <HeaderCell icon={<DatabaseOutlined />} label="数据源" />
+            <HeaderCell icon={<ColumnWidthOutlined />} label="目标列" />
+            <HeaderCell icon={<FilterOutlined />} label="条件" />
+            <HeaderCell icon={<EditOutlined />} label="原值" />
+            <HeaderCell icon={<SwapOutlined />} label="目标值" />
+            <HeaderCell label="新增列" />
+            <div />
           </div>
 
           {/* Rule rows */}
-          {rules.map((rule, index) => renderRuleRow(rule, index))}
+          <div style={{ minHeight: 40 }}>
+            {rules.map((rule, index) => renderRuleRow(rule, index))}
+          </div>
 
           {/* Add row button */}
           <Button
             type="dashed"
-            icon={<PlusOutlined />}
+            icon={<PlusOutlined style={{ fontSize: 12 }} />}
             onClick={addRule}
             style={{
-              marginTop: 10,
+              marginTop: 8,
               width: '100%',
-              borderColor: '#383838',
-              color: '#8c8c8c',
-              background: 'rgba(255,255,255,0.02)',
+              borderColor: 'rgba(255, 107, 0, 0.2)',
+              color: TOKEN.textSecondary,
+              background: 'rgba(255, 107, 0, 0.03)',
               height: 32,
-              fontSize: 13,
+              fontSize: 12,
+              borderRadius: TOKEN.radius,
+              transition: 'all 0.18s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                'rgba(255, 107, 0, 0.5)';
+              (e.currentTarget as HTMLButtonElement).style.color = TOKEN.primary;
+              (e.currentTarget as HTMLButtonElement).style.background =
+                'rgba(255, 107, 0, 0.07)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                'rgba(255, 107, 0, 0.2)';
+              (e.currentTarget as HTMLButtonElement).style.color = TOKEN.textSecondary;
+              (e.currentTarget as HTMLButtonElement).style.background =
+                'rgba(255, 107, 0, 0.03)';
             }}
           >
             添加规则行
@@ -508,34 +636,31 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
         </div>
       </div>
 
-      {/* Footer: confirm / cancel */}
+      {/* ── Footer ────────────────────────────────────────────────────────── */}
       <div
         style={{
-          marginTop: 32,
-          paddingTop: 20,
-          borderTop: '1px solid #242424',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          marginTop: 28,
+          paddingTop: 18,
+          borderTop: `1px solid ${TOKEN.borderSubtle}`,
         }}
       >
-        <Space size={10}>
+        <Space size={8}>
           <Button
             type="primary"
             size="middle"
             onClick={handleConfirm}
-            style={{ minWidth: 88 }}
+            style={{ minWidth: 88, fontWeight: 600 }}
           >
-            确认
+            确认应用
           </Button>
           <Button
             size="middle"
             onClick={onClose}
             style={{
               minWidth: 72,
-              borderColor: '#303030',
-              color: '#8c8c8c',
-              background: 'transparent',
+              borderColor: 'rgba(255,255,255,0.12)',
+              color: TOKEN.textSecondary,
+              background: 'rgba(255,255,255,0.03)',
             }}
           >
             取消
