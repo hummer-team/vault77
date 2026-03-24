@@ -147,6 +147,12 @@ export const OPERATOR_CONFIG = {
     icon: '👥',
     color: '#52c41a',
   },
+  udf_replace_column: {
+    name: '替换特定列值',
+    description: '按规则替换指定列的数据值',
+    icon: '🔄',
+    color: '#722ed1',
+  },
 };
 
 // ============================================================================

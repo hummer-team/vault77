@@ -9,6 +9,7 @@ import {
   AnomalyStrategy,
   ClusteringStrategy,
 } from '../strategies';
+import { UdfReplaceColumnStrategy } from '../strategies/udfReplaceColumnStrategy';
 import { OperatorType } from '../types';
 
 describe('StrategyFactory', () => {
@@ -42,10 +43,11 @@ describe('StrategyFactory', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(3);
+      expect(strategies).toHaveLength(4);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);
+      expect(strategies[3]).toBeInstanceOf(UdfReplaceColumnStrategy);
     });
 
     it('should return strategies with correct operator types', () => {
@@ -55,6 +57,7 @@ describe('StrategyFactory', () => {
       expect(operatorTypes).toContain(OperatorType.ASSOCIATION);
       expect(operatorTypes).toContain(OperatorType.ANOMALY);
       expect(operatorTypes).toContain(OperatorType.CLUSTERING);
+      expect(operatorTypes).toContain(OperatorType.UDF_REPLACE_COLUMN);
     });
   });
 

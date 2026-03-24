@@ -9,9 +9,11 @@ import { Select, Tag, Space, Button } from 'antd';
 import { ThunderboltOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FLOW_COLORS } from '../../../services/flow/constants';
+import { FlowNodeType, OperatorType } from '../../../services/flow/types';
 import type { OperatorNodeData } from '../../../services/flow/types';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import type { BizKernelMetadata } from '../../../services/biz-kernels/types';
+import { duckDBUdfService } from '../../../services/duckDBUdfService';
 
 interface OperatorNodeProps {
   id: string;
@@ -70,7 +72,66 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       const operatorX = operatorNode.position.x;
       const operatorY = operatorNode.position.y;
 
-      // Check if merge node has multiple table inputs
+      // ── Data-cleaning UDF kernel: create SelectNode with UDF routing + End node
+      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
+        const udfFunctionName = duckDBUdfService.getUdfFunctionName(kernelName) ?? '';
+
+        // 1. Create SelectNode ("选择列") with UDF metadata for routing
+        const selectNodeId = `select_${Date.now()}`;
+        addNode({
+          id: selectNodeId,
+          type: FlowNodeType.SELECT,
+          position: { x: operatorX + 280, y: operatorY },
+          data: {
+            fields: [],
+            selectAll: false,
+            udfFunctionName,
+            udfKernelName: kernelName,
+            replacementRules: [],
+          },
+        } as Parameters<typeof addNode>[0]);
+        addEdge({
+          id: `e_${id}_${selectNodeId}`,
+          source: id,
+          target: selectNodeId,
+          type: 'default',
+          animated: false,
+          style: { stroke: 'rgba(114, 46, 209, 0.65)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' },
+        } as Parameters<typeof addEdge>[0]);
+
+        // 2. Create End node (if not already exists) with UDF operator type
+        const existingEnd = useFlowStore.getState().nodes.find((n) => n.type === FlowNodeType.END);
+        if (!existingEnd) {
+          const endNodeId = `end_${Date.now()}`;
+          addNode({
+            id: endNodeId,
+            type: FlowNodeType.END,
+            position: { x: operatorX + 560, y: operatorY },
+            data: {
+              operatorType: OperatorType.UDF_REPLACE_COLUMN,
+              executable: true,
+              errors: [],
+            },
+          } as Parameters<typeof addNode>[0]);
+          addEdge({
+            id: `e_${selectNodeId}_${endNodeId}`,
+            source: selectNodeId,
+            target: endNodeId,
+            type: 'default',
+            animated: false,
+            style: { stroke: 'rgba(114, 46, 209, 0.65)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' },
+          } as Parameters<typeof addEdge>[0]);
+        } else {
+          // Update existing EndNode operatorType to UDF
+          updateNode(existingEnd.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN });
+        }
+
+        return;
+      }
+
+      // ── Non-UDF kernel: original flow (JOIN or SELECT) ─────────────────────
       const inputEdges = edges?.filter((e) => e.target === id) || [];
       const mergeNode = inputEdges
         .map((e) => nodes.find((n) => n.id === e.source))

@@ -1,5 +1,6 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
+import { duckDBUdfService } from './duckDBUdfService';
 
 const ARROW_IPC_STREAM_EOS = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]);
 
@@ -98,6 +99,10 @@ export class DuckDBService {
       );
       const settings = this._extractData(res);
       console.log('[DuckDBService] sys settings: ', settings);
+
+      // Register UDF MACRO functions for data-cleaning operators.
+      // Uses CREATE OR REPLACE MACRO so it is safe to re-run on reconnect.
+      await duckDBUdfService.initializeUdfs((sql) => c.query(sql));
     } catch (e) {
       console.error('[DuckDBService] Error loading extensions:', e);
       throw new Error('duckdb init fail.');

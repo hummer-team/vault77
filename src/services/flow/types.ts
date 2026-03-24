@@ -21,6 +21,7 @@ export enum FlowNodeType {
   SELECT = 'select',
   SELECT_AGG = 'selectAgg',
   END = 'end',
+  UDF_CONFIG = 'udfConfig', // UDF operator parameter configuration node
 }
 
 export enum JoinType {
@@ -34,6 +35,7 @@ export enum OperatorType {
   ASSOCIATION = 'association',
   ANOMALY = 'anomaly',
   CLUSTERING = 'clustering',
+  UDF_REPLACE_COLUMN = 'udf_replace_column', // Data-cleaning: replace specific column values
 }
 
 export enum LogicType {
@@ -187,11 +189,56 @@ export interface SelectField {
 export interface SelectNodeData extends BaseNodeData {
   fields: SelectField[];
   selectAll: boolean;
+  /** Optional: set when this select node is linked to a UDF data-cleaning operator */
+  udfFunctionName?: string;
+  udfKernelName?: string;
+  replacementRules?: ReplaceRule[];
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
   fields: SelectField[];
   groupByFields: string[];
+}
+
+// ============================================================================
+// UDF Node Data Types
+// ============================================================================
+
+/**
+ * A single replacement rule for udf_replace_spec_column_value.
+ * Each rule describes how to replace values in one target column.
+ */
+export interface ReplaceRule {
+  /** Unique rule id (for React key) */
+  id: string;
+  /** Source table name */
+  sourceTable: string;
+  /** Column to apply replacement on */
+  targetColumn: string;
+  /** 'contains' = apply WHERE condition; 'all' = no condition filter */
+  conditionType: 'contains' | 'all';
+  /** Optional condition expression string (used when conditionType = 'contains') */
+  conditionValue?: string;
+  /** Original value to match */
+  originalValue: string;
+  /** Replacement target value */
+  targetValue: string;
+  /** Whether to output an additional new column instead of in-place replace */
+  addNewColumn: boolean;
+}
+
+/**
+ * UDF Config Node Data
+ * Stores configuration parameters for a UDF operator node.
+ * Currently supports udf_replace_spec_column_value; extend as needed.
+ */
+export interface UdfConfigNodeData extends BaseNodeData {
+  /** BizKernel name (e.g., 'fn_ecom_data_clean_replace_spec_column_value') */
+  kernelName: string;
+  /** DuckDB MACRO function name (e.g., 'udf_replace_spec_column_value') */
+  udfFunctionName: string;
+  /** Replacement rules configured by the user */
+  replacementRules: ReplaceRule[];
 }
 
 export interface EndNodeData extends BaseNodeData {
@@ -213,6 +260,7 @@ export type FlowNodeData =
   | ConditionDefinitionNodeData
   | SelectNodeData
   | SelectAggNodeData
+  | UdfConfigNodeData
   | EndNodeData;
 
 // ============================================================================

@@ -8,9 +8,12 @@ import { storageService } from '../storageService';
 import { getAllKernels } from './bizKernelMeta.ts';
 import type { BizKernelMetadata, UserBizKernel, KernelFilter } from './types';
 import { CATEGORY_SORT_ORDER } from './types';
+import { KERNEL_UDF_MAP } from '../duckDBUdfService';
 
 // Storage key for user kernels
 const USER_KERNELS_KEY = 'biz-kernel:user-kernels';
+// Storage key for kernel → UDF function name mapping
+const KERNEL_UDF_MAPPING_KEY = 'biz-kernel:kernel-udf-mapping';
 
 /**
  * Service for managing business kernels
@@ -18,6 +21,8 @@ const USER_KERNELS_KEY = 'biz-kernel:user-kernels';
 class BizKernelService {
   private kernels: BizKernelMetadata[] = [];
   private userKernels: UserBizKernel[] = [];
+  /** Persisted kernel → UDF function name mapping for applied data-cleaning kernels */
+  private kernelUdfMapping: Record<string, string> = {};
   private initialized = false;
 
   /**
@@ -37,6 +42,7 @@ class BizKernelService {
 
     // Load user applied kernels from storage
     await this.loadUserKernels();
+    await this.loadKernelUdfMapping();
 
     this.initialized = true;
     console.log('[BizKernelService] Initialization complete');
@@ -70,6 +76,33 @@ class BizKernelService {
     } catch (error) {
       console.error('[BizKernelService] Failed to save user kernels:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Load kernel → UDF mapping from Chrome Storage
+   */
+  private async loadKernelUdfMapping(): Promise<void> {
+    try {
+      this.kernelUdfMapping = await storageService.getItem<Record<string, string>>(
+        KERNEL_UDF_MAPPING_KEY,
+        {}
+      );
+      console.log('[BizKernelService] Loaded kernel-UDF mapping:', Object.keys(this.kernelUdfMapping).length, 'entries');
+    } catch (error) {
+      console.error('[BizKernelService] Failed to load kernel-UDF mapping:', error);
+      this.kernelUdfMapping = {};
+    }
+  }
+
+  /**
+   * Persist the kernel → UDF mapping to Chrome Storage
+   */
+  private async saveKernelUdfMapping(): Promise<void> {
+    try {
+      await storageService.setItem(KERNEL_UDF_MAPPING_KEY, this.kernelUdfMapping);
+    } catch (error) {
+      console.error('[BizKernelService] Failed to save kernel-UDF mapping:', error);
     }
   }
 
@@ -218,7 +251,27 @@ class BizKernelService {
     });
 
     await this.saveUserKernels();
+
+    // If this is a data-cleaning UDF kernel, persist the kernel → UDF function mapping
+    const udfFunctionName = KERNEL_UDF_MAP[name];
+    if (udfFunctionName) {
+      this.kernelUdfMapping[name] = udfFunctionName;
+      await this.saveKernelUdfMapping();
+      console.log(`[BizKernelService] Saved UDF mapping: ${name} → ${udfFunctionName}`);
+    }
+
     console.log(`[BizKernelService] Applied kernel: ${name}`);
+  }
+
+  /**
+   * Get the DuckDB UDF function name associated with an applied kernel.
+   * Returns null if the kernel has no UDF mapping.
+   *
+   * @param kernelName - BizKernel name
+   */
+  public getKernelUdfFunction(kernelName: string): string | null {
+    // Check in-memory mapping first, then fall back to KERNEL_UDF_MAP
+    return this.kernelUdfMapping[kernelName] ?? KERNEL_UDF_MAP[kernelName] ?? null;
   }
 
   /**

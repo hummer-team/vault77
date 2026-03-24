@@ -34,8 +34,10 @@ import { ConditionDefinitionNode } from './nodes/ConditionDefinitionNode';
 import { SelectNode } from './nodes/SelectNode';
 import { SelectAggNode } from './nodes/SelectAggNode';
 import { EndNode } from './nodes/EndNode';
+import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
+import { duckDBUdfService } from '../../services/duckDBUdfService';
 import type { FlowEdge } from '../../services/flow/types';
 
 // Register edge types
@@ -115,11 +117,15 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
 
     // Select node (选择列) — mirrors the single-table branch in OperatorNode.handleKernelChange
     const selectNodeId = 'select_init_1';
+    const isUdfKernel = duckDBUdfService.isDataCleanKernel(defaultKernelName);
+    const udfFunctionName = isUdfKernel ? (duckDBUdfService.getUdfFunctionName(defaultKernelName) ?? '') : '';
     addNode({
       id: selectNodeId,
       type: 'select',
       position: { x: startX + 700 + 280, y: startY },
-      data: { fields: [], selectAll: true },
+      data: isUdfKernel
+        ? { fields: [], selectAll: false, udfFunctionName, udfKernelName: defaultKernelName, replacementRules: [] }
+        : { fields: [], selectAll: true },
     } as Parameters<typeof addNode>[0]);
 
     const edgeStyle = { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 };
@@ -164,6 +170,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       select: SelectNode as unknown as NodeTypes[string],
       selectAgg: SelectAggNode as unknown as NodeTypes[string],
       end: ((props: any) => <EndNode {...props} onSqlValidated={onSqlValidated} />) as unknown as NodeTypes[string],
+      udfConfig: UdfConfigNode as unknown as NodeTypes[string],
     }),
     [onSqlValidated]
   );
@@ -195,8 +202,21 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Don't open detail panel for start, table, merge, operator, end, conditionDefinition, and conditionGroup nodes
-      if (node.type === 'start' || node.type === 'table' || node.type === 'merge' || node.type === 'operator' || node.type === 'end' || node.type === 'conditionDefinition' || node.type === 'conditionGroup') {
+      // These node types manage their own UI — do not open NodeDetailPanel
+      if (
+        node.type === 'start' ||
+        node.type === 'table' ||
+        node.type === 'merge' ||
+        node.type === 'operator' ||
+        node.type === 'end' ||
+        node.type === 'conditionDefinition' ||
+        node.type === 'conditionGroup' ||
+        node.type === 'udfConfig'
+      ) {
+        return;
+      }
+      // Select nodes linked to a UDF operator manage their own drawer — skip NodeDetailPanel
+      if (node.type === 'select' && (node.data as { udfFunctionName?: string }).udfFunctionName) {
         return;
       }
       setSelectedNode(node.id);

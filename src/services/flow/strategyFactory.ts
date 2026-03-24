@@ -9,6 +9,7 @@ import {
   AnomalyStrategy,
   ClusteringStrategy,
 } from './strategies';
+import { UdfReplaceColumnStrategy } from './strategies/udfReplaceColumnStrategy';
 
 /**
  * Strategy Factory
@@ -19,6 +20,7 @@ export class StrategyFactory {
     [OperatorType.ASSOCIATION, new AssociationStrategy()],
     [OperatorType.ANOMALY, new AnomalyStrategy()],
     [OperatorType.CLUSTERING, new ClusteringStrategy()],
+    [OperatorType.UDF_REPLACE_COLUMN, new UdfReplaceColumnStrategy()],
   ]);
 
   /**

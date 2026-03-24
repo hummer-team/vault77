@@ -1,9 +1,11 @@
 /**
  * Select Node Component
- * Displays selected fields for output with optional aggregation
+ * Displays selected fields for output with optional aggregation.
+ * When linked to a UDF data-cleaning operator, routes click to the appropriate
+ * configuration drawer instead of the standard detail panel.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, List } from 'antd';
 import {
@@ -11,10 +13,13 @@ import {
   DeleteOutlined,
   EditOutlined,
   FunctionOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { SelectNodeData } from '../../../services/flow/types';
+import type { SelectNodeData, ReplaceRule } from '../../../services/flow/types';
+import { OperatorType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
+import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
 
 interface SelectNodeProps {
   id: string;
@@ -47,10 +52,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
+  const updateNode = useFlowStore((state) => state.updateNode);
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
+
+  // UDF drawer visibility state
+  const [udfDrawerOpen, setUdfDrawerOpen] = useState(false);
+
+  // Whether this node is linked to a UDF data-cleaning operator
+  const isUdfNode = !!data.udfFunctionName;
 
   // Handle delete
   const handleDelete = useCallback(
@@ -61,10 +73,33 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, removeNode]
   );
 
-  // Handle click
+  /**
+   * Click routing:
+   * - UDF replace operator → open ReplaceColumnDrawer
+   * - Other UDF operators (未实现) → fall through to standard detail panel
+   * - Standard select → open standard detail panel
+   */
   const handleClick = useCallback(() => {
-    setSelectedNode(id);
-  }, [id, setSelectedNode]);
+    if (data.udfFunctionName === 'udf_replace_spec_column_value') {
+      setUdfDrawerOpen(true);
+    } else {
+      setSelectedNode(id);
+    }
+  }, [data.udfFunctionName, id, setSelectedNode]);
+
+  /** Called when user confirms rules in ReplaceColumnDrawer */
+  const handleUdfConfirm = useCallback(
+    (rules: ReplaceRule[]) => {
+      updateNode(id, { replacementRules: rules } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      // Propagate operatorType to EndNode so the correct strategy is used
+      const endNode = nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode, nodes]
+  );
 
   // Check if there's already a merge node (衔接节点) connected to this select node
   const hasConnectedMergeNode = React.useMemo(() => {
@@ -119,9 +154,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     }
   }, [data.fields.length, data.selectAll, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
 
-  const hasFields = data.fields.length > 0 || data.selectAll;
+  // For UDF nodes: configured when replacementRules has valid entries
+  const isUdfConfigured = isUdfNode &&
+    (data.replacementRules?.length ?? 0) > 0 &&
+    data.replacementRules?.some((r) => r.sourceTable && r.targetColumn);
+
+  const hasFields = isUdfNode
+    ? isUdfConfigured
+    : (data.fields.length > 0 || data.selectAll);
 
   return (
+    <>
     <div
       style={{
         background: FLOW_COLORS.node.select.background,
@@ -181,12 +224,13 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           alignItems: 'center',
           padding: '10px 12px',
           background: selected ? 'rgba(82, 196, 26, 0.1)' : 'transparent',
-          borderBottom: (data.fields.length > 0 || data.selectAll) ? '1px solid #303030' : 'none',
+          borderBottom: hasFields ? '1px solid #303030' : 'none',
         }}
       >
-        <TableOutlined
-          style={{ color: FLOW_COLORS.node.select.border, marginRight: 8 }}
-        />
+        {isUdfNode
+          ? <SettingOutlined style={{ color: '#722ed1', marginRight: 8 }} />
+          : <TableOutlined style={{ color: FLOW_COLORS.node.select.border, marginRight: 8 }} />
+        }
 
         <span
           style={{
@@ -199,14 +243,21 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           选择列
         </span>
 
-        {/* Field count badge */}
-        {!data.selectAll && data.fields.length > 0 && (
+        {/* UDF configured indicator */}
+        {isUdfNode && isUdfConfigured && (
+          <Tag color="success" style={{ margin: 0, marginRight: 8, fontSize: 10 }}>
+            已配置 {data.replacementRules?.length} 条
+          </Tag>
+        )}
+
+        {/* Standard field count badge */}
+        {!isUdfNode && !data.selectAll && data.fields.length > 0 && (
           <Tag color="success" style={{ margin: 0, marginRight: 8 }}>
             {data.fields.length} 列
           </Tag>
         )}
 
-        {data.selectAll && (
+        {!isUdfNode && data.selectAll && (
           <Tag color="success" style={{ margin: 0, marginRight: 8 }}>
             全部
           </Tag>
@@ -303,8 +354,95 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         </div>
       )}
 
-      {/* Empty state */}
-      {!data.selectAll && data.fields.length === 0 && (
+      {/* UDF configured: summary only — details are in the drawer */}
+
+      {/* UDF unconfigured state */}
+      {isUdfNode && !isUdfConfigured && (
+        <div
+          style={{
+            padding: '12px',
+            textAlign: 'center',
+            background: 'rgba(255, 77, 79, 0.1)',
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#ff4d4f' }}>
+            点击配置替换规则
+          </span>
+        </div>
+      )}
+
+      {/* Standard: Selected fields list */}
+      {!isUdfNode && !data.selectAll && data.fields.length > 0 && (
+        <div
+          style={{
+            padding: '8px',
+            maxHeight: '200px',
+            overflowY: 'auto',
+          }}
+        >
+          <List
+            size="small"
+            dataSource={data.fields}
+            renderItem={(field) => (
+              <div
+                style={{
+                  padding: '6px 8px',
+                  marginBottom: 4,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {/* Aggregation function */}
+                {field.aggregate && (
+                  <Tooltip title={AGG_FUNCTION_LABELS[field.aggregate]}>
+                    <Tag
+                      icon={<FunctionOutlined />}
+                      color={AGG_FUNCTION_COLORS[field.aggregate]}
+                      style={{ margin: 0, marginRight: 8, fontSize: 10 }}
+                    >
+                      {field.aggregate}
+                    </Tag>
+                  </Tooltip>
+                )}
+
+                {/* Table and field name */}
+                <div style={{ flex: 1, fontSize: 12 }}>
+                  <Tag color="default" style={{ fontSize: 10, marginRight: 4 }}>
+                    {field.tableName}
+                  </Tag>
+                  <span style={{ color: '#d9d9d9' }}>{field.fieldName}</span>
+                </div>
+
+                {/* Alias */}
+                {field.alias && (
+                  <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
+                    as {field.alias}
+                  </Tag>
+                )}
+              </div>
+            )}
+          />
+        </div>
+      )}
+
+      {/* Standard: Select all message */}
+      {!isUdfNode && data.selectAll && (
+        <div
+          style={{
+            padding: '12px',
+            textAlign: 'center',
+            color: '#52c41a',
+            fontSize: 12,
+          }}
+        >
+          已选择所有字段
+        </div>
+      )}
+
+      {/* Standard: Empty state */}
+      {!isUdfNode && !data.selectAll && data.fields.length === 0 && (
         <div
           style={{
             padding: '12px',
@@ -318,6 +456,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         </div>
       )}
     </div>
+
+    {/* ReplaceColumnDrawer — only rendered for udf_replace_spec_column_value */}
+    {data.udfFunctionName === 'udf_replace_spec_column_value' && (
+      <ReplaceColumnDrawer
+        open={udfDrawerOpen}
+        onClose={() => setUdfDrawerOpen(false)}
+        onConfirm={handleUdfConfirm}
+        initialRules={data.replacementRules}
+      />
+    )}
+    </>
   );
 };
 
