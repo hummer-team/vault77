@@ -38,7 +38,7 @@ import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
 import { duckDBUdfService } from '../../services/duckDBUdfService';
-import { FlowNodeType, OperatorType } from '../../services/flow/types';
+import { FlowNodeType } from '../../services/flow/types';
 import type { FlowEdge } from '../../services/flow/types';
 
 // Register edge types
@@ -141,25 +141,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     // operator → select (选择列)
     addEdge({ id: `e_${operatorNodeId}_${selectNodeId}`, source: operatorNodeId, target: selectNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
 
-    // For UDF kernels, create the End node immediately with the correct operatorType.
-    // OperatorNode.handleKernelChange handles this for runtime kernel changes, but
-    // initializeDefaultFlow bypasses that callback, so we mirror the logic here.
-    if (isUdfKernel) {
-      const udfOperatorType = OperatorType.UDF_REPLACE_COLUMN;
-      const endNodeId = `end_${Date.now()}`;
-      addNode({
-        id: endNodeId,
-        type: FlowNodeType.END,
-        position: { x: startX + 700 + 560, y: startY },
-        data: {
-          operatorType: udfOperatorType,
-          executable: true,
-          errors: [],
-        },
-      } as Parameters<typeof addNode>[0]);
-      // select → end
-      addEdge({ id: `e_${selectNodeId}_${endNodeId}`, source: selectNodeId, target: endNodeId, type: 'default', animated: false, style: { stroke: 'rgba(114, 46, 209, 0.65)', strokeWidth: 1.5 }, markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' } } as Parameters<typeof addEdge>[0]);
-    }
+    // End node is NOT pre-created here — user triggers it manually via OperatorNode kernel selection.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultKernelName]);
 

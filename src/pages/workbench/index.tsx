@@ -503,14 +503,15 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
   // Handle kernel selected via @ mention in ChatPanel
   const handleKernelSelected = useCallback((kernelName: string) => {
+    // Always open the canvas regardless of whether a template already exists.
+    // Show a build hint only when no template is saved yet.
     if (!bizKernelService.hasFlowTemplate(kernelName)) {
       setKernelFlowHint('由于你选择的算子未构建模板，请先构建模板');
-      setPendingKernelTemplate(kernelName);
-      setTimeout(() => setShowFlowModal(true), 200);
     } else {
       setKernelFlowHint(null);
-      setPendingKernelTemplate(null);
     }
+    setPendingKernelTemplate(kernelName);
+    setTimeout(() => setShowFlowModal(true), 200);
   }, []);
 
   // Handle view customers from InsightPage

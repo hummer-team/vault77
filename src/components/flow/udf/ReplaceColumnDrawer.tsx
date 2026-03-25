@@ -436,11 +436,11 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           ))}
         </Select>
 
-        {/* Original value — hidden when conditionType is 'replace_all' (entire column overwrite) */}
-        {rule.conditionType !== 'replace_all' && (
+        {/* Original value — disabled when conditionType is 'replace_all' (entire column overwrite) */}
         <Input
           placeholder="原始值"
           value={rule.originalValue}
+          disabled={rule.conditionType === 'replace_all'}
           onChange={(e) => updateRule(rule.id, { originalValue: e.target.value })}
           size="small"
           style={{ fontSize: 12 }}
@@ -448,7 +448,6 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             <EditOutlined style={{ color: TOKEN.textMuted, fontSize: 9 }} />
           }
         />
-        )}
 
         {/* Target value */}
         <Input

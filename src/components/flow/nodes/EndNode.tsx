@@ -14,12 +14,14 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { EndNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
+import type { EndNodeData, ConditionDefinitionNodeData, OperatorNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { ValidationSeverity, FlowNodeType } from '../../../services/flow/types';
+import { ValidationSeverity, FlowNodeType, OperatorType } from '../../../services/flow/types';
 import { ValueFillPanel } from '../panels/ValueFillPanel';
+import { duckDBUdfService } from '../../../services/duckDBUdfService';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 
 interface EndNodeProps {
   id: string;
@@ -59,6 +61,32 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     return allPlaceholders.some((p) => placeholderValues[p] === undefined);
   }, [allPlaceholders, getAllPlaceholderValues]);
 
+  /**
+   * Dynamically resolve operatorType from the current OperatorNode's kernel selection.
+   * This ensures the correct strategy is used even when the user changes the kernel
+   * after the EndNode was created, without relying on potentially stale data.operatorType.
+   */
+  const resolvedOperatorType = useMemo((): OperatorType => {
+    const operatorNode = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
+    const kernelName = (operatorNode?.data as OperatorNodeData | undefined)?.kernelName;
+
+    if (kernelName) {
+      // UDF data-cleaning kernels
+      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
+        return OperatorType.UDF_REPLACE_COLUMN;
+      }
+      // Map kernel category to OperatorType
+      const kernel = bizKernelService.getKernelByName(kernelName);
+      switch (kernel?.category) {
+        case '风险风控': return OperatorType.ANOMALY;
+        case '用户增长': return OperatorType.CLUSTERING;
+        default: return OperatorType.ASSOCIATION;
+      }
+    }
+    // Fallback to stored value if no OperatorNode found
+    return data.operatorType;
+  }, [nodes, data.operatorType]);
+
   // Handle click - open value fill panel to allow editing
   const handleClick = useCallback((e: React.MouseEvent) => {
     // Prevent event bubbling to avoid conflicts with Drawer
@@ -85,8 +113,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       });
 
       try {
-        // Get strategy based on operator type
-        const strategy = StrategyFactory.getStrategy(data.operatorType);
+        // Resolve strategy from current OperatorNode kernel (dynamic, not stale data.operatorType)
+        const strategy = StrategyFactory.getStrategy(resolvedOperatorType);
 
         // Validate flow configuration
         const validationErrors = strategy.validate(nodes, edges);
@@ -159,7 +187,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         setErrorPanelOpen(true);
       }
     },
-    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues]
+    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues, resolvedOperatorType]
   );
 
   // Handle value fill panel close

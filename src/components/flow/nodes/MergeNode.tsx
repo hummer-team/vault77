@@ -1,16 +1,123 @@
 /**
  * Merge Node Component (+ Node)
- * Aggregates multiple table inputs and allows creating next step nodes
- * Supports dynamic hint text based on upstream node type (Q17)
+ * Aggregates multiple table inputs and allows creating next step nodes.
+ * On hover, shows a floating overlay with two actions:
+ *   - Primary: context-aware next step (定义条件 / 绑定关系 / 执行OR保存)
+ *   - Secondary: 直接执行 (skips conditions, connects EndNode immediately)
  */
 
 import React, { useCallback, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType } from '../../../services/flow/types';
 import type { MergeNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
 import { generateConditionGroupRefId } from '../../../services/flow/flowService';
+
+// ---------------------------------------------------------------------------
+// Style constants (outside component to avoid recreating on every render)
+// ---------------------------------------------------------------------------
+const OVERLAY_CARD_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 'calc(100% + 10px)',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  background: 'rgba(22, 20, 18, 0.97)',
+  border: '1px solid rgba(255, 107, 0, 0.55)',
+  borderRadius: 8,
+  minWidth: 112,
+  overflow: 'hidden',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+  backdropFilter: 'blur(8px)',
+  zIndex: 1000,
+};
+
+const OVERLAY_DIVIDER_STYLE: React.CSSProperties = {
+  height: 1,
+  background: 'rgba(255, 107, 0, 0.2)',
+};
+
+const OVERLAY_BTN_BASE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  width: '100%',
+  padding: '7px 12px',
+  background: 'transparent',
+  border: 'none',
+  color: 'rgba(255, 255, 255, 0.88)',
+  fontSize: 11,
+  fontWeight: 500,
+  cursor: 'pointer',
+  textAlign: 'left',
+  transition: 'background 0.15s',
+  whiteSpace: 'nowrap',
+};
+
+// ---------------------------------------------------------------------------
+// MergeActionButton — extracted to keep MergeNode render lean
+// ---------------------------------------------------------------------------
+interface MergeActionButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+const MergeActionButton: React.FC<MergeActionButtonProps> = ({ icon, label, onClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <button
+      style={{
+        ...OVERLAY_BTN_BASE,
+        background: hovered ? 'rgba(255, 107, 0, 0.18)' : 'transparent',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// MergeOverlay — the floating action card shown on node hover
+// ---------------------------------------------------------------------------
+interface MergeOverlayProps {
+  primaryLabel: string;
+  onPrimary: (e: React.MouseEvent) => void;
+  onDirectExecute: (e: React.MouseEvent) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
+
+const MergeOverlay: React.FC<MergeOverlayProps> = ({
+  primaryLabel,
+  onPrimary,
+  onDirectExecute,
+  onMouseEnter,
+  onMouseLeave,
+}) => (
+  <div
+    className="nodrag"
+    style={OVERLAY_CARD_STYLE}
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+  >
+    <MergeActionButton
+      icon={<PlusOutlined style={{ fontSize: 11 }} />}
+      label={primaryLabel}
+      onClick={onPrimary}
+    />
+    <div style={OVERLAY_DIVIDER_STYLE} />
+    <MergeActionButton
+      icon={<PlayCircleOutlined style={{ fontSize: 11, color: '#52c41a' }} />}
+      label="直接执行"
+      onClick={onDirectExecute}
+    />
+  </div>
+);
 
 interface MergeNodeProps {
   id: string;
@@ -24,6 +131,20 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
   const [isHovering, setIsHovering] = React.useState(false);
+  // Debounced hide: moving mouse from node circle to overlay card cancels the timer.
+  const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    setIsHovering(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    hideTimerRef.current = setTimeout(() => setIsHovering(false), 120);
+  }, []);
 
   // Determine the upstream node type to show appropriate hint (Q17)
   const upstreamNodeType = useMemo(() => {
@@ -277,6 +398,14 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     [id, addNode, addEdge, nodes]
   );
 
+  // Directly connect the current merge node to an EndNode, skipping condition steps
+  const handleDirectExecute = useCallback(() => {
+    const mergeNode = nodes.find((n) => n.id === id);
+    if (!mergeNode) return;
+    console.log('[MergeNode] Direct execute: connecting to EndNode from:', id);
+    createEndNode(mergeNode.position.x, mergeNode.position.y);
+  }, [id, nodes, createEndNode]);
+
   const handleCreateNextNode = useCallback(
     () => {
       console.log('[MergeNode] Creating next node from merge:', id);
@@ -415,8 +544,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         transition: 'all 0.2s ease',
         position: 'relative',
       }}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Input handles - multiple tables can connect */}
       <Handle
@@ -461,30 +590,21 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         }}
       />
 
-      {/* Click overlay for creating next nodes */}
+      {/* Floating action overlay — appears above the node on hover */}
       {isHovering && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255, 107, 0, 0.9)',
-            cursor: 'pointer',
-          }}
-          className="nodrag"
-          onClick={(e) => {
+        <MergeOverlay
+          primaryLabel={hintText}
+          onPrimary={(e) => {
             e.stopPropagation();
-            console.log('[MergeNode] Overlay clicked, calling handleCreateNextNode');
             handleCreateNextNode();
           }}
-        >
-          <span style={{ fontSize: '11px', color: '#fff', fontWeight: 'bold' }}>
-            {hintText}
-          </span>
-        </div>
+          onDirectExecute={(e) => {
+            e.stopPropagation();
+            handleDirectExecute();
+          }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        />
       )}
     </div>
   );

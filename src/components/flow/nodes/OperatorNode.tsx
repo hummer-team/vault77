@@ -60,6 +60,16 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
     (kernelName: string) => {
       updateNode(id, { kernelName });
 
+      // Always sync the EndNode's operatorType when a UDF kernel is selected,
+      // regardless of whether downstream nodes already exist. This must run
+      // before the hasConnectedNextNode early-return guard below.
+      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
+        const existingEnd = useFlowStore.getState().nodes.find((n) => n.type === FlowNodeType.END);
+        if (existingEnd) {
+          updateNode(existingEnd.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN });
+        }
+      }
+
       // Check if there's already a next node connected to this operator node
       const edges = useFlowStore.getState().edges;
       const hasConnectedNextNode = edges.some((e) => e.source === id);
