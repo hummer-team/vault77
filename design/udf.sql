@@ -1,6 +1,7 @@
 -- 1.列值替换
 CREATE OR REPLACE MACRO udf_replace_spec_column_value(
        tbl,
+       fill_map  := '',  -- unconditional whole-column overwrite: {"col": "new_value"}
        null_map  := '',
        swap_map  := '',
        condition := '',
@@ -8,10 +9,24 @@ CREATE OR REPLACE MACRO udf_replace_spec_column_value(
    ) AS TABLE
    SELECT * FROM query(
        'SELECT * ' ||
-       CASE WHEN (null_map <> '' OR swap_map <> '') THEN
+       CASE WHEN (fill_map <> '' OR null_map <> '' OR swap_map <> '') THEN
            'REPLACE (' ||
            array_to_string(
                list_concat(
+                   -- Part 0: fill_map → constant literal AS col（整列替换）
+                   list_transform(
+                       CASE WHEN fill_map <> ''
+                           THEN json_keys(fill_map::JSON)
+                           ELSE []::VARCHAR[]
+                       END,
+                       k ->
+                           CASE
+                               WHEN json_extract_string(fill_map::JSON, '$.' || k) IS NOT NULL
+                                   THEN '''' || replace(json_extract_string(fill_map::JSON, '$.' || k), '''', '''''') || ''''
+                               ELSE json_extract(fill_map::JSON, '$.' || k)::VARCHAR
+                           END
+                           || ' AS ' || '"' || replace(k, '"', '""') || '"'
+                   ),
                    -- Part 1: null_map → COALESCE(col, default) AS col（原地替换）
                    list_transform(
                        CASE WHEN null_map <> ''

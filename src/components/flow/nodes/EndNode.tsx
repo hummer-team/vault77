@@ -194,7 +194,9 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   // Error count
   const errorCount = data.errors?.length || 0;
   const hasErrors = errorCount > 0;
-
+  if (hasErrors) {
+    console.warn(`[EndNode] Node ${id} has ${data.operatorType} errors:`, data.errors);
+  }
   return (
     <div
       style={{

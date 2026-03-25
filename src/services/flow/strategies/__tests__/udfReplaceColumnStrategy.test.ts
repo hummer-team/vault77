@@ -78,9 +78,9 @@ describe('UdfReplaceColumnStrategy — metadata', () => {
     expect(strategy.name).toBe('替换特定列值');
   });
 
-  it('should require UDF_CONFIG node (legacy) or SELECT node with udfFunctionName', () => {
-    // The required node type is still UDF_CONFIG for backward compat
-    expect(strategy.getRequiredNodes()).toContain(FlowNodeType.UDF_CONFIG);
+  it('should return an empty array (no static required node types)', () => {
+    // _findUdfConfigNode accepts both UDF_CONFIG (legacy) and SELECT+udfFunctionName
+    expect(strategy.getRequiredNodes()).toEqual([]);
   });
 });
 
@@ -167,6 +167,38 @@ describe('UdfReplaceColumnStrategy.buildSql', () => {
     expect(sql).toContain("'o''rder'");
   });
 
+  it('should use fill_map (not swap_map) for replace_all rules', () => {
+    const rule = makeRule({ conditionType: 'replace_all', originalValue: '', targetValue: 'new_status' });
+    const node = makeUdfSelectNode([rule]);
+    const sql = strategy.buildSql([node], []);
+
+    expect(sql).toContain('fill_map :=');
+    expect(sql).not.toContain('swap_map :=');
+
+    const fillMapMatch = sql.match(/fill_map\s*:=\s*'([^']+)'/);
+    expect(fillMapMatch).not.toBeNull();
+    const fillMap = JSON.parse(fillMapMatch![1]) as Record<string, string>;
+    expect(fillMap).toEqual({ order_type: 'new_status' });
+  });
+
+  it('should mix fill_map and swap_map when rules have different conditionTypes', () => {
+    const rules = [
+      makeRule({ id: 'r1', targetColumn: ['col_fill'], conditionType: 'replace_all', originalValue: '', targetValue: 'val_fill' }),
+      makeRule({ id: 'r2', targetColumn: ['col_swap'], conditionType: 'all', originalValue: 'old', targetValue: 'new' }),
+    ];
+    const node = makeUdfSelectNode(rules);
+    const sql = strategy.buildSql([node], []);
+
+    expect(sql).toContain('fill_map :=');
+    expect(sql).toContain('swap_map :=');
+
+    const fillMapMatch = sql.match(/fill_map\s*:=\s*'([^']+)'/);
+    expect(JSON.parse(fillMapMatch![1])).toEqual({ col_fill: 'val_fill' });
+
+    const swapMapMatch = sql.match(/swap_map\s*:=\s*'([^']+)'/);
+    expect(JSON.parse(swapMapMatch![1])).toEqual({ col_swap: ['old', 'new'] });
+  });
+
   it('should throw when no UDF config node exists', () => {
     expect(() => strategy.buildSql([], [])).toThrow();
   });
@@ -214,6 +246,13 @@ describe('UdfReplaceColumnStrategy.validate', () => {
     const node = makeUdfSelectNode([incompleteRule]);
     const errors = strategy.validate([node], []);
     expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('should NOT require originalValue when conditionType is "replace_all"', () => {
+    const replaceAllRule = makeRule({ conditionType: 'replace_all', originalValue: '' });
+    const node = makeUdfSelectNode([replaceAllRule]);
+    const errors = strategy.validate([node], []);
+    expect(errors).toHaveLength(0);
   });
 
   it('should not flag empty conditionValue as an error (condition is optional)', () => {

@@ -215,8 +215,8 @@ export interface ReplaceRule {
   sourceTable: string;
   /** Column(s) to apply replacement on (supports multi-select) */
   targetColumn: string[];
-  /** 'contains' = apply WHERE condition; 'all' = no condition filter */
-  conditionType: 'contains' | 'all';
+  /** 'contains' = apply WHERE condition; 'all' = no condition filter; 'replace_all' = overwrite entire column unconditionally (fill_map) */
+  conditionType: 'contains' | 'all' | 'replace_all';
   /** Optional condition expression string (used when conditionType = 'contains') */
   conditionValue?: string;
   /** Original value to match */

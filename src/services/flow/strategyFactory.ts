@@ -29,8 +29,10 @@ export class StrategyFactory {
   static getStrategy(type: OperatorType): FlowStrategy {
     const strategy = this.strategies.get(type);
     if (!strategy) {
+      console.error(`[StrategyFactory.getStrategy] Unknown operator type: ${type}`);
       throw new Error(`Unknown operator type: ${type}`);
     }
+    console.log(`[StrategyFactory.getStrategy] type=${type} → "${strategy.name}"`);
     return strategy;
   }
 

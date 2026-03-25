@@ -35,7 +35,33 @@ abstract class BaseStrategy implements FlowStrategy {
   abstract getRequiredNodes(): FlowNodeType[];
   abstract postProcess(data: unknown): Promise<AnalysisResult>;
 
-  validate(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
+  validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[] {
+    const nodeTypes = nodes.map((n) => n.type).join(', ');
+    console.log(`[${this.name}.validate] nodes=[${nodeTypes}]`);
+
+    const errors: ValidationError[] = [
+      ...this._validateStructure(nodes),
+      ...this.validateOperatorSpecific(nodes, edges),
+    ];
+
+    if (errors.length > 0) {
+      console.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
+    } else {
+      console.log(`[${this.name}.validate] OK — no errors`);
+    }
+    return errors;
+  }
+
+  /**
+   * Template method: operator-specific validation hook.
+   * Default validates SELECT node field selection; subclasses may override.
+   */
+  protected validateOperatorSpecific(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
+    return this._validateSelectNodes(nodes);
+  }
+
+  /** Validate structural requirements: required nodes, tables, joins */
+  private _validateStructure(nodes: FlowNode[]): ValidationError[] {
     const errors: ValidationError[] = [];
 
     // Check for required nodes
@@ -89,7 +115,12 @@ abstract class BaseStrategy implements FlowStrategy {
       });
     }
 
-    // Validate select nodes
+    return errors;
+  }
+
+  /** Validate SELECT nodes have at least one field selected */
+  private _validateSelectNodes(nodes: FlowNode[]): ValidationError[] {
+    const errors: ValidationError[] = [];
     const selectNodes = nodes.filter(
       (n) => n.type === FlowNodeType.SELECT || n.type === FlowNodeType.SELECT_AGG
     );
@@ -113,7 +144,6 @@ abstract class BaseStrategy implements FlowStrategy {
         }
       });
     }
-
     return errors;
   }
 
@@ -431,20 +461,13 @@ export class AssociationStrategy extends BaseStrategy {
       parts.push(joinClause);
     }
 
-    // WHERE - use placeholder-aware version if values provided
-    console.log('[AssociationStrategy.buildSql] placeholderValues:', placeholderValues);
-    console.log('[AssociationStrategy.buildSql] placeholderValues keys:', placeholderValues ? Object.keys(placeholderValues) : 'null');
-    
+    // WHERE — use placeholder-aware version if values provided
     if (placeholderValues && Object.keys(placeholderValues).length > 0) {
-      console.log('[AssociationStrategy.buildSql] Using buildWhereClauseWithPlaceholders');
       const whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
-      console.log('[AssociationStrategy.buildSql] whereClause:', whereClause);
       if (whereClause) {
         parts.push(whereClause);
       }
     } else {
-      console.log('[AssociationStrategy.buildSql] Using legacy buildWhereClause');
-      // Fallback to legacy where clause
       const whereClause = this.buildWhereClause(nodes);
       if (whereClause) {
         parts.push(whereClause);
@@ -457,7 +480,9 @@ export class AssociationStrategy extends BaseStrategy {
       parts.push(groupByClause);
     }
 
-    return parts.join('\n');
+    const sql = parts.join('\n');
+    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
+    return sql;
   }
 
   async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {

@@ -50,6 +50,7 @@ interface ReplaceColumnDrawerProps {
 const CONDITION_OPTIONS = [
   { label: '包含', value: 'contains' },
   { label: '全部', value: 'all' },
+  { label: '整列', value: 'replace_all' },
 ] as const;
 
 // ============================================================================
@@ -215,7 +216,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
       prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
     );
     // Clear validation error on the row when user fills in any required field
-    const requiredKeys: (keyof ReplaceRule)[] = ['sourceTable', 'targetColumn', 'originalValue'];
+    const requiredKeys: (keyof ReplaceRule)[] = ['sourceTable', 'targetColumn', 'originalValue', 'conditionType'];
     if (requiredKeys.some((k) => k in patch)) {
       setInvalidRuleIds((prev) => {
         if (!prev.has(id)) return prev;
@@ -246,13 +247,13 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
 
   // ── Confirm ────────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
-    // Validate required fields: sourceTable (*), targetColumn (*), originalValue (*)
+    // Validate required fields: sourceTable (*), targetColumn (*), originalValue (* unless replace_all)
     const failedIds = rules
       .filter(
         (r) =>
           !r.sourceTable ||
           r.targetColumn.length === 0 ||
-          !r.originalValue.trim()
+          (r.conditionType !== 'replace_all' && !r.originalValue.trim())
       )
       .map((r) => r.id);
 
@@ -435,7 +436,8 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           ))}
         </Select>
 
-        {/* Original value */}
+        {/* Original value — hidden when conditionType is 'replace_all' (entire column overwrite) */}
+        {rule.conditionType !== 'replace_all' && (
         <Input
           placeholder="原始值"
           value={rule.originalValue}
@@ -446,6 +448,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             <EditOutlined style={{ color: TOKEN.textMuted, fontSize: 9 }} />
           }
         />
+        )}
 
         {/* Target value */}
         <Input

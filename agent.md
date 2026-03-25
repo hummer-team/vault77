@@ -1,13 +1,9 @@
 # Vaultmind — 项目说明
-
-## 特殊提示
-周末下午步行
-
 ---
 ## 一、项目概览
 
 
-**Vaultmind** 是一个 **Agent-Driven Analytics Workbench**，以 Chrome Extension 形式交付，允许用户通过自然语言进行数据分析。
+**Vaultmind** 是一个 **Agent-Driven Analytics Workbench**，以 Chrome Extension 形式交付，允许用户通过构建分析流模板分析excel，csv并通过LLM自然语言进行决策推演。
 
 **核心技术架构**:
 ```
@@ -128,8 +124,6 @@ DuckDB WASM Worker (In-Browser SQL Engine)
    - **Skill Tag** (蓝色)：显示使用的技能名称（如 `analysis.v1`）
    - **Industry Tag** (绿色)：显示生效的行业配置（如 `ecommerce`）
    - **UserSkill Tag** (橙色/灰色)：显示用户配置状态
-     - 已配置：`用户配置已应用，XXX/1200 字符`
-     - 未配置：`未配置` (灰色)
 
 2. **Effective Settings Panel**（`ResultsDisplay.tsx`）
    - 展示本次查询生效的完整配置：
@@ -380,6 +374,5 @@ DuckDB WASM Worker (In-Browser SQL Engine)
       - **Field Mapping**：配置字段映射（Time/Amount/OrderID/UserID）。
       - **Default Filters**：配置默认过滤条件（支持 9 种操作符）。
       - **Custom Metrics**：配置自定义指标（支持 6 种聚合函数）。
-    - **M10.5 新增**：System Metrics 显示区块，展示当前行业的系统内置指标，支持 Override 检测。
 
 ---

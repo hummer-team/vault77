@@ -368,6 +368,13 @@ function validateSelectNodes(nodes: FlowNode[]): ValidationError[] {
   selectNodes.forEach((node) => {
     const data = node.data as SelectNodeData | SelectAggNodeData;
 
+    // UDF-routed select nodes (e.g. udf_replace_spec_column_value) do not use field
+    // selection — their configuration is validated by the corresponding FlowStrategy
+    // (UdfReplaceColumnStrategy). Skip generic field-empty checks for these nodes.
+    if ((data as { udfFunctionName?: string }).udfFunctionName) {
+      return;
+    }
+
     // Check at least one field is selected (or selectAll is true)
     if ('selectAll' in data) {
       if (!data.selectAll && data.fields.length === 0) {

@@ -3,11 +3,17 @@
  * Implements the strategy pattern for the "替换特定列值" data-cleaning operator.
  * Builds a DuckDB SQL call to udf_replace_spec_column_value().
  *
- * SQL shape:
+ * SQL shape (swap):
  *   SELECT * FROM udf_replace_spec_column_value(
  *     'table_name',
  *     swap_map  := '{"col": ["from_val", "to_val"]}',
  *     condition := 'col = ''value'''   -- optional
+ *   )
+ *
+ * SQL shape (fill — whole-column overwrite):
+ *   SELECT * FROM udf_replace_spec_column_value(
+ *     'table_name',
+ *     fill_map := '{"col": "new_value"}'
  *   )
  */
 
@@ -44,16 +50,16 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   // validate
   // --------------------------------------------------------------------------
   validate(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
+    const nodeTypes = nodes.map((n) => n.type).join(', ');
+    console.log(`[${this.name}.validate] nodes=[${nodeTypes}]`);
+
     const errors: ValidationError[] = [];
 
     const udfNode = this._findUdfConfigNode(nodes);
     if (!udfNode) {
-      errors.push({
-        nodeId: 'flow',
-        nodeType: FlowNodeType.END,
-        message: '缺少 UDF 配置节点，请在画布中完成算子配置',
-        severity: ValidationSeverity.ERROR,
-      });
+      const msg = '缺少 UDF 配置节点，请在画布中完成算子配置';
+      errors.push({ nodeId: 'flow', nodeType: FlowNodeType.END, message: msg, severity: ValidationSeverity.ERROR });
+      console.warn(`[${this.name}.validate] ${msg}`);
       return errors;
     }
 
@@ -67,8 +73,14 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
       });
     }
 
+    // originalValue is required unless conditionType is 'replace_all' (fill_map path)
     const incompleteRules = nodeData.replacementRules?.filter(
-      (r) => !r.sourceTable || !r.targetColumn || r.targetColumn.length === 0 || r.originalValue === '' || r.targetValue === ''
+      (r) =>
+        !r.sourceTable ||
+        !r.targetColumn ||
+        r.targetColumn.length === 0 ||
+        r.targetValue === '' ||
+        (r.conditionType !== 'replace_all' && r.originalValue === '')
     );
     if (incompleteRules && incompleteRules.length > 0) {
       errors.push({
@@ -79,14 +91,23 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
       });
     }
 
+    if (errors.length > 0) {
+      console.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
+    } else {
+      console.log(`[${this.name}.validate] OK — node=${udfNode.id}, rules=${nodeData.replacementRules?.length ?? 0}`);
+    }
     return errors;
   }
 
   // --------------------------------------------------------------------------
   // getRequiredNodes
   // --------------------------------------------------------------------------
+  /**
+   * No static required node types — _findUdfConfigNode() accepts both
+   * FlowNodeType.UDF_CONFIG (legacy) and FlowNodeType.SELECT with udfFunctionName.
+   */
   getRequiredNodes(): FlowNodeType[] {
-    return [FlowNodeType.UDF_CONFIG];
+    return [];
   }
 
   // --------------------------------------------------------------------------
@@ -95,10 +116,13 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   /**
    * Build the UDF SQL call from the UDF_CONFIG node's replacement rules.
    *
-   * Groups rules by (sourceTable, conditionType, conditionValue) so that
-   * multiple columns on the same table+condition can share one UDF call.
+   * Rules with conditionType 'replace_all' are routed to fill_map (unconditional overwrite).
+   * All other rules are routed to swap_map (CASE WHEN matching).
    */
   buildSql(nodes: FlowNode[], _edges: FlowEdge[], _placeholderValues?: Record<string, unknown>): string {
+    const nodeTypes = nodes.map((n) => n.type).join(', ');
+    console.log(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
+
     const udfNode = this._findUdfConfigNode(nodes);
     if (!udfNode) {
       throw new Error('UDF 配置节点未找到，无法构建 SQL');
@@ -120,8 +144,9 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
 
     // Use the first table group (current implementation: single table per UDF call)
     const [tableName, tableRules] = [...tableGroups.entries()][0];
-
-    return this._buildUdfCall(tableName, tableRules);
+    const sql = this._buildUdfCall(tableName, tableRules);
+    console.log(`[${this.name}.buildSql] table=${tableName}, rules=${tableRules.length}, sql=\n${sql}`);
+    return sql;
   }
 
   // --------------------------------------------------------------------------
@@ -173,33 +198,42 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   /**
    * Build a single udf_replace_spec_column_value() SQL call for all rules on one table.
    *
-   * swap_map JSON shape: { "col": ["original", "target"] }
-   * condition: first rule's condition expression (same table assumed to share condition)
+   * fill_map JSON shape:  { "col": "new_value" }           — replace_all rules
+   * swap_map JSON shape:  { "col": ["original", "target"] } — contains / all rules
+   * condition: first rule's conditionValue (when conditionType = 'contains')
    */
   private _buildUdfCall(tableName: string, rules: ReplaceRule[]): string {
-    // Build swap_map: { "col1": ["from1", "to1"], "col2": ["from2", "to2"] }
-    // Each rule may target multiple columns that share the same originalValue → targetValue mapping.
+    const fillMapObj: Record<string, string> = {};
     const swapMapObj: Record<string, [string, string]> = {};
+
     for (const rule of rules) {
       for (const col of rule.targetColumn) {
-        swapMapObj[col] = [rule.originalValue, rule.targetValue];
+        if (rule.conditionType === 'replace_all') {
+          // Unconditional whole-column overwrite → fill_map
+          fillMapObj[col] = rule.targetValue;
+        } else {
+          // Conditional CASE WHEN replacement → swap_map
+          swapMapObj[col] = [rule.originalValue, rule.targetValue];
+        }
       }
     }
-    const swapMapJson = JSON.stringify(swapMapObj);
 
-    // Build condition from first rule that has conditionType 'contains'
+    const params: string[] = [`  '${escapeSql(tableName)}'`];
+
+    if (Object.keys(fillMapObj).length > 0) {
+      params.push(`  fill_map := '${escapeSql(JSON.stringify(fillMapObj))}'`);
+    }
+    if (Object.keys(swapMapObj).length > 0) {
+      params.push(`  swap_map := '${escapeSql(JSON.stringify(swapMapObj))}'`);
+    }
+
+    // Condition from the first 'contains' rule
     const conditionRule = rules.find((r) => r.conditionType === 'contains' && r.conditionValue);
-    const conditionPart = conditionRule
-      ? `, condition := '${escapeSql(conditionRule.conditionValue ?? '')}'`
-      : '';
+    if (conditionRule) {
+      params.push(`  condition := '${escapeSql(conditionRule.conditionValue ?? '')}'`);
+    }
 
-    return (
-      `SELECT * FROM udf_replace_spec_column_value(\n` +
-      `  '${escapeSql(tableName)}',\n` +
-      `  swap_map := '${escapeSql(swapMapJson)}'` +
-      conditionPart +
-      `\n)`
-    );
+    return `SELECT *\nFROM udf_replace_spec_column_value(\n${params.join(',\n')}\n)`;
   }
 }
 
