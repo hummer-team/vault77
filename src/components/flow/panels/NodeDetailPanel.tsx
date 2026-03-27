@@ -170,10 +170,6 @@ const JoinNodeForm: React.FC<{
 }> = ({ node, onUpdate }) => {
   const data = node.data as JoinNodeData;
   const nodes = useFlowStore((state) => state.nodes);
-  const edges = useFlowStore((state) => state.edges);
-  const addNode = useFlowStore((state) => state.addNode);
-  const addEdge = useFlowStore((state) => state.addEdge);
-  const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
 
   // Get available fields from left and right tables
   const leftTableNode = nodes.find(
@@ -188,93 +184,6 @@ const JoinNodeForm: React.FC<{
 
   // Check if conditions are configured
   const hasConditions = data.conditions && data.conditions.length > 0;
-
-  // Auto-create downstream nodes when conditions are configured
-  React.useEffect(() => {
-    if (!hasConditions) return;
-    
-    // Check if this is the last JOIN node in the chain
-    const hasDownstreamNode = edges.some((e) => e.source === node.id);
-    if (hasDownstreamNode) return; // Already has downstream node
-    
-    // Check if all JOIN nodes in the flow have conditions
-    const allJoinNodes = nodes.filter((n) => n.type === FlowNodeType.JOIN);
-    const allJoinsHaveConditions = allJoinNodes.every((joinNode) => {
-      const joinData = joinNode.data as JoinNodeData;
-      return joinData.conditions && joinData.conditions.length > 0;
-    });
-    
-    if (!allJoinsHaveConditions) return; // Wait for all JOINs to be configured
-    
-    // Find the last JOIN node (highest order)
-    const lastJoinNode = allJoinNodes.reduce((max, current) => {
-      const maxOrder = (max.data as JoinNodeData).order || 0;
-      const currentOrder = (current.data as JoinNodeData).order || 0;
-      return currentOrder > maxOrder ? current : max;
-    }, allJoinNodes[0]);
-    
-    // Only create downstream nodes from the last JOIN node
-    if (lastJoinNode.id !== node.id) return;
-    
-    // Auto-create merge node and select node after a short delay
-    const timer = setTimeout(() => {
-      const joinX = node.position.x;
-      const joinY = node.position.y;
-      
-      // Create merge node (+ node) with "选择列" label
-      const mergeNodeId = `merge_after_join_${Date.now()}`;
-      const mergeNode = {
-        id: mergeNodeId,
-        type: FlowNodeType.MERGE,
-        position: { x: joinX + 200, y: joinY },
-        data: {
-          tableCount: 1,
-          label: '选择列',
-        },
-      };
-      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
-      
-      // Connect JOIN -> merge node with arrow marker
-      addEdge({
-        id: `e_${node.id}_${mergeNodeId}`,
-        source: node.id,
-        target: mergeNodeId,
-        type: 'default',
-        animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-      } as unknown as Parameters<typeof addEdge>[0]);
-      
-      // Create select node (default select all columns)
-      const selectNodeId = `select_${Date.now()}`;
-      const selectNode = {
-        id: selectNodeId,
-        type: FlowNodeType.SELECT,
-        position: { x: joinX + 450, y: joinY },
-        data: {
-          fields: [],
-          selectAll: true, // Default to selecting all columns
-        },
-      };
-      addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
-      
-      // Connect merge node -> select node with arrow marker
-      addEdge({
-        id: `e_${mergeNodeId}_${selectNodeId}`,
-        source: mergeNodeId,
-        target: selectNodeId,
-        type: 'default',
-        animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-      } as unknown as Parameters<typeof addEdge>[0]);
-      
-      // Select the merge node to show it to user
-      setSelectedNode(mergeNodeId);
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [hasConditions, node.id, node.position.x, node.position.y, nodes, edges, addNode, addEdge, setSelectedNode]);
 
   // Add new condition
   const addCondition = useCallback(() => {

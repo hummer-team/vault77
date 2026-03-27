@@ -4,7 +4,7 @@
  * Shows JOIN type, conditions, and order number
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip } from 'antd';
 import {
@@ -14,10 +14,12 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { JoinNodeData, JoinType } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
 import {
   FLOW_COLORS,
   JOIN_TYPE_LABELS,
 } from '../../../services/flow/constants';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface JoinNodeProps {
   id: string;
@@ -48,6 +50,10 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
+
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -87,11 +93,13 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
       }}
       className="join-node"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Node Resizer - only show when selected */}
       <NodeResizer
@@ -184,24 +192,22 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         </span>
 
         {/* Actions */}
-        {selected && (
-          <Space size={4}>
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              style={{ color: '#8c8c8c' }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          </Space>
-        )}
+        <Space size={4}>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            style={{ color: '#8c8c8c' }}
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
+        </Space>
       </div>
 
       {/* Tables info */}
@@ -290,6 +296,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
           </span>
         </div>
       )}
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.JOIN} visible={isHovering} />
     </div>
   );
 };

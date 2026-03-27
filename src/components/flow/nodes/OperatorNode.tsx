@@ -14,6 +14,7 @@ import type { OperatorNodeData } from '../../../services/flow/types';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import type { BizKernelMetadata } from '../../../services/biz-kernels/types';
 import { duckDBUdfService } from '../../../services/duckDBUdfService';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface OperatorNodeProps {
   id: string;
@@ -30,6 +31,9 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
   const defaultKernelName = useFlowStore((state) => state.defaultKernelName);
 
   const [appliedKernels, setAppliedKernels] = useState<BizKernelMetadata[]>([]);
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
   // Load applied kernels
   useEffect(() => {
@@ -216,6 +220,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         position: 'relative',
       }}
       className="operator-node"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Node Resizer - only show when selected */}
       <NodeResizer
@@ -253,16 +259,14 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
               <EyeOutlined style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }} />
             </Space>
           )}
-          {selected && (
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          )}
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
         </Space>
       </div>
 
@@ -305,6 +309,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           <span style={{ fontSize: '11px', color: '#ff4d4f' }}>请选择业务算子</span>
         </div>
       )}
+
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.OPERATOR} visible={isHovering} />
     </div>
   );
 };

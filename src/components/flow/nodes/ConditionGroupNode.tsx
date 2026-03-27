@@ -16,6 +16,8 @@ import {
 import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, CUSTOM_EXPRESSION_CONSTANTS } from '../../../services/flow/constants';
+import { FlowNodeType } from '../../../services/flow/types';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface ConditionGroupNodeProps {
   id: string;
@@ -61,6 +63,9 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const [configExpanded, setConfigExpanded] = useState(true); // Config section always expanded by default
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
   // Get current relation type (default to data.logicType for backward compatibility)
   const relationType: RelationType = data.relationType || data.logicType;
@@ -211,12 +216,15 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         opacity: isDisabledByCustomMode ? 0.5 : 1, // Visual feedback when disabled
         pointerEvents: isDisabledByCustomMode ? 'none' : 'auto', // Disable interaction when disabled
+        position: 'relative',
       }}
       className="condition-group-node"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Input handle */}
       <Handle
@@ -429,6 +437,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           Select condition groups above
         </div>
       )}
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_GROUP} visible={isHovering} />
     </div>
   );
 };

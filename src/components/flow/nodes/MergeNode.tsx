@@ -10,7 +10,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import { FlowNodeType, LogicType } from '../../../services/flow/types';
+import { FlowNodeType, LogicType, EndNodeTriggerSource } from '../../../services/flow/types';
 import type { MergeNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
 import { generateConditionGroupRefId } from '../../../services/flow/flowService';
 
@@ -86,6 +86,7 @@ const MergeActionButton: React.FC<MergeActionButtonProps> = ({ icon, label, onCl
 // ---------------------------------------------------------------------------
 interface MergeOverlayProps {
   primaryLabel: string;
+  showDirectExecute: boolean;
   onPrimary: (e: React.MouseEvent) => void;
   onDirectExecute: (e: React.MouseEvent) => void;
   onMouseEnter: () => void;
@@ -94,6 +95,7 @@ interface MergeOverlayProps {
 
 const MergeOverlay: React.FC<MergeOverlayProps> = ({
   primaryLabel,
+  showDirectExecute,
   onPrimary,
   onDirectExecute,
   onMouseEnter,
@@ -110,12 +112,16 @@ const MergeOverlay: React.FC<MergeOverlayProps> = ({
       label={primaryLabel}
       onClick={onPrimary}
     />
-    <div style={OVERLAY_DIVIDER_STYLE} />
-    <MergeActionButton
-      icon={<PlayCircleOutlined style={{ fontSize: 11, color: '#52c41a' }} />}
-      label="直接执行"
-      onClick={onDirectExecute}
-    />
+    {showDirectExecute && (
+      <>
+        <div style={OVERLAY_DIVIDER_STYLE} />
+        <MergeActionButton
+          icon={<PlayCircleOutlined style={{ fontSize: 11, color: '#52c41a' }} />}
+          label="直接执行"
+          onClick={onDirectExecute}
+        />
+      </>
+    )}
   </div>
 );
 
@@ -349,7 +355,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
 
   // Create end node (only once)
   const createEndNode = useCallback(
-    (mergeX: number, mergeY: number) => {
+    (mergeX: number, mergeY: number, triggerSource: EndNodeTriggerSource = EndNodeTriggerSource.CONDITION) => {
       // Check if END node already exists in the flow
       const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
       if (existingEnd) {
@@ -378,6 +384,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           operatorType: 'association',
           executable: true,
           errors: [],
+          triggerSource,
         },
       };
       console.log('[MergeNode] Adding end node:', endNode);
@@ -403,7 +410,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     const mergeNode = nodes.find((n) => n.id === id);
     if (!mergeNode) return;
     console.log('[MergeNode] Direct execute: connecting to EndNode from:', id);
-    createEndNode(mergeNode.position.x, mergeNode.position.y);
+    createEndNode(mergeNode.position.x, mergeNode.position.y, EndNodeTriggerSource.DIRECT);
   }, [id, nodes, createEndNode]);
 
   const handleCreateNextNode = useCallback(
@@ -531,8 +538,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           : 'rgba(28, 25, 23, 0.98)',
         border: `2px solid ${selected ? '#FF6B00' : 'rgba(255, 107, 0, 0.6)'}`,
         borderRadius: '50%',
-        width: '64px',
-        height: '64px',
+        width: '48px',
+        height: '48px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -571,7 +578,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       >
         <PlusOutlined
           style={{
-            fontSize: '28px',
+            fontSize: '20px',
             color: selected ? '#FF6B00' : 'rgba(255, 255, 255, 0.9)',
           }}
         />
@@ -594,6 +601,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       {isHovering && (
         <MergeOverlay
           primaryLabel={hintText}
+          showDirectExecute={upstreamNodeType !== FlowNodeType.TABLE}
           onPrimary={(e) => {
             e.stopPropagation();
             handleCreateNextNode();

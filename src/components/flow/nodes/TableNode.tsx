@@ -18,11 +18,13 @@ import { useFlowStore } from '../../../stores/flowStore';
 import { getTableSchema } from '../../../services/flow/flowService';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import type { TableNodeData, Field } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
 import {
   FLOW_COLORS,
   FIELD_TYPE_ICONS,
   PERFORMANCE,
 } from '../../../services/flow/constants';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface TableNodeProps {
   id: string;
@@ -120,6 +122,10 @@ export const TableNode: React.FC<TableNodeProps> = ({
 
 
 
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
+
   // Field list height
   const fieldListHeight = Math.min(
     (data.fields?.length || 0) * PERFORMANCE.virtualScrollItemHeight,
@@ -137,10 +143,12 @@ export const TableNode: React.FC<TableNodeProps> = ({
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
       }}
       className="table-node"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Node Resizer - only show when selected */}
       <NodeResizer
@@ -214,16 +222,14 @@ export const TableNode: React.FC<TableNodeProps> = ({
               style={{ color: '#8c8c8c' }}
             />
           </Spin>
-          {selected && (
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          )}
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
         </Space>
       </div>
 
@@ -268,6 +274,8 @@ export const TableNode: React.FC<TableNodeProps> = ({
           共 {data.fields?.length || 0} 个字段
         </div>
       )}
+
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.TABLE} visible={isHovering} />
     </div>
   );
 };

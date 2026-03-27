@@ -98,21 +98,12 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       data: { tableName: 'main_table_1', fields: [], expanded: false, label: 'main_table_1' },
     } as Parameters<typeof addNode>[0]);
 
-    // Merge node
-    const mergeNodeId = 'merge_init_1';
-    addNode({
-      id: mergeNodeId,
-      type: FlowNodeType.MERGE,
-      position: { x: startX + 480, y: startY },
-      data: { tableCount: 1 },
-    } as Parameters<typeof addNode>[0]);
-
     // Operator node with pre-selected kernel
     const operatorNodeId = 'operator_init_1';
     addNode({
       id: operatorNodeId,
       type: FlowNodeType.OPERATOR,
-      position: { x: startX + 700, y: startY },
+      position: { x: startX + 480, y: startY },
       data: { kernelName: defaultKernelName },
     } as Parameters<typeof addNode>[0]);
 
@@ -123,7 +114,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     addNode({
       id: selectNodeId,
       type: FlowNodeType.SELECT,
-      position: { x: startX + 700 + 280, y: startY },
+      position: { x: startX + 480 + 280, y: startY },
       data: isUdfKernel
         ? { fields: [], selectAll: false, udfFunctionName, udfKernelName: defaultKernelName, replacementRules: [] }
         : { fields: [], selectAll: true },
@@ -134,10 +125,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
 
     // start → table
     addEdge({ id: `e_start_${tableNodeId}`, source: 'start', target: tableNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
-    // table → merge
-    addEdge({ id: `e_${tableNodeId}_${mergeNodeId}`, source: tableNodeId, target: mergeNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
-    // merge → operator
-    addEdge({ id: `e_${mergeNodeId}_${operatorNodeId}`, source: mergeNodeId, target: operatorNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+    // table → operator (direct, no merge)
+    addEdge({ id: `e_${tableNodeId}_${operatorNodeId}`, source: tableNodeId, target: operatorNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
     // operator → select (选择列)
     addEdge({ id: `e_${operatorNodeId}_${selectNodeId}`, source: operatorNodeId, target: selectNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
 
@@ -157,7 +146,6 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   const selectedNodeId = useFlowStore((state) => state.selectedNodeId);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const addEdgeToStore = useFlowStore((state) => state.addEdge);
-  const addNodeToStore = useFlowStore((state) => state.addNode);
 
   // Create custom nodeTypes with onSqlValidated callback
   const nodeTypesWithCallback = useMemo(
@@ -237,81 +225,6 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
 
-      const sourceNode = storeNodes.find((n) => n.id === connection.source);
-      const targetNode = storeNodes.find((n) => n.id === connection.target);
-
-      // If dragging from table to merge node, allow direct connection
-      if (sourceNode?.type === 'table' && targetNode?.type === 'merge') {
-        const newEdge: FlowEdge = {
-          id: `e_${connection.source}_${connection.target}`,
-          source: connection.source,
-          target: connection.target,
-          type: 'default',
-          animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-        };
-        addEdgeToStore(newEdge);
-        return;
-      }
-
-      // If dragging from table to another table, create merge node in between
-      if (sourceNode?.type === 'table' && targetNode?.type === 'table') {
-        // Check if merge node already exists
-        const existingMerge = storeNodes.find((n) => n.type === 'merge');
-
-        if (existingMerge) {
-          // Connect source table to existing merge
-          const newEdge: FlowEdge = {
-            id: `e_${connection.source}_${existingMerge.id}`,
-            source: connection.source,
-            target: existingMerge.id,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          };
-          addEdgeToStore(newEdge);
-        } else {
-          // Create new merge node between tables
-          const mergeX = ((sourceNode.position?.x || 0) + (targetNode.position?.x || 0)) / 2 + 100;
-          const mergeY = ((sourceNode.position?.y || 0) + (targetNode.position?.y || 0)) / 2;
-
-          const mergeNodeId = `merge_${Date.now()}`;
-          const mergeNode = {
-            id: mergeNodeId,
-            type: FlowNodeType.MERGE,
-            position: { x: mergeX, y: mergeY },
-            data: {
-              tableCount: 2,
-            },
-          };
-          addNodeToStore(mergeNode as unknown as Parameters<typeof addNodeToStore>[0]);
-
-          // Connect both tables to merge with arrow markers
-          addEdgeToStore({
-            id: `e_${connection.source}_${mergeNodeId}`,
-            source: connection.source,
-            target: mergeNodeId,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as FlowEdge);
-
-          addEdgeToStore({
-            id: `e_${connection.target}_${mergeNodeId}`,
-            source: connection.target,
-            target: mergeNodeId,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as FlowEdge);
-        }
-        return;
-      }
-
       // Default: regular connection with arrow marker
       const newEdge: FlowEdge = {
         id: `e_${connection.source}_${connection.target}`,
@@ -324,7 +237,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       };
       addEdgeToStore(newEdge);
     },
-    [addEdgeToStore, addNodeToStore, storeNodes]
+    [addEdgeToStore]
   );
 
   // Handle edge click

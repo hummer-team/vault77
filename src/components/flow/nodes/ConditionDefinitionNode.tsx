@@ -21,7 +21,8 @@ import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique } from '../../../services/flow/flowService';
 import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
 import { FLOW_COLORS, SQL_OPERATORS, PLACEHOLDER_CONSTANTS } from '../../../services/flow/constants';
-import { LogicType } from '../../../services/flow/types';
+import { LogicType, FlowNodeType } from '../../../services/flow/types';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface ConditionDefinitionNodeProps {
   id: string;
@@ -62,6 +63,9 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const [isLoadingFields, setIsLoadingFields] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
   const [contentExpanded, setContentExpanded] = useState(true); // Content section expanded by default
 
   // Debug: log availableTables state changes
@@ -255,11 +259,13 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
         pointerEvents: 'all',
       }}
       className="condition-definition-node"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Node Resizer */}
       <NodeResizer
@@ -537,6 +543,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         )}
         </div>
       )}
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_DEFINITION} visible={isHovering} />
     </div>
   );
 };

@@ -89,9 +89,6 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
 
       if (newTableNames.length === 0) return;
 
-      // Check if merge node already exists
-      const existingMerge = nodes.find((n) => n.type === FlowNodeType.MERGE);
-
       // Process each new table
       for (const tableName of newTableNames) {
         // Load table schema
@@ -120,7 +117,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         };
         addNode(tableNode as unknown as Parameters<typeof addNode>[0]);
 
-        // Connect start -> table with arrow marker
+        // Connect start -> table
         addEdge({
           id: `e_${id}_${tableNodeId}`,
           source: id,
@@ -130,42 +127,6 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
           markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
         } as unknown as Parameters<typeof addEdge>[0]);
-
-        if (existingMerge) {
-          // Connect table to existing merge node with arrow marker
-          addEdge({
-            id: `e_${tableNodeId}_${existingMerge.id}`,
-            source: tableNodeId,
-            target: existingMerge.id,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as unknown as Parameters<typeof addEdge>[0]);
-        } else {
-          // First table - create merge node
-          const mergeNodeId = `merge_${Date.now()}`;
-          const mergeNode = {
-            id: mergeNodeId,
-            type: FlowNodeType.MERGE,
-            position: { x: startX + 450, y: startY },
-            data: {
-              tableCount: 1,
-            },
-          };
-          addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
-
-          // Connect table -> merge with arrow marker
-          addEdge({
-            id: `e_${tableNodeId}_${mergeNodeId}`,
-            source: tableNodeId,
-            target: mergeNodeId,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as unknown as Parameters<typeof addEdge>[0]);
-        }
       }
     },
     [id, updateNode, addNode, addEdge, nodes, executeQuery]

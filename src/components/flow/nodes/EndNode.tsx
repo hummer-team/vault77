@@ -12,13 +12,14 @@ import {
   SaveOutlined,
   FlagOutlined,
   ExclamationCircleOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { EndNodeData, ConditionDefinitionNodeData, OperatorNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { ValidationSeverity, FlowNodeType, OperatorType } from '../../../services/flow/types';
+import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } from '../../../services/flow/types';
 import { ValueFillPanel } from '../panels/ValueFillPanel';
 import { duckDBUdfService } from '../../../services/duckDBUdfService';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -32,6 +33,7 @@ interface EndNodeProps {
 
 export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValidated }) => {
   const setErrorPanelOpen = useFlowStore((state) => state.setErrorPanelOpen);
+  const removeNode = useFlowStore((state) => state.removeNode);
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
@@ -87,15 +89,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     return data.operatorType;
   }, [nodes, data.operatorType]);
 
-  // Handle click - open value fill panel to allow editing
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    // Prevent event bubbling to avoid conflicts with Drawer
-    e.stopPropagation();
-    // Always open value fill panel when END node is clicked
-    // This allows users to re-edit filled values
-    console.log('[EndNode] Node clicked, opening value fill panel');
-    setValueFillPanelOpen(true);
-  }, []);
+  // Whether this EndNode was created via "直接执行" — skips condition filling
+  const isDirectExecution = data.triggerSource === EndNodeTriggerSource.DIRECT;
 
   // Handle execute after value filling
   const executeFlow = useCallback(
@@ -216,6 +211,24 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     console.log('Save flow (disabled)');
   }, []);
 
+  // Handle delete
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeNode(id);
+  }, [id, removeNode]);
+
+  // Handle click - open value fill panel, or execute directly for DIRECT trigger source
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDirectExecution) {
+      console.log('[EndNode] Direct execution — skipping ValueFillPanel');
+      executeFlow();
+      return;
+    }
+    console.log('[EndNode] Node clicked, opening value fill panel');
+    setValueFillPanelOpen(true);
+  }, [isDirectExecution, executeFlow]);
+
   // Get operator config
   const operatorConfig = OPERATOR_CONFIG[data.operatorType];
 
@@ -294,6 +307,22 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </Tag>
       </div>
 
+      {/* Delete button — absolutely positioned top-right, always visible */}
+      <Button
+        type="text"
+        size="small"
+        icon={<DeleteOutlined />}
+        onClick={handleDelete}
+        danger
+        style={{
+          position: 'absolute',
+          top: 6,
+          right: 6,
+          color: '#ff4d4f',
+          zIndex: 10,
+        }}
+      />
+
       {/* Status info */}
       <div
         style={{
@@ -324,18 +353,22 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
       {/* Action buttons - only show save button, execute is handled via ValueFillPanel */}
       <Space style={{ width: '100%', justifyContent: 'center' }}>
-        <Tooltip title="点击节点填充条件值并执行">
+        <Tooltip title={isDirectExecution ? '直接执行流程' : '点击节点填充条件值并执行'}>
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
             onClick={(e) => {
               e.stopPropagation();
-              setValueFillPanelOpen(true);
+              if (isDirectExecution) {
+                executeFlow();
+              } else {
+                setValueFillPanelOpen(true);
+              }
             }}
             disabled={errorCount > 0}
             danger={errorCount > 0}
           >
-            {hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
+            {isDirectExecution ? '直接执行' : hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
           </Button>
         </Tooltip>
 
@@ -349,12 +382,14 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </Tooltip>
       </Space>
 
-      {/* Value Fill Panel */}
-      <ValueFillPanel
-        open={valueFillPanelOpen}
-        onClose={handleValueFillClose}
-        onExecute={handleValueFillExecute}
-      />
+      {/* Value Fill Panel — only shown for condition-based execution */}
+      {!isDirectExecution && (
+        <ValueFillPanel
+          open={valueFillPanelOpen}
+          onClose={handleValueFillClose}
+          onExecute={handleValueFillExecute}
+        />
+      )}
     </div>
   );
 };

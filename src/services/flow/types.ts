@@ -24,6 +24,14 @@ export enum FlowNodeType {
   UDF_CONFIG = 'udfConfig', // UDF operator parameter configuration node
 }
 
+/** Identifies how the EndNode was created / what triggered it */
+export enum EndNodeTriggerSource {
+  /** User clicked "直接执行" — skip condition-filling, execute immediately */
+  DIRECT = 'direct',
+  /** EndNode reached after completing a full condition flow */
+  CONDITION = 'condition',
+}
+
 export enum JoinType {
   INNER = 'INNER',
   LEFT = 'LEFT',
@@ -247,6 +255,8 @@ export interface EndNodeData extends BaseNodeData {
   errors: ValidationError[];
   executing?: boolean;
   result?: AnalysisResult;
+  /** How this EndNode was created — determines whether condition filling is required */
+  triggerSource?: EndNodeTriggerSource;
 }
 
 export type FlowNodeData =

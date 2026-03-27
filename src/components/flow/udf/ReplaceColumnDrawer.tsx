@@ -49,8 +49,7 @@ interface ReplaceColumnDrawerProps {
 
 const CONDITION_OPTIONS = [
   { label: '包含', value: 'contains' },
-  { label: '全部', value: 'all' },
-  { label: '整列', value: 'replace_all' },
+  { label: '全部', value: 'replace_all' },
 ] as const;
 
 // ============================================================================
@@ -93,7 +92,7 @@ function createEmptyRule(): ReplaceRule {
     id: uuidv4(),
     sourceTable: '',
     targetColumn: [],
-    conditionType: 'all',
+    conditionType: 'replace_all',
     conditionValue: '',
     originalValue: '',
     targetValue: '',

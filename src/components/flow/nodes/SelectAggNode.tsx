@@ -3,7 +3,7 @@
  * Displays selected fields with aggregation functions and GROUP BY
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, List, Badge } from 'antd';
 import {
@@ -16,6 +16,7 @@ import { useFlowStore } from '../../../stores/flowStore';
 import type { SelectAggNodeData } from '../../../services/flow/types';
 import { FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface SelectAggNodeProps {
   id: string;
@@ -48,10 +49,10 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
-  const addNode = useFlowStore((state) => state.addNode);
-  const addEdge = useFlowStore((state) => state.addEdge);
-  const nodes = useFlowStore((state) => state.nodes);
-  const edges = useFlowStore((state) => state.edges);
+
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -67,60 +68,6 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
     setSelectedNode(id);
   }, [id, setSelectedNode]);
 
-  // Check if there's already a merge node (衔接节点) connected to this select node
-  const hasConnectedMergeNode = React.useMemo(() => {
-    return edges.some((e) => e.source === id && nodes.find((n) => n.id === e.target)?.type === 'merge');
-  }, [edges, nodes, id]);
-
-  // Auto-create merge node (衔接节点 "+") after select agg node if not exists
-  // This allows user to enter condition definition flow (Q17)
-  React.useEffect(() => {
-    // Only auto-create if:
-    // 1. Fields have been selected
-    // 2. No merge node is already connected
-    // 3. The SelectAggNode itself exists in the flow
-    const hasFields = (data.fields?.length || 0) > 0;
-    if (hasFields && !hasConnectedMergeNode) {
-      const selectNode = nodes.find((n) => n.id === id);
-      if (!selectNode) return;
-
-      // Check again to prevent race conditions
-      const currentEdges = useFlowStore.getState().edges;
-      const currentNodes = useFlowStore.getState().nodes;
-      const alreadyHasMerge = currentEdges.some(
-        (e) =>
-          e.source === id &&
-          currentNodes.find((n) => n.id === e.target)?.type === 'merge'
-      );
-
-      if (alreadyHasMerge) return;
-
-      const selectX = selectNode.position.x;
-      const selectY = selectNode.position.y;
-
-      // Create merge node (衔接节点 "+") to enter condition definition flow
-      const mergeNodeId = `merge_${Date.now()}`;
-      const mergeNode = {
-        id: mergeNodeId,
-        type: FlowNodeType.MERGE,
-        position: { x: selectX + 280, y: selectY },
-        data: { tableCount: 1 },
-      };
-      addNode(mergeNode as unknown as Parameters<typeof addNode>[0]);
-
-      // Connect select -> merge with arrow marker
-      addEdge({
-        id: `e_${id}_${mergeNodeId}`,
-        source: id,
-        target: mergeNodeId,
-        type: 'default',
-        animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-      } as unknown as Parameters<typeof addEdge>[0]);
-    }
-  }, [data.fields, hasConnectedMergeNode, id, nodes, addNode, addEdge]);
-
   const hasFields = (data.fields?.length || 0) > 0;
   const hasGroupBy = (data.groupByFields?.length || 0) > 0;
 
@@ -135,10 +82,13 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
+        position: 'relative',
       }}
       className="select-agg-node"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Input handle */}
       <Handle
@@ -200,24 +150,22 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         )}
 
         {/* Actions */}
-        {selected && (
-          <Space size={4}>
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              style={{ color: '#8c8c8c' }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          </Space>
-        )}
+        <Space size={4}>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            style={{ color: '#8c8c8c' }}
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
+        </Space>
       </div>
 
       {/* Aggregated fields list */}
@@ -344,6 +292,8 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
           </span>
         </div>
       )}
+
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.SELECT_AGG} visible={isHovering} />
     </div>
   );
 };

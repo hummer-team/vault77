@@ -3,7 +3,7 @@
  * Displays a single WHERE condition with field, operator, and value
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip } from 'antd';
 import {
@@ -15,6 +15,7 @@ import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionNodeData, LogicType } from '../../../services/flow/types';
 import { FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS, SQL_OPERATORS } from '../../../services/flow/constants';
+import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface ConditionNodeProps {
   id: string;
@@ -66,6 +67,10 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
+
+  const [isHovering, setIsHovering] = useState(false);
+  const handleMouseEnter = useCallback(() => setIsHovering(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -150,11 +155,13 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : '0 2px 8px rgba(0, 0, 0, 0.3)',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
       }}
       className="condition-node"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Node Resizer - only show when selected */}
       <NodeResizer
@@ -231,24 +238,22 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         </span>
 
         {/* Actions */}
-        {selected && (
-          <Space size={4}>
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              style={{ color: '#8c8c8c' }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={handleDelete}
-              danger
-              style={{ color: '#ff4d4f' }}
-            />
-          </Space>
-        )}
+        <Space size={4}>
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            style={{ color: '#8c8c8c' }}
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={handleDelete}
+            danger
+            style={{ color: '#ff4d4f' }}
+          />
+        </Space>
       </div>
 
       {/* Condition details */}
@@ -321,6 +326,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
           </div>
         )}
       </div>
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION} visible={isHovering} />
     </div>
   );
 };
