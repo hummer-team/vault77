@@ -137,6 +137,35 @@ export interface JoinCondition {
   rightTable: string;
 }
 
+/**
+ * A single condition row in the TableJoinBuildPanel.
+ * `logic` is the AND/OR connector shown before this row (undefined for the first row).
+ */
+export interface JoinConditionRow {
+  id: string;
+  leftTable: string;
+  leftField: string;
+  operator: string;
+  rightTable: string;
+  rightField: string;
+  logic?: 'AND' | 'OR';
+}
+
+/**
+ * Data stored on a table→table join edge (type='join').
+ */
+export interface JoinEdgeData extends Record<string, unknown> {
+  joinType: JoinType;
+  sourceTableName: string;
+  targetTableName: string;
+  conditions: JoinConditionRow[];
+  description?: string;
+  /** Global creation order across all join edges in the canvas */
+  order: number;
+  /** Whether the user has explicitly saved this join configuration */
+  configured: boolean;
+}
+
 export interface JoinNodeData extends BaseNodeData {
   joinType: JoinType;
   leftTable: string;
@@ -282,7 +311,7 @@ export interface FlowNode extends Node<FlowNodeData> {
 }
 
 export interface FlowEdge extends Edge {
-  type?: 'default' | 'smoothstep' | 'straight';
+  type?: 'default' | 'smoothstep' | 'straight' | 'join';
   animated?: boolean;
 }
 
@@ -368,11 +397,17 @@ export interface FlowState {
   removeNode: (id: string) => void;
   addEdge: (edge: FlowEdge) => void;
   removeEdge: (id: string) => void;
+  updateEdge: (id: string, data: Partial<Record<string, unknown>>) => void;
   setSelectedNode: (id: string | null) => void;
   setDetailPanelOpen: (open: boolean) => void;
   setErrorPanelOpen: (open: boolean) => void;
   setValidationErrors: (errors: ValidationError[]) => void;
   resetFlow: () => void;
+
+  // Join panel state
+  joinPanelEdgeId: string | null;
+  openJoinPanel: (edgeId: string) => void;
+  closeJoinPanel: () => void;
 
   // Default kernel pre-selected from ChatPanel "/" trigger
   defaultKernelName: string | null;

@@ -23,11 +23,12 @@ import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
 import { CanvasToolbar } from './controls/CanvasToolbar';
 import { NodeDetailPanel } from './panels/NodeDetailPanel';
+import { TableJoinBuildPanel } from './panels/TableJoinBuildPanel';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
 import { StartNode } from './nodes/StartNode';
 import { TableNode } from './nodes/TableNode';
-import { JoinNode } from './nodes/JoinNode';
+// import { JoinNode } from './nodes/JoinNode'; // JoinNode removed from canvas — join config is on edges
 import { ConditionNode } from './nodes/ConditionNode';
 import { ConditionGroupNode } from './nodes/ConditionGroupNode';
 import { ConditionDefinitionNode } from './nodes/ConditionDefinitionNode';
@@ -39,7 +40,8 @@ import { JoinEdge } from './edges/JoinEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
 import { duckDBUdfService } from '../../services/duckDBUdfService';
 import { FlowNodeType } from '../../services/flow/types';
-import type { FlowEdge } from '../../services/flow/types';
+import type { FlowEdge, JoinEdgeData, TableNodeData } from '../../services/flow/types';
+import { JoinType } from '../../services/flow/types';
 
 // Register edge types
 const edgeTypes = {
@@ -154,7 +156,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       table: TableNode as unknown as NodeTypes[string],
       merge: MergeNode as unknown as NodeTypes[string],
       operator: OperatorNode as unknown as NodeTypes[string],
-      join: JoinNode as unknown as NodeTypes[string],
+      // join: JoinNode — removed; join config is now stored on edges (JoinEdge)
       condition: ConditionNode as unknown as NodeTypes[string],
       conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
       conditionDefinition: ConditionDefinitionNode as unknown as NodeTypes[string],
@@ -224,6 +226,36 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
+
+      const { nodes, edges } = useFlowStore.getState();
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+
+      // Table → Table: create a join edge
+      if (sourceNode?.type === 'table' && targetNode?.type === 'table') {
+        const joinEdgeCount = edges.filter((e) => e.type === 'join').length;
+        const sourceTable = (sourceNode.data as TableNodeData).tableName ?? '';
+        const targetTable = (targetNode.data as TableNodeData).tableName ?? '';
+        const joinData: JoinEdgeData = {
+          joinType: JoinType.INNER,
+          sourceTableName: sourceTable,
+          targetTableName: targetTable,
+          conditions: [],
+          description: '',
+          order: joinEdgeCount + 1,
+          configured: false,
+        };
+        const joinEdge: FlowEdge = {
+          id: `join_${connection.source}_${connection.target}_${Date.now()}`,
+          source: connection.source,
+          target: connection.target,
+          type: 'join',
+          animated: false,
+          data: joinData,
+        };
+        addEdgeToStore(joinEdge);
+        return;
+      }
 
       // Default: regular connection with arrow marker
       const newEdge: FlowEdge = {
@@ -307,6 +339,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <CustomControls />
         <CanvasToolbar />
         <NodeDetailPanel />
+        <TableJoinBuildPanel />
         <MiniMap
           nodeStrokeColor={(n) => {
             if (n.type === 'start') return '#52c41a';

@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import { PlusOutlined, PlayCircleOutlined, LinkOutlined, TableOutlined } from '@ant-design/icons';
+import { PlusOutlined, PlayCircleOutlined, TableOutlined, ApartmentOutlined } from '@ant-design/icons';
 import { useMergeActions } from '../hooks/useMergeActions';
 import { FlowNodeType } from '../../../services/flow/types';
 
@@ -81,7 +81,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
   nodeType,
   visible,
 }) => {
-  const { hintText, showDirectExecute, showJoinAction, showSelectAction, handleCreateNextNode, handleDirectExecute, handleCreateJoinNode, handleCreateSelectNode } =
+  const { hintText, showDirectExecute, showSelectAction, showJoinAction, handleCreateNextNode, handleDirectExecute, handleCreateSelectNode, handleCreateJoinEdge } =
     useMergeActions(nodeId, nodeType);
 
   const [showOverlay, setShowOverlay] = useState(false);
@@ -133,10 +133,10 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
   const onJoinCreate = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      handleCreateJoinNode();
+      handleCreateJoinEdge();
       setShowOverlay(false);
     },
-    [handleCreateJoinNode]
+    [handleCreateJoinEdge]
   );
 
   const onPrimary = useCallback(
@@ -223,27 +223,6 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
             <span>{hintText}</span>
           </button>
 
-          {/* Join action — TABLE type only */}
-          {showJoinAction && (
-            <>
-              <div style={DIVIDER_STYLE} />
-              <button
-                style={MENU_BUTTON_BASE}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(82, 130, 255, 0.12)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                }}
-                onClick={onJoinCreate}
-              >
-                <LinkOutlined style={{ fontSize: 10, color: '#5282ff' }} />
-                <span>表关联</span>
-              </button>
-            </>
-          )}
-
           {/* Select action — JOIN type only */}
           {showSelectAction && (
             <>
@@ -261,6 +240,27 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
               >
                 <TableOutlined style={{ fontSize: 10, color: '#52c41a' }} />
                 <span>选择列</span>
+              </button>
+            </>
+          )}
+
+          {/* Join action — TABLE type only, when other tables exist */}
+          {showJoinAction && (
+            <>
+              <div style={DIVIDER_STYLE} />
+              <button
+                style={MENU_BUTTON_BASE}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    'rgba(24, 144, 255, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+                onClick={onJoinCreate}
+              >
+                <ApartmentOutlined style={{ fontSize: 10, color: '#1890ff' }} />
+                <span>表关联</span>
               </button>
             </>
           )}

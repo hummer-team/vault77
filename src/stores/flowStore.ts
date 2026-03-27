@@ -38,6 +38,7 @@ const createInitialState = () => ({
   detailPanelOpen: false,
   errorPanelOpen: false,
   validationErrors: [] as ValidationError[],
+  joinPanelEdgeId: null as string | null,
 });
 
 export const useFlowStore = create<FlowState>()(
@@ -182,6 +183,16 @@ export const useFlowStore = create<FlowState>()(
       });
     },
 
+    // Update edge data
+    updateEdge: (id: string, data: Partial<Record<string, unknown>>) => {
+      set((state) => {
+        const edge = state.edges.find((e) => e.id === id);
+        if (edge) {
+          edge.data = { ...(edge.data as Record<string, unknown> | undefined ?? {}), ...data };
+        }
+      });
+    },
+
     // Set selected node
     setSelectedNode: (id: string | null) => {
       set((state) => {
@@ -218,6 +229,19 @@ export const useFlowStore = create<FlowState>()(
     // Reset flow
     resetFlow: () => {
       set(() => createInitialState());
+    },
+
+    // Join panel actions
+    openJoinPanel: (edgeId: string) => {
+      set((state) => {
+        state.joinPanelEdgeId = edgeId;
+      });
+    },
+
+    closeJoinPanel: () => {
+      set((state) => {
+        state.joinPanelEdgeId = null;
+      });
     },
 
     setDefaultKernelName: (name: string | null) => {

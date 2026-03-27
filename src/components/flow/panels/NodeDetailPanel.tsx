@@ -11,12 +11,11 @@ import { SelectNodeForm, SelectAggNodeForm } from './SelectNodeForms';
 import type {
   FlowNode,
   TableNodeData,
-  JoinNodeData,
   ConditionNodeData,
   ConditionGroupNodeData,
   EndNodeData,
 } from '../../../services/flow/types';
-import { JOIN_TYPE_LABELS, SQL_OPERATORS } from '../../../services/flow/constants';
+import { SQL_OPERATORS } from '../../../services/flow/constants';
 import { FlowNodeType } from '../../../services/flow/types';
 
 const { Option } = Select;
@@ -40,7 +39,8 @@ export const NodeDetailPanel: React.FC = () => {
       case 'table':
         return <TableNodeForm node={node} onUpdate={updateNode} />;
       case 'join':
-        return <JoinNodeForm node={node} onUpdate={updateNode} />;
+        // Join node configuration is now handled by TableJoinBuildPanel (edge-based)
+        return null;
       case 'condition':
         return <ConditionNodeForm node={node} onUpdate={updateNode} />;
       case 'conditionGroup':
@@ -158,195 +158,6 @@ const TableNodeForm: React.FC<{
       </Form.Item>
       <Form.Item label="字段数">
         <Tag>{data.fields.length} 个字段</Tag>
-      </Form.Item>
-    </Form>
-  );
-};
-
-// Join Node Form
-const JoinNodeForm: React.FC<{
-  node: FlowNode;
-  onUpdate: (id: string, data: Partial<Record<string, unknown>>) => void;
-}> = ({ node, onUpdate }) => {
-  const data = node.data as JoinNodeData;
-  const nodes = useFlowStore((state) => state.nodes);
-
-  // Get available fields from left and right tables
-  const leftTableNode = nodes.find(
-    (n) => n.type === FlowNodeType.TABLE && (n.data as { tableName: string }).tableName === data.leftTable
-  );
-  const rightTableNode = nodes.find(
-    (n) => n.type === FlowNodeType.TABLE && (n.data as { tableName: string }).tableName === data.rightTable
-  );
-
-  const leftFields = (leftTableNode?.data as { fields?: { name: string; type: string }[] })?.fields || [];
-  const rightFields = (rightTableNode?.data as { fields?: { name: string; type: string }[] })?.fields || [];
-
-  // Check if conditions are configured
-  const hasConditions = data.conditions && data.conditions.length > 0;
-
-  // Add new condition
-  const addCondition = useCallback(() => {
-    const newCondition = {
-      leftTable: data.leftTable,
-      rightTable: data.rightTable,
-      leftField: leftFields[0]?.name || '',
-      rightField: rightFields[0]?.name || '',
-    };
-    onUpdate(node.id, {
-      conditions: [...data.conditions, newCondition],
-    });
-  }, [data, leftFields, rightFields, node.id, onUpdate]);
-
-  // Remove condition
-  const removeCondition = useCallback((index: number) => {
-    const newConditions = data.conditions.filter((_, i) => i !== index);
-    onUpdate(node.id, { conditions: newConditions });
-  }, [data.conditions, node.id, onUpdate]);
-
-  // Update condition
-  const updateCondition = useCallback((index: number, field: 'leftField' | 'rightField', value: string) => {
-    const newConditions = data.conditions.map((cond, i) =>
-      i === index ? { ...cond, [field]: value } : cond
-    );
-    onUpdate(node.id, { conditions: newConditions });
-  }, [data.conditions, node.id, onUpdate]);
-
-  return (
-    <Form layout="vertical">
-      <Form.Item label="JOIN 类型">
-        <Select
-          value={data.joinType}
-          onChange={(value) => onUpdate(node.id, { joinType: value })}
-          style={{ width: '100%' }}
-        >
-          {Object.entries(JOIN_TYPE_LABELS).map(([type, label]) => (
-            <Option key={type} value={type}>
-              {label}
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
-      <Form.Item label="执行顺序">
-        <Input
-          type="number"
-          min={1}
-          value={data.order}
-          onChange={(e) => onUpdate(node.id, { order: parseInt(e.target.value, 10) || 1 })}
-          style={{ width: '100%' }}
-        />
-      </Form.Item>
-      <Form.Item label="左表">
-        <Input value={data.leftTable} disabled />
-      </Form.Item>
-      <Form.Item label="右表">
-        <Input value={data.rightTable} disabled />
-      </Form.Item>
-      <Divider style={{ borderColor: '#303030' }} />
-      <Form.Item 
-        label={
-          <span>
-            <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>
-            关联条件
-          </span>
-        }
-        style={{ marginBottom: 0 }}
-      >
-        {!hasConditions ? (
-          <div 
-            style={{ 
-              color: '#ff4d4f', 
-              fontSize: 12, 
-              marginBottom: 12,
-              padding: '8px 12px',
-              background: 'rgba(255, 77, 79, 0.1)',
-              borderRadius: 4,
-              border: '1px solid rgba(255, 77, 79, 0.3)',
-            }}
-          >
-            <span style={{ fontWeight: 500 }}>⚠️ 必须配置至少一个关联条件</span>
-            <div style={{ marginTop: 4, fontSize: 11, color: '#ff7875' }}>
-              请添加关联条件以继续创建下游节点
-            </div>
-          </div>
-        ) : (
-          data.conditions.map((cond, index) => (
-            <div
-              key={index}
-              style={{
-                marginBottom: 12,
-                padding: 8,
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: 4,
-              }}
-            >
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 4 }}>
-                  左表字段
-                </div>
-                <Select
-                  value={cond.leftField}
-                  onChange={(value) => updateCondition(index, 'leftField', value)}
-                  style={{ width: '100%' }}
-                  size="small"
-                >
-                  {leftFields.map((field) => (
-                    <Option key={field.name} value={field.name}>
-                      {field.name} ({field.type})
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-              <div style={{ textAlign: 'center', color: '#8c8c8c', margin: '4px 0' }}>
-                =
-              </div>
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 4 }}>
-                  右表字段
-                </div>
-                <Select
-                  value={cond.rightField}
-                  onChange={(value) => updateCondition(index, 'rightField', value)}
-                  style={{ width: '100%' }}
-                  size="small"
-                >
-                  {rightFields.map((field) => (
-                    <Option key={field.name} value={field.name}>
-                      {field.name} ({field.type})
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span
-                  style={{
-                    color: '#ff4d4f',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => removeCondition(index)}
-                >
-                  删除
-                </span>
-              </div>
-            </div>
-          ))
-        )}
-        <div
-          style={{
-            padding: '8px 12px',
-            background: 'rgba(24, 144, 255, 0.1)',
-            borderRadius: 4,
-            textAlign: 'center',
-            cursor: 'pointer',
-            color: '#1890ff',
-            fontSize: 13,
-            marginTop: 12,
-          }}
-          onClick={addCondition}
-        >
-          + 添加条件
-        </div>
       </Form.Item>
     </Form>
   );

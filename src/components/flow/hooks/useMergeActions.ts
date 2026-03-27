@@ -9,7 +9,7 @@
 import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
-import type { ConditionDefinitionNodeData, TableNodeData } from '../../../services/flow/types';
+import type { ConditionDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
 import { generateConditionGroupRefId } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +35,33 @@ function makeEdge(source: string, target: string) {
   };
 }
 
+/**
+ * BFS traversal over join edges to find all table node IDs connected
+ * (directly or transitively) to `startId` via join-type edges.
+ * Returns the connected IDs excluding `startId` itself.
+ */
+function findJoinConnectedTableIds(startId: string, edges: FlowEdge[]): string[] {
+  const joinEdges = edges.filter((e) => e.type === 'join');
+  const visited = new Set<string>([startId]);
+  const queue = [startId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    joinEdges
+      .filter((e) => e.source === current || e.target === current)
+      .forEach((e) => {
+        const neighbor = e.source === current ? e.target : e.source;
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
+        }
+      });
+  }
+
+  visited.delete(startId);
+  return Array.from(visited);
+}
+
 /** Horizontal gap between source node and new node */
 const X_OFFSET = 220;
 
@@ -47,18 +74,18 @@ export interface MergeActionsResult {
   hintText: string;
   /** Whether to render the "直接执行" secondary button */
   showDirectExecute: boolean;
-  /** Whether to render the "表关联" join button (TABLE type only) */
-  showJoinAction: boolean;
   /** Whether to render the "选择列" select button (JOIN type only) */
   showSelectAction: boolean;
+  /** Whether to render the "表关联" button (TABLE type only, when other tables exist) */
+  showJoinAction: boolean;
   /** Create the contextually-appropriate next node */
   handleCreateNextNode: () => void;
   /** Bypass conditions and connect straight to EndNode */
   handleDirectExecute: () => void;
-  /** Create a JoinNode from this table node (TABLE type only) */
-  handleCreateJoinNode: () => void;
   /** Create a SelectNode from this join node (JOIN type only) */
   handleCreateSelectNode: () => void;
+  /** Create join edges to all unconnected table nodes */
+  handleCreateJoinEdge: () => void;
 }
 
 export function useMergeActions(
@@ -68,6 +95,7 @@ export function useMergeActions(
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
+  const edges = useFlowStore((state) => state.edges);
 
   // -------------------------------------------------------------------------
   // Derived display values
@@ -98,15 +126,19 @@ export function useMergeActions(
     [sourceNodeType]
   );
 
-  const showJoinAction = useMemo(
-    () => sourceNodeType === FlowNodeType.TABLE,
-    [sourceNodeType]
-  );
-
   const showSelectAction = useMemo(
     () => sourceNodeType === FlowNodeType.JOIN,
     [sourceNodeType]
   );
+
+  // Show "表关联" when this is a TABLE node and there are other TABLE nodes available
+  const showJoinAction = useMemo(() => {
+    if (sourceNodeType !== FlowNodeType.TABLE) return false;
+    const otherTables = nodes.filter(
+      (n) => n.type === FlowNodeType.TABLE && n.id !== sourceNodeId
+    );
+    return otherTables.length > 0;
+  }, [sourceNodeType, nodes, sourceNodeId]);
 
   // -------------------------------------------------------------------------
   // Position helper
@@ -122,12 +154,19 @@ export function useMergeActions(
   // -------------------------------------------------------------------------
 
   const createOperatorNode = useCallback(() => {
-    // Prevent duplicate operator nodes
+    // Collect the source table + all tables reachable via join edges
+    const relatedTableIds = findJoinConnectedTableIds(sourceNodeId, edges);
+    const allTableIds = [sourceNodeId, ...relatedTableIds];
+
+    // If an operator node already exists, just wire all unconnected tables to it
     const existing = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
     if (existing) {
-      addEdge(makeEdge(sourceNodeId, existing.id) as Parameters<typeof addEdge>[0]);
+      allTableIds.forEach((tableId) => {
+        addEdge(makeEdge(tableId, existing.id) as Parameters<typeof addEdge>[0]);
+      });
       return;
     }
+
     const { x, y } = getSourcePosition();
     const nodeId = `operator_${Date.now()}`;
     addNode({
@@ -136,8 +175,12 @@ export function useMergeActions(
       position: { x: x + X_OFFSET, y },
       data: { operatorType: undefined },
     } as Parameters<typeof addNode>[0]);
-    addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
-  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
+
+    // Connect every table in the join group to the new operator node
+    allTableIds.forEach((tableId) => {
+      addEdge(makeEdge(tableId, nodeId) as Parameters<typeof addEdge>[0]);
+    });
+  }, [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge]);
 
   const createConditionDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
@@ -201,32 +244,6 @@ export function useMergeActions(
     [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]
   );
 
-  const createJoinNode = useCallback(() => {
-    // Only one JoinNode allowed — reuse if it already exists
-    const existing = nodes.find((n) => n.type === FlowNodeType.JOIN);
-    if (existing) {
-      addEdge(makeEdge(sourceNodeId, existing.id) as Parameters<typeof addEdge>[0]);
-      return;
-    }
-    const { x, y } = getSourcePosition();
-    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
-    const leftTable = (sourceNode?.data as TableNodeData | undefined)?.tableName ?? '';
-    const nodeId = `join_${Date.now()}`;
-    addNode({
-      id: nodeId,
-      type: FlowNodeType.JOIN,
-      position: { x: x + X_OFFSET, y: y - 60 },
-      data: {
-        joinType: JoinType.INNER,
-        leftTable,
-        rightTable: '',
-        conditions: [],
-        order: 1,
-      },
-    } as Parameters<typeof addNode>[0]);
-    addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
-  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
-
   const createSelectNodeFromJoin = useCallback(() => {
     const existing = nodes.find((n) => n.type === FlowNodeType.SELECT);
     if (existing) {
@@ -247,6 +264,49 @@ export function useMergeActions(
   // -------------------------------------------------------------------------
   // Public handlers
   // -------------------------------------------------------------------------
+
+  /**
+   * Creates join edges from this TABLE node to all other TABLE nodes
+   * that are not yet connected via a join edge.
+   */
+  const handleCreateJoinEdge = useCallback(() => {
+    const otherTables = nodes.filter(
+      (n) => n.type === FlowNodeType.TABLE && n.id !== sourceNodeId
+    );
+    const existingJoinEdges = edges.filter((e) => e.type === 'join');
+
+    otherTables.forEach((targetNode) => {
+      // Skip if a join edge already exists between these two nodes (in either direction)
+      const alreadyConnected = existingJoinEdges.some(
+        (e) =>
+          (e.source === sourceNodeId && e.target === targetNode.id) ||
+          (e.source === targetNode.id && e.target === sourceNodeId)
+      );
+      if (alreadyConnected) return;
+
+      const sourceTable = (nodes.find((n) => n.id === sourceNodeId)?.data as TableNodeData)?.tableName ?? '';
+      const targetTable = (targetNode.data as TableNodeData)?.tableName ?? '';
+      const order = existingJoinEdges.length + 1;
+      const joinData: JoinEdgeData = {
+        joinType: JoinType.INNER,
+        sourceTableName: sourceTable,
+        targetTableName: targetTable,
+        conditions: [],
+        description: '',
+        order,
+        configured: false,
+      };
+      const joinEdge: FlowEdge = {
+        id: `join_${sourceNodeId}_${targetNode.id}_${Date.now()}`,
+        source: sourceNodeId,
+        target: targetNode.id,
+        type: 'join',
+        animated: false,
+        data: joinData,
+      };
+      addEdge(joinEdge as Parameters<typeof addEdge>[0]);
+    });
+  }, [sourceNodeId, nodes, edges, addEdge]);
 
   const handleCreateNextNode = useCallback(() => {
     switch (sourceNodeType) {
@@ -281,13 +341,9 @@ export function useMergeActions(
     createEndNode(EndNodeTriggerSource.DIRECT);
   }, [createEndNode]);
 
-  const handleCreateJoinNode = useCallback(() => {
-    createJoinNode();
-  }, [createJoinNode]);
-
   const handleCreateSelectNode = useCallback(() => {
     createSelectNodeFromJoin();
   }, [createSelectNodeFromJoin]);
 
-  return { hintText, showDirectExecute, showJoinAction, showSelectAction, handleCreateNextNode, handleDirectExecute, handleCreateJoinNode, handleCreateSelectNode };
+  return { hintText, showDirectExecute, showSelectAction, showJoinAction, handleCreateNextNode, handleDirectExecute, handleCreateSelectNode, handleCreateJoinEdge };
 }

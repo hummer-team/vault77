@@ -1,34 +1,31 @@
 /**
- * Join Edge Component
- * Custom edge that displays JOIN type and conditions
+ * JoinEdge Component
+ * Custom edge rendered between two TableNodes to represent a join relationship.
+ * - Unconfigured: shows "构建关系" + "删除关系" buttons at the edge midpoint.
+ * - Configured:   shows the join type label (e.g. "内连"); buttons appear on hover.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
-  useReactFlow,
   type EdgeProps,
 } from '@xyflow/react';
-import { Tag } from 'antd';
+import { Button, Space, Tooltip } from 'antd';
+import { DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { JOIN_TYPE_LABELS } from '../../../services/flow/constants';
-import type { JoinType } from '../../../services/flow/types';
+import type { JoinEdgeData } from '../../../services/flow/types';
+import { JoinType } from '../../../services/flow/types';
 
-// Join type colors
+// Join type stroke colours
 const JOIN_TYPE_COLORS: Record<JoinType, string> = {
   INNER: '#52c41a',
   LEFT: '#1890ff',
   RIGHT: '#fa8c16',
   CROSS: '#722ed1',
 };
-
-export interface JoinEdgeData extends Record<string, unknown> {
-  joinType: JoinType;
-  conditions: string;
-  order: number;
-}
 
 export const JoinEdge: React.FC<EdgeProps> = ({
   id,
@@ -41,8 +38,10 @@ export const JoinEdge: React.FC<EdgeProps> = ({
   data,
   selected,
 }) => {
-  const { setEdges } = useReactFlow();
   const removeEdge = useFlowStore((state) => state.removeEdge);
+  const openJoinPanel = useFlowStore((state) => state.openJoinPanel);
+
+  const [hovering, setHovering] = useState(false);
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -53,45 +52,39 @@ export const JoinEdge: React.FC<EdgeProps> = ({
     targetPosition,
   });
 
-  const onEdgeClick = useCallback(() => {
-    // Find and select the associated join node
-    const edges = useFlowStore.getState().edges;
-    const edge = edges.find((e) => e.id === id);
-    if (edge) {
-      // The join node is either the source or target of this edge
-      const joinNodeId = edge.source.startsWith('join_')
-        ? edge.source
-        : edge.target.startsWith('join_')
-          ? edge.target
-          : null;
-      if (joinNodeId) {
-        useFlowStore.getState().setSelectedNode(joinNodeId as string);
-      }
-    }
-  }, [id]);
+  const edgeData = data as JoinEdgeData | undefined;
+  const isConfigured = edgeData?.configured === true;
+  const joinType: JoinType = edgeData?.joinType ?? JoinType.INNER;
+  const color = JOIN_TYPE_COLORS[joinType];
 
-  const onDeleteClick = useCallback(
-    (evt: React.MouseEvent) => {
-      evt.stopPropagation();
-      removeEdge(id);
-      setEdges((edges) => edges.filter((e) => e.id !== id));
+  const handleBuild = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      openJoinPanel(id);
     },
-    [id, removeEdge, setEdges]
+    [id, openJoinPanel]
   );
 
-  const dataRecord = data as JoinEdgeData | undefined;
-  const joinType = dataRecord?.joinType || 'INNER';
-  const order = dataRecord?.order || 1;
-  const color = JOIN_TYPE_COLORS[joinType];
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      removeEdge(id);
+    },
+    [id, removeEdge]
+  );
+
+  // Only show action buttons on hover or when edge is selected — never unconditionally.
+  // This prevents canvas clutter when many edges coexist.
+  const showButtons = hovering || selected;
 
   return (
     <>
       <BaseEdge
         path={edgePath}
         style={{
-          stroke: selected ? '#fa8c16' : color,
-          strokeWidth: selected ? 3 : 2,
-          strokeDasharray: joinType === 'CROSS' ? '5,5' : undefined,
+          stroke: selected ? '#fa8c16' : isConfigured ? color : '#595959',
+          strokeWidth: selected ? 2.5 : 1.5,
+          strokeDasharray: isConfigured ? undefined : '5,4',
         }}
       />
       <EdgeLabelRenderer>
@@ -100,73 +93,72 @@ export const JoinEdge: React.FC<EdgeProps> = ({
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
-            cursor: 'pointer',
+            cursor: 'default',
           }}
           className="nodrag nopan"
-          onClick={onEdgeClick}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
         >
-          <div
-            style={{
-              background: '#1f1f1f',
-              border: `1px solid ${selected ? '#fa8c16' : color}`,
-              borderRadius: '4px',
-              padding: '4px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            }}
-          >
-            {/* Order badge */}
-            <span
+          {!showButtons ? (
+            /* ── Resting state: compact badge ── */
+            <div
               style={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: color,
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                background: '#1f1f1f',
+                border: `1px solid ${isConfigured ? color : '#444'}`,
+                borderRadius: 4,
+                padding: '2px 8px',
+                fontSize: 12,
+                color: isConfigured ? color : '#666',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
+              onClick={handleBuild}
             >
-              {order}
-            </span>
-
-            {/* Join type label */}
-            <Tag
-              color={color}
-              style={{
-                margin: 0,
-                fontSize: 11,
-                padding: '0 4px',
-                border: 'none',
-              }}
-            >
-              {JOIN_TYPE_LABELS[joinType as JoinType] as React.ReactNode}
-            </Tag>
-
-            {/* Delete button (visible when selected) */}
-            {selected && (
-              <span
+              {isConfigured ? JOIN_TYPE_LABELS[joinType] : '待配置'}
+            </div>
+          ) : (
+            /* ── Hover / selected: action buttons ── */
+            <Space size={4} direction="vertical" align="center">
+              <div
                 style={{
-                  color: '#ff4d4f',
+                  background: '#1f1f1f',
+                  border: `1px solid ${isConfigured ? color : '#444'}`,
+                  borderRadius: 4,
+                  padding: '2px 8px',
                   fontSize: 12,
-                  marginLeft: 4,
-                  cursor: 'pointer',
+                  color: isConfigured ? color : '#888',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
                 }}
-                onClick={onDeleteClick}
               >
-                ×
-              </span>
-            )}
-          </div>
+                {isConfigured ? JOIN_TYPE_LABELS[joinType] : '待配置'}
+              </div>
+              <Space size={4}>
+                <Tooltip title="构建关系" placement="bottom">
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<SettingOutlined />}
+                    onClick={handleBuild}
+                    style={{ height: 22, width: 28, padding: 0, background: '#1677ff' }}
+                  />
+                </Tooltip>
+                <Tooltip title="删除关系" placement="bottom">
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={handleDelete}
+                    style={{ height: 22, width: 28, padding: 0 }}
+                  />
+                </Tooltip>
+              </Space>
+            </Space>
+          )}
         </div>
       </EdgeLabelRenderer>
     </>
   );
 };
 
-export default JoinEdge;
