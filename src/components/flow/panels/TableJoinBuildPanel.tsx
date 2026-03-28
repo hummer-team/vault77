@@ -14,9 +14,8 @@ import { ArrowDownOutlined, MinusOutlined, PlusOutlined } from '@ant-design/icon
 import { v4 as uuidv4 } from 'uuid';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { getTableSchema, getTableFields } from '../../../services/flow/flowService';
+import { getTableSchema } from '../../../services/flow/flowService';
 import type {
-  FlowNode,
   JoinEdgeData,
   JoinConditionRow,
   TableNodeData,
@@ -96,6 +95,19 @@ function fieldTypeLabel(t: FieldType): string {
   return FIELD_TYPE_LABEL[t] ?? t;
 }
 
+// CSS injected once to override antd Select border with orange when there is a type error
+const JOIN_ERROR_STYLE = `
+  .join-cond-error .ant-select-selector {
+    border-color: #FF6B00 !important;
+    box-shadow: none !important;
+  }
+  .join-cond-error.ant-select-focused .ant-select-selector,
+  .join-cond-error.ant-select-open .ant-select-selector {
+    border-color: #FF6B00 !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.20) !important;
+  }
+`;
+
 const DEFAULT_CONDITION = (): JoinConditionRow => ({
   id: uuidv4(),
   leftTable: '',
@@ -107,14 +119,6 @@ const DEFAULT_CONDITION = (): JoinConditionRow => ({
 });
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-
-function getTableFields(nodes: FlowNode[], tableName: string): string[] {
-  const tableNode = nodes.find(
-    (n) => n.type === 'table' && (n.data as TableNodeData).tableName === tableName
-  );
-  if (!tableNode) return [];
-  return ((tableNode.data as TableNodeData).fields ?? []).map((f) => f.name);
-}
 
 /** Build a plain-language description of the join */
 function buildAutoDescription(
@@ -240,6 +244,19 @@ export const TableJoinBuildPanel: React.FC = () => {
     [sourceTableName, targetTableName, joinType, conditions]
   );
 
+  // Disable confirm when any condition row has a type mismatch
+  const hasTypeErrors = useMemo(
+    () =>
+      conditions.some((cond) => {
+        if (!cond.leftField || !cond.rightField) return false;
+        const left  = sourceFieldObjects.find((f) => f.name === cond.leftField);
+        const right = targetFieldObjects.find((f) => f.name === cond.rightField);
+        if (!left || !right) return false;
+        return !areJoinTypesCompatible(left.type, right.type);
+      }),
+    [conditions, sourceFieldObjects, targetFieldObjects]
+  );
+
   // ── Condition mutations ──
   const addCondition = useCallback(() => {
     setConditions((prev) => [
@@ -279,6 +296,8 @@ export const TableJoinBuildPanel: React.FC = () => {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
+    <>
+    <style>{JOIN_ERROR_STYLE}</style>
     <Drawer
       title={
         <span style={{ color: T.textPrimary, fontWeight: 600, fontSize: 15 }}>表关联</span>
@@ -448,8 +467,14 @@ export const TableJoinBuildPanel: React.FC = () => {
         <Button
           type="primary"
           onClick={handleConfirm}
+          disabled={hasTypeErrors}
           data-testid="btn-confirm"
-          style={{ background: T.orange, borderColor: T.orange, fontWeight: 600, minWidth: 80 }}
+          style={{
+            background: hasTypeErrors ? undefined : T.orange,
+            borderColor: hasTypeErrors ? undefined : T.orange,
+            fontWeight: 600,
+            minWidth: 80,
+          }}
         >
           确认
         </Button>
@@ -462,6 +487,7 @@ export const TableJoinBuildPanel: React.FC = () => {
         </Button>
       </div>
     </Drawer>
+    </>
   );
 };
 
@@ -598,7 +624,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
             placeholder="字段"
             onChange={(v) => onUpdate(cond.id, { leftField: v })}
             style={{ width: '100%' }}
-            status={typeError ? 'warning' : undefined}
+            className={typeError ? 'join-cond-error' : undefined}
             options={sourceFieldNames.map((f) => ({ label: f, value: f }))}
             size="small"
             notFoundContent={
@@ -621,7 +647,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
             placeholder="字段"
             onChange={(v) => onUpdate(cond.id, { rightField: v })}
             style={{ width: '100%' }}
-            status={typeError ? 'warning' : undefined}
+            className={typeError ? 'join-cond-error' : undefined}
             options={targetFieldNames.map((f) => ({ label: f, value: f }))}
             size="small"
             notFoundContent={
@@ -657,19 +683,27 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
           </div>
         </div>
 
-        {/* Type-mismatch warning — left-aligned with the fields grid */}
+        {/* Type-mismatch warning — aligned with the fields grid (col 1→3), bright orange */}
         {typeError && (
           <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 4,
+            display: 'grid',
+            gridTemplateColumns: '1fr 54px 1fr 56px',
+            gap: 6,
             marginTop: 4,
-            color: '#FF8C00',
-            fontSize: 11,
-            lineHeight: 1.4,
           }}>
-            <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
-            <span>{typeError}</span>
+            <div style={{
+              gridColumn: '1 / 4',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 4,
+              color: T.orange,
+              fontSize: 11,
+              lineHeight: 1.4,
+              fontWeight: 500,
+            }}>
+              <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
+              <span>{typeError}</span>
+            </div>
           </div>
         )}
       </div>
