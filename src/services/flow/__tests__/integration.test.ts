@@ -426,11 +426,11 @@ describe('Integration Tests - Complete Flow Execution', () => {
       );
     });
 
-    it('should handle flow with only start node', () => {
+    it('should handle flow with only datasource node', () => {
       const nodes: FlowNode[] = [
         {
           id: 'start1',
-          type: FlowNodeType.START,
+          type: FlowNodeType.DATA_SOURCE,
           position: { x: 0, y: 0 },
           data: {},
         },

@@ -11,9 +11,10 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import { PlusOutlined, PlayCircleOutlined, TableOutlined, ApartmentOutlined } from '@ant-design/icons';
+import { PlusOutlined, PlayCircleOutlined, TableOutlined, ApartmentOutlined, LinkOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useMergeActions } from '../hooks/useMergeActions';
 import { FlowNodeType } from '../../../services/flow/types';
+import { useFlowStore } from '../../../stores/flowStore';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -81,8 +82,9 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
   nodeType,
   visible,
 }) => {
-  const { hintText, showDirectExecute, showSelectAction, showJoinAction, handleCreateNextNode, handleDirectExecute, handleCreateSelectNode, handleCreateJoinEdge } =
+  const { hintText, showDirectExecute, showExecuteSave, showSelectAction, showJoinAction, showBindAction, bindActionDisabled, handleCreateNextNode, handleDirectExecute, handleExecuteSave, handleCreateSelectNode, handleCreateJoinEdge } =
     useMergeActions(nodeId, nodeType);
+  const setPendingConnectionSource = useFlowStore((state) => state.setPendingConnectionSource);
 
   const [showOverlay, setShowOverlay] = useState(false);
   const [buttonHovered, setButtonHovered] = useState(false);
@@ -155,6 +157,28 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
       setShowOverlay(false);
     },
     [handleDirectExecute]
+  );
+
+  const onExecuteSave = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      handleExecuteSave();
+      setShowOverlay(false);
+    },
+    [handleExecuteSave]
+  );
+
+  /**
+   * Sets this node as the pending connection source so the user can click
+   * on a ConditionGroupNode to complete the "bind relation" edge.
+   */
+  const onBindRelation = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setShowOverlay(false);
+      setPendingConnectionSource(nodeId);
+    },
+    [nodeId, setPendingConnectionSource]
   );
 
   // Only mount when relevant
@@ -265,6 +289,59 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
             </>
           )}
 
+          {/* Bind relation — CONDITION_DEFINITION type only.
+              Disabled when no ConditionGroupNode exists on the canvas.
+              Clicking closes the menu; the user then manually drags the
+              source handle to the desired relation node. */}
+          {showBindAction && (
+            <>
+              <div style={DIVIDER_STYLE} />
+              <button
+                disabled={bindActionDisabled}
+                style={{
+                  ...MENU_BUTTON_BASE,
+                  opacity: bindActionDisabled ? 0.35 : 1,
+                  cursor: bindActionDisabled ? 'not-allowed' : 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (bindActionDisabled) return;
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    'rgba(124, 58, 237, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+                onClick={(e) => {
+                  if (bindActionDisabled) return;
+                  onBindRelation(e);
+                }}
+              >
+                <LinkOutlined style={{ fontSize: 10, color: bindActionDisabled ? 'rgba(255,255,255,0.3)' : '#7c3aed' }} />
+                <span>绑定关系</span>
+              </button>
+            </>
+          )}
+
+          {/* Execute or Save — fast path for sole ConditionDefinitionNode (no CG nodes yet) */}
+          {showExecuteSave && (
+            <>
+              <div style={DIVIDER_STYLE} />
+              <button
+                style={MENU_BUTTON_BASE}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    'rgba(124, 58, 237, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+                onClick={onExecuteSave}
+              >
+                <CheckCircleOutlined style={{ fontSize: 10, color: '#7c3aed' }} />
+                <span>执行OR保存</span>
+              </button>
+            </>
+          )}
           {/* Direct execute */}
           {showDirectExecute && (
             <>

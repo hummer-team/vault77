@@ -62,8 +62,8 @@ export const NodeDetailPanel: React.FC = () => {
   // Get node title
   const getNodeTitle = (node: FlowNode) => {
     switch (node.type) {
-      case 'start':
-        return '开始节点';
+      case 'dataSource':
+        return '数据源节点';
       case 'table':
         return `表节点 - ${(node.data as TableNodeData).tableName}`;
       case 'join':

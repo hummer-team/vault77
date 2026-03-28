@@ -16,7 +16,7 @@ import {
 describe('Flow Enums', () => {
   describe('FlowNodeType', () => {
     it('should have correct node types', () => {
-      expect(FlowNodeType.START).toBe('start');
+      expect(FlowNodeType.DATA_SOURCE).toBe('dataSource');
       expect(FlowNodeType.TABLE).toBe('table');
       expect(FlowNodeType.JOIN).toBe('join');
       expect(FlowNodeType.CONDITION).toBe('condition');

@@ -19,6 +19,10 @@ import { useFlowStore } from '../../../stores/flowStore';
 import type { SelectNodeData, ReplaceRule } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
+import {
+  executeSelectNodeClickStrategy,
+  shouldRenderUdfDrawer,
+} from '../../../services/flow/bizKernelsBuilderStrategies';
 import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 
@@ -74,17 +78,15 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   );
 
   /**
-   * Click routing:
+   * Click routing delegated to bizKernelsBuilderStrategies:
    * - UDF replace operator → open ReplaceColumnDrawer
-   * - Other UDF operators (未实现) → fall through to standard detail panel
-   * - Standard select → open standard detail panel
+   * - Standard / other kernels → open NodeDetailPanel
    */
   const handleClick = useCallback(() => {
-    if (data.udfFunctionName === 'udf_replace_spec_column_value') {
-      setUdfDrawerOpen(true);
-    } else {
-      setSelectedNode(id);
-    }
+    executeSelectNodeClickStrategy(data.udfFunctionName, {
+      openUdfDrawer: () => setUdfDrawerOpen(true),
+      openDetailPanel: () => setSelectedNode(id),
+    });
   }, [data.udfFunctionName, id, setSelectedNode]);
 
   /** Called when user confirms rules in ReplaceColumnDrawer */
@@ -231,76 +233,6 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         </Space>
       </div>
 
-      {/* Selected fields list */}
-      {!data.selectAll && data.fields.length > 0 && (
-        <div
-          style={{
-            padding: '8px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-          }}
-        >
-          <List
-            size="small"
-            dataSource={data.fields}
-            renderItem={(field) => (
-              <div
-                style={{
-                  padding: '6px 8px',
-                  marginBottom: 4,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                {/* Aggregation function */}
-                {field.aggregate && (
-                  <Tooltip title={AGG_FUNCTION_LABELS[field.aggregate]}>
-                    <Tag
-                      icon={<FunctionOutlined />}
-                      color={AGG_FUNCTION_COLORS[field.aggregate]}
-                      style={{ margin: 0, marginRight: 8, fontSize: 10 }}
-                    >
-                      {field.aggregate}
-                    </Tag>
-                  </Tooltip>
-                )}
-
-                {/* Table and field name */}
-                <div style={{ flex: 1, fontSize: 12 }}>
-                  <Tag color="default" style={{ fontSize: 10, marginRight: 4 }}>
-                    {field.tableName}
-                  </Tag>
-                  <span style={{ color: '#d9d9d9' }}>{field.fieldName}</span>
-                </div>
-
-                {/* Alias */}
-                {field.alias && (
-                  <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
-                    as {field.alias}
-                  </Tag>
-                )}
-              </div>
-            )}
-          />
-        </div>
-      )}
-
-      {/* Select all message */}
-      {data.selectAll && (
-        <div
-          style={{
-            padding: '12px',
-            textAlign: 'center',
-            color: '#52c41a',
-            fontSize: 12,
-          }}
-        >
-          已选择所有字段
-        </div>
-      )}
-
       {/* UDF configured: summary only — details are in the drawer */}
 
       {/* UDF unconfigured state */}
@@ -405,8 +337,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       <NodeNextButton nodeId={id} nodeType={FlowNodeType.SELECT} visible={isHovering} />
     </div>
 
-    {/* ReplaceColumnDrawer — only rendered for udf_replace_spec_column_value */}
-    {data.udfFunctionName === 'udf_replace_spec_column_value' && (
+    {/* ReplaceColumnDrawer — rendered when strategy resolves to REPLACE_COLUMN_DRAWER */}
+    {shouldRenderUdfDrawer(data.udfFunctionName) && (
       <ReplaceColumnDrawer
         open={udfDrawerOpen}
         onClose={() => setUdfDrawerOpen(false)}

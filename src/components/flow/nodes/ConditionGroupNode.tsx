@@ -61,7 +61,11 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const updateNode = useFlowStore((state) => state.updateNode);
+  const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
+  const pendingConnectionSource = useFlowStore((state) => state.pendingConnectionSource);
+  const setPendingConnectionSource = useFlowStore((state) => state.setPendingConnectionSource);
+  const setSelectedEdgeId = useFlowStore((state) => state.setSelectedEdgeId);
   const [configExpanded, setConfigExpanded] = useState(true); // Config section always expanded by default
   const [isHovering, setIsHovering] = useState(false);
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
@@ -183,11 +187,25 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
     [id, removeNode]
   );
 
-  // Handle click - do not trigger selection to prevent detail panel
+  // Handle click - do not trigger selection to prevent detail panel.
+  // If a pending "bind relation" connection is active, complete it.
   const handleClick = useCallback((e: React.MouseEvent) => {
-    // Prevent node selection - no detail panel should open for condition group node
     e.stopPropagation();
-  }, []);
+    if (pendingConnectionSource && pendingConnectionSource !== id) {
+      const newEdgeId = `e_${pendingConnectionSource}_${id}_${Date.now()}`;
+      addEdge({
+        id: newEdgeId,
+        source: pendingConnectionSource,
+        target: id,
+        type: 'deletable',
+        animated: false,
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed' as const, width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+      });
+      setPendingConnectionSource(null);
+      setSelectedEdgeId(newEdgeId); // Auto-highlight the newly created edge
+    }
+  }, [id, pendingConnectionSource, addEdge, setPendingConnectionSource, setSelectedEdgeId]);
 
   // Toggle config section expand
   const handleConfigExpand = useCallback((e: React.MouseEvent) => {
@@ -252,7 +270,40 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         }}
       />
 
-      {/* Header */}
+      {/* Pending "bind relation" overlay — shown when another CG node is waiting to connect */}
+      {pendingConnectionSource && pendingConnectionSource !== id && (
+        <div
+          className="nodrag nopan"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 8,
+            border: '2px dashed #7c3aed',
+            background: 'rgba(124, 58, 237, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            cursor: 'pointer',
+            pointerEvents: 'all',
+          }}
+          onClick={handleClick}
+        >
+          <span style={{
+            fontSize: 11,
+            color: '#a78bfa',
+            background: 'rgba(20,10,40,0.85)',
+            padding: '3px 10px',
+            borderRadius: 4,
+            backdropFilter: 'blur(4px)',
+            userSelect: 'none',
+          }}>
+            点击连接
+          </span>
+        </div>
+      )}
+
+
       <div
         style={{
           display: 'flex',

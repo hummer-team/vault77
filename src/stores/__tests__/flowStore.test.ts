@@ -18,8 +18,8 @@ describe('Flow Store', () => {
       const state = useFlowStore.getState();
       expect(state.flowName).toBe('');
       expect(state.operatorType).toBe(OperatorType.ASSOCIATION);
-      expect(state.nodes).toHaveLength(1); // Start node is initialized by default
-      expect(state.nodes[0].type).toBe(FlowNodeType.START);
+      expect(state.nodes).toHaveLength(1); // Operator node is initialized by default
+      expect(state.nodes[0].type).toBe(FlowNodeType.OPERATOR);
       expect(state.edges).toEqual([]);
       expect(state.selectedNodeId).toBeNull();
       expect(state.detailPanelOpen).toBe(false);
@@ -96,7 +96,7 @@ describe('Flow Store', () => {
 
       useFlowStore.getState().addNode(node as never);
       useFlowStore.getState().removeNode('node-1');
-      expect(useFlowStore.getState().nodes).toHaveLength(1); // Only start node remains
+      expect(useFlowStore.getState().nodes).toHaveLength(1); // Only operator node remains
     });
 
     it('should remove related edges when removing a node', () => {
@@ -217,8 +217,8 @@ describe('Flow Store', () => {
 
       expect(useFlowStore.getState().flowName).toBe('');
       expect(useFlowStore.getState().operatorType).toBe(OperatorType.ASSOCIATION);
-      expect(useFlowStore.getState().nodes).toHaveLength(1); // Start node remains
-      expect(useFlowStore.getState().nodes[0].type).toBe(FlowNodeType.START);
+      expect(useFlowStore.getState().nodes).toHaveLength(1); // Only operator node remains
+      expect(useFlowStore.getState().nodes[0].type).toBe(FlowNodeType.OPERATOR);
     });
   });
 

@@ -10,7 +10,7 @@ import type { Node, Edge } from '@xyflow/react';
 // ============================================================================
 
 export enum FlowNodeType {
-  START = 'start',
+  DATA_SOURCE = 'dataSource', // Data source selection node (was START)
   TABLE = 'table',
   MERGE = 'merge', // + node for aggregating multiple tables
   OPERATOR = 'operator', // Business operator selection node
@@ -108,9 +108,12 @@ export interface BaseNodeData extends Record<string, unknown> {
   description?: string;
 }
 
-export interface StartNodeData extends BaseNodeData {
+export interface DataSourceNodeData extends BaseNodeData {
   selectedTables?: string[];
 }
+
+/** @deprecated Use DataSourceNodeData instead */
+export type StartNodeData = DataSourceNodeData;
 
 export interface TableNodeData extends BaseNodeData {
   tableName: string;
@@ -289,7 +292,7 @@ export interface EndNodeData extends BaseNodeData {
 }
 
 export type FlowNodeData =
-  | StartNodeData
+  | DataSourceNodeData
   | TableNodeData
   | MergeNodeData
   | OperatorNodeData
@@ -311,7 +314,7 @@ export interface FlowNode extends Node<FlowNodeData> {
 }
 
 export interface FlowEdge extends Edge {
-  type?: 'default' | 'smoothstep' | 'straight' | 'join';
+  type?: 'default' | 'smoothstep' | 'straight' | 'join' | 'deletable';
   animated?: boolean;
 }
 
@@ -387,6 +390,12 @@ export interface FlowState {
   detailPanelOpen: boolean;
   errorPanelOpen: boolean;
   validationErrors: ValidationError[];
+  /** Source node ID awaiting a manual "bind relation" connection, null when idle */
+  pendingConnectionSource: string | null;
+  setPendingConnectionSource: (id: string | null) => void;
+  /** Currently highlighted edge ID (click-to-select), null when none */
+  selectedEdgeId: string | null;
+  setSelectedEdgeId: (id: string | null) => void;
 
   // Actions
   setFlowName: (name: string) => void;

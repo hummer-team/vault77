@@ -1,16 +1,20 @@
 /**
  * Operator Node Component
- * Allows user to select business operator from applied kernels
+ * START NODE — entry point of the analysis flow.
+ * Allows user to select business operator from applied kernels.
+ *
+ * Node order: OperatorNode → DataSourceNode → TableNode → SelectNode →
+ *             ConditionDefinitionNode → ConditionGroupNode → EndNode
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Space, Button } from 'antd';
-import { ThunderboltOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import { FlowNodeType, OperatorType } from '../../../services/flow/types';
-import type { OperatorNodeData } from '../../../services/flow/types';
+import type { OperatorNodeData, DataSourceNodeData } from '../../../services/flow/types';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import type { BizKernelMetadata } from '../../../services/biz-kernels/types';
 import { duckDBUdfService } from '../../../services/duckDBUdfService';
@@ -64,13 +68,37 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
     (kernelName: string) => {
       updateNode(id, { kernelName });
 
-      // Always sync the EndNode's operatorType when a UDF kernel is selected,
-      // regardless of whether downstream nodes already exist. This must run
-      // before the hasConnectedNextNode early-return guard below.
-      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
-        const existingEnd = useFlowStore.getState().nodes.find((n) => n.type === FlowNodeType.END);
+      const isUdfKernel = duckDBUdfService.isDataCleanKernel(kernelName);
+      const udfFunctionName = isUdfKernel
+        ? (duckDBUdfService.getUdfFunctionName(kernelName) ?? '')
+        : '';
+
+      // Always sync downstream nodes' metadata regardless of whether new nodes will be created.
+      // This handles the case where the user switches kernels after the flow is already built.
+      const currentNodes = useFlowStore.getState().nodes;
+
+      // Sync EndNode operatorType
+      if (isUdfKernel) {
+        const existingEnd = currentNodes.find((n) => n.type === FlowNodeType.END);
         if (existingEnd) {
           updateNode(existingEnd.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN });
+        }
+      }
+
+      // Sync SelectNode udfFunctionName — critical for routing to the correct drawer
+      const existingSelect = currentNodes.find((n) => n.type === FlowNodeType.SELECT);
+      if (existingSelect) {
+        if (isUdfKernel) {
+          updateNode(existingSelect.id, {
+            udfFunctionName,
+            udfKernelName: kernelName,
+          } as Parameters<typeof updateNode>[1]);
+        } else {
+          // Clear UDF metadata when switching away from a UDF kernel
+          updateNode(existingSelect.id, {
+            udfFunctionName: undefined,
+            udfKernelName: undefined,
+          } as Parameters<typeof updateNode>[1]);
         }
       }
 
@@ -87,8 +115,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       const operatorY = operatorNode.position.y;
 
       // ── Data-cleaning UDF kernel: create SelectNode with UDF routing + End node
-      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
-        const udfFunctionName = duckDBUdfService.getUdfFunctionName(kernelName) ?? '';
+      // UDF flow is kept intact: OperatorNode → SelectNode → EndNode
+      if (isUdfKernel) {
 
         // 1. Create SelectNode ("选择列") with UDF metadata for routing
         const selectNodeId = `select_${Date.now()}`;
@@ -138,68 +166,31 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' },
           } as Parameters<typeof addEdge>[0]);
         } else {
-          // Update existing EndNode operatorType to UDF
           updateNode(existingEnd.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN });
         }
 
         return;
       }
 
-      // ── Non-UDF kernel: original flow (JOIN or SELECT) ─────────────────────
-      const inputEdges = edges?.filter((e) => e.target === id) || [];
-      const mergeNode = inputEdges
-        .map((e) => nodes.find((n) => n.id === e.source))
-        .find((n) => n?.type === 'merge');
-
-      const connectedTableEdges = mergeNode?.id
-        ? (edges || []).filter((e) => e.target === mergeNode.id)
-        : [];
-      const connectedTableNodes = connectedTableEdges
-        .map((e) => nodes.find((n) => n.id === e.source))
-        .filter((n): n is NonNullable<typeof n> => n?.type === 'table');
-
-      const tableNames = connectedTableNodes.map((n) => (n.data as { tableName: string }).tableName);
-      const connectedTableCount = tableNames.length;
-
-      if (connectedTableCount > 1) {
-        let previousNodeId = id;
-        for (let i = 1; i < connectedTableCount; i++) {
-          const joinNodeId = `join_${Date.now()}_${i}`;
-          addNode({
-            id: joinNodeId,
-            type: FlowNodeType.JOIN,
-            position: { x: operatorX + 280 + (i - 1) * 50, y: operatorY + (i - 1) * 30 },
-            data: { joinType: 'INNER', leftTable: tableNames[0], rightTable: tableNames[i], conditions: [], order: i },
-          } as Parameters<typeof addNode>[0]);
-          addEdge({
-            id: `e_${previousNodeId}_${joinNodeId}`,
-            source: previousNodeId,
-            target: joinNodeId,
-            type: 'default',
-            animated: false,
-            style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-          } as Parameters<typeof addEdge>[0]);
-          previousNodeId = joinNodeId;
-        }
-      } else {
-        const selectNodeId = `select_${Date.now()}`;
-        addNode({
-          id: selectNodeId,
-          type: FlowNodeType.SELECT,
-          position: { x: operatorX + 280, y: operatorY },
-          data: { fields: [], selectAll: true },
-        } as Parameters<typeof addNode>[0]);
-        addEdge({
-          id: `e_${id}_${selectNodeId}`,
-          source: id,
-          target: selectNodeId,
-          type: 'default',
-          animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
-        } as Parameters<typeof addEdge>[0]);
-      }
+      // ── Non-UDF kernel: create DataSourceNode as next step in the flow
+      // New flow order: OperatorNode → DataSourceNode → TableNode → SelectNode → ...
+      const dataSourceNodeId = `datasource_${Date.now()}`;
+      const dataSourceData: DataSourceNodeData = { selectedTables: [] };
+      addNode({
+        id: dataSourceNodeId,
+        type: FlowNodeType.DATA_SOURCE,
+        position: { x: operatorX + 280, y: operatorY },
+        data: dataSourceData,
+      } as Parameters<typeof addNode>[0]);
+      addEdge({
+        id: `e_${id}_${dataSourceNodeId}`,
+        source: id,
+        target: dataSourceNodeId,
+        type: 'default',
+        animated: false,
+        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+      } as Parameters<typeof addEdge>[0]);
     },
     [id, updateNode, addNode, addEdge, nodes]
   );
@@ -253,11 +244,9 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         <ThunderboltOutlined style={{ marginRight: 8, color: '#fa8c16' }} />
         <span>业务算子</span>
         <Space size={4} style={{ marginLeft: 'auto' }}>
+          <Tag color="warning" style={{ fontSize: 10 }}>开始</Tag>
           {data.kernelName && (
-            <Space size={4} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              <Tag color="processing" style={{ fontSize: 10 }}>已选择</Tag>
-              <EyeOutlined style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }} />
-            </Space>
+            <Tag color="processing" style={{ fontSize: 10 }}>已选择</Tag>
           )}
           <Button
             type="text"

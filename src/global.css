@@ -314,6 +314,18 @@ body {
   z-index: 9999 !important;
 }
 
+/* ============================================
+   React Flow Handle Styles
+   Hide left-side (target) handles — they are purely programmatic connection
+   endpoints and should not be visible or interactive to users.
+   Right-side (source) handles remain interactive for drag-to-connect.
+   ============================================ */
+.react-flow__handle-left {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
 .start-node-select-dropdown .ant-select-dropdown {
   background: #1f1f1f !important;
   border: 1px solid #434343 !important;

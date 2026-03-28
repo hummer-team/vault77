@@ -35,32 +35,6 @@ function makeEdge(source: string, target: string) {
   };
 }
 
-/**
- * BFS traversal over join edges to find all table node IDs connected
- * (directly or transitively) to `startId` via join-type edges.
- * Returns the connected IDs excluding `startId` itself.
- */
-function findJoinConnectedTableIds(startId: string, edges: FlowEdge[]): string[] {
-  const joinEdges = edges.filter((e) => e.type === 'join');
-  const visited = new Set<string>([startId]);
-  const queue = [startId];
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    joinEdges
-      .filter((e) => e.source === current || e.target === current)
-      .forEach((e) => {
-        const neighbor = e.source === current ? e.target : e.source;
-        if (!visited.has(neighbor)) {
-          visited.add(neighbor);
-          queue.push(neighbor);
-        }
-      });
-  }
-
-  visited.delete(startId);
-  return Array.from(visited);
-}
 
 /** Horizontal gap between source node and new node */
 const X_OFFSET = 220;
@@ -78,10 +52,28 @@ export interface MergeActionsResult {
   showSelectAction: boolean;
   /** Whether to render the "表关联" button (TABLE type only, when other tables exist) */
   showJoinAction: boolean;
+  /**
+   * Whether to render the "绑定关系" manual-connect hint button
+   * (CONDITION_DEFINITION type only)
+   */
+  showBindAction: boolean;
+  /**
+   * Whether the "绑定关系" button should be disabled —
+   * true when no ConditionGroupNode exists on the canvas yet.
+   */
+  bindActionDisabled: boolean;
+  /**
+   * Whether to render the "执行OR保存" shortcut on ConditionDefinitionNode.
+   * Only true when exactly 1 ConditionDefinitionNode exists and no
+   * ConditionGroupNode has been created yet — a fast-path to EndNode.
+   */
+  showExecuteSave: boolean;
   /** Create the contextually-appropriate next node */
   handleCreateNextNode: () => void;
   /** Bypass conditions and connect straight to EndNode */
   handleDirectExecute: () => void;
+  /** Fast-path: connect the sole ConditionDefinitionNode directly to EndNode */
+  handleExecuteSave: () => void;
   /** Create a SelectNode from this join node (JOIN type only) */
   handleCreateSelectNode: () => void;
   /** Create join edges to all unconnected table nodes */
@@ -104,27 +96,46 @@ export function useMergeActions(
   const hintText = useMemo((): string => {
     switch (sourceNodeType) {
       case FlowNodeType.TABLE:
-        return '选择算子';
       case FlowNodeType.JOIN:
-        return '选择算子';
+        return '选择列';
       case FlowNodeType.OPERATOR:
+        return '选择数据源';
       case FlowNodeType.SELECT:
       case FlowNodeType.SELECT_AGG:
         return '定义条件';
       case FlowNodeType.CONDITION_DEFINITION:
-        return '绑定关系';
+        return '新建关系';
       case FlowNodeType.CONDITION_GROUP:
       case FlowNodeType.CONDITION:
         return '执行OR保存';
       default:
-        return '选择算子';
+        return '选择列';
     }
   }, [sourceNodeType]);
 
-  const showDirectExecute = useMemo(
-    () => sourceNodeType !== FlowNodeType.TABLE && sourceNodeType !== FlowNodeType.JOIN,
-    [sourceNodeType]
-  );
+  const showDirectExecute = useMemo((): boolean => {
+    if (
+      sourceNodeType === FlowNodeType.TABLE ||
+      sourceNodeType === FlowNodeType.JOIN ||
+      sourceNodeType === FlowNodeType.OPERATOR ||
+      sourceNodeType === FlowNodeType.CONDITION_GROUP ||
+      sourceNodeType === FlowNodeType.CONDITION_DEFINITION // must build full condition flow first
+    ) return false;
+    // Disable "直接执行" on SELECT when any ConditionDefinitionNode exists on the canvas
+    if (sourceNodeType === FlowNodeType.SELECT) {
+      return !nodes.some((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+    }
+    return true;
+  }, [sourceNodeType, nodes]);
+
+  // "执行OR保存" fast-path: only for ConditionDefinitionNode when it is the sole CD node
+  // and no ConditionGroupNode has been created yet.
+  const showExecuteSave = useMemo((): boolean => {
+    if (sourceNodeType !== FlowNodeType.CONDITION_DEFINITION) return false;
+    const cdCount = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION).length;
+    const hasCG = nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP);
+    return cdCount === 1 && !hasCG;
+  }, [sourceNodeType, nodes]);
 
   const showSelectAction = useMemo(
     () => sourceNodeType === FlowNodeType.JOIN,
@@ -140,6 +151,19 @@ export function useMergeActions(
     return otherTables.length > 0;
   }, [sourceNodeType, nodes, sourceNodeId]);
 
+  // Show "绑定关系" hint for CONDITION_DEFINITION nodes so the user can
+  // manually drag a connection to an existing ConditionGroupNode.
+  const showBindAction = useMemo(
+    () => sourceNodeType === FlowNodeType.CONDITION_DEFINITION,
+    [sourceNodeType]
+  );
+
+  // Disable "绑定关系" when no ConditionGroupNode exists on the canvas yet.
+  const bindActionDisabled = useMemo(
+    () => !nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP),
+    [nodes]
+  );
+
   // -------------------------------------------------------------------------
   // Position helper
   // -------------------------------------------------------------------------
@@ -152,35 +176,6 @@ export function useMergeActions(
   // -------------------------------------------------------------------------
   // Node creators
   // -------------------------------------------------------------------------
-
-  const createOperatorNode = useCallback(() => {
-    // Collect the source table + all tables reachable via join edges
-    const relatedTableIds = findJoinConnectedTableIds(sourceNodeId, edges);
-    const allTableIds = [sourceNodeId, ...relatedTableIds];
-
-    // If an operator node already exists, just wire all unconnected tables to it
-    const existing = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
-    if (existing) {
-      allTableIds.forEach((tableId) => {
-        addEdge(makeEdge(tableId, existing.id) as Parameters<typeof addEdge>[0]);
-      });
-      return;
-    }
-
-    const { x, y } = getSourcePosition();
-    const nodeId = `operator_${Date.now()}`;
-    addNode({
-      id: nodeId,
-      type: FlowNodeType.OPERATOR,
-      position: { x: x + X_OFFSET, y },
-      data: { operatorType: undefined },
-    } as Parameters<typeof addNode>[0]);
-
-    // Connect every table in the join group to the new operator node
-    allTableIds.forEach((tableId) => {
-      addEdge(makeEdge(tableId, nodeId) as Parameters<typeof addEdge>[0]);
-    });
-  }, [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge]);
 
   const createConditionDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
@@ -210,27 +205,37 @@ export function useMergeActions(
 
   const createRelationNode = useCallback(() => {
     const { x, y } = getSourcePosition();
-    const conditionIds = nodes
-      .filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION)
-      .map((n) => (n.data as ConditionDefinitionNodeData).refId);
-
-    const nodeId = `relation_${Date.now()}`;
+    // Always create a brand-new ConditionGroupNode — never reuse an existing one.
+    // Only the triggering CG node is wired here; other CG nodes connect manually.
+    const groupNodeId = `relation_${Date.now()}`;
     addNode({
-      id: nodeId,
+      id: groupNodeId,
       type: FlowNodeType.CONDITION_GROUP,
       position: { x: x + X_OFFSET, y },
-      data: { logicType: LogicType.AND, conditionIds },
+      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''] },
     } as Parameters<typeof addNode>[0]);
-    addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
+    addEdge(makeEdge(sourceNodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
   }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
 
   const createEndNode = useCallback(
     (triggerSource: EndNodeTriggerSource = EndNodeTriggerSource.CONDITION) => {
+      // Collect all ConditionGroupNodes on the canvas — all should connect to EndNode
+      const allCGNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+
       const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
       if (existingEnd) {
-        addEdge(makeEdge(sourceNodeId, existingEnd.id) as Parameters<typeof addEdge>[0]);
+        // Wire any CG node not yet connected to the existing EndNode
+        allCGNodes.forEach((cgNode) => {
+          const alreadyConnected = edges.some(
+            (e) => e.source === cgNode.id && e.target === existingEnd.id
+          );
+          if (!alreadyConnected) {
+            addEdge(makeEdge(cgNode.id, existingEnd.id) as Parameters<typeof addEdge>[0]);
+          }
+        });
         return;
       }
+
       const { x, y } = getSourcePosition();
       const nodeId = `end_${Date.now()}`;
       addNode({
@@ -239,15 +244,32 @@ export function useMergeActions(
         position: { x: x + X_OFFSET, y },
         data: { operatorType: 'association', executable: true, errors: [], triggerSource },
       } as Parameters<typeof addNode>[0]);
-      addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
+
+      // Connect every CG node (including the triggering one) to the new EndNode
+      allCGNodes.forEach((cgNode) => {
+        addEdge(makeEdge(cgNode.id, nodeId) as Parameters<typeof addEdge>[0]);
+      });
+
+      // Fallback: if no CG nodes exist (e.g. triggered from a non-CG node), wire sourceNodeId
+      if (allCGNodes.length === 0) {
+        addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
+      }
     },
-    [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]
+    [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge]
   );
 
   const createSelectNodeFromJoin = useCallback(() => {
+    const allTableIds = nodes
+      .filter((n) => n.type === FlowNodeType.TABLE)
+      .map((n) => n.id);
+    // Ensure the triggering node is included even if it's not TABLE type (e.g. JOIN)
+    if (!allTableIds.includes(sourceNodeId)) allTableIds.push(sourceNodeId);
+
     const existing = nodes.find((n) => n.type === FlowNodeType.SELECT);
     if (existing) {
-      addEdge(makeEdge(sourceNodeId, existing.id) as Parameters<typeof addEdge>[0]);
+      allTableIds.forEach((tableId) => {
+        addEdge(makeEdge(tableId, existing.id) as Parameters<typeof addEdge>[0]);
+      });
       return;
     }
     const { x, y } = getSourcePosition();
@@ -257,6 +279,23 @@ export function useMergeActions(
       type: FlowNodeType.SELECT,
       position: { x: x + X_OFFSET, y },
       data: { fields: [], selectAll: true },
+    } as Parameters<typeof addNode>[0]);
+    allTableIds.forEach((tableId) => {
+      addEdge(makeEdge(tableId, nodeId) as Parameters<typeof addEdge>[0]);
+    });
+  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
+
+  /** Creates a DataSourceNode downstream of OperatorNode. Skips if one already exists. */
+  const createDataSourceNode = useCallback(() => {
+    const existing = nodes.find((n) => n.type === FlowNodeType.DATA_SOURCE);
+    if (existing) return;
+    const { x, y } = getSourcePosition();
+    const nodeId = `datasource_${Date.now()}`;
+    addNode({
+      id: nodeId,
+      type: FlowNodeType.DATA_SOURCE,
+      position: { x: x + X_OFFSET, y },
+      data: { selectedTables: [] },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
   }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
@@ -310,11 +349,13 @@ export function useMergeActions(
 
   const handleCreateNextNode = useCallback(() => {
     switch (sourceNodeType) {
+      case FlowNodeType.OPERATOR:
+        createDataSourceNode();
+        break;
       case FlowNodeType.TABLE:
       case FlowNodeType.JOIN:
-        createOperatorNode();
+        createSelectNodeFromJoin();
         break;
-      case FlowNodeType.OPERATOR:
       case FlowNodeType.SELECT:
       case FlowNodeType.SELECT_AGG:
         createConditionDefinitionNode();
@@ -327,11 +368,12 @@ export function useMergeActions(
         createEndNode(EndNodeTriggerSource.CONDITION);
         break;
       default:
-        createOperatorNode();
+        createDataSourceNode();
     }
   }, [
     sourceNodeType,
-    createOperatorNode,
+    createDataSourceNode,
+    createSelectNodeFromJoin,
     createConditionDefinitionNode,
     createRelationNode,
     createEndNode,
@@ -341,9 +383,13 @@ export function useMergeActions(
     createEndNode(EndNodeTriggerSource.DIRECT);
   }, [createEndNode]);
 
+  const handleExecuteSave = useCallback(() => {
+    createEndNode(EndNodeTriggerSource.CONDITION);
+  }, [createEndNode]);
+
   const handleCreateSelectNode = useCallback(() => {
     createSelectNodeFromJoin();
   }, [createSelectNodeFromJoin]);
 
-  return { hintText, showDirectExecute, showSelectAction, showJoinAction, handleCreateNextNode, handleDirectExecute, handleCreateSelectNode, handleCreateJoinEdge };
+  return { hintText, showDirectExecute, showExecuteSave, showSelectAction, showJoinAction, showBindAction, bindActionDisabled, handleCreateNextNode, handleDirectExecute, handleExecuteSave, handleCreateSelectNode, handleCreateJoinEdge };
 }

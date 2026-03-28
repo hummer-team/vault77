@@ -24,10 +24,10 @@ const createInitialState = () => ({
   operatorType: 'association' as OperatorType,
   defaultKernelName: null as string | null,
   nodes: [
-    // Initialize with START NODE at center
+    // Initialize with OPERATOR NODE (start node) at center-left
     {
-      id: 'start',
-      type: 'start',
+      id: 'operator_start',
+      type: 'operator',
       position: { x: 50, y: 300 },
       data: {},
     },
@@ -39,6 +39,8 @@ const createInitialState = () => ({
   errorPanelOpen: false,
   validationErrors: [] as ValidationError[],
   joinPanelEdgeId: null as string | null,
+  pendingConnectionSource: null as string | null,
+  selectedEdgeId: null as string | null,
 });
 
 export const useFlowStore = create<FlowState>()(
@@ -270,6 +272,18 @@ export const useFlowStore = create<FlowState>()(
     clearPlaceholderValues: () => {
       set((state) => {
         state.placeholderValues = {};
+      });
+    },
+
+    setPendingConnectionSource: (id: string | null) => {
+      set((state) => {
+        state.pendingConnectionSource = id;
+      });
+    },
+
+    setSelectedEdgeId: (id: string | null) => {
+      set((state) => {
+        state.selectedEdgeId = id;
       });
     },
   }))

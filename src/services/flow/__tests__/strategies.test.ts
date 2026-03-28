@@ -17,7 +17,7 @@ import {
   FieldType,
   type FlowNode,
   type FlowEdge,
-  type StartNodeData,
+  type DataSourceNodeData,
   type TableNodeData,
   type JoinNodeData,
   type SelectNodeData,
@@ -29,12 +29,12 @@ describe('Strategy Classes', () => {
   const createTestFlow = () => {
     const startNode: FlowNode = {
       id: 'start-1',
-      type: FlowNodeType.START,
+      type: FlowNodeType.DATA_SOURCE,
       position: { x: 0, y: 0 },
       data: {
-        type: FlowNodeType.START,
+        type: FlowNodeType.DATA_SOURCE,
         selectedTable: 'main_table_users',
-      } as StartNodeData,
+      } as DataSourceNodeData,
     };
 
     const tableNode1: FlowNode = {

@@ -26,7 +26,7 @@ import { NodeDetailPanel } from './panels/NodeDetailPanel';
 import { TableJoinBuildPanel } from './panels/TableJoinBuildPanel';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
-import { StartNode } from './nodes/StartNode';
+import { DataSourceNode } from './nodes/DataSourceNode';
 import { TableNode } from './nodes/TableNode';
 // import { JoinNode } from './nodes/JoinNode'; // JoinNode removed from canvas — join config is on edges
 import { ConditionNode } from './nodes/ConditionNode';
@@ -37,15 +37,20 @@ import { SelectAggNode } from './nodes/SelectAggNode';
 import { EndNode } from './nodes/EndNode';
 import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
+import { DeletableEdge } from './edges/DeletableEdge';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
-import { duckDBUdfService } from '../../services/duckDBUdfService';
 import { FlowNodeType } from '../../services/flow/types';
 import type { FlowEdge, JoinEdgeData, TableNodeData } from '../../services/flow/types';
 import { JoinType } from '../../services/flow/types';
+import {
+  resolveSelectNodePanelType,
+  SelectNodePanelType,
+} from '../../services/flow/bizKernelsBuilderStrategies';
 
 // Register edge types
 const edgeTypes = {
   join: JoinEdge as unknown as EdgeTypes[string],
+  deletable: DeletableEdge as unknown as EdgeTypes[string],
 };
 
 interface FlowCanvasProps {
@@ -67,6 +72,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const updateNode = useFlowStore((state) => state.updateNode);
+  const setPendingConnectionSource = useFlowStore((state) => state.setPendingConnectionSource);
+  const selectedEdgeId = useFlowStore((state) => state.selectedEdgeId);
+  const setSelectedEdgeId = useFlowStore((state) => state.setSelectedEdgeId);
 
   // Sync defaultKernelName into flowStore so OperatorNode can read it
   useEffect(() => {
@@ -74,65 +82,42 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     return () => setDefaultKernelName(null);
   }, [defaultKernelName, setDefaultKernelName]);
 
-  // Auto-initialize nodes based on whether a kernel was selected
+  // Auto-initialize canvas: always reset and ensure OperatorNode exists as first node.
+  // If defaultKernelName is provided (via "/" trigger), also pre-create DataSourceNode.
   useEffect(() => {
-    // No kernel selected — reset to clean state with only the start node
-    if (!defaultKernelName) {
-      resetFlow();
-      return;
-    }
+    resetFlow(); // Creates operator_start node (from createInitialState)
 
-    // Kernel selected — reset and create the full node chain
-    resetFlow();
+    if (!defaultKernelName) return;
+
+    // Kernel pre-selected via "/" — update OperatorNode with kernel and create DataSourceNode
+    updateNode('operator_start', { kernelName: defaultKernelName });
 
     const startX = 50;
     const startY = 300;
 
-    // Update start node to pre-select main_table_1
-    updateNode('start', { selectedTables: ['main_table_1'] });
-
-    // Table node for main_table_1
-    const tableNodeId = 'table_init_1';
-    addNode({
-      id: tableNodeId,
-      type: FlowNodeType.TABLE,
-      position: { x: startX + 260, y: startY },
-      data: { tableName: 'main_table_1', fields: [], expanded: false, label: 'main_table_1' },
-    } as Parameters<typeof addNode>[0]);
-
-    // Operator node with pre-selected kernel
-    const operatorNodeId = 'operator_init_1';
-    addNode({
-      id: operatorNodeId,
-      type: FlowNodeType.OPERATOR,
-      position: { x: startX + 480, y: startY },
-      data: { kernelName: defaultKernelName },
-    } as Parameters<typeof addNode>[0]);
-
-    // Select node (选择列) — mirrors the single-table branch in OperatorNode.handleKernelChange
-    const selectNodeId = 'select_init_1';
-    const isUdfKernel = duckDBUdfService.isDataCleanKernel(defaultKernelName);
-    const udfFunctionName = isUdfKernel ? (duckDBUdfService.getUdfFunctionName(defaultKernelName) ?? '') : '';
-    addNode({
-      id: selectNodeId,
-      type: FlowNodeType.SELECT,
-      position: { x: startX + 480 + 280, y: startY },
-      data: isUdfKernel
-        ? { fields: [], selectAll: false, udfFunctionName, udfKernelName: defaultKernelName, replacementRules: [] }
-        : { fields: [], selectAll: true },
-    } as Parameters<typeof addNode>[0]);
-
     const edgeStyle = { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 };
     const markerEnd = { type: 'arrowclosed' as const, width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' };
 
-    // start → table
-    addEdge({ id: `e_start_${tableNodeId}`, source: 'start', target: tableNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
-    // table → operator (direct, no merge)
-    addEdge({ id: `e_${tableNodeId}_${operatorNodeId}`, source: tableNodeId, target: operatorNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
-    // operator → select (选择列)
-    addEdge({ id: `e_${operatorNodeId}_${selectNodeId}`, source: operatorNodeId, target: selectNodeId, type: 'default', animated: false, style: edgeStyle, markerEnd } as Parameters<typeof addEdge>[0]);
+    // DataSourceNode — second node in the chain
+    const dataSourceNodeId = 'datasource_init';
+    addNode({
+      id: dataSourceNodeId,
+      type: FlowNodeType.DATA_SOURCE,
+      position: { x: startX + 280, y: startY },
+      data: { selectedTables: [] },
+    } as Parameters<typeof addNode>[0]);
 
-    // End node is NOT pre-created here — user triggers it manually via OperatorNode kernel selection.
+    // operator_start → datasource_init
+    addEdge({
+      id: `e_operator_start_${dataSourceNodeId}`,
+      source: 'operator_start',
+      target: dataSourceNodeId,
+      type: 'default',
+      animated: false,
+      style: edgeStyle,
+      markerEnd,
+    } as Parameters<typeof addEdge>[0]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultKernelName]);
 
@@ -149,10 +134,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const addEdgeToStore = useFlowStore((state) => state.addEdge);
 
-  // Create custom nodeTypes with onSqlValidated callback
   const nodeTypesWithCallback = useMemo(
     () => ({
-      start: StartNode as unknown as NodeTypes[string],
+      dataSource: DataSourceNode as unknown as NodeTypes[string],
       table: TableNode as unknown as NodeTypes[string],
       merge: MergeNode as unknown as NodeTypes[string],
       operator: OperatorNode as unknown as NodeTypes[string],
@@ -171,6 +155,24 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   // Local state for React Flow
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges);
+
+  // Compute display edges — apply highlight style to the selected edge (stroke + arrowhead)
+  const displayEdges = useMemo(
+    () =>
+      edges.map((edge) =>
+        edge.id === selectedEdgeId
+          ? {
+              ...edge,
+              style: { ...edge.style, stroke: '#7c3aed', strokeWidth: 2.5 },
+              markerEnd: edge.markerEnd && typeof edge.markerEnd === 'object'
+                ? { ...(edge.markerEnd as Record<string, unknown>), color: '#7c3aed' }
+                : edge.markerEnd,
+              selected: true,
+            }
+          : edge
+      ) as FlowEdge[],
+    [edges, selectedEdgeId]
+  );
 
   // Sync store state with React Flow state (preserve positions)
   React.useEffect(() => {
@@ -197,7 +199,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     (_: React.MouseEvent, node: Node) => {
       // These node types manage their own UI — do not open NodeDetailPanel
       if (
-        node.type === 'start' ||
+        node.type === 'dataSource' ||
         node.type === 'table' ||
         node.type === 'merge' ||
         node.type === 'operator' ||
@@ -208,8 +210,15 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       ) {
         return;
       }
-      // Select nodes linked to a UDF operator manage their own drawer — skip NodeDetailPanel
-      if (node.type === 'select' && (node.data as { udfFunctionName?: string }).udfFunctionName) {
+      // Select nodes linked to a UDF operator manage their own drawer — skip NodeDetailPanel.
+      // Use resolveSelectNodePanelType (with OperatorNode fallback) to stay consistent
+      // with SelectNode's own handleClick routing.
+      if (
+        node.type === 'select' &&
+        resolveSelectNodePanelType(
+          (node.data as { udfFunctionName?: string }).udfFunctionName
+        ) !== SelectNodePanelType.STANDARD_DETAIL_PANEL
+      ) {
         return;
       }
       setSelectedNode(node.id);
@@ -220,7 +229,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   // Handle pane click (deselect)
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
-  }, [setSelectedNode]);
+    setPendingConnectionSource(null); // Cancel any pending "bind relation" connection
+    setSelectedEdgeId(null); // Deselect any highlighted edge
+  }, [setSelectedNode, setPendingConnectionSource, setSelectedEdgeId]);
 
   // Handle connection - smart connection logic
   const onConnect = useCallback(
@@ -272,13 +283,12 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     [addEdgeToStore]
   );
 
-  // Handle edge click
+  // Handle edge click — highlight the clicked edge
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
-      // TODO: Open edge detail panel
-      console.log('Edge clicked:', edge);
+      setSelectedEdgeId(edge.id);
     },
-    []
+    [setSelectedEdgeId]
   );
 
   // Handle key press (Delete to remove selected node)
@@ -311,7 +321,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
@@ -342,13 +352,15 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <TableJoinBuildPanel />
         <MiniMap
           nodeStrokeColor={(n) => {
-            if (n.type === 'start') return '#52c41a';
-            if (n.type === 'end') return '#fa8c16';
+            if (n.type === 'dataSource') return '#52c41a';
+            if (n.type === 'operator') return '#fa8c16';
+            if (n.type === 'end') return '#ff4d4f';
             return '#434343';
           }}
           nodeColor={(n) => {
-            if (n.type === 'start') return '#52c41a';
-            if (n.type === 'end') return '#fa8c16';
+            if (n.type === 'dataSource') return '#52c41a';
+            if (n.type === 'operator') return '#fa8c16';
+            if (n.type === 'end') return '#ff4d4f';
             return '#1f1f1f';
           }}
           maskColor="rgba(0, 0, 0, 0.5)"

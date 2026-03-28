@@ -88,11 +88,11 @@ export const CanvasToolbar: React.FC = () => {
   const setStoreNodes = useFlowStore((state) => state.setNodes);
 
   /**
-   * Delete all nodes except the start node
+   * Delete all nodes except the operator (start) node
    */
   const handleDeleteAll = () => {
     storeNodes.forEach((node) => {
-      if (node.type !== 'start') {
+      if (node.type !== 'operator') {
         removeNode(node.id);
       }
     });
@@ -145,7 +145,7 @@ export const CanvasToolbar: React.FC = () => {
   };
 
   // Check if there are any deletable nodes
-  const hasDeletableNodes = storeNodes.some((node) => node.type !== 'start');
+  const hasDeletableNodes = storeNodes.some((node) => node.type !== 'operator');
 
   return (
     <div
@@ -166,7 +166,7 @@ export const CanvasToolbar: React.FC = () => {
         backdropFilter: 'blur(12px)',
       }}
     >
-      <Tooltip title="Delete All Nodes (except Start)" placement="bottom">
+      <Tooltip title="Delete All Nodes (except Operator)" placement="bottom">
         <Button
           type="text"
           icon={<DeleteOutlined style={{ fontSize: '16px' }} />}
