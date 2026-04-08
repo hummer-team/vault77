@@ -34,3 +34,4 @@ docs
 .qoderignore
 design/udf.md
 design/udf2.md
+prompts/

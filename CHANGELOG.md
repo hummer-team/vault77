@@ -1,44 +1,6 @@
-# Vaultmind — 项目说明
----
-## 一、项目概览
+# Vaultmind — 功能变更日志
 
-
-**Vaultmind** 是一个 **Agent-Driven Analytics Workbench**，以 Chrome Extension 形式交付，允许用户通过构建分析流模板分析excel，csv并通过LLM自然语言进行决策推演。
-
-**核心技术架构**:
-```
-UI (React + Ant Design)
-    ↓
-useLLMAgent / AgentRuntime
-    ↓
-LLM Client (OpenAI) + Skills (nl2sql.v1, analysis.v1)
-    ↓
-Tools (sql_query_tool)
-    ↓
-DuckDB WASM Worker (In-Browser SQL Engine)
-```
-
-**主要入口文件**:
-- `src/services/llm/*` - Agent 运行时、Prompt 管理、Skills 系统
-- `src/services/tools/*` - 工具注册表（SQL 查询工具）
-- `src/workers/duckdb.worker.ts` - DuckDB WASM Worker
-- `src/hooks/*` - React Hooks（useLLMAgent, useDuckDB, useFileParsing）
-- `src/pages/workbench/*` - 主界面（Workbench, ChatPanel, ResultsDisplay）
-
-**技术栈版本** (package.json v0.2.0):
-- **Language**: TypeScript 5.2.2 (Strict Mode)
-- **Runtime**: Bun (首选), Node.js 18+ (兼容)
-- **Framework**: React 18.2.0 + React DOM 18.2.0
-- **UI Library**: Ant Design 6.1.3 (Dark Theme)
-- **Data Engine**: DuckDB-WASM 1.33.1-dev16.0 + Apache Arrow 21.1.0
-- **LLM**: OpenAI 6.15.0 / @mlc-ai/web-llm 0.2.80
-- **Build Tool**: Vite 5.2.0 + @crxjs/vite-plugin 2.3.0 (Chrome Extension)
-- **Validation**: Zod 4.3.2 + zod-gpt 0.16.0
-- **State**: Zustand 5.0.9
-- **Visualization**: ECharts 6.0.0
-- **File Processing**: ExcelJS 4.4.0, PapaParse 5.5.3, JSZip 3.10.1
-
----
+> 本文件由 AGENTS.md 归档而来，记录各里程碑的详细实现变更。
 
 ## 二、核心功能
 
