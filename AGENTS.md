@@ -120,5 +120,3 @@ package.json                        — 依赖变更需人类审批
 ```
 
 ---
-
-> 详细功能变更历史 → `CHANGELOG.md`

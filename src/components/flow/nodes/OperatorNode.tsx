@@ -55,6 +55,31 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
     }
   }, [id, data.kernelName, defaultKernelName, updateNode]);
 
+  // Sync udfFunctionName to the SelectNode when the current kernel is a UDF data-cleaning kernel.
+  // This handles the case where the kernel was pre-selected (e.g., via auto-default or chat panel)
+  // without going through handleKernelChange, which would otherwise leave the SelectNode without
+  // the udfFunctionName required by _findUdfConfigNode.
+  useEffect(() => {
+    const kernelName = data.kernelName;
+    if (!kernelName || !duckDBUdfService.isDataCleanKernel(kernelName)) return;
+
+    const udfFunctionName = duckDBUdfService.getUdfFunctionName(kernelName) ?? '';
+    if (!udfFunctionName) return;
+
+    const currentNodes = useFlowStore.getState().nodes;
+    const existingSelect = currentNodes.find(
+      (n) =>
+        n.type === FlowNodeType.SELECT &&
+        !(n.data as { udfFunctionName?: string }).udfFunctionName
+    );
+    if (existingSelect) {
+      updateNode(existingSelect.id, {
+        udfFunctionName,
+        udfKernelName: kernelName,
+      } as Parameters<typeof updateNode>[1]);
+    }
+  }, [data.kernelName, updateNode]);
+
   // Handle delete
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {

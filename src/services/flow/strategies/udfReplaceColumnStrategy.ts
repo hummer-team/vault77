@@ -173,13 +173,22 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   // ============================================================================
 
   private _findUdfConfigNode(nodes: FlowNode[]): FlowNode | undefined {
-    // Support both legacy UDF_CONFIG node type and the unified SelectNode with udfFunctionName
-    return nodes.find(
+    // First: dedicated UDF_CONFIG node (legacy)
+    const legacyNode = nodes.find((n) => n.type === FlowNodeType.UDF_CONFIG);
+    if (legacyNode) return legacyNode;
+
+    // Second: SELECT node with explicit UDF function name (standard UDF flow)
+    const udfSelectNode = nodes.find(
       (n) =>
-        n.type === FlowNodeType.UDF_CONFIG ||
-        (n.type === FlowNodeType.SELECT &&
-          (n.data as { udfFunctionName?: string }).udfFunctionName === 'udf_replace_spec_column_value')
+        n.type === FlowNodeType.SELECT &&
+        (n.data as { udfFunctionName?: string }).udfFunctionName === 'udf_replace_spec_column_value'
     );
+    if (udfSelectNode) return udfSelectNode;
+
+    // Fallback: any SELECT node — handles the case where udfFunctionName was not yet synced
+    // (e.g., kernel pre-selected without triggering handleKernelChange).
+    // Subsequent replacementRules validation will guide the user to configure it.
+    return nodes.find((n) => n.type === FlowNodeType.SELECT);
   }
 
   /**

@@ -92,6 +92,19 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   // Whether this EndNode was created via "直接执行" — skips condition filling
   const isDirectExecution = data.triggerSource === EndNodeTriggerSource.DIRECT;
 
+  // UDF operators never need placeholder filling — always execute directly
+  const isUdfMode = resolvedOperatorType === OperatorType.UDF_REPLACE_COLUMN;
+
+  // If any ConditionGroup node exists on the canvas, the flow has live placeholder values
+  // (e.g. CG1_1) that must be filled before execution — override direct-execute flag.
+  const hasConditionGroupNodes = useMemo(
+    () => nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP),
+    [nodes]
+  );
+
+  // Combined flag: skip ValueFillPanel only when no CG nodes present AND not UDF mode
+  const shouldExecuteDirectly = (isDirectExecution && !hasConditionGroupNodes) || isUdfMode;
+
   // Handle execute after value filling
   const executeFlow = useCallback(
     async () => {
@@ -217,17 +230,17 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     removeNode(id);
   }, [id, removeNode]);
 
-  // Handle click - open value fill panel, or execute directly for DIRECT trigger source
+  // Handle click - execute directly (for DIRECT trigger or UDF operators) or open value fill panel
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isDirectExecution) {
+    if (shouldExecuteDirectly) {
       console.log('[EndNode] Direct execution — skipping ValueFillPanel');
       executeFlow();
       return;
     }
     console.log('[EndNode] Node clicked, opening value fill panel');
     setValueFillPanelOpen(true);
-  }, [isDirectExecution, executeFlow]);
+  }, [shouldExecuteDirectly, executeFlow]);
 
   // Get operator config
   const operatorConfig = OPERATOR_CONFIG[data.operatorType];
@@ -351,15 +364,15 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </div>
       </div>
 
-      {/* Action buttons - only show save button, execute is handled via ValueFillPanel */}
+      {/* Action buttons - execute is handled via ValueFillPanel or directly */}
       <Space style={{ width: '100%', justifyContent: 'center' }}>
-        <Tooltip title={isDirectExecution ? '直接执行流程' : '点击节点填充条件值并执行'}>
+        <Tooltip title={shouldExecuteDirectly ? '直接执行流程' : '点击节点填充条件值并执行'}>
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
             onClick={(e) => {
               e.stopPropagation();
-              if (isDirectExecution) {
+              if (shouldExecuteDirectly) {
                 executeFlow();
               } else {
                 setValueFillPanelOpen(true);
@@ -368,7 +381,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
             disabled={errorCount > 0}
             danger={errorCount > 0}
           >
-            {isDirectExecution ? '直接执行' : hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
+            {shouldExecuteDirectly ? '直接执行' : hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
           </Button>
         </Tooltip>
 
@@ -382,8 +395,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </Tooltip>
       </Space>
 
-      {/* Value Fill Panel — only shown for condition-based execution */}
-      {!isDirectExecution && (
+      {/* Value Fill Panel — only shown for condition-based execution (non-UDF, non-direct) */}
+      {!shouldExecuteDirectly && (
         <ValueFillPanel
           open={valueFillPanelOpen}
           onClose={handleValueFillClose}

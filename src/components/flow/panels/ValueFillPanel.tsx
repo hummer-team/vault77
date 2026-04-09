@@ -40,26 +40,12 @@ const getInputComponent = (fieldType: FieldType, placeholder: string) => {
           showTime={fieldType === 'TIMESTAMP'}
         />
       );
-    case 'INTEGER':
-    case 'BIGINT':
-    case 'SMALLINT':
-    case 'TINYINT':
-    case 'DECIMAL':
-    case 'NUMERIC':
-    case 'REAL':
-    case 'DOUBLE':
-      return (
-        <Input
-          type="number"
-          placeholder={`Enter ${placeholder} (${iconConfig.icon} number)`}
-          prefix={<span>{iconConfig.icon}</span>}
-        />
-      );
     default:
       return (
-        <Input
+        <Input.TextArea
+          rows={3}
           placeholder={`Enter ${placeholder} (${iconConfig.icon} ${fieldType.toLowerCase()})`}
-          prefix={<span>{iconConfig.icon}</span>}
+          style={{ resize: 'vertical' }}
         />
       );
   }
