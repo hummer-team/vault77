@@ -10,6 +10,10 @@ import {
   ClusteringStrategy,
 } from './strategies';
 import { UdfReplaceColumnStrategy } from './strategies/udfReplaceColumnStrategy';
+import { UdfUpLowerStrategy }       from './strategies/udfUpLowerStrategy';
+import { UdfFormatNumberStrategy }  from './strategies/udfFormatNumberStrategy';
+import { UdfFlagSpecStrategy }      from './strategies/udfFlagSpecStrategy';
+import { UdfFormatDateStrategy }    from './strategies/udfFormatDateStrategy';
 
 /**
  * Strategy Factory
@@ -17,10 +21,14 @@ import { UdfReplaceColumnStrategy } from './strategies/udfReplaceColumnStrategy'
  */
 export class StrategyFactory {
   private static strategies: Map<OperatorType, FlowStrategy> = new Map<OperatorType, FlowStrategy>([
-    [OperatorType.ASSOCIATION, new AssociationStrategy()],
-    [OperatorType.ANOMALY, new AnomalyStrategy()],
-    [OperatorType.CLUSTERING, new ClusteringStrategy()],
+    [OperatorType.ASSOCIATION,      new AssociationStrategy()],
+    [OperatorType.ANOMALY,          new AnomalyStrategy()],
+    [OperatorType.CLUSTERING,       new ClusteringStrategy()],
     [OperatorType.UDF_REPLACE_COLUMN, new UdfReplaceColumnStrategy()],
+    [OperatorType.UDF_UP_LOWER,     new UdfUpLowerStrategy()],
+    [OperatorType.UDF_FORMAT_NUMBER, new UdfFormatNumberStrategy()],
+    [OperatorType.UDF_FLAG_SPEC,    new UdfFlagSpecStrategy()],
+    [OperatorType.UDF_FORMAT_DATE,  new UdfFormatDateStrategy()],
   ]);
 
   /**

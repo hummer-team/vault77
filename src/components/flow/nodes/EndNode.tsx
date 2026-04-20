@@ -21,7 +21,6 @@ import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } from '../../../services/flow/types';
 import { ValueFillPanel } from '../panels/ValueFillPanel';
-import { duckDBUdfService } from '../../../services/duckDBUdfService';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 
 interface EndNodeProps {
@@ -35,9 +34,16 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const setErrorPanelOpen = useFlowStore((state) => state.setErrorPanelOpen);
   const removeNode = useFlowStore((state) => state.removeNode);
   const updateNode = useFlowStore((state) => state.updateNode);
-  const nodes = useFlowStore((state) => state.nodes);
+  const storeNodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
   const getAllPlaceholderValues = useFlowStore((state) => state.getAllPlaceholderValues);
+  // Read triggerSource DIRECTLY from Zustand (same store that updateNode writes to).
+  // This bypasses the data prop → FlowCanvas useEffect → setNodes sync chain,
+  // which has a render-cycle lag inside React Flow's React.memo node wrapper.
+  const triggerSource = useFlowStore((state) => {
+    const endNode = state.nodes.find((n) => n.id === id);
+    return (endNode?.data as EndNodeData | undefined)?.triggerSource;
+  });
   const { executeQuery, isDBReady } = useDuckDBContext();
 
   // State for value fill panel
@@ -46,7 +52,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   // Collect all placeholders from condition definition nodes
   const allPlaceholders = useMemo(() => {
     const placeholders: string[] = [];
-    nodes.forEach((node) => {
+    storeNodes.forEach((node) => {
       if (node.type === 'conditionDefinition') {
         const nodeData = node.data as ConditionDefinitionNodeData;
         nodeData.conditions.forEach((cond) => {
@@ -55,7 +61,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       }
     });
     return placeholders;
-  }, [nodes]);
+  }, [storeNodes]);
 
   // Check if there are unfilled placeholders
   const hasUnfilledPlaceholders = useMemo(() => {
@@ -65,19 +71,25 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
   /**
    * Dynamically resolve operatorType from the current OperatorNode's kernel selection.
-   * This ensures the correct strategy is used even when the user changes the kernel
-   * after the EndNode was created, without relying on potentially stale data.operatorType.
+   * Uses a precise kernelName → OperatorType mapping for all UDF data-clean kernels,
+   * replacing the coarse `isDataCleanKernel()` check that mapped everything to UDF_REPLACE_COLUMN.
    */
+  const KERNEL_OPERATOR_MAP: Record<string, OperatorType> = {
+    fn_ecom_data_clean_replace_spec_column_value: OperatorType.UDF_REPLACE_COLUMN,
+    fn_ecom_data_clean_up_lower:                  OperatorType.UDF_UP_LOWER,
+    fn_ecom_data_clean_number_precision_control:  OperatorType.UDF_FORMAT_NUMBER,
+    fn_ecom_data_clean_data_flag:                 OperatorType.UDF_FLAG_SPEC,
+    fn_ecom_data_format_date:                     OperatorType.UDF_FORMAT_DATE,
+  };
+
   const resolvedOperatorType = useMemo((): OperatorType => {
-    const operatorNode = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
+    const operatorNode = storeNodes.find((n) => n.type === FlowNodeType.OPERATOR);
     const kernelName = (operatorNode?.data as OperatorNodeData | undefined)?.kernelName;
 
     if (kernelName) {
-      // UDF data-cleaning kernels
-      if (duckDBUdfService.isDataCleanKernel(kernelName)) {
-        return OperatorType.UDF_REPLACE_COLUMN;
+      if (KERNEL_OPERATOR_MAP[kernelName]) {
+        return KERNEL_OPERATOR_MAP[kernelName];
       }
-      // Map kernel category to OperatorType
       const kernel = bizKernelService.getKernelByName(kernelName);
       switch (kernel?.category) {
         case '风险风控': return OperatorType.ANOMALY;
@@ -85,25 +97,12 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         default: return OperatorType.ASSOCIATION;
       }
     }
-    // Fallback to stored value if no OperatorNode found
     return data.operatorType;
-  }, [nodes, data.operatorType]);
+  }, [storeNodes, data.operatorType]);
 
-  // Whether this EndNode was created via "直接执行" — skips condition filling
-  const isDirectExecution = data.triggerSource === EndNodeTriggerSource.DIRECT;
-
-  // UDF operators never need placeholder filling — always execute directly
-  const isUdfMode = resolvedOperatorType === OperatorType.UDF_REPLACE_COLUMN;
-
-  // If any ConditionGroup node exists on the canvas, the flow has live placeholder values
-  // (e.g. CG1_1) that must be filled before execution — override direct-execute flag.
-  const hasConditionGroupNodes = useMemo(
-    () => nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP),
-    [nodes]
-  );
-
-  // Combined flag: skip ValueFillPanel only when no CG nodes present AND not UDF mode
-  const shouldExecuteDirectly = (isDirectExecution && !hasConditionGroupNodes) || isUdfMode;
+  // Button text: 'direct' → "直接执行", else → "填充值并执行"
+  // No UDF exception — UDF flows can also have conditions and need value filling.
+  const shouldExecuteDirectly = triggerSource === EndNodeTriggerSource.DIRECT;
 
   // Handle execute after value filling
   const executeFlow = useCallback(
@@ -125,7 +124,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         const strategy = StrategyFactory.getStrategy(resolvedOperatorType);
 
         // Validate flow configuration
-        const validationErrors = strategy.validate(nodes, edges);
+        const validationErrors = strategy.validate(storeNodes, edges);
         if ((validationErrors?.length || 0) > 0) {
           updateNode(id, {
             ...data,
@@ -142,7 +141,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         }
 
         // Get all table nodes and verify they exist in DuckDB
-        const tableNodes = nodes.filter((n) => n.type === 'table');
+        const tableNodes = storeNodes.filter((n) => n.type === 'table');
         for (const tableNode of tableNodes) {
           const tableName = (tableNode.data as { tableName: string }).tableName;
           try {
@@ -155,7 +154,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         // Build SQL query with placeholder values - get fresh values from store
         const placeholderValues = getAllPlaceholderValues();
         console.log('[EndNode.executeFlow] About to build SQL with placeholderValues:', placeholderValues);
-        const sql = strategy.buildSql(nodes, edges, placeholderValues);
+        const sql = strategy.buildSql(storeNodes, edges, placeholderValues);
         console.log('Generated SQL:', sql);
 
         // Validate SQL with EXPLAIN
@@ -195,7 +194,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         setErrorPanelOpen(true);
       }
     },
-    [data, id, nodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues, resolvedOperatorType]
+    [data, id, storeNodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues, resolvedOperatorType]
   );
 
   // Handle value fill panel close

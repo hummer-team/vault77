@@ -21,9 +21,9 @@ CREATE OR REPLACE MACRO udf_replace_spec_column_value(
                        END,
                        k ->
                            CASE
-                               WHEN json_extract_string(fill_map::JSON, '$.' || k) IS NOT NULL
-                                   THEN '''' || replace(json_extract_string(fill_map::JSON, '$.' || k), '''', '''''') || ''''
-                               ELSE json_extract(fill_map::JSON, '$.' || k)::VARCHAR
+                               WHEN json_extract_string(fill_map::JSON, '$."' || k || '"') IS NOT NULL
+                                   THEN '''' || replace(json_extract_string(fill_map::JSON, '$."' || k || '"'), '''', '''''') || ''''
+                               ELSE json_extract(fill_map::JSON, '$."' || k || '"')::VARCHAR
                            END
                            || ' AS ' || '"' || replace(k, '"', '""') || '"'
                    ),
@@ -36,11 +36,11 @@ CREATE OR REPLACE MACRO udf_replace_spec_column_value(
                        k ->
                            'COALESCE(' || '"' || replace(k, '"', '""') || '"' || ', ' ||
                            CASE
-                               WHEN json_extract(null_map::JSON, '$.' || k)::VARCHAR = 'null'
+                               WHEN json_extract(null_map::JSON, '$."' || k || '"')::VARCHAR = 'null'
                                    THEN 'NULL'
-                               WHEN json_extract_string(null_map::JSON, '$.' || k) IS NOT NULL
-                                   THEN '''' || replace(json_extract_string(null_map::JSON, '$.' || k), '''', '''''') || ''''
-                               ELSE json_extract(null_map::JSON, '$.' || k)::VARCHAR
+                               WHEN json_extract_string(null_map::JSON, '$."' || k || '"') IS NOT NULL
+                                   THEN '''' || replace(json_extract_string(null_map::JSON, '$."' || k || '"'), '''', '''''') || ''''
+                               ELSE json_extract(null_map::JSON, '$."' || k || '"')::VARCHAR
                            END
                            || ') AS ' || '"' || replace(k, '"', '""') || '"'
                    ),
@@ -54,15 +54,15 @@ CREATE OR REPLACE MACRO udf_replace_spec_column_value(
                            'CASE WHEN ' || '"' || replace(k, '"', '""') || '"' ||
                            ' = ' ||
                            CASE
-                               WHEN json_extract_string(swap_map::JSON, '$.' || k || '[0]') IS NOT NULL
-                                   THEN '''' || replace(json_extract_string(swap_map::JSON, '$.' || k || '[0]'), '''', '''''') || ''''
-                               ELSE json_extract(swap_map::JSON, '$.' || k || '[0]')::VARCHAR
+                               WHEN json_extract_string(swap_map::JSON, '$."' || k || '"[0]') IS NOT NULL
+                                   THEN '''' || replace(json_extract_string(swap_map::JSON, '$."' || k || '"[0]'), '''', '''''') || ''''
+                               ELSE json_extract(swap_map::JSON, '$."' || k || '"[0]')::VARCHAR
                            END
                            || ' THEN ' ||
                            CASE
-                               WHEN json_extract_string(swap_map::JSON, '$.' || k || '[1]') IS NOT NULL
-                                   THEN '''' || replace(json_extract_string(swap_map::JSON, '$.' || k || '[1]'), '''', '''''') || ''''
-                               ELSE json_extract(swap_map::JSON, '$.' || k || '[1]')::VARCHAR
+                               WHEN json_extract_string(swap_map::JSON, '$."' || k || '"[1]') IS NOT NULL
+                                   THEN '''' || replace(json_extract_string(swap_map::JSON, '$."' || k || '"[1]'), '''', '''''') || ''''
+                               ELSE json_extract(swap_map::JSON, '$."' || k || '"[1]')::VARCHAR
                            END
                            || ' ELSE ' || '"' || replace(k, '"', '""') || '"'
                            || ' END AS ' || '"' || replace(k, '"', '""') || '"'
@@ -71,7 +71,14 @@ CREATE OR REPLACE MACRO udf_replace_spec_column_value(
                ', '
            ) || ')'
        ELSE '' END ||
-       ' FROM ' || '"' || replace(tbl, '"', '""') || '"' ||
+       -- Support both a plain table name and a sub-query string.
+       -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
+       -- A plain table name is double-quoted to handle special characters.
+       ' FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
        ||
        CASE WHEN limit_n::INT > 0 THEN ' LIMIT ' || limit_n ELSE '' END
@@ -100,7 +107,14 @@ CREATE OR REPLACE MACRO udf_up_lower_str(
            ) ||
            ')'
        ELSE '' END ||
-       ' FROM "' || replace(tbl, '"', '""') || '"' ||
+       -- Support both a plain table name and a sub-query string.
+       -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
+       -- A plain table name is double-quoted to handle special characters.
+       ' FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
    );
 -- 3.精度控制，四舍五入
@@ -121,25 +135,32 @@ CREATE OR REPLACE MACRO udf_up_lower_str(
                        CASE round_mode
                            WHEN 'truncate' THEN
                                'TRUNCATE("' || replace(k, '"', '""') || '", ' ||
-                               json_extract(cols_config::JSON, '$.' || k)::VARCHAR || ')'
+                               json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR || ')'
                            WHEN 'ceil' THEN
                                'CEIL("' || replace(k, '"', '""') ||
-                               '" * POWER(10, ' || json_extract(cols_config::JSON, '$.' || k)::VARCHAR ||
-                               ')) / POWER(10, ' || json_extract(cols_config::JSON, '$.' || k)::VARCHAR || ')'
+                               '" * POWER(10, ' || json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR ||
+                               ')) / POWER(10, ' || json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR || ')'
                            WHEN 'floor' THEN
                                'FLOOR("' || replace(k, '"', '""') ||
-                               '" * POWER(10, ' || json_extract(cols_config::JSON, '$.' || k)::VARCHAR ||
-                               ')) / POWER(10, ' || json_extract(cols_config::JSON, '$.' || k)::VARCHAR || ')'
+                               '" * POWER(10, ' || json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR ||
+                               ')) / POWER(10, ' || json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR || ')'
                            ELSE  -- half_up（默认）
                                'ROUND("' || replace(k, '"', '""') || '", ' ||
-                               json_extract(cols_config::JSON, '$.' || k)::VARCHAR || ')'
+                               json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR || ')'
                        END ||
                        ' AS "' || replace(k, '"', '""') || '"'
                ),
                ', '
            ) || ')'
        ELSE '' END ||
-       ' FROM "' || replace(tbl, '"', '""') || '"' ||
+       -- Support both a plain table name and a sub-query string.
+       -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
+       -- A plain table name is double-quoted to handle special characters.
+       ' FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
    );
 
@@ -195,11 +216,18 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                ', '
            ) || ')'
        ELSE '' END ||
-       ' FROM "' || replace(tbl, '"', '""') || '"' ||
+       -- Support both a plain table name and a sub-query string.
+       -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
+       -- A plain table name is double-quoted to handle special characters.
+       ' FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
    );
 
---- 5. 时间格式化
+
 CREATE OR REPLACE MACRO ts_parse(val, src_fmt) AS (
        CASE
            WHEN val IS NULL           THEN NULL
@@ -250,7 +278,7 @@ CREATE OR REPLACE MACRO ts_format(ts, dst_fmt) AS (
            dst_fmt
        )
    );
-
+--- 5. 时间格式化
 CREATE OR REPLACE MACRO udf_format_date_time(
        tbl,
        col_config_json,    -- JSON object: key=col_name, value={src_fmt,src_tz,dst_tz,dst_fmt}
@@ -272,7 +300,11 @@ CREATE OR REPLACE MACRO udf_format_date_time(
            ),
            ', '
        ) ||
-       ') FROM "' || replace(tbl, '"', '""') || '"' ||
+       ') FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
    );
   -- to_utc: any local timestamp → UTC 'datetime' string

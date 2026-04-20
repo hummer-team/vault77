@@ -51,6 +51,37 @@ Tools (sql_query_tool)
 DuckDB WASM Worker (In-Browser SQL Engine)
 ```
 
+**业务算子架构**:
+```
+FlowCanvas（画布拖拽节点）
+    ↓ 节点路由（bizKernelsBuilderStrategies.ts）
+FlowStrategy（interface）
+    └── BaseStrategy（abstract）          ← strategies.ts
+          └── UdfBaseStrategy（abstract） ← strategies/udfBaseStrategy.ts
+                ├── UdfReplaceColumnStrategy   — 替换特定列值（udf_replace_spec_column_value）
+                ├── UdfUpLowerStrategy         — 大小写转换（udf_up_lower_str）
+                ├── UdfFormatNumberStrategy    — 数字精度控制（udf_format_number）
+                ├── UdfFlagSpecStrategy        — 数据标记（udf_flag_spec_column）
+                └── UdfFormatDateStrategy      — 日期时间格式化（udf_format_date_time）
+    ↓ buildSql() → DuckDB MACRO 调用
+DuckDB WASM Worker（design/udf.sql 中注册的 MACRO）
+```
+
+**业务算子关键约束**：
+- 所有 UDF 策略必须继承 `UdfBaseStrategy`（禁止直接 `implements FlowStrategy`）
+- 多表关联时，`tbl` 参数为子查询字符串（以 `(` 开头）；单表时为表名字符串
+- 条件列引用格式：单表用 `"table"."col"`；多表子查询用 `"table.col"`（点在别名内，MACRO 内部别名为 `__src`）
+- `UdfBaseStrategy.buildUdfConditionSql()` 统一处理条件构建与多表列引用重写，禁止在子类中重复实现
+- DuckDB JSONPath 语法：使用 `$."key"` 而非 `$["key"]`（后者不被 DuckDB 支持）
+- `design/udf.sql` 中的注释不得包含分号（服务层按 `;` 分割语句逐条执行）
+
+**可复用工具函数**：
+| 函数 | 文件 | 用途 |
+|------|------|------|
+| `resolveColumnConflicts(tables)` | `strategies/columnRenaming.ts` | 多表同名列重命名为 `table.col` 格式 |
+| `buildJoinSubquery(...)` | `strategies/udfShared.ts` | 构建多表 JOIN 子查询字符串 |
+| `buildUdfConditionSql(...)` | `strategies/udfBaseStrategy.ts` | 统一构建 UDF 条件 SQL（含多表列引用重写）|
+
 **技术栈**:
 - Language: TypeScript 5.2.2 (Strict Mode) | Runtime: Bun
 - Framework: React 18 + Ant Design 6 (Dark Theme)
@@ -106,6 +137,21 @@ DuckDB WASM Worker (In-Browser SQL Engine)
 | `src/services/userSkill/userSkillService.ts` | User Skill 持久化（chrome.storage.local）|
 | `src/services/userSkill/userSkillSchema.ts` | Zod 校验 + SQL 注入防护黑名单 |
 | `src/services/llm/skills/types.ts` | User Skill L0 类型定义 |
+
+### 业务算子 / UDF 层
+| 文件 | 职责 |
+|------|------|
+| `design/udf.sql` | 全部 DuckDB MACRO 定义，启动时注册；**JSONPath 用 `$."key"` 语法；注释禁止含 `;`** |
+| `src/services/flow/strategies.ts` | `BaseStrategy`（exported abstract）+ `buildWhereClauseWithPlaceholders` |
+| `src/services/flow/strategies/udfBaseStrategy.ts` | `UdfBaseStrategy`（所有 UDF 策略的公共抽象基类）|
+| `src/services/flow/strategies/udfReplaceColumnStrategy.ts` | 替换特定列值：多表 JOIN + 列冲突重命名 + 条件 SQL |
+| `src/services/flow/strategies/udfUpLowerStrategy.ts` | 大小写转换 UDF 策略 |
+| `src/services/flow/strategies/udfFormatNumberStrategy.ts` | 数字精度控制 UDF 策略 |
+| `src/services/flow/strategies/udfFlagSpecStrategy.ts` | 数据标记 UDF 策略 |
+| `src/services/flow/strategies/udfFormatDateStrategy.ts` | 日期时间格式化 UDF 策略 |
+| `src/services/flow/strategies/udfShared.ts` | `buildJoinSubquery` / `resolveColumnConflicts` / `escapeSql` 共享工具 |
+| `src/services/flow/strategies/columnRenaming.ts` | `resolveColumnConflicts` — 多表同名列重命名算法（可复用）|
+| `src/services/duckDBUdfService.ts` | UDF 注册服务：读取 `design/udf.sql`，按 `;` 分割逐条执行 |
 
 ---
 

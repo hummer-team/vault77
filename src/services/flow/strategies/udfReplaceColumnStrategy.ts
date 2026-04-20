@@ -21,7 +21,6 @@ import {
   FlowNodeType,
   OperatorType,
   ValidationSeverity,
-  type FlowStrategy,
   type FlowNode,
   type FlowEdge,
   type ValidationError,
@@ -29,20 +28,16 @@ import {
   type UdfConfigNodeData,
   type SelectNodeData,
   type ReplaceRule,
+  type TableNodeData,
 } from '../types';
-
-// ============================================================================
-// Helper: escape a single-quoted SQL string literal
-// ============================================================================
-function escapeSql(value: string): string {
-  return value.replace(/'/g, "''");
-}
+import { UdfBaseStrategy } from './udfBaseStrategy';
+import { escapeSql, buildJoinSubquery, resolveColumnConflicts } from './udfShared';
 
 // ============================================================================
 // UdfReplaceColumnStrategy
 // ============================================================================
 
-export class UdfReplaceColumnStrategy implements FlowStrategy {
+export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
   readonly type: OperatorType = OperatorType.UDF_REPLACE_COLUMN;
   readonly name = '替换特定列值';
 
@@ -116,10 +111,14 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   /**
    * Build the UDF SQL call from the UDF_CONFIG node's replacement rules.
    *
+   * Single-table path: passes the table name directly (existing behaviour, fully compatible).
+   * Multi-table path:  reads JOIN topology from canvas edges (type='join'), builds a subquery,
+   *                    and passes it as the `tbl` argument so the MACRO expands it via CASE WHEN.
+   *
    * Rules with conditionType 'replace_all' are routed to fill_map (unconditional overwrite).
    * All other rules are routed to swap_map (CASE WHEN matching).
    */
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[], _placeholderValues?: Record<string, unknown>): string {
+  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const nodeTypes = nodes.map((n) => n.type).join(', ');
     console.log(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
 
@@ -135,17 +134,64 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
       throw new Error('替换规则为空，无法构建 SQL');
     }
 
-    // Group rules by sourceTable to detect the primary table
+    // Extract full column schemas from TABLE nodes (needed for conflict resolution)
+    const fullTableSchemas = this._extractTableSchemas(nodes);
+
+    // Group rules by sourceTable to detect single vs multi-table
     const tableGroups = this._groupByTable(rules);
 
     if (tableGroups.size === 0) {
       throw new Error('无法确定数据源表名');
     }
 
-    // Use the first table group (current implementation: single table per UDF call)
-    const [tableName, tableRules] = [...tableGroups.entries()][0];
-    const sql = this._buildUdfCall(tableName, tableRules);
-    console.log(`[${this.name}.buildSql] table=${tableName}, rules=${tableRules.length}, sql=\n${sql}`);
+    // Compute conflict-resolved aliases for all tables that have schema info
+    const tablesWithSchema = [...fullTableSchemas.entries()].map(([name, columns]) => ({
+      name,
+      columns,
+    }));
+    const conflictMap = resolveColumnConflicts(tablesWithSchema);
+
+    let tblParam: string;
+
+    if (tableGroups.size === 1) {
+      // Single-table path: existing behaviour, fully backward-compatible
+      const [tableName] = [...tableGroups.keys()];
+      tblParam = tableName;
+      console.log(`[${this.name}.buildSql] single-table mode: table=${tableName}`);
+    } else {
+      // Multi-table path: build a JOIN subquery from canvas edge topology
+      const allTables = [...tableGroups.keys()];
+      // Legacy secondary-cols map (used as fallback when fullTableSchemas is absent)
+      const targetColsByTable = new Map<string, string[]>();
+      const mainTable = allTables[0];
+      for (const rule of rules) {
+        if (rule.sourceTable === mainTable) continue;
+        const existing = targetColsByTable.get(rule.sourceTable) ?? [];
+        for (const col of rule.targetColumn) {
+          if (!existing.includes(col)) existing.push(col);
+        }
+        targetColsByTable.set(rule.sourceTable, existing);
+      }
+      const subquery = buildJoinSubquery(allTables, edges, targetColsByTable, fullTableSchemas);
+      if (subquery) {
+        tblParam = subquery;
+        console.log(`[${this.name}.buildSql] multi-table mode: tables=[${allTables.join(',')}], subquery built`);
+      } else {
+        // Fallback: no join edges found — use the first table and warn
+        const [tableName] = [...tableGroups.keys()];
+        tblParam = tableName;
+        console.warn(
+          `[${this.name}.buildSql] multi-table fallback: no join edges found, using table=${tableName}`
+        );
+      }
+    }
+
+    // Build condition SQL via shared UDF helper (handles placeholder values +
+    // multi-table "table"."col" → "table.col" rewriting automatically)
+    const conditionSql = this.buildUdfConditionSql(nodes, placeholderValues, tblParam);
+
+    const sql = this._buildUdfCall(tblParam, rules, conflictMap, conditionSql);
+    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
     return sql;
   }
 
@@ -192,6 +238,21 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   }
 
   /**
+   * Extract full column schema for each TABLE node on the canvas.
+   * Returns Map<tableName, columnNames[]> for conflict resolution.
+   */
+  private _extractTableSchemas(nodes: FlowNode[]): Map<string, string[]> {
+    const schemas = new Map<string, string[]>();
+    for (const node of nodes) {
+      if (node.type === FlowNodeType.TABLE) {
+        const data = node.data as TableNodeData;
+        schemas.set(data.tableName, data.fields.map((f) => f.name));
+      }
+    }
+    return schemas;
+  }
+
+  /**
    * Group replacement rules by source table name.
    */
   private _groupByTable(rules: ReplaceRule[]): Map<string, ReplaceRule[]> {
@@ -205,29 +266,48 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
   }
 
   /**
-   * Build a single udf_replace_spec_column_value() SQL call for all rules on one table.
+   * Build a single udf_replace_spec_column_value() SQL call.
+   *
+   * @param tblOrSubquery  - Either a plain table name or a parenthesised subquery string.
+   *   Both are always passed as a single-quoted VARCHAR string to the MACRO.
+   *   The MACRO's CASE WHEN left(trim(tbl),1)='(' detects and expands sub-queries internally.
+   * @param rules          - Replacement rules from the UDF config node.
+   * @param columnAliasMap - Optional: tableName → (originalCol → resolvedAlias) from
+   *   resolveColumnConflicts(). When present, fill_map / swap_map keys use the resolved alias
+   *   so that they match the actual column names produced by the multi-table subquery.
    *
    * fill_map JSON shape:  { "col": "new_value" }           — replace_all rules
    * swap_map JSON shape:  { "col": ["original", "target"] } — contains / all rules
-   * condition: first rule's conditionValue (when conditionType = 'contains')
+   * condition: from canvas condition-definition nodes (placeholderValues), or first rule's conditionValue
    */
-  private _buildUdfCall(tableName: string, rules: ReplaceRule[]): string {
+  private _buildUdfCall(
+    tblOrSubquery: string,
+    rules: ReplaceRule[],
+    columnAliasMap?: Map<string, Map<string, string>>,
+    conditionSql?: string
+  ): string {
     const fillMapObj: Record<string, string> = {};
     const swapMapObj: Record<string, [string, string]> = {};
 
     for (const rule of rules) {
+      const renames = columnAliasMap?.get(rule.sourceTable);
       for (const col of rule.targetColumn) {
+        // Use the conflict-resolved alias as the fill/swap map key so it matches
+        // the actual column name produced by the subquery projection.
+        const renamedCol = renames?.get(col) ?? col;
         if (rule.conditionType === 'replace_all') {
-          // Unconditional whole-column overwrite → fill_map
-          fillMapObj[col] = rule.targetValue;
+          fillMapObj[renamedCol] = rule.targetValue;
         } else {
-          // Conditional CASE WHEN replacement → swap_map
-          swapMapObj[col] = [rule.originalValue, rule.targetValue];
+          swapMapObj[renamedCol] = [rule.originalValue, rule.targetValue];
         }
       }
     }
 
-    const params: string[] = [`  '${escapeSql(tableName)}'`];
+    // tbl is VARCHAR in the MACRO — always pass as a single-quoted string.
+    // The MACRO internally uses CASE WHEN left(trim(tbl), 1) = '(' to detect and expand sub-queries.
+    const tblArg = `  '${escapeSql(tblOrSubquery)}'`;
+
+    const params: string[] = [tblArg];
 
     if (Object.keys(fillMapObj).length > 0) {
       params.push(`  fill_map := '${escapeSql(JSON.stringify(fillMapObj))}'`);
@@ -236,10 +316,14 @@ export class UdfReplaceColumnStrategy implements FlowStrategy {
       params.push(`  swap_map := '${escapeSql(JSON.stringify(swapMapObj))}'`);
     }
 
-    // Condition from the first 'contains' rule
-    const conditionRule = rules.find((r) => r.conditionType === 'contains' && r.conditionValue);
-    if (conditionRule) {
-      params.push(`  condition := '${escapeSql(conditionRule.conditionValue ?? '')}'`);
+    // Condition priority: canvas placeholder values > rule-level conditionValue
+    const effectiveCondition =
+      conditionSql && conditionSql.length > 0
+        ? conditionSql
+        : (rules.find((r) => r.conditionType === 'contains' && r.conditionValue)?.conditionValue ?? '');
+
+    if (effectiveCondition) {
+      params.push(`  condition := '${escapeSql(effectiveCondition)}'`);
     }
 
     return `SELECT *\nFROM udf_replace_spec_column_value(\n${params.join(',\n')}\n)`;

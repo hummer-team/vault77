@@ -86,6 +86,7 @@ export function useMergeActions(
 ): MergeActionsResult {
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
+  const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
 
@@ -201,7 +202,13 @@ export function useMergeActions(
       },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
-  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
+
+    // If EndNode already exists, switch it to CONDITION mode so button shows "填充值并执行"
+    const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
+    if (existingEnd) {
+      updateNode(existingEnd.id, { triggerSource: EndNodeTriggerSource.CONDITION } as Parameters<typeof updateNode>[1]);
+    }
+  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge, updateNode]);
 
   const createRelationNode = useCallback(() => {
     const { x, y } = getSourcePosition();
@@ -224,6 +231,9 @@ export function useMergeActions(
 
       const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
       if (existingEnd) {
+        // Update triggerSource so EndNode reflects the latest invocation intent
+        // (e.g., CONDITION overrides a prior DIRECT when CG nodes are present)
+        updateNode(existingEnd.id, { triggerSource } as Parameters<typeof updateNode>[1]);
         // Wire any CG node not yet connected to the existing EndNode
         allCGNodes.forEach((cgNode) => {
           const alreadyConnected = edges.some(
@@ -255,7 +265,7 @@ export function useMergeActions(
         addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
       }
     },
-    [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge]
+    [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge, updateNode]
   );
 
   const createSelectNodeFromJoin = useCallback(() => {

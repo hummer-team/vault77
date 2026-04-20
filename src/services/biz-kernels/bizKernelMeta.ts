@@ -379,6 +379,238 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
       constraints: ['多维度业务指标数据，如订单金额、订单频次、用户活跃度等'],
     },
   },
+  {
+    name: 'fn_ecom_order_net_amount_calc',
+    displayName: '订单净额计算（退款后实收）',
+    industry: '电商/订单',
+    category: '订单核算',
+    version: '1.0.0',
+    description: '自动计算退款/取消后真实营收净额',
+    detailedDescription:
+        '按电商标准口径计算：订单净额 = 实付金额 - 退款金额 - 拒签金额，自动剔除取消订单，支持按订单/用户/商品三级汇总，解决财务与运营口径不一致问题。',
+    author: 'official',
+    likes: 320,
+    credits: 180,
+    dataVolume: '10w order',
+    estimatedTime: '2s',
+    metadata: {
+      inputFields: ['order_id','pay_amount','refund_amount','cancel_status','order_status'],
+      outputFields: ['order_id','net_amount','is_valid','refund_rate'],
+      constraints: ['需要实付金额、退款金额、订单状态字段']
+    }
+  },
+  {
+    name: 'fn_ecom_order_profit_margin_calc',
+    displayName: '订单毛利/净利率自动计算',
+    industry: '电商/订单',
+    category: '订单核算',
+    version: '1.0.0',
+    description: '自动计算单品/整单毛利、毛利率、负毛利订单标记',
+    detailedDescription:
+        '毛利=净额-商品成本-运费-平台佣金-服务费，自动识别负毛利订单并标记风险，支持按SKU/类目/渠道汇总，是电商经营分析最核心算子。',
+    author: 'official',
+    likes: 380,
+    credits: 200,
+    dataVolume: '10w order',
+    estimatedTime: '3s',
+    metadata: {
+      inputFields: ['net_amount','cost','shipping_fee','platform_fee','service_fee'],
+      outputFields: ['gross_profit','gross_margin','is_negative_margin','risk_level'],
+      constraints: ['需要成本、各类费用及净额字段']
+    }
+  },
+  {
+    name: 'fn_ecom_refund_order_classify',
+    displayName: '退款订单智能归类',
+    industry: '电商/订单',
+    category: '订单核算',
+    version: '1.0.0',
+    description: '自动区分仅退款、退货退款、拒签、售后、恶意退款',
+    detailedDescription:
+        '基于退款状态、物流状态、退款原因自动打标分类，输出退款率、退款金额占比、各类型退款分布，用于售后效率与风控分析。',
+    author: 'official',
+    likes: 290,
+    credits: 160,
+    dataVolume: '5w order',
+    estimatedTime: '3s',
+    metadata: {
+      inputFields: ['order_id','refund_status','logistics_status','refund_reason'],
+      outputFields: ['order_id','refund_type','refund_amount','is_abnormal_refund'],
+      constraints: ['需要退款状态与物流状态']
+    }
+  },
+  {
+    name: 'fn_ecom_platform_fee_allocate',
+    displayName: '平台佣金/服务费自动分摊',
+    industry: '电商/订单',
+    category: '订单核算',
+    version: '1.0.0',
+    description: '按金额比例自动分摊佣金、服务费、广告费',
+    detailedDescription:
+        '解决多商品订单费用分摊难题，支持整单均摊、金额比例分摊、数量比例分摊，自动计算单品真实成本与真实毛利，财务直接可用。',
+    author: 'official',
+    likes: 260,
+    credits: 180,
+    dataVolume: '10w order',
+    estimatedTime: '4s',
+    metadata: {
+      inputFields: ['order_id','product_amount','platform_fee','ad_fee','quantity'],
+      outputFields: ['allocated_fee','product_net_profit'],
+      constraints: ['需要订单费用与商品明细']
+    }
+  },
+
+  // ==========================
+  // 运营复盘类（日常高频）
+  // ==========================
+  {
+    name: 'fn_ecom_order_channel_analysis',
+    displayName: '订单渠道/来源/平台归因分析',
+    industry: '电商/订单',
+    category: '运营复盘',
+    version: '1.0.0',
+    description: '按渠道、来源、平台、直播间统计销量、销售额、毛利',
+    detailedDescription:
+        '自动聚合各渠道订单量、金额、毛利、客单、退款率，输出渠道ROI排名，识别高价值渠道与低效渠道，指导投放预算分配。',
+    author: 'official',
+    likes: 340,
+    credits: 170,
+    dataVolume: '10w order',
+    estimatedTime: '3s',
+    metadata: {
+      inputFields: ['channel','source','platform','order_id','net_amount','gross_profit'],
+      outputFields: ['channel','order_count','total_amount','total_profit','refund_rate'],
+      constraints: ['需要渠道/来源/平台字段']
+    }
+  },
+  {
+    name: 'fn_ecom_order_funnel_analysis',
+    displayName: '订单全链路漏斗转化分析',
+    industry: '电商/订单',
+    category: '运营复盘',
+    version: '1.0.0',
+    description: '自动构建下单→支付→发货→签收→复购转化漏斗',
+    detailedDescription:
+        '计算各环节流失率、转化率，识别瓶颈节点（如支付流失高、签收流失高），输出可执行优化方向，是运营每日必看。',
+    author: 'official',
+    likes: 310,
+    credits: 160,
+    dataVolume: '10w order',
+    estimatedTime: '4s',
+    metadata: {
+      inputFields: ['create_time','pay_time','ship_time','receive_time','order_status'],
+      outputFields: ['step','count','conversion_rate','drop_rate'],
+      constraints: ['需要订单各关键时间节点']
+    }
+  },
+  {
+    name: 'fn_ecom_activity_effect_split',
+    displayName: '活动/优惠券/直播间效果拆分',
+    industry: '电商/订单',
+    category: '运营复盘',
+    version: '1.0.0',
+    description: '自动识别活动订单，统计销量、拉动金额、核销率、ROI',
+    detailedDescription:
+        '按活动、优惠券、直播间、满减、秒杀拆分订单，计算活动净增长、补贴成本、ROI，判断活动是否盈利，避免盲目投流。',
+    author: 'official',
+    likes: 350,
+    credits: 200,
+    dataVolume: '10w order',
+    estimatedTime: '5s',
+    metadata: {
+      inputFields: ['activity_id','coupon_id','live_room_id','net_amount','cost'],
+      outputFields: ['activity','order_count','lift_amount','roi','cost_rate'],
+      constraints: ['需要活动/优惠券/直播间标识']
+    }
+  },
+
+  // ==========================
+  // 风险风控类（电商刚需）
+  // ==========================
+  {
+    name: 'fn_ecom_suspicious_order_detect',
+    displayName: '恶意订单/刷单/异常下单检测',
+    industry: '电商/订单',
+    category: '风险风控',
+    version: '1.0.0',
+    description: '识别密集下单、同地址/同手机、批量小号、改价异常',
+    detailedDescription:
+        '基于用户行为、地址、设备、下单频次、金额突变识别刷单、黄牛、恶意薅券、批量测试订单，输出风险等级与证据清单。',
+    author: 'official',
+    likes: 410,
+    credits: 220,
+    dataVolume: '10w order',
+    estimatedTime: '6s',
+    metadata: {
+      inputFields: ['user_id','order_time','address','mobile','device_id','amount'],
+      outputFields: ['user_id','risk_type','risk_level','order_count_abnormal'],
+      constraints: ['需要用户ID、地址、下单时间']
+    }
+  },
+  {
+    name: 'fn_ecom_zero_negative_order_detect',
+    displayName: '0元单/负单价/异常优惠检测',
+    industry: '电商/订单',
+    category: '风险风控',
+    version: '1.0.0',
+    description: '自动扫描0元支付、负金额、优惠叠加溢出、系统错误订单',
+    detailedDescription:
+        '识别规则冲突、优惠券叠加溢出、后台设置错误导致的异常订单，实时标记并汇总损失，用于财务止损与规则修复。',
+    author: 'official',
+    likes: 370,
+    credits: 200,
+    dataVolume: '10w order',
+    estimatedTime: '3s',
+    metadata: {
+      inputFields: ['pay_amount','discount_total','product_amount'],
+      outputFields: ['order_id','abnormal_type','loss_amount','risk_level'],
+      constraints: ['需要支付金额与优惠金额']
+    }
+  },
+
+  // ==========================
+  // 经营指标类（老板视角）
+  // ==========================
+  {
+    name: 'fn_ecom_daily_biz_summary',
+    displayName: '店铺每日经营全景汇总',
+    industry: '电商/订单',
+    category: '经营决策',
+    version: '1.0.0',
+    description: '一键输出销售额、毛利、退款、费用、净利的日汇总',
+    detailedDescription:
+        '替代手工做日报，自动按天聚合核心经营指标，输出趋势、环比、同比，直接用于老板看板、经营会议、大促复盘。',
+    author: 'official',
+    likes: 420,
+    credits: 200,
+    dataVolume: '10w order',
+    estimatedTime: '4s',
+    metadata: {
+      inputFields: ['order_date','net_amount','gross_profit','refund_amount','fee_total'],
+      outputFields: ['date','order_cnt','sales','profit','refund_rate','net_profit'],
+      constraints: ['需要订单日期与核心金额字段']
+    }
+  },
+  {
+    name: 'fn_ecom_sku_sales_analysis',
+    displayName: 'SKU/SPU销量毛利排行分析',
+    industry: '电商/商品',
+    category: '经营决策',
+    version: '1.0.0',
+    description: '按SKU/SPU统计销量、销额、毛利、售罄、动销率',
+    detailedDescription:
+        '自动识别爆款、利润款、滞销款，计算售罄率、动销率、库存健康度，指导补货、清仓、下架、定价策略。',
+    author: 'official',
+    likes: 330,
+    credits: 180,
+    dataVolume: '10w order',
+    estimatedTime: '5s',
+    metadata: {
+      inputFields: ['product_id','sku_id','category','net_amount','gross_profit','quantity'],
+      outputFields: ['product_id','sales','profit','sell_through_rate','is_slow_moving'],
+      constraints: ['需要商品ID、销量、金额']
+    }
+  }
 ];
 
 /**

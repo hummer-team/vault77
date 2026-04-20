@@ -25,7 +25,7 @@ design/*.md
 .qoder
 refactor-plan.md
 .gemini
-GEMINI.md
+GEMINI.md.bak
 CODEBUDDY.md
 TS_INTEGRATION.md
 design/wasm.anomaly.md
@@ -33,5 +33,5 @@ insight-action-plan-final.md
 docs
 .qoderignore
 design/udf.md
-design/udf2.md
+design/udf_3.md
 prompts/

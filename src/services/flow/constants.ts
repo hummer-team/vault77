@@ -153,6 +153,30 @@ export const OPERATOR_CONFIG = {
     icon: '🔄',
     color: '#722ed1',
   },
+  udf_up_lower: {
+    name: '大小写转换',
+    description: '将指定列的字符串统一转换为大写或小写',
+    icon: '🔠',
+    color: '#722ed1',
+  },
+  udf_format_number: {
+    name: '数字精度控制',
+    description: '对指定列进行精度控制（四舍五入/截断/进位）',
+    icon: '🔢',
+    color: '#722ed1',
+  },
+  udf_flag_spec: {
+    name: '数据标记',
+    description: '根据条件对指定列进行打标/分类',
+    icon: '🏷️',
+    color: '#722ed1',
+  },
+  udf_format_date: {
+    name: '日期时间格式化',
+    description: '跨时区日期时间格式转换',
+    icon: '📅',
+    color: '#722ed1',
+  },
 };
 
 // ============================================================================

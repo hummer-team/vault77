@@ -43,7 +43,11 @@ export enum OperatorType {
   ASSOCIATION = 'association',
   ANOMALY = 'anomaly',
   CLUSTERING = 'clustering',
-  UDF_REPLACE_COLUMN = 'udf_replace_column', // Data-cleaning: replace specific column values
+  UDF_REPLACE_COLUMN = 'udf_replace_column',  // Data-cleaning: replace specific column values
+  UDF_UP_LOWER       = 'udf_up_lower',        // Data-cleaning: upper/lower case transformation
+  UDF_FORMAT_NUMBER  = 'udf_format_number',   // Data-cleaning: number precision / rounding
+  UDF_FLAG_SPEC      = 'udf_flag_spec',       // Data-cleaning: flag / label specific column values
+  UDF_FORMAT_DATE    = 'udf_format_date',     // Data-cleaning: date/time format conversion
 }
 
 export enum LogicType {
@@ -267,6 +271,54 @@ export interface ReplaceRule {
   addNewColumn: boolean;
 }
 
+/** Config for udf_up_lower_str — uppercase / lowercase column values */
+export interface UpLowerConfig {
+  /** Column names to transform */
+  cols: string[];
+  /** 'upper' converts to uppercase; 'lower' converts to lowercase */
+  action: 'upper' | 'lower';
+  /** Optional SQL WHERE expression applied inside the MACRO */
+  condition?: string;
+}
+
+/** Config for udf_format_number — number rounding / precision */
+export interface FormatNumberConfig {
+  /** Map of column name → desired decimal places */
+  colsConfig: Record<string, number>;
+  /** Rounding mode (default: 'half_up') */
+  roundMode?: 'half_up' | 'truncate' | 'ceil' | 'floor';
+  /** Optional SQL WHERE expression applied inside the MACRO */
+  condition?: string;
+}
+
+/** Config for udf_flag_spec_column — conditional labelling / flagging */
+export interface FlagSpecConfig {
+  /**
+   * Map of output column name → case config.
+   * Each case config has an ordered list of [conditionExpr, labelValue] pairs
+   * and an optional ELSE label.
+   */
+  flagsConfig: Record<string, { cases: [string, string][]; else?: string }>;
+  /** Optional SQL WHERE expression applied inside the MACRO */
+  condition?: string;
+}
+
+/** Config for udf_format_date_time — timezone-aware date/time reformatting */
+export interface FormatDateConfig {
+  /**
+   * Map of column name → transform parameters.
+   * All fields default to safe values inside the MACRO when omitted.
+   */
+  colConfigJson: Record<string, {
+    srcFmt?: string;  // source format token (e.g. 'auto', '%Y-%m-%d', ...)
+    srcTz?: string;   // source timezone (e.g. 'UTC', 'America/New_York')
+    dstTz?: string;   // destination timezone
+    dstFmt?: string;  // output format token (e.g. 'datetime', 'date', 'epoch_s', ...)
+  }>;
+  /** Optional SQL WHERE expression applied inside the MACRO */
+  condition?: string;
+}
+
 /**
  * UDF Config Node Data
  * Stores configuration parameters for a UDF operator node.
@@ -277,8 +329,16 @@ export interface UdfConfigNodeData extends BaseNodeData {
   kernelName: string;
   /** DuckDB MACRO function name (e.g., 'udf_replace_spec_column_value') */
   udfFunctionName: string;
-  /** Replacement rules configured by the user */
-  replacementRules: ReplaceRule[];
+  /** Replacement rules for udf_replace_spec_column_value */
+  replacementRules?: ReplaceRule[];
+  /** Config for udf_up_lower_str */
+  upLowerConfig?: UpLowerConfig;
+  /** Config for udf_format_number */
+  formatNumberConfig?: FormatNumberConfig;
+  /** Config for udf_flag_spec_column */
+  flagSpecConfig?: FlagSpecConfig;
+  /** Config for udf_format_date_time */
+  formatDateConfig?: FormatDateConfig;
 }
 
 export interface EndNodeData extends BaseNodeData {

@@ -27,7 +27,7 @@ import { LogicType } from './types';
  * Base Strategy Class
  * Provides common functionality for all strategies
  */
-abstract class BaseStrategy implements FlowStrategy {
+export abstract class BaseStrategy implements FlowStrategy {
   abstract readonly type: OperatorType;
   abstract readonly name: string;
 
