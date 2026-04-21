@@ -20,7 +20,7 @@ import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique } from '../../../services/flow/flowService';
 import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
-import { FLOW_COLORS, SQL_OPERATORS, PLACEHOLDER_CONSTANTS } from '../../../services/flow/constants';
+import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useCanvasJoinedTables } from '../hooks/useUpstreamJoinedTables';
@@ -30,20 +30,6 @@ interface ConditionDefinitionNodeProps {
   data: ConditionDefinitionNodeData;
   selected?: boolean;
 }
-
-// Get operator options for select
-const getOperatorOptions = () => {
-  const allOperators = [
-    ...SQL_OPERATORS.comparison,
-    ...SQL_OPERATORS.string,
-    ...SQL_OPERATORS.null,
-    ...SQL_OPERATORS.set,
-  ];
-  return allOperators.map((op) => ({
-    value: op.value,
-    label: op.label,
-  }));
-};
 
 // Generate unique condition ID
 const generateConditionId = () => `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -104,16 +90,11 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
     }
 
     const loadFields = async () => {
-      if (!isDBReady) {
-        console.log('[ConditionDefinitionNode] DB not ready, skipping field load');
-        return;
-      }
+      if (!isDBReady) return;
 
       setIsLoadingFields(true);
       try {
-        console.log('[ConditionDefinitionNode] Loading fields for table:', data.tableName);
         const schema = await getTableSchema(data.tableName, executeQuery);
-        console.log('[ConditionDefinitionNode] Loaded fields:', schema.fields);
         setTableFields(schema.fields);
       } catch (error) {
         console.error('[ConditionDefinitionNode] Failed to load fields:', error);
@@ -150,7 +131,6 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   // Handle table change
   const handleTableChange = useCallback(
     (tableName: string) => {
-      console.log('[ConditionDefinitionNode] handleTableChange:', tableName);
       updateNode(id, { tableName, conditions: [] } as Partial<ConditionDefinitionNodeData>);
     },
     [id, updateNode]
@@ -210,13 +190,18 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
     [id, data.conditions, data.refId, updateNode]
   );
 
-  // Update condition field
+  // Update condition field — also resets operator when it's incompatible with the new field type
   const handleConditionFieldChange = useCallback(
     (conditionId: string, field: string) => {
       const fieldInfo = tableFields.find((f) => f.name === field);
+      const newType = (fieldInfo?.type ?? 'VARCHAR') as FieldType;
+      const validOps = getOperatorsByFieldType(newType);
+      const currentCond = data.conditions.find((c) => c.id === conditionId);
+      const isOpStillValid = validOps.some((op) => op.value === currentCond?.operator);
+      const newOperator = isOpStillValid ? (currentCond?.operator ?? '=') : (validOps[0]?.value ?? '=');
       const updatedConditions = data.conditions.map((c) =>
         c.id === conditionId
-          ? { ...c, field, valueType: fieldInfo?.type || 'VARCHAR' }
+          ? { ...c, field, valueType: newType, operator: newOperator }
           : c
       );
       updateNode(id, { conditions: updatedConditions } as Partial<ConditionDefinitionNodeData>);
@@ -418,14 +403,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
               placeholder="Select table"
               loading={isLoadingTables}
               style={{ width: '100%' }}
-              onChange={(value) => {
-                console.log('[ConditionDefinitionNode] Select onChange called with:', value);
-                handleTableChange(value);
-              }}
-              onDropdownVisibleChange={(open) => {
-                console.log('[ConditionDefinitionNode] Dropdown visible:', open);
-                console.log('[ConditionDefinitionNode] Current options:', availableTables);
-              }}
+              onChange={handleTableChange}
               getPopupContainer={() => document.body}
               popupClassName="condition-definition-select-dropdown nodrag"
               className="nodrag"
@@ -469,12 +447,12 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
               className="nodrag"
             />
 
-            {/* Operator selection */}
+            {/* Operator selection — filtered by field data type */}
             <Select
               value={condition.operator}
               style={{ width: 100 }}
               onChange={(value) => handleConditionOperatorChange(condition.id, value)}
-              options={getOperatorOptions()}
+              options={getOperatorsByFieldType(condition.valueType)}
               getPopupContainer={() => document.body}
               popupClassName="condition-definition-select-dropdown nodrag"
               className="nodrag"

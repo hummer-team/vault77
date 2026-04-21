@@ -497,7 +497,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       }, 100);
     } catch (error) {
       console.error('[Workbench] Flow query execution failed:', error);
-      message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate]);
 

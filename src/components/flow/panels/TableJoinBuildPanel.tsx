@@ -49,16 +49,16 @@ const T = {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const JOIN_TYPE_OPTIONS: { label: string; value: JoinType }[] = [
-  { label: '内连', value: JoinType.INNER },
-  { label: '左连', value: JoinType.LEFT },
-  { label: '右连', value: JoinType.RIGHT },
+  { label: '精确匹配（内连）', value: JoinType.INNER },
+  { label: '主表全取（左连）', value: JoinType.LEFT },
+  { label: '关联表全取（右连）', value: JoinType.RIGHT },
 ];
 
 const JOIN_TYPE_DESC: Record<JoinType, string> = {
-  [JoinType.INNER]: '只保留两张表中都能匹配上的记录',
-  [JoinType.LEFT]: '保留左表所有记录，右表匹配不上的用空值填充',
-  [JoinType.RIGHT]: '保留右表所有记录，左表匹配不上的用空值填充',
-  [JoinType.CROSS]: '两张表所有记录组合（笛卡尔积）',
+  [JoinType.INNER]: '只保留两张表都能对上的行（类似 Excel VLOOKUP：找不到就不显示）',
+  [JoinType.LEFT]: '完整保留主表所有行，关联表没有对应的列留空（类似 Excel VLOOKUP 找不到时显示空白）',
+  [JoinType.RIGHT]: '完整保留关联表所有行，主表没有对应的列留空',
+  [JoinType.CROSS]: '两张表所有行两两组合（数据量会急剧增大，请谨慎使用）',
 };
 
 const CONDITION_OPERATORS = ['=', '!=', '>', '>=', '<', '<='];
@@ -120,33 +120,30 @@ const DEFAULT_CONDITION = (): JoinConditionRow => ({
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-/** Build a plain-language description of the join */
+/** Build a plain-language description of the join (business/Excel oriented) */
 function buildAutoDescription(
   sourceTable: string,
   targetTable: string,
   joinType: JoinType,
   conditions: JoinConditionRow[]
 ): string {
-  const typeName = JOIN_TYPE_OPTIONS.find((o) => o.value === joinType)?.label ?? '内连';
   const typeDesc = JOIN_TYPE_DESC[joinType] ?? '';
+  const filledConditions = conditions.filter((c) => c.leftField && c.rightField);
 
-  if (!conditions.length || (!conditions[0].leftField && !conditions[0].rightField)) {
-    return `将 ${sourceTable} 与 ${targetTable} 进行${typeName}——${typeDesc}。`;
+  if (!filledConditions.length) {
+    return `将「${sourceTable}」与「${targetTable}」进行数据合并。${typeDesc}。`;
   }
 
-  const condParts = conditions
-    .filter((c) => c.leftField && c.rightField)
+  const condParts = filledConditions
     .map((c, i) => {
-      const logic = i > 0 && c.logic ? ` ${c.logic} ` : '';
-      return `${logic}当 ${c.leftField} ${c.operator} ${c.rightField}`;
+      const logic = i > 0 && c.logic
+        ? `，${c.logic === 'AND' ? '并且' : '或者'}`
+        : '';
+      return `${logic}「${sourceTable}」的 ${c.leftField} ${c.operator}「${targetTable}」的 ${c.rightField}`;
     })
     .join('');
 
-  if (!condParts) {
-    return `将 ${sourceTable} 与 ${targetTable} 进行${typeName}——${typeDesc}。`;
-  }
-
-  return `将 ${sourceTable} 与 ${targetTable} 进行${typeName}：${condParts}时合并记录。${typeDesc}。`;
+  return `当 ${condParts} 时，将两张表的行合并在一起。${typeDesc}。`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -180,6 +177,8 @@ export const TableJoinBuildPanel: React.FC = () => {
   // ── Local form state ──
   const [joinType, setJoinType] = useState<JoinType>(JoinType.INNER);
   const [conditions, setConditions] = useState<JoinConditionRow[]>([DEFAULT_CONDITION()]);
+  // Validation errors are surfaced only after user clicks 确认
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // ── Field state (loaded from store OR fetched on-demand from DuckDB) ──
   const [sourceFieldObjects, setSourceFieldObjects] = useState<Field[]>([]);
@@ -219,6 +218,7 @@ export const TableJoinBuildPanel: React.FC = () => {
   // Sync form state and load fields when panel opens
   useEffect(() => {
     if (!joinPanelEdgeId) return;
+    setShowValidationErrors(false);
 
     if (existingData) {
       setJoinType(existingData.joinType ?? JoinType.INNER);
@@ -257,6 +257,12 @@ export const TableJoinBuildPanel: React.FC = () => {
     [conditions, sourceFieldObjects, targetFieldObjects]
   );
 
+  // Any condition row missing left or right field
+  const hasEmptyConditions = useMemo(
+    () => conditions.some((c) => !c.leftField || !c.rightField),
+    [conditions]
+  );
+
   // ── Condition mutations ──
   const addCondition = useCallback(() => {
     setConditions((prev) => [
@@ -279,6 +285,11 @@ export const TableJoinBuildPanel: React.FC = () => {
   // ── Save / Cancel ──
   const handleConfirm = useCallback(() => {
     if (!joinPanelEdgeId) return;
+    if (hasTypeErrors || hasEmptyConditions) {
+      setShowValidationErrors(true);
+      return;
+    }
+    setShowValidationErrors(false);
     updateEdge(joinPanelEdgeId, {
       joinType,
       sourceTableName,
@@ -289,9 +300,12 @@ export const TableJoinBuildPanel: React.FC = () => {
       configured: true,
     } satisfies JoinEdgeData);
     closeJoinPanel();
-  }, [joinPanelEdgeId, joinType, sourceTableName, targetTableName, conditions, autoDescription, order, updateEdge, closeJoinPanel]);
+  }, [joinPanelEdgeId, joinType, sourceTableName, targetTableName, conditions, autoDescription, order, hasTypeErrors, hasEmptyConditions, updateEdge, closeJoinPanel]);
 
-  const handleCancel = useCallback(() => closeJoinPanel(), [closeJoinPanel]);
+  const handleCancel = useCallback(() => {
+    setShowValidationErrors(false);
+    closeJoinPanel();
+  }, [closeJoinPanel]);
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -350,7 +364,7 @@ export const TableJoinBuildPanel: React.FC = () => {
       </div>
 
       {/* ── 主表 / 关联表 (Visual flow) ── */}
-      <SectionLabel>主表 / 关联表</SectionLabel>
+      <SectionLabel>数据表选择</SectionLabel>
       <div
         style={{
           background: T.surface,
@@ -400,7 +414,7 @@ export const TableJoinBuildPanel: React.FC = () => {
       </div>
 
       {/* ── 关系说明 (auto-generated, read-only) ── */}
-      <SectionLabel>关系说明</SectionLabel>
+      <SectionLabel>合并说明</SectionLabel>
       <div
         style={{
           background: T.surface,
@@ -418,7 +432,7 @@ export const TableJoinBuildPanel: React.FC = () => {
       </div>
 
       {/* ── 关联条件 ── */}
-      <SectionLabel>关联条件</SectionLabel>
+      <SectionLabel>匹配规则（设置两张表如何对应）</SectionLabel>
 
       {/* Column headers */}
       <div style={{
@@ -454,6 +468,7 @@ export const TableJoinBuildPanel: React.FC = () => {
               sourceFieldObjects={sourceFieldObjects}
               targetFieldObjects={targetFieldObjects}
               canRemove={conditions.length > 1}
+              showValidationErrors={showValidationErrors}
               onUpdate={updateCondition}
               onAdd={addCondition}
               onRemove={removeCondition}
@@ -462,16 +477,37 @@ export const TableJoinBuildPanel: React.FC = () => {
         ))}
       </div>
 
+      {/* ── Validation summary (shown after confirm attempt) ── */}
+      {showValidationErrors && (hasTypeErrors || hasEmptyConditions) && (
+        <div style={{
+          background: 'rgba(255, 107, 0, 0.08)',
+          border: `1px solid ${T.orangeBorder}`,
+          borderRadius: 6,
+          padding: '8px 12px',
+          marginTop: 12,
+        }}>
+          {hasEmptyConditions && (
+            <div style={{ color: T.orange, fontSize: 12, lineHeight: 1.6 }}>
+              ⚠ 存在未配置完整的匹配条件，请为每一行选择左右两侧的字段后再确认
+            </div>
+          )}
+          {hasTypeErrors && (
+            <div style={{ color: T.orange, fontSize: 12, lineHeight: 1.6 }}>
+              ⚠ 存在字段类型不匹配的条件，请重新选择数据类型兼容的字段
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Action buttons (flush below conditions, no extra layer) ── */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
         <Button
           type="primary"
           onClick={handleConfirm}
-          disabled={hasTypeErrors}
           data-testid="btn-confirm"
           style={{
-            background: hasTypeErrors ? undefined : T.orange,
-            borderColor: hasTypeErrors ? undefined : T.orange,
+            background: T.orange,
+            borderColor: T.orange,
             fontWeight: 600,
             minWidth: 80,
           }}
@@ -560,6 +596,7 @@ interface ConditionRowProps {
   sourceFieldObjects: Field[];
   targetFieldObjects: Field[];
   canRemove: boolean;
+  showValidationErrors: boolean;
   onUpdate: (id: string, patch: Partial<JoinConditionRow>) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -571,6 +608,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
   sourceFieldObjects,
   targetFieldObjects,
   canRemove,
+  showValidationErrors,
   onUpdate,
   onAdd,
   onRemove,
@@ -593,10 +631,17 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
     if (!left || !right) return null;
     if (areJoinTypesCompatible(left.type, right.type)) return null;
     return (
-      `${cond.leftField} 字段类型${fieldTypeLabel(left.type)}` +
-      `跟 ${cond.rightField} 字段类型${fieldTypeLabel(right.type)}不匹配，不能关联`
+      `您选择的 ${cond.leftField}（${fieldTypeLabel(left.type)}）` +
+      `跟 ${cond.rightField}（${fieldTypeLabel(right.type)}）数据类型不匹配，无法建立关联，请重新选择列进行关联`
     );
   }, [cond.leftField, cond.rightField, sourceFieldObjects, targetFieldObjects]);
+
+  // Empty-field check — only surfaced when parent has triggered validation
+  const leftEmpty  = showValidationErrors && !cond.leftField;
+  const rightEmpty = showValidationErrors && !cond.rightField;
+  const emptyError = (leftEmpty || rightEmpty) && !typeError
+    ? '请为该条件行选择左右两侧的关联字段'
+    : null;
 
   return (
     <div style={{ display: 'flex', alignItems: 'stretch' }}>
@@ -621,10 +666,10 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
           {/* Left field */}
           <Select
             value={cond.leftField || undefined}
-            placeholder="字段"
+            placeholder="选择字段"
             onChange={(v) => onUpdate(cond.id, { leftField: v })}
             style={{ width: '100%' }}
-            className={typeError ? 'join-cond-error' : undefined}
+            className={typeError || leftEmpty ? 'join-cond-error' : undefined}
             options={sourceFieldNames.map((f) => ({ label: f, value: f }))}
             size="small"
             notFoundContent={
@@ -644,10 +689,10 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
           {/* Right field */}
           <Select
             value={cond.rightField || undefined}
-            placeholder="字段"
+            placeholder="选择字段"
             onChange={(v) => onUpdate(cond.id, { rightField: v })}
             style={{ width: '100%' }}
-            className={typeError ? 'join-cond-error' : undefined}
+            className={typeError || rightEmpty ? 'join-cond-error' : undefined}
             options={targetFieldNames.map((f) => ({ label: f, value: f }))}
             size="small"
             notFoundContent={
@@ -683,8 +728,8 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
           </div>
         </div>
 
-        {/* Type-mismatch warning — aligned with the fields grid (col 1→3), bright orange */}
-        {typeError && (
+        {/* Inline error message — type mismatch or empty fields */}
+        {(typeError || emptyError) && (
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 54px 1fr 56px',
@@ -702,7 +747,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
               fontWeight: 500,
             }}>
               <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
-              <span>{typeError}</span>
+              <span>{typeError ?? emptyError}</span>
             </div>
           </div>
         )}

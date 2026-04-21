@@ -4,6 +4,7 @@
  */
 
 import type { FlowColors } from './types';
+import { FieldType } from './types';
 
 // ============================================================================
 // Color Scheme - Premium Dark Theme with Orange Accent
@@ -249,6 +250,71 @@ export const SQL_OPERATORS = {
     { value: 'NOT IN', label: '不在列表中' },
   ],
 };
+
+export type OperatorOption = { value: string; label: string };
+
+const _NUMERIC_TYPES = new Set<FieldType>([
+  FieldType.INTEGER, FieldType.BIGINT, FieldType.SMALLINT, FieldType.TINYINT,
+  FieldType.DECIMAL, FieldType.NUMERIC, FieldType.REAL, FieldType.DOUBLE,
+]);
+const _STRING_TYPES = new Set<FieldType>([FieldType.VARCHAR, FieldType.TEXT, FieldType.CHAR]);
+const _DATE_TYPES   = new Set<FieldType>([FieldType.DATE, FieldType.TIMESTAMP, FieldType.TIME]);
+
+/**
+ * Returns the operator options available for the given field type.
+ * String types expose LIKE / STARTS WITH / ENDS WITH; numeric and date types do not.
+ * Pass `undefined` (no field selected yet) to get all operators.
+ */
+export function getOperatorsByFieldType(fieldType: FieldType | string | undefined): OperatorOption[] {
+  if (!fieldType || fieldType === FieldType.UNKNOWN) {
+    return [
+      ...SQL_OPERATORS.comparison,
+      ...SQL_OPERATORS.string,
+      ...SQL_OPERATORS.null,
+      ...SQL_OPERATORS.set,
+    ];
+  }
+
+  const ft = fieldType as FieldType;
+
+  if (_STRING_TYPES.has(ft)) {
+    return [
+      ...SQL_OPERATORS.comparison,
+      ...SQL_OPERATORS.string,
+      ...SQL_OPERATORS.null,
+      ...SQL_OPERATORS.set,
+    ];
+  }
+
+  if (_NUMERIC_TYPES.has(ft)) {
+    return [
+      ...SQL_OPERATORS.comparison,
+      ...SQL_OPERATORS.null,
+      ...SQL_OPERATORS.set,
+    ];
+  }
+
+  if (_DATE_TYPES.has(ft)) {
+    return [
+      ...SQL_OPERATORS.comparison,
+      ...SQL_OPERATORS.null,
+      ...SQL_OPERATORS.set,
+    ];
+  }
+
+  if (ft === FieldType.BOOLEAN) {
+    return [
+      ...SQL_OPERATORS.comparison.filter((op) => op.value === '=' || op.value === '!='),
+      ...SQL_OPERATORS.null,
+    ];
+  }
+
+  // BLOB, JSON, UUID, ARRAY — null / set as safe fallback
+  return [
+    ...SQL_OPERATORS.null,
+    ...SQL_OPERATORS.set,
+  ];
+}
 
 // ============================================================================
 // Join Type Labels

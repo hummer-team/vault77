@@ -32,6 +32,7 @@ import {
 } from '../types';
 import { UdfBaseStrategy } from './udfBaseStrategy';
 import { escapeSql, buildJoinSubquery } from './udfShared';
+import { getCanvasJoinedTables } from '../flowService';
 
 // ============================================================================
 // UdfReplaceColumnStrategy
@@ -138,7 +139,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     // Extract full column schemas from TABLE nodes (needed for conflict resolution)
     const fullTableSchemas = this._extractTableSchemas(nodes);
 
-    // Group rules by sourceTable to detect single vs multi-table
+    // Group rules by sourceTable (used for fill_map / swap_map keys)
     const tableGroups = this._groupByTable(rules);
 
     if (tableGroups.size === 0) {
@@ -148,19 +149,23 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     let tblParam: string;
     let conflictMap = new Map<string, Map<string, string>>();
 
-    if (tableGroups.size === 1) {
-      // Single-table path: existing behaviour, fully backward-compatible
+    // Use canvas join topology (not rule coverage) to decide single vs multi-table.
+    // Even when rules only touch one table, if the canvas has configured join edges
+    // the SQL must include the full JOIN subquery to respect the user's join setup.
+    const canvasJoinedTables = getCanvasJoinedTables(edges);
+    const isMultiTable = canvasJoinedTables.length >= 2;
+
+    if (!isMultiTable) {
+      // Genuine single-table: no join edges configured on canvas
       const [tableName] = [...tableGroups.keys()];
       tblParam = tableName;
-      console.log(`[${this.name}.buildSql] single-table mode: table=${tableName}`);
     } else {
-      // Multi-table path: build a JOIN subquery from canvas edge topology
-      const allTables = [...tableGroups.keys()];
-      // Legacy secondary-cols map (used as fallback when fullTableSchemas is absent)
+      // Multi-table path: always use all canvas-joined tables, regardless of how
+      // many tables the rules happen to reference.  This preserves the full JOIN
+      // subquery even when rules only operate on one table's columns.
+      const allTables = canvasJoinedTables;
       const targetColsByTable = new Map<string, string[]>();
-      const mainTable = allTables[0];
       for (const rule of rules) {
-        if (rule.sourceTable === mainTable) continue;
         const existing = targetColsByTable.get(rule.sourceTable) ?? [];
         for (const col of rule.targetColumn) {
           if (!existing.includes(col)) existing.push(col);
@@ -171,14 +176,10 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
       if (joinResult) {
         tblParam = joinResult.sql;
         conflictMap = joinResult.columnAliasMap;
-        console.log(`[${this.name}.buildSql] multi-table mode: tables=[${allTables.join(',')}], subquery built`);
       } else {
-        // Fallback: no join edges found — use the first table and warn
+        // Fallback: join edges not fully configured — use the first rule table
         const [tableName] = [...tableGroups.keys()];
         tblParam = tableName;
-        console.warn(
-          `[${this.name}.buildSql] multi-table fallback: no join edges found, using table=${tableName}`
-        );
       }
     }
 
@@ -188,8 +189,15 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     // "tableName.field" concatenation which DuckDB cannot resolve.
     const conditionSql = this.buildUdfConditionSql(nodes, placeholderValues, tblParam, undefined, conflictMap);
 
-    const sql = this._buildUdfCall(tblParam, rules, conflictMap, conditionSql, outputColumns);
-    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
+    // In single-table mode the UDF output rows carry plain column names (e.g. "total_amount").
+    // The drawer UI always computes display names against all canvas-joined tables, so
+    // outputColumns may contain "tb1.total_amount" even when only one table is active.
+    // Strip the tbN. prefix so DuckDB can resolve them correctly.
+    const normalizedOutputColumns = tblParam.startsWith('(')
+      ? outputColumns
+      : outputColumns.map((c) => c.replace(/^tb\d+\./, ''));
+
+    const sql = this._buildUdfCall(tblParam, rules, conflictMap, conditionSql, normalizedOutputColumns);
     return sql;
   }
 

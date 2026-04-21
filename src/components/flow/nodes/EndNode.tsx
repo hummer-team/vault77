@@ -153,9 +153,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
         // Build SQL query with placeholder values - get fresh values from store
         const placeholderValues = getAllPlaceholderValues();
-        console.log('[EndNode.executeFlow] About to build SQL with placeholderValues:', placeholderValues);
         const sql = strategy.buildSql(storeNodes, edges, placeholderValues);
-        console.log('Generated SQL:', sql);
 
         // Validate SQL with EXPLAIN
         try {
@@ -165,7 +163,6 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         }
 
         // SQL validation successful - notify parent
-        console.log('SQL validation successful, notifying parent...');
         if (onSqlValidated) {
           onSqlValidated(sql);
         }
@@ -199,20 +196,13 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
   // Handle value fill panel close
   const handleValueFillClose = useCallback((e?: React.MouseEvent | React.KeyboardEvent) => {
-    console.log('[EndNode] handleValueFillClose called, event:', e?.type);
-    // Prevent any potential event bubbling issues
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     setValueFillPanelOpen(false);
-    console.log('[EndNode] setValueFillPanelOpen(false) called, state should update');
   }, []);
 
   // Handle value fill and execute
   const handleValueFillExecute = useCallback(() => {
-    console.log('[EndNode] handleValueFillExecute called');
     setValueFillPanelOpen(false);
-    console.log('[EndNode] setValueFillPanelOpen(false) called, will execute flow');
     executeFlow();
   }, [executeFlow]);
 
@@ -229,15 +219,13 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     removeNode(id);
   }, [id, removeNode]);
 
-  // Handle click - execute directly (for DIRECT trigger or UDF operators) or open value fill panel
+  // Handle click - execute directly (for DIRECT trigger) or open execution params panel
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (shouldExecuteDirectly) {
-      console.log('[EndNode] Direct execution — skipping ValueFillPanel');
       executeFlow();
       return;
     }
-    console.log('[EndNode] Node clicked, opening value fill panel');
     setValueFillPanelOpen(true);
   }, [shouldExecuteDirectly, executeFlow]);
 
@@ -363,9 +351,9 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </div>
       </div>
 
-      {/* Action buttons - execute is handled via ValueFillPanel or directly */}
+      {/* Action buttons - execute is handled via execution params panel or directly */}
       <Space style={{ width: '100%', justifyContent: 'center' }}>
-        <Tooltip title={shouldExecuteDirectly ? '直接执行流程' : '点击节点填充条件值并执行'}>
+        <Tooltip title={shouldExecuteDirectly ? '直接执行流程' : '填写执行参数后运行'}>
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
@@ -380,7 +368,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
             disabled={errorCount > 0}
             danger={errorCount > 0}
           >
-            {shouldExecuteDirectly ? '直接执行' : hasUnfilledPlaceholders ? '填充值并执行' : '查看/修改条件值'}
+            {shouldExecuteDirectly ? '执行' : hasUnfilledPlaceholders ? '填写参数并执行' : '执行'}
           </Button>
         </Tooltip>
 

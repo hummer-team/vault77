@@ -1,16 +1,23 @@
 /**
  * Value Fill Panel Component
- * Right-side panel for filling placeholder values before execution
- * Displays placeholders with field type hints (e.g., date picker for date fields)
+ * Right-side drawer for filling placeholder values before execution.
+ * Groups placeholders by condition node (refId) with field-type-aware inputs.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Drawer, Form, Input, DatePicker, Button, Space, Tag, Tooltip, Alert } from 'antd';
-import { InfoCircleOutlined, PlayCircleOutlined, CloseOutlined } from '@ant-design/icons';
+import { Drawer, Form, Input, DatePicker, Button, Space, Tag, Tooltip, Alert, Typography } from 'antd';
+import { PlayCircleOutlined, CloseOutlined, FilterOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionDefinitionNodeData, ConditionItem, FieldType } from '../../../services/flow/types';
-import { FIELD_TYPE_ICONS } from '../../../services/flow/constants';
+import { FIELD_TYPE_ICONS, SQL_OPERATORS } from '../../../services/flow/constants';
 import dayjs from 'dayjs';
+
+const { Text } = Typography;
+
+// Flat map of all operator labels for lookup
+const OPERATOR_LABEL_MAP: Record<string, string> = Object.values(SQL_OPERATORS)
+  .flat()
+  .reduce<Record<string, string>>((acc, op) => { acc[op.value] = op.label; return acc; }, {});
 
 interface ValueFillPanelProps {
   open: boolean;
@@ -21,14 +28,16 @@ interface ValueFillPanelProps {
 interface PlaceholderInfo {
   placeholder: string;
   field: string;
+  operator: string;
   fieldType: FieldType;
   tableName: string;
   refId: string;
 }
 
 // Get input component based on field type
-const getInputComponent = (fieldType: FieldType, placeholder: string) => {
+const getInputComponent = (fieldType: FieldType, placeholder: string, operator?: string) => {
   const iconConfig = FIELD_TYPE_ICONS[fieldType] || FIELD_TYPE_ICONS.UNKNOWN;
+  const isInList = operator === 'IN' || operator === 'NOT IN';
 
   switch (fieldType) {
     case 'DATE':
@@ -36,15 +45,19 @@ const getInputComponent = (fieldType: FieldType, placeholder: string) => {
       return (
         <DatePicker
           style={{ width: '100%' }}
-          placeholder={`Enter ${placeholder}`}
+          placeholder={`请选择 ${placeholder}`}
           showTime={fieldType === 'TIMESTAMP'}
         />
       );
     default:
       return (
         <Input.TextArea
-          rows={3}
-          placeholder={`Enter ${placeholder} (${iconConfig.icon} ${fieldType.toLowerCase()})`}
+          rows={isInList ? 3 : 2}
+          placeholder={
+            isInList
+              ? `请输入 ${placeholder}，每行或每个英文逗号 , 中文逗号 ， 分号 ; ； 均可分隔多个值\n如：1,2,3`
+              : `请输入 ${placeholder}（${iconConfig.icon} ${fieldType.toLowerCase()}）`
+          }
           style={{ resize: 'vertical' }}
         />
       );
@@ -52,9 +65,18 @@ const getInputComponent = (fieldType: FieldType, placeholder: string) => {
 };
 
 // Convert value to appropriate type
-const convertValue = (value: unknown, fieldType: FieldType): unknown => {
+// For IN / NOT IN, keep the raw string so the strategy can split it properly.
+// (parseInt("1,2") would truncate to 1 — that is the bug we avoid here.)
+const IN_LIST_OPERATORS = new Set(['IN', 'NOT IN']);
+
+const convertValue = (value: unknown, fieldType: FieldType, operator?: string): unknown => {
   if (value === undefined || value === null || value === '') {
     return null;
+  }
+
+  // IN / NOT IN: always keep the raw string regardless of field type
+  if (operator && IN_LIST_OPERATORS.has(operator)) {
+    return String(value);
   }
 
   switch (fieldType) {
@@ -93,16 +115,19 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Collect all placeholders from condition definition nodes
+  // IS NULL / IS NOT NULL conditions are excluded — they need no runtime value
+  const NO_VALUE_OPERATORS = new Set(['IS NULL', 'IS NOT NULL']);
   const placeholders = useMemo<PlaceholderInfo[]>(() => {
     const result: PlaceholderInfo[] = [];
-
     nodes.forEach((node) => {
       if (node.type === 'conditionDefinition') {
         const data = node.data as ConditionDefinitionNodeData;
         data.conditions.forEach((condition: ConditionItem) => {
+          if (NO_VALUE_OPERATORS.has(condition.operator)) return;
           result.push({
             placeholder: condition.placeholder,
             field: condition.field,
+            operator: condition.operator,
             fieldType: condition.valueType,
             tableName: data.tableName,
             refId: data.refId,
@@ -110,11 +135,9 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
         });
       }
     });
-
     return result;
   }, [nodes]);
 
-  // Check if all placeholders have values
   const existingValues = useMemo(() => getAllPlaceholderValues(), [getAllPlaceholderValues]);
 
   // Initialize form values when panel opens
@@ -124,7 +147,6 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       placeholders.forEach((p) => {
         const existingValue = existingValues[p.placeholder];
         if (existingValue !== undefined) {
-          // Convert string dates back to dayjs for date pickers
           if ((p.fieldType === 'DATE' || p.fieldType === 'TIMESTAMP') && typeof existingValue === 'string') {
             initialValues[p.placeholder] = dayjs(existingValue);
           } else {
@@ -141,46 +163,29 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   const validateAllValues = useCallback((): boolean => {
     const errors: Record<string, string> = {};
     const values = form.getFieldsValue();
-
     placeholders.forEach((p) => {
       const value = values[p.placeholder];
       if (value === undefined || value === null || value === '') {
-        errors[p.placeholder] = `Please fill in ${p.placeholder}`;
+        errors[p.placeholder] = `请填写此参数`;
       }
     });
-
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   }, [form, placeholders]);
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
-    console.log('[ValueFillPanel] Submit clicked');
-    if (!validateAllValues()) {
-      console.log('[ValueFillPanel] Validation failed');
-      return;
-    }
-
+    if (!validateAllValues()) return;
     const values = form.getFieldsValue();
-    console.log('[ValueFillPanel] Form values:', values);
-
-    // Convert and save all values
     placeholders.forEach((p) => {
-      const convertedValue = convertValue(values[p.placeholder], p.fieldType);
+      const convertedValue = convertValue(values[p.placeholder], p.fieldType, p.operator);
       setPlaceholderValue(p.placeholder, convertedValue);
-      console.log(`[ValueFillPanel] Set ${p.placeholder} = ${convertedValue}`);
     });
-
-    // Use setTimeout to ensure state updates are flushed before executing
-    console.log('[ValueFillPanel] Calling onExecute() after state flush');
-    setTimeout(() => {
-      onExecute();
-    }, 0);
+    setTimeout(() => { onExecute(); }, 0);
   }, [form, placeholders, setPlaceholderValue, onExecute, validateAllValues]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
-    console.log('[ValueFillPanel] Cancel clicked');
     form.resetFields();
     setValidationErrors({});
     onClose();
@@ -190,23 +195,20 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   const groupedPlaceholders = useMemo(() => {
     const groups: Record<string, PlaceholderInfo[]> = {};
     placeholders.forEach((p) => {
-      if (!groups[p.refId]) {
-        groups[p.refId] = [];
-      }
+      if (!groups[p.refId]) groups[p.refId] = [];
       groups[p.refId].push(p);
     });
     return groups;
   }, [placeholders]);
 
-  // Check if there are any placeholders
   const hasPlaceholders = placeholders.length > 0;
 
   return (
     <Drawer
       title={
         <Space>
-          <InfoCircleOutlined style={{ color: '#FF6B00' }} />
-          <span style={{ color: '#fff', fontWeight: 500 }}>Fill Condition Values</span>
+          <PlayCircleOutlined style={{ color: '#FF6B00' }} />
+          <span style={{ color: '#fff', fontWeight: 600 }}>执行参数</span>
         </Space>
       }
       placement="right"
@@ -233,84 +235,91 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       closeIcon={<CloseOutlined style={{ color: '#8c8c8c' }} />}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={handleCancel}>Cancel</Button>
+          <Button onClick={handleCancel}>取消</Button>
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
             onClick={handleSubmit}
             disabled={!hasPlaceholders}
           >
-            Execute
+            执行
           </Button>
         </div>
       }
     >
       {!hasPlaceholders ? (
         <Alert
-          message="No placeholders to fill"
-          description="There are no condition definition nodes with placeholders in the flow."
+          message="无需填写参数"
+          description="当前流程没有条件定义节点，可直接执行。"
           type="info"
           showIcon
         />
       ) : (
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          {Object.entries(groupedPlaceholders).map(([refId, items]) => (
-            <div
-              key={refId}
-              style={{
-                marginBottom: 24,
-                padding: 16,
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: 8,
-                border: '1px solid #303030',
-              }}
-            >
-              {/* Group header */}
-              <div style={{ marginBottom: 16 }}>
-                <Tag color="purple" style={{ fontSize: 14, fontWeight: 600 }}>
-                  {refId}
-                </Tag>
-                <span style={{ marginLeft: 8, color: '#8c8c8c', fontSize: 12 }}>
-                  Table: {items[0]?.tableName}
-                </span>
-              </div>
+        <>
+          <div style={{ marginBottom: 16, color: '#8c8c8c', fontSize: 12 }}>
+            请填写以下条件值后执行分析
+          </div>
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            {Object.entries(groupedPlaceholders).map(([refId, items]) => (
+              <div
+                key={refId}
+                style={{
+                  marginBottom: 20,
+                  padding: 16,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: 8,
+                  border: '1px solid #303030',
+                }}
+              >
+                {/* Group header */}
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, gap: 8 }}>
+                  <FilterOutlined style={{ color: '#722ed1', fontSize: 13 }} />
+                  <Tag color="purple" style={{ fontWeight: 600, margin: 0 }}>{refId}</Tag>
+                  <Text style={{ color: '#595959', fontSize: 11 }}>
+                    {items[0]?.tableName}
+                  </Text>
+                </div>
 
-              {/* Placeholder inputs */}
-              {items.map((p) => (
-                <Form.Item
-                  key={p.placeholder}
-                  label={
-                    <Space size={4}>
-                      <Tag color="blue" style={{ fontFamily: 'monospace' }}>
-                        {p.placeholder}
-                      </Tag>
-                      <Tooltip title={`Field: ${p.field}, Type: ${p.fieldType}`}>
-                        <span style={{ color: '#8c8c8c', fontSize: 12 }}>
-                          {p.field}
-                        </span>
-                      </Tooltip>
-                    </Space>
-                  }
-                  name={p.placeholder}
-                  validateStatus={validationErrors[p.placeholder] ? 'error' : undefined}
-                  help={validationErrors[p.placeholder]}
-                  rules={[
-                    {
-                      required: true,
-                      message: `Please fill in ${p.placeholder}`,
-                    },
-                  ]}
-                >
-                  {getInputComponent(p.fieldType, p.placeholder)}
-                </Form.Item>
-              ))}
-            </div>
-          ))}
-        </Form>
+                {/* Placeholder inputs */}
+                {items.map((p) => {
+                  const operatorLabel = OPERATOR_LABEL_MAP[p.operator] ?? p.operator;
+                  return (
+                    <Form.Item
+                      key={p.placeholder}
+                      label={
+                        <Space size={6}>
+                          <Text style={{ color: '#d9d9d9', fontSize: 13 }}>{p.field}</Text>
+                          <Tag
+                            style={{
+                              fontSize: 11,
+                              padding: '0 6px',
+                              background: 'rgba(114,46,209,0.15)',
+                              border: '1px solid #531dab',
+                              color: '#b37feb',
+                            }}
+                          >
+                            {operatorLabel}
+                          </Tag>
+                          <Tooltip title={`占位符：${p.placeholder} · 类型：${p.fieldType}`}>
+                            <Text style={{ color: '#434343', fontSize: 11, fontFamily: 'monospace' }}>
+                              {p.placeholder}
+                            </Text>
+                          </Tooltip>
+                        </Space>
+                      }
+                      name={p.placeholder}
+                      validateStatus={validationErrors[p.placeholder] ? 'error' : undefined}
+                      help={validationErrors[p.placeholder]}
+                      rules={[{ required: true, message: '请填写此参数' }]}
+                    >
+                      {getInputComponent(p.fieldType, p.field, p.operator)}
+                    </Form.Item>
+                  );
+                })}
+              </div>
+            ))}
+          </Form>
+        </>
       )}
     </Drawer>
   );

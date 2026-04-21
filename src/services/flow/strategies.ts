@@ -21,7 +21,13 @@ import {
   type ConditionItem,
 } from './types';
 import { VALIDATION_MESSAGES } from './constants';
-import { LogicType } from './types';
+import { LogicType, FieldType } from './types';
+
+/** Field types that should be emitted as unquoted numeric literals in SQL */
+const NUMERIC_FIELD_TYPES = new Set<string>([
+  FieldType.INTEGER, FieldType.BIGINT, FieldType.SMALLINT, FieldType.TINYINT,
+  FieldType.DECIMAL, FieldType.NUMERIC, FieldType.REAL, FieldType.DOUBLE,
+]);
 
 /**
  * Base Strategy Class
@@ -260,16 +266,13 @@ export abstract class BaseStrategy implements FlowStrategy {
   ): string {
     // Get condition definition nodes
     const conditionDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
-    console.log('[buildWhereClauseWithPlaceholders] Condition definition nodes:', conditionDefNodes.length);
     if (conditionDefNodes.length === 0) return '';
 
     // Get condition group nodes (relation nodes)
     const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
-    console.log('[buildWhereClauseWithPlaceholders] Condition group nodes:', conditionGroupNodes.length);
 
     // If no relation nodes, combine all condition definitions with AND
     if (conditionGroupNodes.length === 0) {
-      console.log('[buildWhereClauseWithPlaceholders] No group nodes, using all conditions with AND');
       const allConditions = this.buildConditionDefinitionSql(
         conditionDefNodes,
         placeholderValues,
@@ -281,16 +284,9 @@ export abstract class BaseStrategy implements FlowStrategy {
     // Use the first condition group node to determine logic
     const groupNode = conditionGroupNodes[0];
     const groupData = groupNode.data as ConditionGroupNodeData;
-    console.log('[buildWhereClauseWithPlaceholders] Group data:', {
-      relationType: groupData.relationType,
-      logicType: groupData.logicType,
-      conditionIds: groupData.conditionIds,
-      customExpression: groupData.customExpression,
-    });
 
     // Handle custom expression (Q9: string replacement approach)
     if (groupData.relationType === 'CUSTOM' && groupData.customExpression) {
-      console.log('[buildWhereClauseWithPlaceholders] Using CUSTOM expression');
       const sql = this.parseCustomExpression(
         groupData.customExpression,
         conditionDefNodes,
@@ -301,18 +297,12 @@ export abstract class BaseStrategy implements FlowStrategy {
 
     // Handle AND/OR mode
     const selectedConditionIds = groupData.conditionIds || [];
-    console.log('[buildWhereClauseWithPlaceholders] Selected condition IDs:', selectedConditionIds);
-    
     const selectedNodes = conditionDefNodes.filter((n) => {
       const nodeData = n.data as ConditionDefinitionNodeData;
       return selectedConditionIds.includes(nodeData.refId);
     });
-    console.log('[buildWhereClauseWithPlaceholders] Selected nodes:', selectedNodes.length);
 
-    if (selectedNodes.length === 0) {
-      console.log('[buildWhereClauseWithPlaceholders] No selected nodes, returning empty WHERE');
-      return '';
-    }
+    if (selectedNodes.length === 0) return '';
 
     const logicType = groupData.logicType || LogicType.AND;
     const conditions = this.buildConditionDefinitionSql(
@@ -320,7 +310,6 @@ export abstract class BaseStrategy implements FlowStrategy {
       placeholderValues,
       logicType
     );
-    console.log('[buildWhereClauseWithPlaceholders] Generated conditions:', conditions);
 
     return conditions ? `WHERE ${conditions}` : '';
   }
@@ -353,48 +342,79 @@ export abstract class BaseStrategy implements FlowStrategy {
   }
 
   /**
-   * Helper: Build SQL for a single condition item
+   * Helper: Build SQL for a single condition item.
+   *
+   * Operator-specific rules:
+   *  - IS NULL / IS NOT NULL  → no value needed, always emits
+   *  - IN / NOT IN            → value wrapped in (…); comma-separated strings are split
+   *  - LIKE / NOT LIKE        → scalar string value
+   *  - STARTS WITH / ENDS WITH → scalar string value (DuckDB native operators)
+   *  - comparison operators   → scalar value
    */
   private buildSingleConditionSql(
     condition: ConditionItem,
     placeholderValues: Record<string, unknown>,
     tableName: string
   ): string {
+    const op = condition.operator;
+    const colRef = `"${tableName}"."${condition.field}"`;
+
+    // IS NULL / IS NOT NULL — no placeholder value required
+    if (op === 'IS NULL' || op === 'IS NOT NULL') {
+      return `${colRef} ${op}`;
+    }
+
     const value = placeholderValues[condition.placeholder];
 
-    // If value is not filled, skip this condition
-    if (value === undefined || value === null) {
+    // Skip conditions whose placeholder has not been filled
+    if (value === undefined || value === null || value === '') {
       return '';
     }
 
-    let sqlValue: string;
-
-    // Format value based on type
-    if (Array.isArray(value)) {
-      sqlValue = `(${value.map((v) => this.escapeSqlValue(v)).join(', ')})`;
-    } else {
-      sqlValue = this.escapeSqlValue(value);
+    // IN / NOT IN — must be wrapped in parentheses
+    if (op === 'IN' || op === 'NOT IN') {
+      if (Array.isArray(value)) {
+        const items = value.map((v) => this.escapeSqlValue(v, condition.valueType)).join(', ');
+        return `${colRef} ${op} (${items})`;
+      }
+      // Parse user input with common separators: comma, semicolon (full/half), Chinese enum comma, newline
+      // e.g. "1, 2; 3" or "a\nb\nc" all normalise to ["1","2","3"]
+      const MULTI_VALUE_SPLIT_RE = /[,，;；、\n\r]+/;
+      const items = String(value)
+        .split(MULTI_VALUE_SPLIT_RE)
+        .map((v) => v.trim())
+        .filter((v) => v !== '')
+        .map((v) => this.escapeSqlValue(v, condition.valueType))
+        .join(', ');
+      return `${colRef} ${op} (${items})`;
     }
 
-    // Use table-qualified field name to avoid ambiguity
-    return `"${tableName}"."${condition.field}" ${condition.operator} ${sqlValue}`;
+    // All other operators — scalar value
+    const sqlValue = Array.isArray(value)
+      ? this.escapeSqlValue(value[0], condition.valueType)
+      : this.escapeSqlValue(value, condition.valueType);
+
+    return `${colRef} ${op} ${sqlValue}`;
   }
 
   /**
-   * Helper: Escape SQL value
+   * Helper: Escape a SQL literal value.
+   * When fieldType is a numeric type, numeric strings are cast to numbers (no quotes).
    */
-  private escapeSqlValue(value: unknown): string {
-    if (typeof value === 'number') {
-      return String(value);
+  private escapeSqlValue(value: unknown, fieldType?: string): string {
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (value === null) return 'NULL';
+
+    const str = String(value).trim();
+
+    // Numeric field → try to cast string to number to avoid unnecessary quotes
+    if (fieldType && NUMERIC_FIELD_TYPES.has(fieldType)) {
+      const n = Number(str);
+      if (!isNaN(n) && str !== '') return String(n);
     }
-    if (typeof value === 'boolean') {
-      return value ? 'TRUE' : 'FALSE';
-    }
-    if (value === null) {
-      return 'NULL';
-    }
-    // Escape single quotes for string values
-    return `'${String(value).replace(/'/g, "''")}'`;
+
+    return `'${str.replace(/'/g, "''")}'`;
   }
 
   /**
