@@ -4,7 +4,7 @@
  * UI layout follows design/img/img_33.png.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Drawer,
   Button,
@@ -26,11 +26,13 @@ import {
   FilterOutlined,
   EditOutlined,
   CheckOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema } from '../../../services/flow/flowService';
 import type { ReplaceRule } from '../../../services/flow/types';
+import { resolveColumnConflicts } from '../../../services/flow/strategies/columnRenaming';
 
 const { Text } = Typography;
 
@@ -41,10 +43,19 @@ const { Text } = Typography;
 interface ReplaceColumnDrawerProps {
   open: boolean;
   onClose: () => void;
-  /** Called when user confirms; returns the configured replacement rules */
-  onConfirm: (rules: ReplaceRule[]) => void;
+  /** Called when user confirms; returns the configured replacement rules and output columns */
+  onConfirm: (rules: ReplaceRule[], outputColumns: string[]) => void;
   /** Current rules to pre-populate (e.g., from existing node data) */
   initialRules?: ReplaceRule[];
+  /** Selected output columns to pre-populate; empty = show all */
+  initialOutputColumns?: string[];
+  /**
+   * Upstream configured joined tables derived from the flow canvas.
+   * When provided, the drawer's "数据源" and "结果显示" dropdowns are restricted
+   * to these tables only (no cache — always reflects the live canvas state).
+   * If absent or empty, all available DuckDB tables are shown as fallback.
+   */
+  joinedTables?: string[];
 }
 
 const CONDITION_OPTIONS = [
@@ -150,6 +161,8 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   onClose,
   onConfirm,
   initialRules,
+  initialOutputColumns,
+  joinedTables,
 }) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
 
@@ -165,10 +178,34 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   // IDs of rows that failed required-field validation
   const [invalidRuleIds, setInvalidRuleIds] = useState<Set<string>>(new Set());
+  // Selected output columns (empty = 全部)
+  const [outputColumns, setOutputColumns] = useState<string[]>(() =>
+    initialOutputColumns && initialOutputColumns.length > 0
+      ? initialOutputColumns
+      : [...new Set((initialRules ?? []).flatMap((r) => r.targetColumn))]
+  );
+  // Track previous rule columns for auto-sync (add new / remove gone)
+  const prevRuleColumnsRef = useRef<Set<string>>(
+    new Set((initialRules ?? []).flatMap((r) => r.targetColumn))
+  );
 
   // ── Load tables when drawer opens ──────────────────────────────────────────
+  // `joinedTables` is memoized in the parent and only changes when the canvas
+  // join topology changes — so this effect won't thrash on every render.
+  // Reset tableColumns on every open/topology-change so stale column data
+  // from prior sessions doesn't bleed into a reconfigured join topology.
   useEffect(() => {
-    if (!open || !isDBReady) return;
+    if (!open) return;
+
+    // Clear stale column cache so newly joined tables load fresh column lists
+    setTableColumns({});
+
+    if (joinedTables && joinedTables.length > 0) {
+      setAvailableTables(joinedTables);
+      return;
+    }
+
+    if (!isDBReady) return;
 
     const load = async () => {
       try {
@@ -179,7 +216,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
       }
     };
     load();
-  }, [open, isDBReady, executeQuery]);
+  }, [open, isDBReady, executeQuery, joinedTables]);
 
   // ── Sync initialRules when drawer re-opens ─────────────────────────────────
   useEffect(() => {
@@ -188,10 +225,67 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
         initialRules && initialRules.length > 0 ? initialRules : [createEmptyRule()]
       );
       setInvalidRuleIds(new Set());
+      const initCols = initialOutputColumns && initialOutputColumns.length > 0
+        ? initialOutputColumns
+        : [...new Set((initialRules ?? []).flatMap((r) => r.targetColumn))];
+      setOutputColumns(initCols);
+      prevRuleColumnsRef.current = new Set((initialRules ?? []).flatMap((r) => r.targetColumn));
     }
-  }, [open, initialRules]);
+  }, [open, initialRules, initialOutputColumns]);
 
-  // ── Lazy-load columns for a table ──────────────────────────────────────────
+  // ── All columns available for output display (resolved for multi-table conflicts) ──
+  // Uses ALL joined tables (availableTables), not just those referenced in rules,
+  // so the "结果显示" dropdown always shows tb1.col / tb2.col for all joined tables.
+  // Also exposes colConflictMap so auto-sync can map raw rule columns to resolved names.
+  const { allDisplayableColumns, colConflictMap } = useMemo(() => {
+    // Use all available (joined) tables for full conflict resolution
+    const tablesWithCols = availableTables
+      .filter((t) => tableColumns[t])
+      .map((t) => ({ name: t, columns: tableColumns[t] }));
+
+    if (tablesWithCols.length === 0) return { allDisplayableColumns: [], colConflictMap: new Map<string, Map<string, string>>() };
+    if (tablesWithCols.length === 1) return { allDisplayableColumns: tablesWithCols[0].columns, colConflictMap: new Map<string, Map<string, string>>() };
+
+    // Multi-table: apply conflict resolution to get the actual aliased column names
+    const conflictMap = resolveColumnConflicts(tablesWithCols);
+    const cols: string[] = [];
+    for (const colMap of conflictMap.values()) {
+      for (const alias of colMap.values()) {
+        if (!cols.includes(alias)) cols.push(alias);
+      }
+    }
+    return { allDisplayableColumns: cols, colConflictMap: conflictMap };
+  }, [availableTables, tableColumns]);
+
+  // ── Auto-sync outputColumns when rules' targetColumns change ───────────────
+  useEffect(() => {
+    // Resolve raw column names (from rules) to their display names (conflict-resolved)
+    const resolveDisplayName = (tableName: string, rawCol: string): string => {
+      const tableMap = colConflictMap.get(tableName);
+      return tableMap?.get(rawCol) ?? rawCol;
+    };
+
+    const newRuleColumns = new Set(
+      rules.flatMap((r) =>
+        r.targetColumn.filter(Boolean).map((col) => resolveDisplayName(r.sourceTable, col))
+      )
+    );
+    const prev = prevRuleColumnsRef.current;
+
+    setOutputColumns((prevOut) => {
+      let next = [...prevOut];
+      // Add columns newly appeared in rules (using resolved names)
+      for (const col of newRuleColumns) {
+        if (!next.includes(col)) next.push(col);
+      }
+      // Remove columns that left ALL rules (were previously auto-derived)
+      const removedFromRules = [...prev].filter((c) => !newRuleColumns.has(c));
+      next = next.filter((c) => !removedFromRules.includes(c));
+      return next.length !== prevOut.length || removedFromRules.length > 0 ? next : prevOut;
+    });
+
+    prevRuleColumnsRef.current = newRuleColumns;
+  }, [rules, colConflictMap]);
   const loadColumns = useCallback(
     async (tableName: string) => {
       if (!tableName || tableColumns[tableName]) return;
@@ -207,6 +301,26 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
     },
     [executeQuery, tableColumns]
   );
+
+  // ── Eagerly load columns for ALL available tables when the table list changes ──
+  // This ensures resolveColumnConflicts sees all joined tables and produces
+  // consistent tb1.col / tb2.col aliases for the "结果显示" dropdown.
+  useEffect(() => {
+    if (!open || !isDBReady || availableTables.length === 0) return;
+    availableTables.forEach((t) => {
+      if (!tableColumns[t]) {
+        getTableSchema(t, executeQuery)
+          .then((schema) => {
+            setTableColumns((prev) => ({
+              ...prev,
+              [t]: schema.fields.map((f) => f.name),
+            }));
+          })
+          .catch((err) => console.error(`[ReplaceColumnDrawer] Eager load failed for ${t}:`, err));
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, availableTables, isDBReady]);
 
   // ── Rule mutation helpers ──────────────────────────────────────────────────
 
@@ -262,8 +376,8 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
     }
 
     setInvalidRuleIds(new Set());
-    onConfirm(rules);
-  }, [rules, onConfirm]);
+    onConfirm(rules, outputColumns);
+  }, [rules, outputColumns, onConfirm]);
 
   // ============================================================================
   // Render helpers
@@ -705,6 +819,102 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           >
             添加规则行
           </Button>
+
+          {/* ── Output columns selector ───────────────────────────────── */}
+          <div
+            style={{
+              marginTop: 16,
+              padding: '10px 12px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: TOKEN.radius,
+              border: `1px solid ${TOKEN.borderSubtle}`,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <TableOutlined style={{ color: TOKEN.textMuted, fontSize: 11 }} />
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: TOKEN.textSecondary,
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                结果显示
+              </Text>
+            </div>
+            <Select
+              mode="multiple"
+              menuItemSelectedIcon={null}
+              placeholder={
+                <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>全部</span>
+              }
+              value={outputColumns}
+              onChange={(val: string[]) => setOutputColumns(val)}
+              style={{ width: '100%' }}
+              className="nodrag"
+              getPopupContainer={() => document.body}
+              popupClassName="nodrag"
+              size="small"
+              maxTagCount={0}
+              maxTagPlaceholder={() => {
+                if (outputColumns.length === 0) return null;
+                return (
+                  <span style={{ fontSize: 11, color: TOKEN.textPrimary }}>
+                    {outputColumns[0]}
+                    {outputColumns.length > 1 && (
+                      <span
+                        style={{
+                          color: TOKEN.primary,
+                          fontWeight: 600,
+                          marginLeft: 3,
+                        }}
+                      >
+                        +{outputColumns.length - 1}
+                      </span>
+                    )}
+                  </span>
+                );
+              }}
+              allowClear
+              onClear={() => setOutputColumns([])}
+              notFoundContent={
+                <span style={{ fontSize: 11, color: TOKEN.textMuted }}>
+                  请先配置数据源和目标列
+                </span>
+              }
+            >
+              {allDisplayableColumns.map((col) => {
+                const isSelected = outputColumns.includes(col);
+                return (
+                  <Select.Option key={col} value={col}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
+                      {isSelected && (
+                        <CheckOutlined
+                          style={{ fontSize: 11, color: TOKEN.primary, flexShrink: 0 }}
+                        />
+                      )}
+                    </div>
+                  </Select.Option>
+                );
+              })}
+            </Select>
+          </div>
         </div>
       </div>
 

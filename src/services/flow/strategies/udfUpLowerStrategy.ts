@@ -145,8 +145,8 @@ export class UdfUpLowerStrategy extends UdfBaseStrategy {
       const colsByTable = new Map<string, string[]>(
         tables.map((t) => [t, nodeData.upLowerConfig?.cols ?? []])
       );
-      const subquery = buildJoinSubquery(tables, edges, colsByTable);
-      if (subquery) return subquery;
+      const joinResult = buildJoinSubquery(tables, edges, colsByTable);
+      if (joinResult) return joinResult.sql;
     }
     // Single-table: use udfFunctionName-related table name or fallback
     return (nodeData as unknown as { sourceTable?: string }).sourceTable ?? '__src';

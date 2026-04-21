@@ -141,8 +141,8 @@ export class UdfFlagSpecStrategy extends UdfBaseStrategy {
       const tables = [...tableSet];
       const cols = Object.keys(flagsConfig);
       const colsByTable = new Map<string, string[]>(tables.map((t) => [t, cols]));
-      const subquery = buildJoinSubquery(tables, edges, colsByTable);
-      if (subquery) return subquery;
+      const joinResult = buildJoinSubquery(tables, edges, colsByTable);
+      if (joinResult) return joinResult.sql;
     }
     return (nodeData as unknown as { sourceTable?: string }).sourceTable ?? '__src';
   }

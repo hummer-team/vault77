@@ -237,6 +237,8 @@ export interface SelectNodeData extends BaseNodeData {
   udfFunctionName?: string;
   udfKernelName?: string;
   replacementRules?: ReplaceRule[];
+  /** Selected output columns for udf_replace_spec_column_value; empty = show all */
+  outputColumns?: string[];
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -331,6 +333,8 @@ export interface UdfConfigNodeData extends BaseNodeData {
   udfFunctionName: string;
   /** Replacement rules for udf_replace_spec_column_value */
   replacementRules?: ReplaceRule[];
+  /** Selected output columns for udf_replace_spec_column_value; empty = show all */
+  outputColumns?: string[];
   /** Config for udf_up_lower_str */
   upLowerConfig?: UpLowerConfig;
   /** Config for udf_format_number */

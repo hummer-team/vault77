@@ -20,22 +20,27 @@ export abstract class UdfBaseStrategy extends BaseStrategy {
    *   2. Static fallbackCondition (e.g. cfg.condition from UDF config)
    *
    * When tblParam is a subquery (starts with '('), columns inside the MACRO are
-   * referenced as single aliased names like `main_table_1.id` — not as
+   * referenced as single aliased names (e.g. `tb1.id`) — not as
    * table-qualified `"main_table_1"."id"`. This method rewrites the generated
-   * WHERE clause accordingly.
+   * WHERE clause using columnAliasMap when available, otherwise falls back to
+   * the naive `"tableName.field"` concatenation.
    *
    * @param nodes              - Canvas nodes (used to find condition-definition nodes)
    * @param placeholderValues  - Filled-in placeholder values from EndNode
    * @param tblParam           - The resolved table/subquery string passed to the MACRO
    * @param fallbackCondition  - Static condition from the UDF config (used when no
    *                             canvas condition is present)
+   * @param columnAliasMap     - Optional: tableName → (rawCol → resolvedAlias) from
+   *                             resolveColumnConflicts(). When provided, rewrites
+   *                             `"tableName"."col"` → `"resolvedAlias"` (e.g. `"tb1.id"`).
    * @returns Raw SQL expression string (no leading WHERE), or '' if none.
    */
   protected buildUdfConditionSql(
     nodes: FlowNode[],
     placeholderValues: Record<string, unknown> | undefined,
     tblParam: string,
-    fallbackCondition?: string
+    fallbackCondition?: string,
+    columnAliasMap?: Map<string, Map<string, string>>
   ): string {
     // Build WHERE clause from canvas condition nodes + placeholder values
     const whereClause = placeholderValues
@@ -52,10 +57,18 @@ export abstract class UdfBaseStrategy extends BaseStrategy {
 
     // In multi-table (subquery) mode the MACRO wraps the subquery as __src.
     // buildWhereClauseWithPlaceholders emits `"tableName"."field"` (table-qualified),
-    // but inside __src the columns are aliased as `tableName.field` (dot in alias).
-    // Rewrite: `"tableName"."field"` → `"tableName.field"`.
+    // but inside __src the columns are aliased by the subquery projection (e.g. "tb1.id").
+    // Rewrite `"tableName"."field"` → the resolved alias from columnAliasMap when available,
+    // otherwise fall back to the naive `"tableName.field"` concatenation.
     if (tblParam.trimStart().startsWith('(') && conditionSql) {
-      conditionSql = conditionSql.replace(/"([^"]+)"\."([^"]+)"/g, '"$1.$2"');
+      conditionSql = conditionSql.replace(/"([^"]+)"\."([^"]+)"/g, (_, tableName, colName) => {
+        if (columnAliasMap) {
+          const resolved = columnAliasMap.get(tableName)?.get(colName);
+          if (resolved) return `"${resolved}"`;
+        }
+        // Fallback: concatenate as "tableName.colName"
+        return `"${tableName}.${colName}"`;
+      });
     }
 
     return conditionSql;

@@ -31,7 +31,7 @@ import {
   type TableNodeData,
 } from '../types';
 import { UdfBaseStrategy } from './udfBaseStrategy';
-import { escapeSql, buildJoinSubquery, resolveColumnConflicts } from './udfShared';
+import { escapeSql, buildJoinSubquery } from './udfShared';
 
 // ============================================================================
 // UdfReplaceColumnStrategy
@@ -129,6 +129,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
 
     const nodeData = udfNode.data as UdfConfigNodeData | SelectNodeData;
     const rules = (nodeData.replacementRules as ReplaceRule[] | undefined) ?? [];
+    const outputColumns = (nodeData as SelectNodeData).outputColumns ?? [];
 
     if (rules.length === 0) {
       throw new Error('替换规则为空，无法构建 SQL');
@@ -144,14 +145,8 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
       throw new Error('无法确定数据源表名');
     }
 
-    // Compute conflict-resolved aliases for all tables that have schema info
-    const tablesWithSchema = [...fullTableSchemas.entries()].map(([name, columns]) => ({
-      name,
-      columns,
-    }));
-    const conflictMap = resolveColumnConflicts(tablesWithSchema);
-
     let tblParam: string;
+    let conflictMap = new Map<string, Map<string, string>>();
 
     if (tableGroups.size === 1) {
       // Single-table path: existing behaviour, fully backward-compatible
@@ -172,9 +167,10 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
         }
         targetColsByTable.set(rule.sourceTable, existing);
       }
-      const subquery = buildJoinSubquery(allTables, edges, targetColsByTable, fullTableSchemas);
-      if (subquery) {
-        tblParam = subquery;
+      const joinResult = buildJoinSubquery(allTables, edges, targetColsByTable, fullTableSchemas);
+      if (joinResult) {
+        tblParam = joinResult.sql;
+        conflictMap = joinResult.columnAliasMap;
         console.log(`[${this.name}.buildSql] multi-table mode: tables=[${allTables.join(',')}], subquery built`);
       } else {
         // Fallback: no join edges found — use the first table and warn
@@ -186,11 +182,13 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
       }
     }
 
-    // Build condition SQL via shared UDF helper (handles placeholder values +
-    // multi-table "table"."col" → "table.col" rewriting automatically)
-    const conditionSql = this.buildUdfConditionSql(nodes, placeholderValues, tblParam);
+    // Build condition SQL via shared UDF helper.
+    // Pass conflictMap so multi-table column refs are rewritten using the actual
+    // subquery aliases (e.g. "main_table_1"."id" → "tb1.id") instead of the naive
+    // "tableName.field" concatenation which DuckDB cannot resolve.
+    const conditionSql = this.buildUdfConditionSql(nodes, placeholderValues, tblParam, undefined, conflictMap);
 
-    const sql = this._buildUdfCall(tblParam, rules, conflictMap, conditionSql);
+    const sql = this._buildUdfCall(tblParam, rules, conflictMap, conditionSql, outputColumns);
     console.log(`[${this.name}.buildSql] sql=\n${sql}`);
     return sql;
   }
@@ -284,7 +282,8 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     tblOrSubquery: string,
     rules: ReplaceRule[],
     columnAliasMap?: Map<string, Map<string, string>>,
-    conditionSql?: string
+    conditionSql?: string,
+    outputColumns?: string[]
   ): string {
     const fillMapObj: Record<string, string> = {};
     const swapMapObj: Record<string, [string, string]> = {};
@@ -326,7 +325,13 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
       params.push(`  condition := '${escapeSql(effectiveCondition)}'`);
     }
 
-    return `SELECT *\nFROM udf_replace_spec_column_value(\n${params.join(',\n')}\n)`;
+    // SELECT clause: use specific columns when user has configured output columns
+    const selectClause =
+      outputColumns && outputColumns.length > 0
+        ? outputColumns.map((c) => `"${c}"`).join(', ')
+        : '*';
+
+    return `SELECT ${selectClause}\nFROM udf_replace_spec_column_value(\n${params.join(',\n')}\n)`;
   }
 }
 

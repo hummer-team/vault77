@@ -23,6 +23,7 @@ import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } fro
 import { FLOW_COLORS, SQL_OPERATORS, PLACEHOLDER_CONSTANTS } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { useCanvasJoinedTables } from '../hooks/useUpstreamJoinedTables';
 
 interface ConditionDefinitionNodeProps {
   id: string;
@@ -57,6 +58,9 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
 
+  // Canvas-wide joined tables — recalculates whenever join topology changes
+  const canvasJoinedTables = useCanvasJoinedTables();
+
   const [availableTables, setAvailableTables] = useState<string[]>([]);
   const [tableFields, setTableFields] = useState<Field[]>([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
@@ -68,26 +72,20 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
   const [contentExpanded, setContentExpanded] = useState(true); // Content section expanded by default
 
-  // Debug: log availableTables state changes
+  // Load available tables: prefer canvas-wide joined tables; fallback to DuckDB query
   React.useEffect(() => {
-    console.log('[ConditionDefinitionNode] availableTables state:', availableTables);
-    console.log('[ConditionDefinitionNode] availableTables detail:', JSON.stringify(availableTables));
-    console.log('[ConditionDefinitionNode] First table:', availableTables[0]);
-  }, [availableTables]);
+    if (canvasJoinedTables.length > 0) {
+      // Use only actually-joined tables from canvas topology (no DB query needed)
+      setAvailableTables(canvasJoinedTables);
+      return;
+    }
 
-  // Load available tables on mount when DB is ready
-  React.useEffect(() => {
+    // Fallback: no joins configured — load all DuckDB tables
     const loadTables = async () => {
-      if (!isDBReady) {
-        console.log('[ConditionDefinitionNode] DB not ready, skipping table load');
-        return;
-      }
-
+      if (!isDBReady) return;
       setIsLoadingTables(true);
       try {
-        console.log('[ConditionDefinitionNode] Loading tables...');
         const tables = await getAvailableTables(executeQuery);
-        console.log('[ConditionDefinitionNode] Loaded tables:', tables);
         setAvailableTables(tables);
       } catch (error) {
         console.error('[ConditionDefinitionNode] Failed to load tables:', error);
@@ -96,7 +94,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
       }
     };
     loadTables();
-  }, [executeQuery, isDBReady]);
+  }, [canvasJoinedTables, executeQuery, isDBReady]);
 
   // Load table fields when table changes
   React.useEffect(() => {

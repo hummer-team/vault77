@@ -13,6 +13,7 @@ import { FLOW_COLORS } from '../../../services/flow/constants';
 import { OperatorType } from '../../../services/flow/types';
 import type { UdfConfigNodeData, ReplaceRule } from '../../../services/flow/types';
 import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
+import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 
 interface UdfConfigNodeProps {
   id: string;
@@ -33,6 +34,9 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
   const removeNode = useFlowStore((state) => state.removeNode);
   const nodes = useFlowStore((state) => state.nodes);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Compute upstream configured joined tables via shared hook
+  const joinedTables = useUpstreamJoinedTables(id);
 
   // Determine configured rule count
   const ruleCount = data.replacementRules?.length ?? 0;
@@ -55,8 +59,8 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
   }, []);
 
   const handleConfirm = useCallback(
-    (rules: ReplaceRule[]) => {
-      updateNode(id, { replacementRules: rules } as Partial<UdfConfigNodeData>);
+    (rules: ReplaceRule[], outputColumns: string[]) => {
+      updateNode(id, { replacementRules: rules, outputColumns } as Partial<UdfConfigNodeData>);
       setDrawerOpen(false);
 
       // Propagate operatorType to EndNode so it uses the correct strategy
@@ -179,6 +183,8 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
           onClose={handleCloseDrawer}
           onConfirm={handleConfirm}
           initialRules={data.replacementRules}
+          initialOutputColumns={data.outputColumns}
+          joinedTables={joinedTables}
         />
       )}
     </>

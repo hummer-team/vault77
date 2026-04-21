@@ -25,6 +25,7 @@ import {
 } from '../../../services/flow/bizKernelsBuilderStrategies';
 import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 
 interface SelectNodeProps {
   id: string;
@@ -59,6 +60,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const updateNode = useFlowStore((state) => state.updateNode);
 
+  // Compute upstream configured joined tables via shared hook
+  const joinedTables = useUpstreamJoinedTables(id);
+
   // UDF drawer visibility state
   const [udfDrawerOpen, setUdfDrawerOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -91,8 +95,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
 
   /** Called when user confirms rules in ReplaceColumnDrawer */
   const handleUdfConfirm = useCallback(
-    (rules: ReplaceRule[]) => {
-      updateNode(id, { replacementRules: rules } as Partial<SelectNodeData>);
+    (rules: ReplaceRule[], outputColumns: string[]) => {
+      updateNode(id, { replacementRules: rules, outputColumns } as Partial<SelectNodeData>);
       setUdfDrawerOpen(false);
       // Propagate operatorType to EndNode so the correct strategy is used
       const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
@@ -344,6 +348,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         onClose={() => setUdfDrawerOpen(false)}
         onConfirm={handleUdfConfirm}
         initialRules={data.replacementRules}
+        initialOutputColumns={data.outputColumns}
+        joinedTables={joinedTables}
       />
     )}
     </>

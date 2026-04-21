@@ -3,7 +3,7 @@
  * Integration with DuckDB for analysis flow data operations
  */
 
-import type { Field, FieldType, TableSchema, FlowNode } from './types';
+import type { Field, FieldType, TableSchema, FlowNode, FlowEdge, JoinEdgeData, TableNodeData } from './types';
 import { PLACEHOLDER_CONSTANTS } from './constants';
 
 /**
@@ -255,4 +255,140 @@ export function isRefIdUnique(
       n.id !== excludeNodeId &&
       (n.data as { refId?: string }).refId === refId
   );
+}
+
+/**
+ * Get the set of DuckDB table names that are upstream of a given node and
+ * connected via **configured** join edges (JoinEdgeData.configured === true).
+ *
+ * Algorithm:
+ * 1. BFS backwards from `nodeId` (following all edge types) to find upstream nodes.
+ * 2. Collect all upstream table node names (seed set).
+ * 3. Build a **bidirectional** adjacency graph from configured join edges.
+ * 4. BFS over that graph starting from any seed table to expand to the full join cluster.
+ *    This correctly handles join edges that point in either direction relative to the canvas flow.
+ * 5. Fallback: if no configured joins exist, return just the upstream table nodes.
+ *
+ * @param nodeId  The node to start tracing from (typically a SelectNode / UdfConfigNode).
+ * @param nodes   Full node list from the flow store.
+ * @param edges   Full edge list from the flow store.
+ * @returns       Ordered list of table names; empty array means "use all available tables".
+ */
+export function getUpstreamConfiguredJoinedTables(
+  nodeId: string,
+  nodes: FlowNode[],
+  edges: FlowEdge[]
+): string[] {
+  // --- Step 1: BFS backwards (target→source) to collect upstream node IDs ---
+  const upstream = new Set<string>([nodeId]);
+  const queue: string[] = [nodeId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const edge of edges) {
+      if (edge.target === current && !upstream.has(edge.source)) {
+        upstream.add(edge.source);
+        queue.push(edge.source);
+      }
+    }
+  }
+
+  // --- Step 2: Collect table names from upstream table nodes (seed set) ---
+  const seedTables = new Set<string>();
+  for (const nid of upstream) {
+    const node = nodes.find((n) => n.id === nid);
+    if (node?.type === 'table') {
+      const tableName = (node.data as TableNodeData).tableName;
+      if (tableName) seedTables.add(tableName);
+    }
+  }
+
+  if (seedTables.size === 0) return [];
+
+  // --- Step 3: Build bidirectional join graph from all configured join edges ---
+  // (Join edges connect table nodes bidirectionally — direction in canvas is arbitrary)
+  const joinGraph = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.type !== 'join') continue;
+    const d = edge.data as JoinEdgeData | undefined;
+    if (!d?.configured) continue;
+    const { sourceTableName: src, targetTableName: tgt } = d;
+    if (!src || !tgt) continue;
+    if (!joinGraph.has(src)) joinGraph.set(src, new Set());
+    if (!joinGraph.has(tgt)) joinGraph.set(tgt, new Set());
+    joinGraph.get(src)!.add(tgt);
+    joinGraph.get(tgt)!.add(src); // bidirectional
+  }
+
+  // --- Step 4: BFS over join graph starting from seed tables to expand the cluster ---
+  const seedsInGraph = [...seedTables].filter((t) => joinGraph.has(t));
+  if (seedsInGraph.length === 0) {
+    // No join edges — single-table mode, return the upstream tables
+    return [...seedTables];
+  }
+
+  const cluster = new Set<string>(seedsInGraph);
+  const clusterQueue = [...seedsInGraph];
+
+  while (clusterQueue.length > 0) {
+    const current = clusterQueue.shift()!;
+    for (const neighbor of joinGraph.get(current) ?? []) {
+      if (!cluster.has(neighbor)) {
+        cluster.add(neighbor);
+        clusterQueue.push(neighbor);
+      }
+    }
+  }
+
+  return [...cluster];
+}
+
+/**
+ * Get all tables participating in at least one configured join edge on the canvas.
+ *
+ * Unlike `getUpstreamConfiguredJoinedTables`, this function does NOT require a
+ * specific starting node — it scans the entire edge list for configured join
+ * edges and returns all connected table names. Use this for nodes (e.g.,
+ * ConditionDefinitionNode) that may not have direct upstream edges to table nodes.
+ *
+ * @param edges  Full edge list from the flow store.
+ * @returns      List of table names in the joined cluster; empty if no configured joins.
+ */
+export function getCanvasJoinedTables(edges: FlowEdge[]): string[] {
+  // Build bidirectional join graph from configured join edges
+  const joinGraph = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.type !== 'join') continue;
+    const d = edge.data as JoinEdgeData | undefined;
+    if (!d?.configured) continue;
+    const { sourceTableName: src, targetTableName: tgt } = d;
+    if (!src || !tgt) continue;
+    if (!joinGraph.has(src)) joinGraph.set(src, new Set());
+    if (!joinGraph.has(tgt)) joinGraph.set(tgt, new Set());
+    joinGraph.get(src)!.add(tgt);
+    joinGraph.get(tgt)!.add(src);
+  }
+
+  if (joinGraph.size === 0) return [];
+
+  // BFS to collect all tables in the join cluster
+  const visited = new Set<string>();
+  const result: string[] = [];
+  for (const tableName of joinGraph.keys()) {
+    if (!visited.has(tableName)) {
+      const queue = [tableName];
+      visited.add(tableName);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        result.push(curr);
+        for (const neighbor of joinGraph.get(curr) ?? []) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+    }
+  }
+  return result;
 }

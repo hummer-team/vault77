@@ -63,6 +63,13 @@ export function buildOnClause(conditions: JoinConditionRow[], aliasOf: Map<strin
     .join(' ');
 }
 
+export type JoinSubqueryResult = {
+  /** The parenthesised subquery SQL string to use as the `tbl` argument */
+  sql: string;
+  /** Per-table alias map: table name → (original col → resolved alias used in the subquery) */
+  columnAliasMap: Map<string, Map<string, string>>;
+};
+
 /**
  * Build a parenthesised JOIN subquery string for multi-table UDF calls.
  *
@@ -71,7 +78,7 @@ export function buildOnClause(conditions: JoinConditionRow[], aliasOf: Map<strin
  * **Full-schema mode** (when `fullTableSchemas` is provided):
  * - Uses explicit column projection for ALL tables.
  * - Calls `resolveColumnConflicts` to detect shared column names.
- * - Shared columns are aliased as `"tableName.columnName"` (dot notation, double-quoted).
+ * - Shared columns are aliased as `"tbN.columnName"` (short prefix derived from table name).
  * - Unique columns keep their simple name.
  * - No `t0.*` — every column is listed explicitly, so there are no hidden duplicates.
  *
@@ -92,7 +99,7 @@ export function buildJoinSubquery(
   edges: FlowEdge[],
   targetColsByTable: Map<string, string[]>,
   fullTableSchemas?: Map<string, string[]>
-): string | null {
+): JoinSubqueryResult | null {
   // Collect and sort join edges by order
   const joinEdges = edges
     .filter((e) => e.type === 'join' && e.data)
@@ -112,13 +119,14 @@ export function buildJoinSubquery(
     if (!orderedTables.includes(t)) orderedTables.push(t);
   }
 
-  // Alias map: table name → short alias (t0, t1, …)
+  // Alias map: table name → short alias (t0, t1, …) — used in the FROM/JOIN clause
   const aliasOf = new Map<string, string>(orderedTables.map((t, i) => [t, `t${i}`]));
   const mainTable = orderedTables[0];
   const mainAlias = aliasOf.get(mainTable)!;
 
   // Build SELECT clause
   let selectParts: string[];
+  let columnAliasMap = new Map<string, Map<string, string>>();
 
   if (fullTableSchemas && fullTableSchemas.size > 0) {
     // Full-schema mode: explicit projection with conflict resolution
@@ -126,7 +134,7 @@ export function buildJoinSubquery(
       .filter((t) => fullTableSchemas.has(t))
       .map((t) => ({ name: t, columns: fullTableSchemas.get(t)! }));
 
-    const conflictMap = resolveColumnConflicts(tableColumnsList);
+    columnAliasMap = resolveColumnConflicts(tableColumnsList);
     selectParts = [];
 
     for (const tbl of orderedTables) {
@@ -138,7 +146,7 @@ export function buildJoinSubquery(
         if (tbl === mainTable) selectParts.push(`${alias}.*`);
         continue;
       }
-      const renameMap = conflictMap.get(tbl) ?? new Map<string, string>();
+      const renameMap = columnAliasMap.get(tbl) ?? new Map<string, string>();
       for (const col of columns) {
         const qCol = `"${col.replace(/"/g, '""')}"`;
         const resolvedAlias = renameMap.get(col) ?? col;
@@ -179,5 +187,8 @@ export function buildJoinSubquery(
     fromClause += `\n    ${joinKeyword} JOIN ${quotedTarget} ${targetAlias} ${onStr}`;
   }
 
-  return `(SELECT ${selectParts.join(', ')}\n    ${fromClause})`;
+  return {
+    sql: `(SELECT ${selectParts.join(', ')}\n    ${fromClause})`,
+    columnAliasMap,
+  };
 }

@@ -293,6 +293,6 @@ describe('UdfReplaceColumnStrategy.postProcess', () => {
   it('should include a table visualization config', async () => {
     const result = await strategy.postProcess({ data: [], schema: [] });
     expect(result.visualizations).toHaveLength(1);
-    expect(result.visualizations[0].type).toBe('table');
+    expect(result.visualizations![0].type).toBe('table');
   });
 });
