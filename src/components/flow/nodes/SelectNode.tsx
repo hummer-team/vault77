@@ -28,6 +28,7 @@ import type {
   BasicStatsConfig,
   TableNodeData,
   OrderDistributionConfig,
+  RepurchaseCycleConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -44,6 +45,7 @@ import FlagSpecDrawer from '../udf/FlagSpecDrawer';
 import FormatDateDrawer from '../udf/FormatDateDrawer';
 import { BasicStatsDrawer } from '../udf/BasicStatsDrawer';
 import { OrderDistributionDrawer } from '../udf/OrderDistributionDrawer';
+import { RepurchaseCycleDrawer } from '../udf/RepurchaseCycleDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -200,6 +202,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleRepurchaseCycleConfirm = useCallback(
+    (config: RepurchaseCycleConfig) => {
+      updateNode(id, { repurchaseCycleConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive column names from the first upstream joined table for BasicStatsDrawer
   const basicStatsColumns = useMemo(() => {
     const tableName = joinedTables[0];
@@ -239,6 +249,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.basicStatsConfig && data.basicStatsConfig.aggFields.length > 0);
       case SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER:
         return !!(data.orderDistConfig?.subType);
+      case SelectNodePanelType.REPURCHASE_CYCLE_DRAWER:
+        return !!(data.repurchaseCycleConfig?.userIdCol);
       default:
         return false;
     }
@@ -565,6 +577,16 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               columns={orderDistColumns}
               initialConfig={data.orderDistConfig}
               onConfirm={handleOrderDistConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.REPURCHASE_CYCLE_DRAWER:
+          return (
+            <RepurchaseCycleDrawer
+              open={udfDrawerOpen}
+              columns={orderDistColumns}
+              initialConfig={data.repurchaseCycleConfig}
+              onConfirm={handleRepurchaseCycleConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

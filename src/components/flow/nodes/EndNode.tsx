@@ -83,6 +83,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_data_format_date:                     OperatorType.UDF_FORMAT_DATE,
     fn_basic_statis:                              OperatorType.BASIC_STATS,
     fn_ecom_order_distribution:                   OperatorType.ORDER_DISTRIBUTION,
+    fn_ecom_repurchase_cycle:                     OperatorType.REPURCHASE_CYCLE,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {
