@@ -47,6 +47,12 @@ export interface BizKernelMetadata {
     outputFields?: string[];
     constraints?: string[];
   };
+  /**
+   * Semantic group identifier.
+   * For single operators, defaults to the operator's `name`.
+   * For multi-sub-type operators (e.g., order distribution), all sibling operators share the same group value.
+   */
+  group?: string;
 }
 
 /**

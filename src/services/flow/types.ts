@@ -49,6 +49,7 @@ export enum OperatorType {
   UDF_FLAG_SPEC      = 'udf_flag_spec',       // Data-cleaning: flag / label specific column values
   UDF_FORMAT_DATE    = 'udf_format_date',     // Data-cleaning: date/time format conversion
   BASIC_STATS = 'basic_stats',
+  ORDER_DISTRIBUTION = 'order_distribution',  // Order distribution: time / amount / geo
 }
 
 export enum LogicType {
@@ -250,6 +251,8 @@ export interface SelectNodeData extends BaseNodeData {
   formatDateConfig?: FormatDateConfig;
   /** Config for fn_basic_statis */
   basicStatsConfig?: BasicStatsConfig;
+  /** Config for fn_ecom_order_distribution */
+  orderDistConfig?: OrderDistributionConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -301,6 +304,77 @@ export interface BasicStatsConfig {
   havingFilters: HavingFilter[];
   /** ORDER BY entries */
   sortConfigs: SortConfig[];
+}
+
+// ============================================================================
+// OrderDistribution types
+// ============================================================================
+
+/** Sub-type selector for the order distribution operator */
+export type OrderDistSubType = 'time_dist' | 'amount_dist' | 'geo_dist';
+
+/** Comparison type for 同比/环比 */
+export type ComparisonType = 'yoy' | 'mom'; // year-over-year | month-over-month
+
+/** Time granularity for time distribution */
+export type TimeGranularity = 'day' | 'week' | 'month';
+
+/** A single amount bucket definition */
+export interface AmountBucket {
+  /** Minimum value (inclusive) */
+  min: number | null; // null means -Infinity (open lower bound)
+  /** Maximum value (exclusive) */
+  max: number | null; // null means +Infinity (open upper bound)
+  /** Display label */
+  label: string;
+}
+
+/** Config for time trend distribution sub-type */
+export interface TimeDistConfig {
+  orderTimeColumn: string;
+  orderAmountColumn: string;
+  granularity: TimeGranularity;
+  currentStart: string; // ISO date string
+  currentEnd: string;
+  enableComparison: boolean;
+  comparisonType?: ComparisonType;
+  // comparison period is auto-computed; user may override
+  comparisonStart?: string;
+  comparisonEnd?: string;
+}
+
+/** Config for amount range distribution sub-type */
+export interface AmountDistConfig {
+  orderAmountColumn: string;
+  orderTimeColumn: string; // needed for time-scoped comparison
+  buckets: AmountBucket[];
+  currentStart: string;
+  currentEnd: string;
+  enableComparison: boolean;
+  comparisonType?: ComparisonType;
+  comparisonStart?: string;
+  comparisonEnd?: string;
+}
+
+/** Config for geographic distribution sub-type */
+export interface GeoDistConfig {
+  geoColumn: string;     // user-selected geographic column
+  orderAmountColumn: string;
+  orderTimeColumn: string;
+  currentStart: string;
+  currentEnd: string;
+  enableComparison: boolean;
+  comparisonType?: ComparisonType;
+  comparisonStart?: string;
+  comparisonEnd?: string;
+}
+
+/** Top-level config stored on SelectNode for fn_ecom_order_distribution */
+export interface OrderDistributionConfig {
+  subType: OrderDistSubType;
+  timeDist?: TimeDistConfig;
+  amountDist?: AmountDistConfig;
+  geoDist?: GeoDistConfig;
 }
 
 // ============================================================================

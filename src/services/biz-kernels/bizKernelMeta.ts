@@ -13,6 +13,7 @@ import type { BizKernelMetadata } from './types';
  */
 export const SEED_KERNELS: BizKernelMetadata[] = [
   // 数据清洗
+  // done
   {
     name: 'fn_ecom_data_clean_replace_spec_column_value',
     displayName: '数据清洗，替换特定列值',
@@ -30,10 +31,11 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     metadata: {
       inputFields: ['*'],
       outputFields: ['*'],
-      constraints: ['单个文档替换'],
+      constraints: ['单个、多个文'],
     },
   },
   // 数据清洗
+  // done
   {
     name: 'fn_ecom_data_clean_up_lower',
     displayName: '数据清洗，转换大小写',
@@ -51,10 +53,11 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     metadata: {
       inputFields: ['*'],
       outputFields: ['*'],
-      constraints: ['单个文档替换'],
+      constraints: ['单个、多个文档'],
     },
   },
   // 数据清洗
+  // done
   {
     name: 'fn_ecom_data_clean_number_precision_control',
     displayName: '数据清洗，金额相关数字精度控制',
@@ -72,10 +75,11 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     metadata: {
       inputFields: ['*'],
       outputFields: ['*'],
-      constraints: ['单个文档替换'],
+      constraints: ['单个、多个文档'],
     },
   },
   // 数据清洗
+  // done
   {
     name: 'fn_ecom_data_clean_data_flag',
     displayName: '数据清洗，数据标记',
@@ -93,10 +97,11 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     metadata: {
       inputFields: ['*'],
       outputFields: ['*'],
-      constraints: ['单个文档替换'],
+      constraints: ['单个、多个文档'],
     },
   },
   // 数据清洗
+  // done
   {
     name: 'fn_ecom_data_format_date',
     displayName: '数据清洗，时间格式化',
@@ -114,10 +119,11 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     metadata: {
       inputFields: ['*'],
       outputFields: ['*'],
-      constraints: ['单个文档替换'],
+      constraints: ['单个、多个文档'],
     },
   },
   // 基础洞察 - 关联查询（单表/多表查询）
+  // done
   {
     name: 'fn_ecom_association_query',
     displayName: '关联查询',
@@ -146,31 +152,33 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '基础洞察',
     version: '1.0.0',
-    description: '观察订单在地域、时间、金额上的集中度',
+    description: '分析订单在时间趋势、金额区间、地域三个维度的分布，支持同比/环比对比',
     detailedDescription:
-      '基于订单数据，分析订单金额分布、订单量趋势、客单价变化等核心指标。支持按日/周/月维度聚合，帮助运营人员快速掌握业务走势。',
+      '基于订单数据，提供三维度分布分析：时间趋势（按日/周/月聚合）、金额区间分布（用户自定义分桶）、地域分布（用户选择地域列）。三个维度均支持同比（年同期）和环比（上一周期）对比分析。',
     author: 'official',
     likes: 120,
     credits: 100,
     dataVolume: '5w order',
     estimatedTime: '2s',
+    group: 'fn_ecom_order_distribution',
     metadata: {
-      inputFields: ['order_id', 'amount', 'order_time'],
-      outputFields: ['date', 'order_count', 'total_amount', 'avg_amount'],
-      constraints: ['需要订单时间字段'],
+      inputFields: ['order_id', 'order_time', 'amount', '地域列(用户选择)'],
+      outputFields: ['period/bucket/region', 'order_count', 'total_amount', 'avg_amount', 'cmp_*', 'change_pct'],
+      constraints: ['需要订单时间字段', '需要订单金额字段', '时间趋势/地域分布的同比环比需指定时间范围'],
     },
   },
 
   // 基础洞察 - 基础统计
+  // done
   {
     name: 'fn_basic_statis',
     displayName: '基础统计分析',
     industry: '通用',
     category: '基础洞察',
     version: '1.0.0',
-    description: '对数据进行聚合统计分析，支持 COUNT、SUM、AVG、MAX、MIN 等函数',
+    description: '对数据进行聚合统计分析，支持 COUNT、SUM、AVG、MAX、MIN、百分位等函数',
     detailedDescription:
-      '提供数据的基础统计能力，包括计数、求和、平均值、最大最小值等。支持多维度分组统计，替代传统 Excel 透视表操作。',
+      '提供数据的基础统计能力，包括计数、求和、平均值、最大最小值、百分位等。支持多维度分组统计，替代传统 Excel 透视表操作。',
     author: 'official',
     likes: 98,
     credits: 80,

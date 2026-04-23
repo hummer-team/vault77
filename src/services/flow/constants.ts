@@ -184,6 +184,12 @@ export const OPERATOR_CONFIG = {
     icon: '📊',
     color: '#13c2c2',
   },
+  order_distribution: {
+    name: '订单分布分析',
+    description: '分析订单在时间趋势、金额区间、地域三个维度的分布',
+    icon: '📦',
+    color: '#eb2f96',
+  },
 };
 
 // ============================================================================
