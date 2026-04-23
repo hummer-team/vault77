@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Drawer,
   Button,
+  Checkbox,
   Select,
   Input,
   InputNumber,
@@ -226,6 +227,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           column: c,
           func: 'COUNT' as AggFunction,
           alias: defaultAlias('COUNT', c),
+          distinct: false,
         }));
       return [...retained, ...newFields];
     });
@@ -486,7 +488,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                 key={field.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 110px 1fr',
+                  gridTemplateColumns: '1fr 110px auto 1fr',
                   gap: 6,
                   alignItems: 'center',
                   padding: '4px 6px',
@@ -525,6 +527,17 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     </Select.Option>
                   ))}
                 </Select>
+
+                {/* DISTINCT checkbox */}
+                <Checkbox
+                  checked={field.distinct ?? false}
+                  onChange={(e) =>
+                    updateAggField(field.id, { distinct: e.target.checked })
+                  }
+                  style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                >
+                  去重
+                </Checkbox>
 
                 {/* Alias input */}
                 <Input

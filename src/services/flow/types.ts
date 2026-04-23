@@ -271,6 +271,7 @@ export interface AggFieldConfig {
   func: AggFunction;
   /** Auto-derived alias: `${func.toLowerCase()}_${column}` */
   alias: string;
+  distinct?: boolean;
 }
 
 /** A single HAVING-equivalent filter on an aggregated result */

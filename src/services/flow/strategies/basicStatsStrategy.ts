@@ -39,7 +39,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     // SELECT clause: group cols first, then agg expressions
     const selectCols: string[] = [
       ...config.groupByColumns.map((c) => `"${c}"`),
-      ...config.aggFields.map((f) => `${f.func}("${f.column}") AS "${f.alias}"`),
+      ...config.aggFields.map((f) => `${f.func}(${f.distinct ? 'DISTINCT ' : ''}"${f.column}") AS "${f.alias}"`),
     ];
     parts.push(`SELECT ${selectCols.join(', ')}`);
 
