@@ -12,6 +12,7 @@ import { UdfUpLowerStrategy }       from './strategies/udfUpLowerStrategy';
 import { UdfFormatNumberStrategy }  from './strategies/udfFormatNumberStrategy';
 import { UdfFlagSpecStrategy }      from './strategies/udfFlagSpecStrategy';
 import { UdfFormatDateStrategy }    from './strategies/udfFormatDateStrategy';
+import { BasicStatsStrategy }       from './strategies/basicStatsStrategy';
 
 /**
  * Strategy Factory
@@ -27,6 +28,7 @@ export class StrategyFactory {
     [OperatorType.UDF_FORMAT_NUMBER, new UdfFormatNumberStrategy()],
     [OperatorType.UDF_FLAG_SPEC,    new UdfFlagSpecStrategy()],
     [OperatorType.UDF_FORMAT_DATE,  new UdfFormatDateStrategy()],
+    [OperatorType.BASIC_STATS,      new BasicStatsStrategy()],
   ]);
 
   /**
