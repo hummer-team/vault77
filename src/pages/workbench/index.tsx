@@ -808,17 +808,19 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       .map((b) => b.kernelName);
 
     // 2. Delete the attachment (drops DuckDB table, cleans schema cache, updates state)
-    await handleDeleteAttachment(attachmentId);
+    try {
+      await handleDeleteAttachment(attachmentId);
+    } finally {
+      // 3. Clear flow templates for affected kernels (always runs, even on error)
+      for (const kernelName of affectedKernels) {
+        bizKernelService.clearFlowTemplate(kernelName);
+        await operatorBindingService.clearBinding(kernelName);
+      }
 
-    // 3. Clear flow templates for affected kernels
-    for (const kernelName of affectedKernels) {
-      bizKernelService.clearFlowTemplate(kernelName);
-      await operatorBindingService.clearBinding(kernelName);
-    }
-
-    // 4. Notify user if any templates were cleared
-    if (affectedKernels.length > 0) {
-      message.info(`已清理 ${affectedKernels.length} 个关联分析流，请重新构建`);
+      // 4. Notify user if any templates were cleared
+      if (affectedKernels.length > 0) {
+        message.info(`已清理 ${affectedKernels.length} 个关联分析流，请重新构建`);
+      }
     }
   }, [handleDeleteAttachment]);
 
