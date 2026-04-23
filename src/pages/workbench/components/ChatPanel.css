@@ -52,7 +52,42 @@
     z-index: 100;
     padding: 16px 0 20px;
 }
-/* Mentions — keep same inner padding as the replaced TextArea */
+/* Error bubble orange pulse animation */
+@keyframes error-bubble-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(250, 140, 22, 0.5);
+    border-color: #fa8c16;
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(250, 140, 22, 0);
+    border-color: #ffc069;
+  }
+}
+
+.error-bubble-pulse {
+  animation: error-bubble-pulse 1s ease-in-out infinite;
+}
+
+/* Transient error pill fade in/out */
+@keyframes error-pill-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes error-pill-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.error-pill {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.error-pill-visible {
+  animation: error-pill-in 0.25s ease forwards;
+}
+
 .chat-mentions .ant-mentions-affix-wrapper,
 .chat-mentions {
     min-height: 120px;

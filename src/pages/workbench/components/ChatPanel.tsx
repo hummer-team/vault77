@@ -1,6 +1,6 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import { App, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
+import { App, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions, Popover } from 'antd';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, ExclamationCircleOutlined, WarningFilled, CloseOutlined, ClearOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -89,6 +89,45 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { userProfile } = useUserStore();
   const [userSkillConfigs, setUserSkillConfigs] = useState<Record<string, TableSkillConfig>>({});
 
+  // Error bubble state: accumulated error list + transient pill + bubble visibility
+  const [errorList, setErrorList] = useState<string[]>([]);
+  const [showErrorPill, setShowErrorPill] = useState(false);
+  const [showErrorBubble, setShowErrorBubble] = useState(false);
+  const [errorBubbleOpen, setErrorBubbleOpen] = useState(false);
+  const pillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // When a new error arrives, append it and trigger the pill → bubble sequence
+  useEffect(() => {
+    if (!error) return;
+    setErrorList(prev => [...prev, error]);
+    setShowErrorPill(true);
+    setShowErrorBubble(false);
+    if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
+    pillTimerRef.current = setTimeout(() => {
+      setShowErrorPill(false);
+      setShowErrorBubble(true);
+    }, 1200);
+  }, [error]);
+
+  const dismissError = useCallback((index: number) => {
+    setErrorList(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        setShowErrorBubble(false);
+        setErrorBubbleOpen(false);
+        setError(null);
+      }
+      return next;
+    });
+  }, [setError]);
+
+  const clearAllErrors = useCallback(() => {
+    setErrorList([]);
+    setShowErrorBubble(false);
+    setErrorBubbleOpen(false);
+    setError(null);
+  }, [setError]);
+
   // Kernel @ mention: options for dropdown + lookup map for kernelName
   const [kernelMentionOptions, setKernelMentionOptions] = useState<{ value: string; label: string }[]>([]);
   const [kernelNameByValue, setKernelNameByValue] = useState<Record<string, string>>({});
@@ -157,7 +196,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // update the parent state to maintain two-way synchronization (optional).
   // Mentions onChange passes text directly (not an event)
   const handleChangeMessage = (text: string) => {
-    if (error) setError(null);
     if (setInitialMessage) setInitialMessage(text);
   };
 
@@ -488,7 +526,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               )}
             </div>
             {/* Hints column — unified color, left-aligned, vertically stacked */}
-            {(kernelFlowHint || !isLlmReady || userSkillStatusText || uploadHint || personaHint || error) && (
+            {(kernelFlowHint || !isLlmReady || userSkillStatusText || uploadHint || personaHint) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
                 {kernelFlowHint && (
                   <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
@@ -515,11 +553,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     {personaHint}
                   </Typography.Text>
                 )}
-                {error && (
-                  <Typography.Text type="danger" style={{ fontSize: 12 }}>
-                    {error}
-                  </Typography.Text>
-                )}
               </div>
             )}
           </div>
@@ -540,6 +573,106 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           </Tooltip>
         </div>
       </Form>
+
+      {/* Error bubble (orange pulse) — anchored bottom-left of the card */}
+      {showErrorBubble && errorList.length > 0 && (
+        <Popover
+          open={errorBubbleOpen}
+          onOpenChange={setErrorBubbleOpen}
+          placement="topLeft"
+          trigger="click"
+          overlayStyle={{ maxWidth: 340 }}
+          overlayInnerStyle={{
+            background: 'rgba(28, 24, 18, 0.97)',
+            border: '1px solid rgba(250, 140, 22, 0.45)',
+            borderRadius: 10,
+            padding: '12px 14px',
+          }}
+          content={
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Typography.Text style={{ color: '#fa8c16', fontWeight: 600, fontSize: 13 }}>
+                  错误信息 ({errorList.length})
+                </Typography.Text>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<ClearOutlined />}
+                  onClick={clearAllErrors}
+                  style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}
+                >
+                  清除全部
+                </Button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {errorList.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      background: 'rgba(250, 140, 22, 0.08)',
+                      borderRadius: 6,
+                      padding: '6px 8px',
+                    }}
+                  >
+                    <WarningFilled style={{ color: '#fa8c16', fontSize: 13, marginTop: 2, flexShrink: 0 }} />
+                    <Typography.Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, flex: 1, wordBreak: 'break-word' }}>
+                      {msg}
+                    </Typography.Text>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CloseOutlined />}
+                      onClick={() => dismissError(idx)}
+                      style={{ color: 'rgba(255,255,255,0.35)', padding: 0, height: 'auto', flexShrink: 0 }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          }
+        >
+          <div
+            className="error-bubble-pulse"
+            style={{
+              position: 'absolute',
+              bottom: -14,
+              left: 16,
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'rgba(250, 140, 22, 0.15)',
+              border: '1.5px solid #fa8c16',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 20,
+            }}
+          >
+            <WarningFilled style={{ color: '#fa8c16', fontSize: 13 }} />
+          </div>
+        </Popover>
+      )}
+      </div>
+
+      {/* Transient error pill — appears below the card, auto-fades after 1.2s */}
+      <div
+        className={`error-pill${showErrorPill ? ' error-pill-visible' : ''}`}
+        style={{
+          position: 'absolute',
+          bottom: -32,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+        }}
+      >
+        <Typography.Text style={{ fontSize: 12, color: '#ff4d4f' }}>
+          {error}
+        </Typography.Text>
       </div>
     </div>
   );
