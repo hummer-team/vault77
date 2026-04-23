@@ -14,6 +14,7 @@ import { UdfFlagSpecStrategy }      from './strategies/udfFlagSpecStrategy';
 import { UdfFormatDateStrategy }    from './strategies/udfFormatDateStrategy';
 import { BasicStatsStrategy }       from './strategies/basicStatsStrategy';
 import { OrderDistributionStrategy } from './strategies/orderDistributionStrategy';
+import { RepurchaseCycleStrategy } from './strategies/repurchaseCycleStrategy';
 
 /**
  * Strategy Factory
@@ -31,6 +32,7 @@ export class StrategyFactory {
     [OperatorType.UDF_FORMAT_DATE,  new UdfFormatDateStrategy()],
     [OperatorType.BASIC_STATS,      new BasicStatsStrategy()],
     [OperatorType.ORDER_DISTRIBUTION, new OrderDistributionStrategy()],
+    [OperatorType.REPURCHASE_CYCLE,   new RepurchaseCycleStrategy()],
   ]);
 
   /**
