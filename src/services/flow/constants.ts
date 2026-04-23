@@ -178,6 +178,12 @@ export const OPERATOR_CONFIG = {
     icon: '📅',
     color: '#722ed1',
   },
+  basic_stats: {
+    name: '基础统计',
+    description: '通用聚合统计分析',
+    icon: '📊',
+    color: '#13c2c2',
+  },
 };
 
 // ============================================================================
