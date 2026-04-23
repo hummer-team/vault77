@@ -460,14 +460,14 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 110px 1fr',
+                gridTemplateColumns: '1fr 110px auto 1fr',
                 gap: 6,
                 padding: '4px 6px',
                 background: 'rgba(255,255,255,0.025)',
                 borderRadius: TOKEN.radius,
               }}
             >
-              {(['列名', '聚合函数', '结果别名'] as const).map((label) => (
+              {(['列名', '聚合函数', '去重', '结果别名'] as const).map((label) => (
                 <Text
                   key={label}
                   style={{
