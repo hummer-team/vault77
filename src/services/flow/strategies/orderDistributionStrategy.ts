@@ -24,12 +24,24 @@ import {
 // Date helpers
 // ---------------------------------------------------------------------------
 
-/** Format a JS Date as 'YYYY-MM-DD' */
+/** Format a Date as 'YYYY-MM-DD', guarding against month-overflow via ISO string extraction */
 function toIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * Subtract N months from a date without day-overflow.
+ * e.g. March 31 - 1 month → Feb 28/29 (not March 2 via native setMonth).
+ */
+function subtractMonths(d: Date, months: number): Date {
+  const result = new Date(d);
+  const targetMonth = result.getMonth() - months;
+  result.setDate(1); // prevent overflow before setting month
+  result.setMonth(targetMonth);
+  // Clamp to last day of target month
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(d.getDate(), lastDay));
+  return result;
 }
 
 /**
@@ -51,33 +63,47 @@ export function computeComparisonDates(
   const end = new Date(currentEnd);
 
   if (comparisonType === 'yoy') {
-    start.setFullYear(start.getFullYear() - 1);
-    end.setFullYear(end.getFullYear() - 1);
-  } else {
-    // MoM: shift by granularity period
-    switch (granularity) {
-      case 'week':
-        start.setDate(start.getDate() - 7);
-        end.setDate(end.getDate() - 7);
-        break;
-      case 'day':
-        start.setDate(start.getDate() - 1);
-        end.setDate(end.getDate() - 1);
-        break;
-      case 'month':
-      default:
-        start.setMonth(start.getMonth() - 1);
-        end.setMonth(end.getMonth() - 1);
-        break;
-    }
+    return {
+      cmpStart: toIsoDate(subtractMonths(start, 12)),
+      cmpEnd: toIsoDate(subtractMonths(end, 12)),
+    };
   }
 
-  return { cmpStart: toIsoDate(start), cmpEnd: toIsoDate(end) };
+  // MoM: shift by granularity period
+  switch (granularity) {
+    case 'week': {
+      const s = new Date(start); s.setDate(s.getDate() - 7);
+      const e = new Date(end);   e.setDate(e.getDate() - 7);
+      return { cmpStart: toIsoDate(s), cmpEnd: toIsoDate(e) };
+    }
+    case 'day': {
+      const s = new Date(start); s.setDate(s.getDate() - 1);
+      const e = new Date(end);   e.setDate(e.getDate() - 1);
+      return { cmpStart: toIsoDate(s), cmpEnd: toIsoDate(e) };
+    }
+    case 'month':
+    default:
+      return {
+        cmpStart: toIsoDate(subtractMonths(start, 1)),
+        cmpEnd: toIsoDate(subtractMonths(end, 1)),
+      };
+  }
 }
 
-/** Map comparisonType → INTERVAL string used in the CTE to shift cmp rows into current-period space */
-function cmpIntervalShift(comparisonType: ComparisonType): string {
-  return comparisonType === 'yoy' ? '1 YEAR' : '1 MONTH';
+/**
+ * Map comparisonType + granularity → INTERVAL string for shifting cmp-period rows
+ * into current-period bucket space for the LEFT JOIN.
+ *
+ * Must match the granularity shift in computeComparisonDates so JOIN keys align.
+ */
+function cmpIntervalShift(comparisonType: ComparisonType, granularity?: TimeGranularity): string {
+  if (comparisonType === 'yoy') return '1 YEAR';
+  switch (granularity) {
+    case 'week':  return '7 DAYS';
+    case 'day':   return '1 DAY';
+    case 'month':
+    default:      return '1 MONTH';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +144,7 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
     ({ cmpStart, cmpEnd } = computeComparisonDates(currentStart, currentEnd, compType, granularity));
   }
 
-  const shift = cmpIntervalShift(compType);
+  const shift = cmpIntervalShift(compType, granularity);
 
   return [
     `WITH current_period AS (`,
@@ -164,13 +190,14 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
 /** Build the CASE WHEN expression for amount buckets */
 function buildBucketCaseExpr(amtCol: string, buckets: AmountDistConfig['buckets']): string {
   const whenClauses = buckets.map((b) => {
+    const label = b.label.replace(/'/g, "''"); // escape single quotes to prevent SQL injection
     if (b.min === null && b.max !== null) {
-      return `    WHEN "${amtCol}" < ${b.max} THEN '${b.label}'`;
+      return `    WHEN "${amtCol}" < ${b.max} THEN '${label}'`;
     }
     if (b.min !== null && b.max === null) {
-      return `    WHEN "${amtCol}" >= ${b.min} THEN '${b.label}'`;
+      return `    WHEN "${amtCol}" >= ${b.min} THEN '${label}'`;
     }
-    return `    WHEN "${amtCol}" >= ${b.min} AND "${amtCol}" < ${b.max} THEN '${b.label}'`;
+    return `    WHEN "${amtCol}" >= ${b.min} AND "${amtCol}" < ${b.max} THEN '${label}'`;
   });
 
   return [
@@ -249,7 +276,7 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
     `  ROUND((c.total_amount - cp.cmp_total_amount) * 100.0 / NULLIF(cp.cmp_total_amount, 0), 2) AS amount_change_pct`,
     `FROM current_period c`,
     `LEFT JOIN cmp_period cp ON c.amount_bucket = cp.amount_bucket`,
-    `ORDER BY MIN(c.total_amount)`,
+    `ORDER BY c.total_amount`,
   ].join('\n');
 }
 
