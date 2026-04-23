@@ -163,14 +163,14 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
 
   // 基础洞察 - 基础统计
   {
-    name: 'fn_ecom_basic_stats',
+    name: 'fn_basic_statis',
     displayName: '基础统计分析',
-    industry: '电商/订单',
+    industry: '通用',
     category: '基础洞察',
     version: '1.0.0',
-    description: '代替 Excel 透视表，秒级响应的基础统计',
+    description: '对数据进行聚合统计分析，支持 COUNT、SUM、AVG、MAX、MIN 等函数',
     detailedDescription:
-      '提供订单数据的基础统计能力，包括计数、求和、平均值、最大最小值等。支持多维度分组统计，替代传统 Excel 透视表操作。',
+      '提供数据的基础统计能力，包括计数、求和、平均值、最大最小值等。支持多维度分组统计，替代传统 Excel 透视表操作。',
     author: 'official',
     likes: 98,
     credits: 80,
