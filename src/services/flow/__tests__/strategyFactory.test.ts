@@ -4,11 +4,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { StrategyFactory } from '../strategyFactory';
-import {
-  AssociationStrategy,
-  AnomalyStrategy,
-  ClusteringStrategy,
-} from '../strategies';
+import { AssociationStrategy } from '../strategies/associationStrategy';
+import { AnomalyStrategy }     from '../strategies/anomalyStrategy';
+import { ClusteringStrategy }  from '../strategies/clusteringStrategy';
 import { UdfReplaceColumnStrategy } from '../strategies/udfReplaceColumnStrategy';
 import { OperatorType } from '../types';
 

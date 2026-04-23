@@ -104,12 +104,12 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   // No UDF exception — UDF flows can also have conditions and need value filling.
   const shouldExecuteDirectly = triggerSource === EndNodeTriggerSource.DIRECT;
 
-  // Handle execute after value filling
+  // Handle execute after value filling — returns success/error so ValueFillPanel can stay open on failure
   const executeFlow = useCallback(
-    async () => {
+    async (): Promise<{ success: boolean; error?: string }> => {
       if ((data.errors?.length || 0) > 0) {
         setErrorPanelOpen(true);
-        return;
+        return { success: false, error: '流程存在配置错误，请先修复。' };
       }
 
       // Set executing state
@@ -120,10 +120,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       });
 
       try {
-        // Resolve strategy from current OperatorNode kernel (dynamic, not stale data.operatorType)
         const strategy = StrategyFactory.getStrategy(resolvedOperatorType);
 
-        // Validate flow configuration
         const validationErrors = strategy.validate(storeNodes, edges);
         if ((validationErrors?.length || 0) > 0) {
           updateNode(id, {
@@ -132,56 +130,53 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
             errors: validationErrors,
           });
           setErrorPanelOpen(true);
-          return;
+          return { success: false, error: validationErrors[0]?.message ?? '流程配置校验失败' };
         }
 
-        // Check if DuckDB is ready
         if (!isDBReady) {
           throw new Error('DuckDB not initialized. Please wait for database to be ready.');
         }
 
-        // Get all table nodes and verify they exist in DuckDB
         const tableNodes = storeNodes.filter((n) => n.type === 'table');
         for (const tableNode of tableNodes) {
           const tableName = (tableNode.data as { tableName: string }).tableName;
           try {
             await executeQuery(`SELECT 1 FROM "${tableName}" LIMIT 1`);
-          } catch (error) {
+          } catch {
             throw new Error(`表 "${tableName}" 不存在于数据库中。请重新上传文件或选择正确的表。`);
           }
         }
 
-        // Build SQL query with placeholder values - get fresh values from store
         const placeholderValues = getAllPlaceholderValues();
         const sql = strategy.buildSql(storeNodes, edges, placeholderValues);
 
-        // Validate SQL with EXPLAIN
         try {
           await executeQuery(`EXPLAIN ${sql}`);
         } catch (explainError) {
           throw new Error(`SQL 验证失败: ${explainError instanceof Error ? explainError.message : '语法错误'}`);
         }
 
-        // SQL validation successful - notify parent
         if (onSqlValidated) {
           onSqlValidated(sql);
         }
 
-        // Update node to indicate success
         updateNode(id, {
           ...data,
           executing: false,
           errors: [],
         });
+
+        return { success: true };
       } catch (error) {
         console.error('Execute flow error:', error);
+        const message = error instanceof Error ? error.message : '执行失败';
         updateNode(id, {
           ...data,
           executing: false,
           errors: [
             {
               id: `${id}-exec-error`,
-              message: error instanceof Error ? error.message : '执行失败',
+              message,
               severity: ValidationSeverity.ERROR,
               nodeId: id,
               nodeType: FlowNodeType.END,
@@ -189,6 +184,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           ],
         });
         setErrorPanelOpen(true);
+        return { success: false, error: message };
       }
     },
     [data, id, storeNodes, edges, updateNode, setErrorPanelOpen, executeQuery, isDBReady, onSqlValidated, getAllPlaceholderValues, resolvedOperatorType]
@@ -200,11 +196,30 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     setValueFillPanelOpen(false);
   }, []);
 
-  // Handle value fill and execute
-  const handleValueFillExecute = useCallback(() => {
-    setValueFillPanelOpen(false);
-    executeFlow();
+  // Handle execute from ValueFillPanel — close drawer only on success
+  const handleValueFillExecute = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    const result = await executeFlow();
+    if (result.success) {
+      setValueFillPanelOpen(false);
+    }
+    return result;
   }, [executeFlow]);
+
+  // Handle preview from ValueFillPanel — runs COUNT(*) on the full result SQL
+  const handleValueFillPreview = useCallback(async (): Promise<number | null> => {
+    try {
+      const strategy = StrategyFactory.getStrategy(resolvedOperatorType);
+      const placeholderValues = getAllPlaceholderValues();
+      const sql = strategy.buildSql(storeNodes, edges, placeholderValues);
+      const previewSql = `SELECT COUNT(*) AS __count FROM (${sql}) AS __preview`;
+      const result = await executeQuery(previewSql);
+      const raw = result.data[0]?.__count ?? Object.values(result.data[0] ?? {})[0];
+      return raw !== undefined && raw !== null ? Number(raw) : null;
+    } catch (error) {
+      console.error('[EndNode] Preview failed:', error);
+      return null;
+    }
+  }, [executeQuery, storeNodes, edges, getAllPlaceholderValues, resolvedOperatorType]);
 
   // Handle save (disabled)
   const handleSave = useCallback((e: React.MouseEvent) => {
@@ -388,6 +403,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           open={valueFillPanelOpen}
           onClose={handleValueFillClose}
           onExecute={handleValueFillExecute}
+          onPreview={handleValueFillPreview}
         />
       )}
     </div>

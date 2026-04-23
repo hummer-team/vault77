@@ -23,7 +23,9 @@ import {
   CacheManager,
   PerformanceProfiler,
 } from '../performanceOptimizer';
-import { AssociationStrategy, AnomalyStrategy, ClusteringStrategy } from '../strategies';
+import { AssociationStrategy } from '../strategies/associationStrategy';
+import { AnomalyStrategy }     from '../strategies/anomalyStrategy';
+import { ClusteringStrategy }  from '../strategies/clusteringStrategy';
 
 describe('Integration Tests - Complete Flow Execution', () => {
   describe('E2E - Association Query Flow', () => {

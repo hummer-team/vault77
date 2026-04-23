@@ -19,6 +19,14 @@ export enum SelectNodePanelType {
   STANDARD_DETAIL_PANEL = 'STANDARD_DETAIL_PANEL',
   /** ReplaceColumnDrawer — used for 数据清洗 · 替换特定列值 */
   REPLACE_COLUMN_DRAWER = 'REPLACE_COLUMN_DRAWER',
+  /** UpLowerDrawer — used for 数据清洗 · 大小写转换 */
+  UP_LOWER_DRAWER = 'UP_LOWER_DRAWER',
+  /** FormatNumberDrawer — used for 数据清洗 · 数字精度控制 */
+  FORMAT_NUMBER_DRAWER = 'FORMAT_NUMBER_DRAWER',
+  /** FlagSpecDrawer — used for 数据清洗 · 数据标记 */
+  FLAG_SPEC_DRAWER = 'FLAG_SPEC_DRAWER',
+  /** FormatDateDrawer — used for 数据清洗 · 日期时间格式化 */
+  FORMAT_DATE_DRAWER = 'FORMAT_DATE_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -39,6 +47,10 @@ export interface SelectNodeClickActions {
  */
 const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   udf_replace_spec_column_value: SelectNodePanelType.REPLACE_COLUMN_DRAWER,
+  udf_up_lower_str:              SelectNodePanelType.UP_LOWER_DRAWER,
+  udf_format_number:             SelectNodePanelType.FORMAT_NUMBER_DRAWER,
+  udf_flag_spec_column:          SelectNodePanelType.FLAG_SPEC_DRAWER,
+  udf_format_date_time:          SelectNodePanelType.FORMAT_DATE_DRAWER,
 };
 
 // ============================================================================
@@ -101,6 +113,10 @@ export function executeSelectNodeClickStrategy(
   const panelType = resolveSelectNodePanelType(udfFunctionName);
   switch (panelType) {
     case SelectNodePanelType.REPLACE_COLUMN_DRAWER:
+    case SelectNodePanelType.UP_LOWER_DRAWER:
+    case SelectNodePanelType.FORMAT_NUMBER_DRAWER:
+    case SelectNodePanelType.FLAG_SPEC_DRAWER:
+    case SelectNodePanelType.FORMAT_DATE_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

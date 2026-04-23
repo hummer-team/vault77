@@ -41,6 +41,7 @@ import { getCanvasJoinedTables } from '../flowService';
 export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
   readonly type: OperatorType = OperatorType.UDF_REPLACE_COLUMN;
   readonly name = '替换特定列值';
+  readonly udfFunctionName = 'udf_replace_spec_column_value';
 
   // --------------------------------------------------------------------------
   // validate
@@ -103,6 +104,14 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
    * FlowNodeType.UDF_CONFIG (legacy) and FlowNodeType.SELECT with udfFunctionName.
    */
   getRequiredNodes(): FlowNodeType[] {
+    return [];
+  }
+
+  /**
+   * validateUdfConfig stub — this class overrides validate() fully, so this
+   * abstract method will never be called via the base class template.
+   */
+  protected validateUdfConfig(_nodes: FlowNode[], _edges: FlowEdge[], _udfNode: FlowNode): ValidationError[] {
     return [];
   }
 

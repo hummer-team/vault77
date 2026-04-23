@@ -5,7 +5,7 @@
  * configuration drawer instead of the standard detail panel.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, List } from 'antd';
 import {
@@ -14,18 +14,34 @@ import {
   EditOutlined,
   FunctionOutlined,
   SettingOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { SelectNodeData, ReplaceRule } from '../../../services/flow/types';
+import type {
+  SelectNodeData,
+  ReplaceRule,
+  UpLowerConfig,
+  FormatNumberConfig,
+  FlagSpecConfig,
+  FormatDateConfig,
+  OperatorNodeData,
+} from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
   shouldRenderUdfDrawer,
+  resolveSelectNodePanelType,
+  SelectNodePanelType,
 } from '../../../services/flow/bizKernelsBuilderStrategies';
 import ReplaceColumnDrawer from '../udf/ReplaceColumnDrawer';
+import UpLowerDrawer from '../udf/UpLowerDrawer';
+import FormatNumberDrawer from '../udf/FormatNumberDrawer';
+import FlagSpecDrawer from '../udf/FlagSpecDrawer';
+import FormatDateDrawer from '../udf/FormatDateDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 
 interface SelectNodeProps {
   id: string;
@@ -59,6 +75,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
   const updateNode = useFlowStore((state) => state.updateNode);
+  const storeNodes = useFlowStore((state) => state.nodes);
 
   // Compute upstream configured joined tables via shared hook
   const joinedTables = useUpstreamJoinedTables(id);
@@ -71,6 +88,27 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
 
   // Whether this node is linked to a UDF data-cleaning operator
   const isUdfNode = !!data.udfFunctionName;
+
+  /**
+   * Resolve whether the current operator is ASSOCIATION (关联查询).
+   * ASSOCIATION operators build their own JOIN SQL — the SelectNode's column list is irrelevant.
+   */
+  const KERNEL_OPERATOR_MAP: Record<string, OperatorType> = {
+    fn_ecom_data_clean_replace_spec_column_value: OperatorType.UDF_REPLACE_COLUMN,
+    fn_ecom_data_clean_up_lower:                  OperatorType.UDF_UP_LOWER,
+    fn_ecom_data_clean_number_precision_control:  OperatorType.UDF_FORMAT_NUMBER,
+    fn_ecom_data_clean_data_flag:                 OperatorType.UDF_FLAG_SPEC,
+    fn_ecom_data_format_date:                     OperatorType.UDF_FORMAT_DATE,
+  };
+  const isAssociationOperator = useMemo(() => {
+    if (isUdfNode) return false;
+    const operatorNode = storeNodes.find((n) => n.type === FlowNodeType.OPERATOR);
+    const kernelName = (operatorNode?.data as OperatorNodeData | undefined)?.kernelName;
+    if (!kernelName) return false;
+    if (KERNEL_OPERATOR_MAP[kernelName]) return false;  // known UDF → not ASSOCIATION
+    const kernel = bizKernelService.getKernelByName(kernelName);
+    return kernel?.category !== '风险风控' && kernel?.category !== '用户增长';
+  }, [isUdfNode, storeNodes]);
 
   // Handle delete
   const handleDelete = useCallback(
@@ -107,14 +145,61 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
-  // For UDF nodes: configured when replacementRules has at least one valid entry
-  const isUdfConfigured = isUdfNode &&
-    (data.replacementRules?.length ?? 0) > 0 &&
-    data.replacementRules?.some((r) => r.sourceTable && r.targetColumn?.length > 0);
+  const handleUpLowerConfirm = useCallback(
+    (config: UpLowerConfig, outputColumns: string[]) => {
+      updateNode(id, { upLowerConfig: config, outputColumns } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
+  const handleFormatNumberConfirm = useCallback(
+    (config: FormatNumberConfig, outputColumns: string[]) => {
+      updateNode(id, { formatNumberConfig: config, outputColumns } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
+  const handleFlagSpecConfirm = useCallback(
+    (config: FlagSpecConfig, outputColumns: string[]) => {
+      updateNode(id, { flagSpecConfig: config, outputColumns } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
+  const handleFormatDateConfirm = useCallback(
+    (config: FormatDateConfig, outputColumns: string[]) => {
+      updateNode(id, { formatDateConfig: config, outputColumns } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
+  // UDF nodes are configured when any relevant config key has been filled
+  const isUdfConfigured = isUdfNode && (() => {
+    const panelType = resolveSelectNodePanelType(data.udfFunctionName);
+    switch (panelType) {
+      case SelectNodePanelType.REPLACE_COLUMN_DRAWER:
+        return (data.replacementRules?.length ?? 0) > 0 &&
+          data.replacementRules?.some((r) => r.sourceTable && r.targetColumn?.length > 0);
+      case SelectNodePanelType.UP_LOWER_DRAWER:
+        return (data.upLowerConfig?.cols?.length ?? 0) > 0;
+      case SelectNodePanelType.FORMAT_NUMBER_DRAWER:
+        return Object.keys(data.formatNumberConfig?.colsConfig ?? {}).length > 0;
+      case SelectNodePanelType.FLAG_SPEC_DRAWER:
+        return Object.keys(data.flagSpecConfig?.flagsConfig ?? {}).length > 0;
+      case SelectNodePanelType.FORMAT_DATE_DRAWER:
+        return Object.keys(data.formatDateConfig?.colConfigJson ?? {}).length > 0;
+      default:
+        return false;
+    }
+  })();
 
   const hasFields = isUdfNode
     ? isUdfConfigured
-    : (data.fields.length > 0 || data.selectAll);
+    : (isAssociationOperator || data.fields.length > 0 || data.selectAll);
 
   return (
     <>
@@ -255,7 +340,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       )}
 
       {/* Standard: Selected fields list */}
-      {!isUdfNode && !data.selectAll && data.fields.length > 0 && (
+      {!isUdfNode && !isAssociationOperator && !data.selectAll && data.fields.length > 0 && (
         <div
           style={{
             padding: '8px',
@@ -311,7 +396,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       )}
 
       {/* Standard: Select all message */}
-      {!isUdfNode && data.selectAll && (
+      {!isUdfNode && !isAssociationOperator && data.selectAll && (
         <div
           style={{
             padding: '12px',
@@ -324,8 +409,23 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         </div>
       )}
 
+      {/* Association operator: outputs all columns from the join */}
+      {!isUdfNode && isAssociationOperator && (
+        <div
+          style={{
+            padding: '12px',
+            textAlign: 'center',
+            color: '#52c41a',
+            fontSize: 12,
+          }}
+        >
+          <LinkOutlined style={{ marginRight: 6 }} />
+          关联查询，输出全部列
+        </div>
+      )}
+
       {/* Standard: Empty state */}
-      {!isUdfNode && !data.selectAll && data.fields.length === 0 && (
+      {!isUdfNode && !isAssociationOperator && !data.selectAll && data.fields.length === 0 && (
         <div
           style={{
             padding: '12px',
@@ -341,17 +441,69 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       <NodeNextButton nodeId={id} nodeType={FlowNodeType.SELECT} visible={isHovering} />
     </div>
 
-    {/* ReplaceColumnDrawer — rendered when strategy resolves to REPLACE_COLUMN_DRAWER */}
-    {shouldRenderUdfDrawer(data.udfFunctionName) && (
-      <ReplaceColumnDrawer
-        open={udfDrawerOpen}
-        onClose={() => setUdfDrawerOpen(false)}
-        onConfirm={handleUdfConfirm}
-        initialRules={data.replacementRules}
-        initialOutputColumns={data.outputColumns}
-        joinedTables={joinedTables}
-      />
-    )}
+    {/* UDF Drawers — rendered based on udfFunctionName routing */}
+    {shouldRenderUdfDrawer(data.udfFunctionName) && (() => {
+      const panelType = resolveSelectNodePanelType(data.udfFunctionName);
+      switch (panelType) {
+        case SelectNodePanelType.REPLACE_COLUMN_DRAWER:
+          return (
+            <ReplaceColumnDrawer
+              open={udfDrawerOpen}
+              onClose={() => setUdfDrawerOpen(false)}
+              onConfirm={handleUdfConfirm}
+              initialRules={data.replacementRules}
+              initialOutputColumns={data.outputColumns}
+              joinedTables={joinedTables}
+            />
+          );
+        case SelectNodePanelType.UP_LOWER_DRAWER:
+          return (
+            <UpLowerDrawer
+              open={udfDrawerOpen}
+              onClose={() => setUdfDrawerOpen(false)}
+              onConfirm={handleUpLowerConfirm}
+              initialConfig={data.upLowerConfig}
+              initialOutputColumns={data.outputColumns}
+              joinedTables={joinedTables}
+            />
+          );
+        case SelectNodePanelType.FORMAT_NUMBER_DRAWER:
+          return (
+            <FormatNumberDrawer
+              open={udfDrawerOpen}
+              onClose={() => setUdfDrawerOpen(false)}
+              onConfirm={handleFormatNumberConfirm}
+              initialConfig={data.formatNumberConfig}
+              initialOutputColumns={data.outputColumns}
+              joinedTables={joinedTables}
+            />
+          );
+        case SelectNodePanelType.FLAG_SPEC_DRAWER:
+          return (
+            <FlagSpecDrawer
+              open={udfDrawerOpen}
+              onClose={() => setUdfDrawerOpen(false)}
+              onConfirm={handleFlagSpecConfirm}
+              initialConfig={data.flagSpecConfig}
+              initialOutputColumns={data.outputColumns}
+              joinedTables={joinedTables}
+            />
+          );
+        case SelectNodePanelType.FORMAT_DATE_DRAWER:
+          return (
+            <FormatDateDrawer
+              open={udfDrawerOpen}
+              onClose={() => setUdfDrawerOpen(false)}
+              onConfirm={handleFormatDateConfirm}
+              initialConfig={data.formatDateConfig}
+              initialOutputColumns={data.outputColumns}
+              joinedTables={joinedTables}
+            />
+          );
+        default:
+          return null;
+      }
+    })()}
     </>
   );
 };

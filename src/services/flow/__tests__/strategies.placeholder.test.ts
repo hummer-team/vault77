@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { AssociationStrategy } from '../strategies';
+import { AssociationStrategy } from '../strategies/associationStrategy';
 import { FlowNodeType, LogicType, type FlowNode, type FlowEdge } from '../types';
 
 describe('AssociationStrategy - Placeholder Support', () => {

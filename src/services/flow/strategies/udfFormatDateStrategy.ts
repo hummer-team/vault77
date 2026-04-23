@@ -18,48 +18,40 @@ import {
   type FlowNode,
   type FlowEdge,
   type ValidationError,
-  type AnalysisResult,
   type UdfConfigNodeData,
   type FormatDateConfig,
 } from '../types';
 import { UdfBaseStrategy } from './udfBaseStrategy';
-import { escapeSql, buildJoinSubquery } from './udfShared';
+import { escapeSql } from './udfShared';
 
 export class UdfFormatDateStrategy extends UdfBaseStrategy {
   readonly type: OperatorType = OperatorType.UDF_FORMAT_DATE;
   readonly name = '日期时间格式化';
-
-  // --------------------------------------------------------------------------
-  // validate
-  // --------------------------------------------------------------------------
-  validate(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
-    const errors: ValidationError[] = [];
-
-    const udfNode = this._findUdfNode(nodes);
-    if (!udfNode) {
-      errors.push({
-        nodeId: 'flow',
-        nodeType: FlowNodeType.END,
-        message: '缺少 UDF 配置节点，请在画布中完成算子配置',
-        severity: ValidationSeverity.ERROR,
-      });
-      return errors;
-    }
-
-    const cfg = (udfNode.data as UdfConfigNodeData).formatDateConfig;
-    if (!cfg || Object.keys(cfg.colConfigJson).length === 0) {
-      errors.push({
-        nodeId: udfNode.id,
-        nodeType: FlowNodeType.UDF_CONFIG,
-        message: '请至少配置一列的日期格式转换规则',
-        severity: ValidationSeverity.ERROR,
-      });
-    }
-
-    return errors;
-  }
+  readonly udfFunctionName = 'udf_format_date_time';
 
   getRequiredNodes(): FlowNodeType[] {
+    return [];
+  }
+
+  // --------------------------------------------------------------------------
+  // validateUdfConfig — called by UdfBaseStrategy.validate() after node check
+  // --------------------------------------------------------------------------
+  protected validateUdfConfig(
+    _nodes: FlowNode[],
+    _edges: FlowEdge[],
+    udfNode: FlowNode
+  ): ValidationError[] {
+    const cfg = (udfNode.data as UdfConfigNodeData).formatDateConfig;
+    if (!cfg || Object.keys(cfg.colConfigJson).length === 0) {
+      return [
+        {
+          nodeId: udfNode.id,
+          nodeType: FlowNodeType.UDF_CONFIG,
+          message: '请至少配置一列的日期格式转换规则',
+          severity: ValidationSeverity.ERROR,
+        },
+      ];
+    }
     return [];
   }
 
@@ -67,66 +59,46 @@ export class UdfFormatDateStrategy extends UdfBaseStrategy {
   // buildSql
   // --------------------------------------------------------------------------
   buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
-    const udfNode = this._findUdfNode(nodes);
+    const udfNode = this.findUdfNode(nodes, this.udfFunctionName);
     if (!udfNode) throw new Error('UDF 配置节点未找到，无法构建 SQL');
 
-    const nodeData = udfNode.data as UdfConfigNodeData;
-    const cfg = nodeData.formatDateConfig;
+    const cfg = (udfNode.data as UdfConfigNodeData).formatDateConfig;
     if (!cfg || Object.keys(cfg.colConfigJson).length === 0) {
       throw new Error('日期时间格式化配置为空，无法构建 SQL');
     }
 
-    const tblParam = this._resolveTbl(nodeData, edges, cfg);
+    // Full-schema mode — fixes multi-table column conflict bug
+    const { tblParam, columnAliasMap } = this.resolveTblParam(nodes, edges);
 
-    // tbl is VARCHAR in the MACRO — always pass as a single-quoted string.
-    const tblArg = `  '${escapeSql(tblParam)}'`;
-
-    // Serialize colConfigJson using camelCase → snake_case key mapping
-    const serialized = this._serializeColConfig(cfg.colConfigJson);
-    const params: string[] = [
-      tblArg,
-      `  col_config_json := '${escapeSql(JSON.stringify(serialized))}'`,
-    ];
-
-    const conditionSql = this.buildUdfConditionSql(nodes, placeholderValues, tblParam, cfg.condition);
-    if (conditionSql) {
-      params.push(`  condition := '${escapeSql(conditionSql)}'`);
+    // Remap colConfigJson keys from "tableName.col" → "tbN.col" for multi-table mode
+    const remappedColConfigJson: typeof cfg.colConfigJson = {};
+    for (const [key, colParams] of Object.entries(cfg.colConfigJson)) {
+      remappedColConfigJson[this.remapColumnKey(key, columnAliasMap)] = colParams;
     }
 
-    const sql = `SELECT *\nFROM udf_format_date_time(\n${params.join(',\n')}\n)`;
+    const conditionSql = this.buildUdfConditionSql(
+      nodes, placeholderValues, tblParam, cfg.condition, columnAliasMap
+    );
+
+    const serialized = this._serializeColConfig(remappedColConfigJson);
+    const params: string[] = [
+      `  '${escapeSql(tblParam)}'`,
+      `  col_config_json := '${escapeSql(JSON.stringify(serialized))}'`,
+    ];
+    if (conditionSql) params.push(`  condition := '${escapeSql(conditionSql)}'`);
+
+    const outputColumns = (udfNode.data as UdfConfigNodeData).outputColumns ?? [];
+    const selectClause = this.buildUdfSelectClause(outputColumns, columnAliasMap);
+    const sql = `${selectClause}\nFROM udf_format_date_time(\n${params.join(',\n')}\n)`;
     console.log(`[${this.name}.buildSql] sql=\n${sql}`);
     return sql;
   }
 
-  // --------------------------------------------------------------------------
-  // postProcess
-  // --------------------------------------------------------------------------
-  async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
-    return {
-      type: this.type,
-      sql: '',
-      data: queryResult.data as Record<string, unknown>[],
-      schema: queryResult.schema,
-      insights: ['日期时间格式化执行成功'],
-      visualizations: [{ type: 'table', config: { data: queryResult.data } }],
-    };
-  }
+  // postProcess and getSuccessInsight are inherited from UdfBaseStrategy
 
   // ============================================================================
   // Private helpers
   // ============================================================================
-
-  private _findUdfNode(nodes: FlowNode[]): FlowNode | undefined {
-    return (
-      nodes.find((n) => n.type === FlowNodeType.UDF_CONFIG) ??
-      nodes.find(
-        (n) =>
-          n.type === FlowNodeType.SELECT &&
-          (n.data as { udfFunctionName?: string }).udfFunctionName === 'udf_format_date_time'
-      ) ??
-      nodes.find((n) => n.type === FlowNodeType.SELECT)
-    );
-  }
 
   /**
    * Convert camelCase frontend config keys to snake_case expected by the DuckDB MACRO.
@@ -145,28 +117,6 @@ export class UdfFormatDateStrategy extends UdfBaseStrategy {
       result[col] = snakeParams;
     }
     return result;
-  }
-
-  private _resolveTbl(
-    nodeData: UdfConfigNodeData,
-    edges: FlowEdge[],
-    cfg: FormatDateConfig
-  ): string {
-    const joinEdges = edges.filter((e) => e.type === 'join' && e.data);
-    if (joinEdges.length > 0) {
-      const tableSet = new Set<string>();
-      for (const e of joinEdges) {
-        const d = e.data as { sourceTableName?: string; targetTableName?: string };
-        if (d.sourceTableName) tableSet.add(d.sourceTableName);
-        if (d.targetTableName) tableSet.add(d.targetTableName);
-      }
-      const tables = [...tableSet];
-      const cols = Object.keys(cfg.colConfigJson);
-      const colsByTable = new Map<string, string[]>(tables.map((t) => [t, cols]));
-      const joinResult = buildJoinSubquery(tables, edges, colsByTable);
-      if (joinResult) return joinResult.sql;
-    }
-    return (nodeData as unknown as { sourceTable?: string }).sourceTable ?? '__src';
   }
 }
 

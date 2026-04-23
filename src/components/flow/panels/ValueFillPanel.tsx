@@ -6,7 +6,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { Drawer, Form, Input, DatePicker, Button, Space, Tag, Tooltip, Alert, Typography } from 'antd';
-import { PlayCircleOutlined, CloseOutlined, FilterOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, CloseOutlined, FilterOutlined, EyeOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { ConditionDefinitionNodeData, ConditionItem, FieldType } from '../../../services/flow/types';
 import { FIELD_TYPE_ICONS, SQL_OPERATORS } from '../../../services/flow/constants';
@@ -22,7 +22,10 @@ const OPERATOR_LABEL_MAP: Record<string, string> = Object.values(SQL_OPERATORS)
 interface ValueFillPanelProps {
   open: boolean;
   onClose: () => void;
-  onExecute: () => void;
+  /** Returns success/error so the panel can stay open and display errors on failure. */
+  onExecute: () => Promise<{ success: boolean; error?: string }>;
+  /** Returns the estimated row count for the current configuration, or null on failure. */
+  onPreview: () => Promise<number | null>;
 }
 
 interface PlaceholderInfo {
@@ -66,7 +69,6 @@ const getInputComponent = (fieldType: FieldType, placeholder: string, operator?:
 
 // Convert value to appropriate type
 // For IN / NOT IN, keep the raw string so the strategy can split it properly.
-// (parseInt("1,2") would truncate to 1 — that is the bug we avoid here.)
 const IN_LIST_OPERATORS = new Set(['IN', 'NOT IN']);
 
 const convertValue = (value: unknown, fieldType: FieldType, operator?: string): unknown => {
@@ -74,7 +76,6 @@ const convertValue = (value: unknown, fieldType: FieldType, operator?: string): 
     return null;
   }
 
-  // IN / NOT IN: always keep the raw string regardless of field type
   if (operator && IN_LIST_OPERATORS.has(operator)) {
     return String(value);
   }
@@ -107,15 +108,20 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   open,
   onClose,
   onExecute,
+  onPreview,
 }) => {
   const [form] = Form.useForm();
   const nodes = useFlowStore((state) => state.nodes);
   const setPlaceholderValue = useFlowStore((state) => state.setPlaceholderValue);
   const getAllPlaceholderValues = useFlowStore((state) => state.getAllPlaceholderValues);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [execError, setExecError] = useState<string | null>(null);
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   // Collect all placeholders from condition definition nodes
-  // IS NULL / IS NOT NULL conditions are excluded — they need no runtime value
   const NO_VALUE_OPERATORS = new Set(['IS NULL', 'IS NOT NULL']);
   const placeholders = useMemo<PlaceholderInfo[]>(() => {
     const result: PlaceholderInfo[] = [];
@@ -156,10 +162,13 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       });
       form.setFieldsValue(initialValues);
       setValidationErrors({});
+      setExecError(null);
+      setPreviewCount(null);
+      setPreviewFailed(false);
     }
   }, [open, placeholders, existingValues, form]);
 
-  // Validate all values before execution
+  // Validate all values before execution / preview
   const validateAllValues = useCallback((): boolean => {
     const errors: Record<string, string> = {};
     const values = form.getFieldsValue();
@@ -173,21 +182,55 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
     return Object.keys(errors).length === 0;
   }, [form, placeholders]);
 
-  // Handle form submission
-  const handleSubmit = useCallback(() => {
-    if (!validateAllValues()) return;
+  /** Save current form values into the Zustand store so strategies can read them. */
+  const saveCurrentValues = useCallback(() => {
     const values = form.getFieldsValue();
     placeholders.forEach((p) => {
       const convertedValue = convertValue(values[p.placeholder], p.fieldType, p.operator);
       setPlaceholderValue(p.placeholder, convertedValue);
     });
-    setTimeout(() => { onExecute(); }, 0);
-  }, [form, placeholders, setPlaceholderValue, onExecute, validateAllValues]);
+  }, [form, placeholders, setPlaceholderValue]);
+
+  // Handle form submission (execute)
+  const handleSubmit = useCallback(async () => {
+    if (!validateAllValues()) return;
+    setIsExecuting(true);
+    setExecError(null);
+    saveCurrentValues();
+    // Small tick to let Zustand writes propagate before strategy reads
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const result = await onExecute();
+    setIsExecuting(false);
+    if (!result.success && result.error) {
+      setExecError(result.error);
+    }
+  }, [validateAllValues, saveCurrentValues, onExecute]);
+
+  // Handle preview — save values, run COUNT(*), display result
+  const handlePreview = useCallback(async () => {
+    if (!validateAllValues()) return;
+    setIsPreviewing(true);
+    setPreviewCount(null);
+    setPreviewFailed(false);
+    setExecError(null);
+    saveCurrentValues();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const count = await onPreview();
+    setIsPreviewing(false);
+    if (count === null) {
+      setPreviewFailed(true);
+    } else {
+      setPreviewCount(count);
+    }
+  }, [validateAllValues, saveCurrentValues, onPreview]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
     form.resetFields();
     setValidationErrors({});
+    setExecError(null);
+    setPreviewCount(null);
+    setPreviewFailed(false);
     onClose();
   }, [form, onClose]);
 
@@ -234,16 +277,66 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       }}
       closeIcon={<CloseOutlined style={{ color: '#8c8c8c' }} />}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={handleCancel}>取消</Button>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            onClick={handleSubmit}
-            disabled={!hasPlaceholders}
-          >
-            执行
-          </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Preview result — shown above buttons */}
+          {previewCount !== null && (
+            <div style={{
+              padding: '6px 12px',
+              background: 'rgba(255, 107, 0, 0.08)',
+              border: '1px solid rgba(255, 107, 0, 0.3)',
+              borderRadius: 6,
+              textAlign: 'center',
+            }}>
+              <span style={{ color: '#8c8c8c', fontSize: 12 }}>🫧预计影响: </span>
+              <span style={{ color: '#FF6B00', fontWeight: 700, fontSize: 16 }}>{previewCount.toLocaleString()}</span>
+              <span style={{ color: '#8c8c8c', fontSize: 12 }}> 行数据</span>
+            </div>
+          )}
+          {previewFailed && (
+            <div style={{
+              padding: '6px 12px',
+              background: 'rgba(255, 77, 79, 0.08)',
+              border: '1px solid rgba(255, 77, 79, 0.3)',
+              borderRadius: 6,
+              textAlign: 'center',
+              color: '#ff4d4f',
+              fontSize: 12,
+            }}>
+              预览失败，请检查配置
+            </div>
+          )}
+          {/* Error message from execution */}
+          {execError && (
+            <Alert
+              type="error"
+              message={execError}
+              showIcon
+              style={{ fontSize: 12 }}
+            />
+          )}
+          {/* Action buttons: 执行 | 预览 | 取消 */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={handleSubmit}
+              loading={isExecuting}
+              disabled={!hasPlaceholders || isPreviewing}
+            >
+              执行
+            </Button>
+            <Button
+              icon={<EyeOutlined />}
+              onClick={handlePreview}
+              loading={isPreviewing}
+              disabled={!hasPlaceholders || isExecuting}
+            >
+              预览
+            </Button>
+            <Button onClick={handleCancel} disabled={isExecuting || isPreviewing}>
+              取消
+            </Button>
+          </div>
         </div>
       }
     >

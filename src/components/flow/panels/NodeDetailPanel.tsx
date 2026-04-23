@@ -15,8 +15,8 @@ import type {
   ConditionGroupNodeData,
   EndNodeData,
 } from '../../../services/flow/types';
-import { SQL_OPERATORS } from '../../../services/flow/constants';
-import { FlowNodeType } from '../../../services/flow/types';
+import { getOperatorsByFieldType } from '../../../services/flow/constants';
+import { FlowNodeType, FieldType } from '../../../services/flow/types';
 
 const { Option } = Select;
 
@@ -73,7 +73,7 @@ export const NodeDetailPanel: React.FC = () => {
       case 'conditionGroup':
         return '条件组节点';
       case 'select':
-        return '选择列节点';
+        return '选择查询字段';
       case 'selectAgg':
         return '聚合查询节点';
       case 'end':
@@ -219,7 +219,17 @@ const ConditionNodeForm: React.FC<{
       <Form.Item label="选择字段">
         <Select
           value={data.field}
-          onChange={(value) => onUpdate(node.id, { field: value })}
+          onChange={(value) => {
+            const fieldInfo = tableFields.find((f) => f.name === value);
+            const newType = (fieldInfo?.type ?? 'VARCHAR') as FieldType;
+            const validOps = getOperatorsByFieldType(newType);
+            const isOpStillValid = validOps.some((op) => op.value === data.operator);
+            const newOperator = isOpStillValid ? data.operator : (validOps[0]?.value ?? '=');
+            onUpdate(node.id, {
+              field: value,
+              ...(isOpStillValid ? {} : { operator: newOperator }),
+            });
+          }}
           style={{ width: '100%' }}
           placeholder="选择字段"
           disabled={!data.tableName}
@@ -238,36 +248,10 @@ const ConditionNodeForm: React.FC<{
           onChange={(value) => onUpdate(node.id, { operator: value, value: value.includes('NULL') ? null : data.value })}
           style={{ width: '100%' }}
           placeholder="选择操作符"
-        >
-          <Select.OptGroup label="比较">
-            {SQL_OPERATORS.comparison.map((op) => (
-              <Option key={op.value} value={op.value}>
-                {op.label}
-              </Option>
-            ))}
-          </Select.OptGroup>
-          <Select.OptGroup label="字符串">
-            {SQL_OPERATORS.string.map((op) => (
-              <Option key={op.value} value={op.value}>
-                {op.label}
-              </Option>
-            ))}
-          </Select.OptGroup>
-          <Select.OptGroup label="空值">
-            {SQL_OPERATORS.null.map((op) => (
-              <Option key={op.value} value={op.value}>
-                {op.label}
-              </Option>
-            ))}
-          </Select.OptGroup>
-          <Select.OptGroup label="集合">
-            {SQL_OPERATORS.set.map((op) => (
-              <Option key={op.value} value={op.value}>
-                {op.label}
-              </Option>
-            ))}
-          </Select.OptGroup>
-        </Select>
+          options={getOperatorsByFieldType(
+            (tableFields.find((f) => f.name === data.field)?.type ?? undefined) as FieldType | undefined
+          )}
+        />
       </Form.Item>
 
       {!isNullOperator && (

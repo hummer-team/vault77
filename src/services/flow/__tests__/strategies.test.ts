@@ -3,12 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  BaseStrategy,
-  AssociationStrategy,
-  AnomalyStrategy,
-  ClusteringStrategy,
-} from '../strategies';
+import { BaseStrategy } from '../strategies';
+import { AssociationStrategy } from '../strategies/associationStrategy';
+import { AnomalyStrategy }     from '../strategies/anomalyStrategy';
+import { ClusteringStrategy }  from '../strategies/clusteringStrategy';
 import {
   FlowNodeType,
   OperatorType,

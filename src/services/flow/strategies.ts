@@ -13,6 +13,7 @@ import {
   type FlowNode,
   type FlowEdge,
   type JoinNodeData,
+  type JoinEdgeData,
   type ConditionNodeData,
   type SelectNodeData,
   type SelectAggNodeData,
@@ -28,6 +29,17 @@ const NUMERIC_FIELD_TYPES = new Set<string>([
   FieldType.INTEGER, FieldType.BIGINT, FieldType.SMALLINT, FieldType.TINYINT,
   FieldType.DECIMAL, FieldType.NUMERIC, FieldType.REAL, FieldType.DOUBLE,
 ]);
+
+/** Convert an edge joinType string to the SQL keyword used before JOIN */
+function edgeJoinKeyword(joinType: string | undefined): string {
+  switch ((joinType ?? '').toLowerCase()) {
+    case 'inner': return 'INNER';
+    case 'left':  return 'LEFT';
+    case 'right': return 'RIGHT';
+    case 'full':  return 'FULL OUTER';
+    default:      return 'INNER';
+  }
+}
 
 /**
  * Base Strategy Class
@@ -46,7 +58,7 @@ export abstract class BaseStrategy implements FlowStrategy {
     console.log(`[${this.name}.validate] nodes=[${nodeTypes}]`);
 
     const errors: ValidationError[] = [
-      ...this._validateStructure(nodes),
+      ...this._validateStructure(nodes, edges),
       ...this.validateOperatorSpecific(nodes, edges),
     ];
 
@@ -67,7 +79,7 @@ export abstract class BaseStrategy implements FlowStrategy {
   }
 
   /** Validate structural requirements: required nodes, tables, joins */
-  private _validateStructure(nodes: FlowNode[]): ValidationError[] {
+  private _validateStructure(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[] {
     const errors: ValidationError[] = [];
 
     // Check for required nodes
@@ -95,10 +107,15 @@ export abstract class BaseStrategy implements FlowStrategy {
       });
     }
 
-    // Validate join nodes if multiple tables
+    // Validate join configuration if multiple tables.
+    // Accepts either legacy JOIN nodes OR edge-based joins (from TableJoinBuildPanel).
     if (tableNodes.length > 1) {
       const joinNodes = nodes.filter((n) => n.type === FlowNodeType.JOIN);
-      if (joinNodes.length === 0) {
+      const joinEdges = edges.filter(
+        (e) => e.type === 'join' && (e.data as JoinEdgeData | undefined)?.configured === true
+      );
+
+      if (joinNodes.length === 0 && joinEdges.length === 0) {
         errors.push({
           nodeId: 'flow',
           nodeType: FlowNodeType.END,
@@ -107,13 +124,26 @@ export abstract class BaseStrategy implements FlowStrategy {
         });
       }
 
-      // Validate join conditions
+      // Validate legacy JOIN node conditions
       joinNodes.forEach((node) => {
         const joinData = node.data as JoinNodeData;
         if (joinData.conditions.length === 0) {
           errors.push({
             nodeId: node.id,
             nodeType: node.type,
+            message: VALIDATION_MESSAGES.JOIN_CONDITION_EMPTY,
+            severity: ValidationSeverity.ERROR,
+          });
+        }
+      });
+
+      // Validate edge-based join conditions
+      joinEdges.forEach((edge) => {
+        const joinData = edge.data as JoinEdgeData;
+        if (!joinData.conditions || joinData.conditions.length === 0) {
+          errors.push({
+            nodeId: edge.id,
+            nodeType: FlowNodeType.JOIN,
             message: VALIDATION_MESSAGES.JOIN_CONDITION_EMPTY,
             severity: ValidationSeverity.ERROR,
           });
@@ -162,6 +192,49 @@ export abstract class BaseStrategy implements FlowStrategy {
 
     const firstTable = tableNodes[0].data as { tableName: string };
     return `FROM "${firstTable.tableName}"`;
+  }
+
+  /**
+   * Helper: Build FROM + JOIN clauses from edge-based join configuration.
+   *
+   * Uses actual table names (not aliases) so the result is compatible with
+   * buildSelectClause / buildWhereClause which emit "tableName"."col" references.
+   *
+   * Returns '' when no configured join edges are found (caller should fall back
+   * to buildFromClause + buildJoinClauses for legacy node-based joins).
+   */
+  protected buildEdgeJoinFromClause(edges: FlowEdge[]): string {
+    const joinEdges = edges
+      .filter((e) => e.type === 'join' && (e.data as JoinEdgeData | undefined)?.configured)
+      .sort((a, b) => ((a.data as JoinEdgeData).order ?? 0) - ((b.data as JoinEdgeData).order ?? 0));
+
+    if (joinEdges.length === 0) return '';
+
+    // Derive ordered table list from the join chain
+    const orderedTables: string[] = [];
+    for (const edge of joinEdges) {
+      const d = edge.data as JoinEdgeData;
+      if (!orderedTables.includes(d.sourceTableName)) orderedTables.push(d.sourceTableName);
+      if (!orderedTables.includes(d.targetTableName)) orderedTables.push(d.targetTableName);
+    }
+
+    const mainTable = orderedTables[0];
+    let sql = `FROM "${mainTable.replace(/"/g, '""')}"`;
+
+    for (const edge of joinEdges) {
+      const d = edge.data as JoinEdgeData;
+      const keyword = edgeJoinKeyword(d.joinType);
+      const target = d.targetTableName.replace(/"/g, '""');
+      const onClauses = (d.conditions ?? [])
+        .map((c) => {
+          const op = c.operator || '=';
+          return `"${c.leftTable.replace(/"/g, '""')}"."${c.leftField.replace(/"/g, '""')}" ${op} "${c.rightTable.replace(/"/g, '""')}"."${c.rightField.replace(/"/g, '""')}"`;
+        })
+        .join(' AND ');
+      sql += `\n${keyword} JOIN "${target}" ON ${onClauses || 'TRUE'}`;
+    }
+
+    return sql;
   }
 
   /**
@@ -451,183 +524,5 @@ export abstract class BaseStrategy implements FlowStrategy {
     }
 
     return sql;
-  }
-}
-
-/**
- * Association Strategy
- * Multi-table association query
- */
-export class AssociationStrategy extends BaseStrategy {
-  readonly type: OperatorType = OperatorType.ASSOCIATION;
-  readonly name = '关联查询';
-
-  getRequiredNodes(): FlowNodeType[] {
-    return [FlowNodeType.TABLE];
-  }
-
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
-    const parts: string[] = [];
-
-    // SELECT
-    parts.push(this.buildSelectClause(nodes));
-
-    // FROM
-    parts.push(this.buildFromClause(nodes));
-
-    // JOIN
-    const joinClause = this.buildJoinClauses(nodes);
-    if (joinClause) {
-      parts.push(joinClause);
-    }
-
-    // WHERE — use placeholder-aware version if values provided
-    if (placeholderValues && Object.keys(placeholderValues).length > 0) {
-      const whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
-      if (whereClause) {
-        parts.push(whereClause);
-      }
-    } else {
-      const whereClause = this.buildWhereClause(nodes);
-      if (whereClause) {
-        parts.push(whereClause);
-      }
-    }
-
-    // GROUP BY
-    const groupByClause = this.buildGroupByClause(nodes);
-    if (groupByClause) {
-      parts.push(groupByClause);
-    }
-
-    const sql = parts.join('\n');
-    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
-    return sql;
-  }
-
-  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
-    return {
-      type: this.type,
-      sql: '', // Will be filled by EndNode
-      data: queryResult.data,
-      schema: queryResult.schema,
-      insights: ['关联查询执行成功'],
-      visualizations: [
-        {
-          type: 'table',
-          config: { data: queryResult.data },
-        },
-      ],
-    };
-  }
-}
-
-/**
- * Anomaly Strategy
- * Anomaly detection based on isolation forest
- */
-export class AnomalyStrategy extends BaseStrategy {
-  readonly type: OperatorType = OperatorType.ANOMALY;
-  readonly name = '异常洞察';
-
-  getRequiredNodes(): FlowNodeType[] {
-    return [FlowNodeType.TABLE, FlowNodeType.SELECT];
-  }
-
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
-    // For anomaly detection, we need numerical fields
-    const parts: string[] = [];
-
-    parts.push(this.buildSelectClause(nodes));
-    parts.push(this.buildFromClause(nodes));
-
-    const joinClause = this.buildJoinClauses(nodes);
-    if (joinClause) {
-      parts.push(joinClause);
-    }
-
-    const whereClause = this.buildWhereClause(nodes);
-    if (whereClause) {
-      parts.push(whereClause);
-    }
-
-    return parts.join('\n');
-  }
-
-  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
-    // In real implementation, this would call the anomaly detection algorithm
-    return {
-      type: this.type,
-      sql: '', // Will be filled by EndNode
-      data: queryResult.data,
-      schema: queryResult.schema,
-      insights: [
-        '基于孤立森林算法的异常检测',
-        '已标记异常数据点',
-      ],
-      visualizations: [
-        {
-          type: 'scatter',
-          config: { data: queryResult.data, anomalyField: 'is_anomaly' },
-        },
-      ],
-    };
-  }
-}
-
-/**
- * Clustering Strategy
- * User clustering based on K-Means
- */
-export class ClusteringStrategy extends BaseStrategy {
-  readonly type: OperatorType = OperatorType.CLUSTERING;
-  readonly name = '用户聚类';
-
-  getRequiredNodes(): FlowNodeType[] {
-    return [FlowNodeType.TABLE, FlowNodeType.SELECT];
-  }
-
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
-    const parts: string[] = [];
-
-    parts.push(this.buildSelectClause(nodes));
-    parts.push(this.buildFromClause(nodes));
-
-    const joinClause = this.buildJoinClauses(nodes);
-    if (joinClause) {
-      parts.push(joinClause);
-    }
-
-    const whereClause = this.buildWhereClause(nodes);
-    if (whereClause) {
-      parts.push(whereClause);
-    }
-
-    const groupByClause = this.buildGroupByClause(nodes);
-    if (groupByClause) {
-      parts.push(groupByClause);
-    }
-
-    return parts.join('\n');
-  }
-
-  async postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult> {
-    // In real implementation, this would call the K-Means clustering algorithm
-    return {
-      type: this.type,
-      sql: '', // Will be filled by EndNode
-      data: queryResult.data,
-      schema: queryResult.schema,
-      insights: [
-        '基于K-Means的用户分群',
-        '已识别用户群组特征',
-      ],
-      visualizations: [
-        {
-          type: 'radar',
-          config: { data: queryResult.data, clusterField: 'cluster_id' },
-        },
-      ],
-    };
   }
 }

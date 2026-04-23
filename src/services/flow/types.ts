@@ -239,6 +239,14 @@ export interface SelectNodeData extends BaseNodeData {
   replacementRules?: ReplaceRule[];
   /** Selected output columns for udf_replace_spec_column_value; empty = show all */
   outputColumns?: string[];
+  /** Config for udf_up_lower_str */
+  upLowerConfig?: UpLowerConfig;
+  /** Config for udf_format_number */
+  formatNumberConfig?: FormatNumberConfig;
+  /** Config for udf_flag_spec_column */
+  flagSpecConfig?: FlagSpecConfig;
+  /** Config for udf_format_date_time */
+  formatDateConfig?: FormatDateConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -431,7 +439,16 @@ export interface FlowStrategy {
   buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string;
   validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[];
   getRequiredNodes(): FlowNodeType[];
-  postProcess(queryResult: { data: any[]; schema: any[] }): Promise<AnalysisResult>;
+  postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult>;
+}
+
+/**
+ * Extended interface for UDF-based strategies.
+ * Declares udfFunctionName for MACRO routing and panel type resolution.
+ */
+export interface UdfFlowStrategy extends FlowStrategy {
+  /** DuckDB MACRO function name, e.g. 'udf_up_lower_str' */
+  readonly udfFunctionName: string;
 }
 
 // ============================================================================
