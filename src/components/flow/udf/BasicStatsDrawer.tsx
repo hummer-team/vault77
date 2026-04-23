@@ -322,6 +322,16 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       errs.push('结果过滤的值必须为有效数字');
     }
 
+    const emptyHavingAlias = havingFilters.some((f) => !f.resultAlias.trim());
+    if (emptyHavingAlias) {
+      errs.push('结果过滤的统计结果不能为空');
+    }
+
+    const emptySortColumn = sortConfigs.some((s) => !s.column.trim());
+    if (emptySortColumn) {
+      errs.push('排序列不能为空');
+    }
+
     if (errs.length > 0) {
       setErrors(errs);
       return;
