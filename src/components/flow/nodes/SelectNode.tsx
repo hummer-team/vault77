@@ -27,6 +27,7 @@ import type {
   OperatorNodeData,
   BasicStatsConfig,
   TableNodeData,
+  OrderDistributionConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -42,6 +43,7 @@ import FormatNumberDrawer from '../udf/FormatNumberDrawer';
 import FlagSpecDrawer from '../udf/FlagSpecDrawer';
 import FormatDateDrawer from '../udf/FormatDateDrawer';
 import { BasicStatsDrawer } from '../udf/BasicStatsDrawer';
+import { OrderDistributionDrawer } from '../udf/OrderDistributionDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -190,8 +192,26 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleOrderDistConfirm = useCallback(
+    (config: OrderDistributionConfig) => {
+      updateNode(id, { orderDistConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive column names from the first upstream joined table for BasicStatsDrawer
   const basicStatsColumns = useMemo(() => {
+    const tableName = joinedTables[0];
+    if (!tableName) return [];
+    const tableNode = storeNodes.find(
+      (n) => n.type === FlowNodeType.TABLE && (n.data as TableNodeData).tableName === tableName
+    );
+    return (tableNode?.data as TableNodeData | undefined)?.fields?.map((f) => f.name) ?? [];
+  }, [joinedTables, storeNodes]);
+
+  // Derive column names for OrderDistributionDrawer (same pattern as basicStatsColumns)
+  const orderDistColumns = useMemo(() => {
     const tableName = joinedTables[0];
     if (!tableName) return [];
     const tableNode = storeNodes.find(
@@ -217,6 +237,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return Object.keys(data.formatDateConfig?.colConfigJson ?? {}).length > 0;
       case SelectNodePanelType.BASIC_STATS_DRAWER:
         return !!(data.basicStatsConfig && data.basicStatsConfig.aggFields.length > 0);
+      case SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER:
+        return !!(data.orderDistConfig?.subType);
       default:
         return false;
     }
@@ -533,6 +555,16 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               columns={basicStatsColumns}
               initialConfig={data.basicStatsConfig}
               onConfirm={handleBasicStatsConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER:
+          return (
+            <OrderDistributionDrawer
+              open={udfDrawerOpen}
+              columns={orderDistColumns}
+              initialConfig={data.orderDistConfig}
+              onConfirm={handleOrderDistConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
