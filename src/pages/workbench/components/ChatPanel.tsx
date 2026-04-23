@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined } from '@ant-design/icons';
+import { App, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions } from 'antd';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -85,6 +85,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onToggleAttachmentSelection,
 }) => {
   const [form] = Form.useForm();
+  const { modal } = App.useApp();
   const { userProfile } = useUserStore();
   const [userSkillConfigs, setUserSkillConfigs] = useState<Record<string, TableSkillConfig>>({});
 
@@ -328,8 +329,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 <Tag
                   closable
                   onClose={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    handleDeleteGroup(group.attachmentIds);
+                    modal.confirm({
+                      title: '删除附件',
+                      icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
+                      content: (
+                        <div>
+                          <p>确定要删除 <strong>{group.fileName}</strong> 吗？</p>
+                          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '12px', marginTop: '8px' }}>
+                            此操作将同步清理关联的分析流，删除后无法恢复。
+                          </p>
+                        </div>
+                      ),
+                      okText: '删除',
+                      okType: 'danger',
+                      cancelText: '取消',
+                      onOk: () => handleDeleteGroup(group.attachmentIds),
+                    });
                   }}
                   onClick={() => onToggleAttachmentSelection?.(group.attachmentIds)}
                   icon={group.status === 'uploading' ? <Spin size="small" /> : <FileExcelOutlined />}

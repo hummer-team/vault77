@@ -171,7 +171,7 @@ const InitialWelcomeView: React.FC = () => (
 );
 
 const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDBReady }) => {
-  const { message } = App.useApp();
+  const { message, notification } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
   // timer for persona hint auto clear
   const personaHintTimerRef = useRef<number | null>(null);
@@ -516,7 +516,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         thinkingSteps: {
           tool: 'flow_builder',
           params: { query: sql },
-          thought: 'Built SQL query using visual flow editor',
+          thought: 'Built query using visual flow editor',
           flowSummary,
         },
         data: result.data,
@@ -819,7 +819,12 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
       // 4. Notify user if any templates were cleared
       if (affectedKernels.length > 0) {
-        message.info(`已清理 ${affectedKernels.length} 个关联分析流，请重新构建`);
+        notification.warning({
+          message: '分析流已自动清理',
+          description: `已清理与该附件关联的 ${affectedKernels.length} 个分析流模板，如需使用请重新构建。`,
+          placement: 'topRight',
+          duration: 5,
+        });
       }
     }
   }, [handleDeleteAttachment]);
