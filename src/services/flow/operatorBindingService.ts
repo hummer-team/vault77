@@ -46,6 +46,13 @@ class OperatorBindingService {
   }
 
   /**
+   * Retrieve all kernel→attachment bindings.
+   */
+  async getAllBindings(): Promise<Record<string, OperatorBinding>> {
+    return storageService.getItem<Record<string, OperatorBinding>>(BINDING_KEY, {});
+  }
+
+  /**
    * Delete the binding for a kernel (call when clearing a flow template).
    */
   async clearBinding(kernelName: string): Promise<void> {
