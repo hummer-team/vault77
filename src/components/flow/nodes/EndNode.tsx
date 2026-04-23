@@ -6,7 +6,7 @@
 
 import React, { useCallback, useState, useMemo } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
-import { Button, Tag, Space, Tooltip } from 'antd';
+import { Button, Tag, Space, Tooltip, Popover, notification } from 'antd';
 import {
   PlayCircleOutlined,
   SaveOutlined,
@@ -109,11 +109,6 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   // Handle execute after value filling — returns success/error so ValueFillPanel can stay open on failure
   const executeFlow = useCallback(
     async (): Promise<{ success: boolean; error?: string }> => {
-      if ((data.errors?.length || 0) > 0) {
-        setErrorPanelOpen(true);
-        return { success: false, error: '流程存在配置错误，请先修复。' };
-      }
-
       // Set executing state
       updateNode(id, {
         ...data,
@@ -187,6 +182,12 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           ],
         });
         setErrorPanelOpen(true);
+        notification.error({
+          message: '执行失败',
+          description: message,
+          duration: 0,
+          placement: 'topRight',
+        });
         return { success: false, error: message };
       }
     },
@@ -364,8 +365,29 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           }}
         >
           {hasErrors 
-            ? `存在 ${errorCount} 个错误，请修复后执行` 
-            : '流程配置正确，可以执行'}
+            ? (
+              <Popover
+                content={
+                  <ul style={{ margin: 0, paddingLeft: 16, maxWidth: 320 }}>
+                    {(data.errors ?? []).map((e, i) => (
+                      <li key={`${e.nodeId}-${i}`} style={{ color: '#ff4d4f', fontSize: 12 }}>
+                        {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                }
+                title="错误详情"
+                trigger="click"
+                placement="top"
+              >
+                <span style={{ cursor: 'pointer', color: '#ff4d4f', fontSize: 12 }}>
+                  存在 {errorCount} 个错误，点击查看详情
+                </span>
+              </Popover>
+            )
+            : (
+              <span style={{ color: '#52c41a', fontSize: 12 }}>流程配置正确，可以执行</span>
+            )}
         </div>
       </div>
 
@@ -383,7 +405,6 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
                 setValueFillPanelOpen(true);
               }
             }}
-            disabled={errorCount > 0}
             danger={errorCount > 0}
           >
             {shouldExecuteDirectly ? '执行' : hasUnfilledPlaceholders ? '填写参数并执行' : '执行'}
