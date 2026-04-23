@@ -81,6 +81,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_data_clean_number_precision_control:  OperatorType.UDF_FORMAT_NUMBER,
     fn_ecom_data_clean_data_flag:                 OperatorType.UDF_FLAG_SPEC,
     fn_ecom_data_format_date:                     OperatorType.UDF_FORMAT_DATE,
+    fn_basic_statis:                              OperatorType.BASIC_STATS,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {

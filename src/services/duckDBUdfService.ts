@@ -16,6 +16,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_data_clean_number_precision_control: 'udf_format_number',
   fn_ecom_data_clean_data_flag: 'udf_flag_spec_column',
   fn_ecom_data_format_date: 'udf_format_date_time',
+  fn_basic_statis: 'fn_basic_statis',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */
