@@ -241,6 +241,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
         const field = prev.find((f) => f.id === id);
         if (!field) return prev;
 
+        // Read old alias from live prev state, not from closure
         const oldAlias = field.alias;
         const updated = { ...field, ...patch };
 
@@ -251,24 +252,26 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
 
         const newAlias = updated.alias;
 
-        // Cascade alias → havingFilters and sortConfigs when alias changes
+        // Cascade alias → havingFilters and sortConfigs after this update commits
         if (newAlias !== oldAlias) {
-          setHavingFilters((filters) =>
-            filters.map((f) =>
-              f.resultAlias === oldAlias ? { ...f, resultAlias: newAlias } : f
-            )
-          );
-          setSortConfigs((sorts) =>
-            sorts.map((s) =>
-              s.column === oldAlias ? { ...s, column: newAlias } : s
-            )
-          );
+          queueMicrotask(() => {
+            setHavingFilters((filters) =>
+              filters.map((f) =>
+                f.resultAlias === oldAlias ? { ...f, resultAlias: newAlias } : f
+              )
+            );
+            setSortConfigs((sorts) =>
+              sorts.map((s) =>
+                s.column === oldAlias ? { ...s, column: newAlias } : s
+              )
+            );
+          });
         }
 
         return prev.map((f) => (f.id === id ? updated : f));
       });
     },
-    []
+    [setHavingFilters, setSortConfigs]
   );
 
   // ── Available alias list for having/sort dropdowns ───────────────────────────
