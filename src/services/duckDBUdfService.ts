@@ -18,6 +18,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_data_format_date: 'udf_format_date_time',
   fn_basic_statis: 'fn_basic_statis',
   fn_ecom_order_distribution: 'fn_ecom_order_distribution',
+  fn_ecom_repurchase_cycle: 'fn_ecom_repurchase_cycle',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */
