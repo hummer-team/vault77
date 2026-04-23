@@ -146,6 +146,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 基础洞察 - 订单分布
+  // done
   {
     name: 'fn_ecom_order_distribution',
     displayName: '订单分布分析',
@@ -263,19 +264,20 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     displayName: '复购周期分析',
     industry: '电商/订单',
     category: '用户增长',
+    group: 'fn_ecom_repurchase_cycle',
     version: '1.0.0',
     description: '计算品类的平均消耗时间',
     detailedDescription:
-      '自动识别用户的首次下单时间、末次下单时间，计算平均下单间隔（AOV）。实时标记处于"流失边缘"的用户名单，一键生成流失预警表。',
+      '自动识别用户的首次下单时间、末次下单时间，计算平均下单间隔AOI（Average Order Interval）。实时标记处于"流失边缘"的用户名单，一键生成流失预警表。',
     author: 'official',
     likes: 178,
     credits: 150,
     dataVolume: '5w order',
     estimatedTime: '4s',
     metadata: {
-      inputFields: ['user_id', 'order_time'],
-      outputFields: ['user_id', 'first_order', 'last_order', 'avg_interval', 'churn_risk'],
-      constraints: ['需要用户ID和订单时间'],
+      inputFields: ['user_id', 'order_time', 'category'],
+      outputFields: ['user_id', 'category', 'first_order', 'last_order', 'order_count', 'avg_cycle_days', 'current_interval_days', 'risk_level'],
+      constraints: ['需要用户ID、订单时间、商品类目字段'],
     },
   },
 

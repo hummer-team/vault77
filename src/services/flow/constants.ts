@@ -190,6 +190,12 @@ export const OPERATOR_CONFIG = {
     icon: '📦',
     color: '#eb2f96',
   },
+  repurchase_cycle: {
+    name: '复购周期分析',
+    description: '计算品类平均消耗时间，标记流失预警用户',
+    icon: '🔄',
+    color: '#52c41a',
+  },
 };
 
 // ============================================================================

@@ -50,6 +50,7 @@ export enum OperatorType {
   UDF_FORMAT_DATE    = 'udf_format_date',     // Data-cleaning: date/time format conversion
   BASIC_STATS = 'basic_stats',
   ORDER_DISTRIBUTION = 'order_distribution',  // Order distribution: time / amount / geo
+  REPURCHASE_CYCLE = 'repurchase_cycle',  // User growth: repurchase cycle + churn risk
 }
 
 export enum LogicType {
@@ -253,6 +254,8 @@ export interface SelectNodeData extends BaseNodeData {
   basicStatsConfig?: BasicStatsConfig;
   /** Config for fn_ecom_order_distribution */
   orderDistConfig?: OrderDistributionConfig;
+  /** Config for fn_ecom_repurchase_cycle */
+  repurchaseCycleConfig?: RepurchaseCycleConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -375,6 +378,48 @@ export interface OrderDistributionConfig {
   timeDist?: TimeDistConfig;
   amountDist?: AmountDistConfig;
   geoDist?: GeoDistConfig;
+}
+
+// ============================================================================
+// RepurchaseCycle types  (fn_ecom_repurchase_cycle)
+// ============================================================================
+
+/** Output mode: detail churn-warning table or category-level summary table */
+export type RepurchaseCycleOutputMode = 'detail' | 'summary';
+
+/** Reference date mode for "today" baseline */
+export type RepurchaseCycleRefDateMode = 'max_order_date' | 'custom';
+
+/** Risk level thresholds (user-configurable) */
+export interface RepurchaseCycleThresholds {
+  /** ratio < stable = "稳定" (default 0.8) */
+  stable: number;
+  /** ratio < watch = "关注" (default 1.2) */
+  watch: number;
+  /** ratio < warning = "预警" (default 2.0); above = "已流失" */
+  warning: number;
+}
+
+/** Top-level config stored on SelectNode for fn_ecom_repurchase_cycle */
+export interface RepurchaseCycleConfig {
+  /** User ID column name (selected by user) */
+  userIdCol: string;
+  /** Order time column name (selected by user) */
+  orderTimeCol: string;
+  /** Category column name (selected by user) */
+  categoryCol: string;
+  /** Which output mode to generate */
+  outputMode: RepurchaseCycleOutputMode;
+  /** Reference date mode */
+  refDateMode: RepurchaseCycleRefDateMode;
+  /** Custom reference date (ISO string, only used when refDateMode = 'custom') */
+  customRefDate?: string;
+  /** Risk level thresholds */
+  thresholds: RepurchaseCycleThresholds;
+  /** Detail mode: risk levels to include in output (empty = all) */
+  detailRiskFilter: string[];
+  /** Summary mode: only show users with order_count >= 2 */
+  summaryValidOnly: boolean;
 }
 
 // ============================================================================
