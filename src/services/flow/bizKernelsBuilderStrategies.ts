@@ -29,6 +29,8 @@ export enum SelectNodePanelType {
   FORMAT_DATE_DRAWER = 'FORMAT_DATE_DRAWER',
   /** BasicStatsDrawer — used for 数据分析 · 基础统计 */
   BASIC_STATS_DRAWER = 'BASIC_STATS_DRAWER',
+  /** OrderDistributionDrawer — used for 订单分布分析 (3 sub-types: time/amount/geo) */
+  ORDER_DISTRIBUTION_DRAWER = 'ORDER_DISTRIBUTION_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -54,6 +56,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   udf_flag_spec_column:          SelectNodePanelType.FLAG_SPEC_DRAWER,
   udf_format_date_time:          SelectNodePanelType.FORMAT_DATE_DRAWER,
   fn_basic_statis:               SelectNodePanelType.BASIC_STATS_DRAWER,
+  fn_ecom_order_distribution:    SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER,
 };
 
 // ============================================================================
@@ -121,6 +124,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.FLAG_SPEC_DRAWER:
     case SelectNodePanelType.FORMAT_DATE_DRAWER:
     case SelectNodePanelType.BASIC_STATS_DRAWER:
+    case SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER:
       actions.openUdfDrawer();
       break;
     default:
