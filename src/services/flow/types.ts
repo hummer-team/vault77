@@ -48,6 +48,7 @@ export enum OperatorType {
   UDF_FORMAT_NUMBER  = 'udf_format_number',   // Data-cleaning: number precision / rounding
   UDF_FLAG_SPEC      = 'udf_flag_spec',       // Data-cleaning: flag / label specific column values
   UDF_FORMAT_DATE    = 'udf_format_date',     // Data-cleaning: date/time format conversion
+  BASIC_STATS = 'basic_stats',
 }
 
 export enum LogicType {
@@ -247,11 +248,58 @@ export interface SelectNodeData extends BaseNodeData {
   flagSpecConfig?: FlagSpecConfig;
   /** Config for udf_format_date_time */
   formatDateConfig?: FormatDateConfig;
+  /** Config for fn_basic_statis */
+  basicStatsConfig?: BasicStatsConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
   fields: SelectField[];
   groupByFields: string[];
+}
+
+// ============================================================================
+// BasicStats Types (fn_basic_statis)
+// ============================================================================
+
+/** Supported aggregate functions */
+export type AggFunction = 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX';
+
+/** A single aggregation field: one column + one function */
+export interface AggFieldConfig {
+  id: string;
+  column: string;
+  func: AggFunction;
+  /** Auto-derived alias: `${func.toLowerCase()}_${column}` */
+  alias: string;
+}
+
+/** A single HAVING-equivalent filter on an aggregated result */
+export interface HavingFilter {
+  id: string;
+  /** Must match one of AggFieldConfig.alias */
+  resultAlias: string;
+  operator: '>' | '>=' | '<' | '<=';
+  value: number;
+}
+
+/** A single ORDER BY entry */
+export interface SortConfig {
+  id: string;
+  /** Can be a groupBy column name or an AggFieldConfig.alias */
+  column: string;
+  direction: 'ASC' | 'DESC';
+}
+
+/** Complete config stored on SelectNodeData for fn_basic_statis */
+export interface BasicStatsConfig {
+  tableName: string;
+  aggFields: AggFieldConfig[];
+  /** Columns to GROUP BY; chosen from data source excluding stat columns */
+  groupByColumns: string[];
+  /** Result filters (HAVING equivalent) */
+  havingFilters: HavingFilter[];
+  /** ORDER BY entries */
+  sortConfigs: SortConfig[];
 }
 
 // ============================================================================

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
 import { Spin, App, Typography, Space, Drawer, Modal } from 'antd';
 import { 
   CodeOutlined, 
@@ -31,6 +31,8 @@ import { useUserStore } from '../../status/appStatusManager.ts';
 import { runAgent } from '../../services/llm/agentRuntime.ts';
 import { DuckDBProvider } from '../../contexts/DuckDBContext';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService';
+import { operatorBindingService } from '../../services/flow/operatorBindingService';
+import type { FlowSummary } from '../../services/flow/flowSummary';
 import './workbench.css';
 
 const InsightPage = React.lazy(() => import('../insight'));
@@ -53,6 +55,8 @@ interface AnalysisRecord {
     userSkillApplied?: boolean;
     userSkillDigestChars?: number;
     activeTable?: string;
+    // Flow builder: human-readable summary
+    flowSummary?: FlowSummary;
     // M10.5 Phase 3: Effective settings
     effectiveSettings?: {
       tableName: string;
@@ -194,6 +198,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
   const [uiState, setUiState] = useState<WorkbenchState>('initializing');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([]);
+
   const [chatError, setChatError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisRecord[]>([]);
@@ -218,6 +224,33 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   // Kernel @ mention: pending template save + hint text
   const [pendingKernelTemplate, setPendingKernelTemplate] = useState<string | null>(null);
   const [kernelFlowHint, setKernelFlowHint] = useState<string | null>(null);
+
+  // Remove deleted attachments from the selection when attachments change.
+  useEffect(() => {
+    setSelectedAttachmentIds((prev) => {
+      const currentIds = new Set(attachments.map((a) => a.id));
+      return prev.filter((id) => currentIds.has(id));
+    });
+  }, [attachments]);
+
+  // Toggle selection of a group of attachment IDs (all-or-none per group).
+  const handleToggleAttachmentSelection = useCallback((ids: string[]) => {
+    setSelectedAttachmentIds((prev) => {
+      const allSelected = ids.every((id) => prev.includes(id));
+      if (allSelected) {
+        return prev.filter((id) => !ids.includes(id));
+      }
+      const merged = [...prev];
+      ids.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
+      return merged;
+    });
+  }, []);
+
+  // Table names corresponding to selected attachments — passed to FlowCanvas / DataSourceNode.
+  const allowedTableNames = useMemo(
+    () => attachments.filter((a) => selectedAttachmentIds.includes(a.id)).map((a) => a.tableName),
+    [attachments, selectedAttachmentIds]
+  );
   // 新增：当前输入框内容，用于“编辑”时回填
   const [sidebarAnimationState, setSidebarAnimationState] = useState<'entering' | 'visible' | 'exiting' | 'hidden'>('hidden');
   const [sidebarWidth, setSidebarWidth] = useState(50); // percentage (50% default)
@@ -227,8 +260,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const [personaHint, setPersonaHint] = useState<string | null>(null);
 
   // File size limits (Chrome extension runs in constrained memory environment)
-  const MAX_SINGLE_FILE_BYTES = 2000 * 1024 * 1024; // 200MB per file
-  const MAX_TOTAL_FILES_BYTES = 2000 * 1024 * 1024; // 500MB total across attachments
+  const MAX_SINGLE_FILE_BYTES = 2000 * 1024 * 1024;
+  const MAX_TOTAL_FILES_BYTES = 2000 * 1024 * 1024;
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const uploadHintTimerRef = useRef<number | null>(null);
 
@@ -444,7 +477,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata, appendAnalysisRecord]);
 
   // Handle Flow SQL ready - execute and display results
-  const handleFlowSqlReady = useCallback(async (sql: string) => {
+  const handleFlowSqlReady = useCallback(async (sql: string, flowSummary?: FlowSummary) => {
     console.log('[Workbench] Flow SQL validated, executing query:', sql);
     
     // Close Flow Modal
@@ -453,6 +486,12 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     // Save as kernel template if a kernel was pending
     if (pendingKernelTemplate) {
       bizKernelService.saveFlowTemplate(pendingKernelTemplate, sql);
+      // Persist the operator → file binding so we can detect file changes next time.
+      await operatorBindingService.saveBinding(
+        pendingKernelTemplate,
+        selectedAttachmentIds,
+        allowedTableNames
+      );
       setPendingKernelTemplate(null);
       setKernelFlowHint(null);
     }
@@ -478,6 +517,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           tool: 'flow_builder',
           params: { query: sql },
           thought: 'Built SQL query using visual flow editor',
+          flowSummary,
         },
         data: result.data,
         schema: result.schema,
@@ -499,10 +539,28 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       console.error('[Workbench] Flow query execution failed:', error);
       // message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate]);
+  }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate, selectedAttachmentIds, allowedTableNames]);
 
   // Handle kernel selected via @ mention in ChatPanel
-  const handleKernelSelected = useCallback((kernelName: string) => {
+  const handleKernelSelected = useCallback(async (kernelName: string) => {
+    // Check if the files associated with the last-built flow have changed.
+    const binding = await operatorBindingService.getBinding(kernelName);
+    if (binding) {
+      const currentTableNames = [...allowedTableNames].sort();
+      const boundTableNames = [...binding.tableNames].sort();
+      const filesChanged =
+        currentTableNames.length !== boundTableNames.length ||
+        currentTableNames.some((n, i) => n !== boundTableNames[i]);
+      if (filesChanged) {
+        bizKernelService.clearFlowTemplate(kernelName);
+        await operatorBindingService.clearBinding(kernelName);
+        setKernelFlowHint('检测到文件变更，已清空原分析流，请重新构建');
+        setPendingKernelTemplate(kernelName);
+        setTimeout(() => setShowFlowModal(true), 200);
+        return;
+      }
+    }
+
     // Always open the canvas regardless of whether a template already exists.
     // Show a build hint only when no template is saved yet.
     if (!bizKernelService.hasFlowTemplate(kernelName)) {
@@ -512,7 +570,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }
     setPendingKernelTemplate(kernelName);
     setTimeout(() => setShowFlowModal(true), 200);
-  }, []);
+  }, [allowedTableNames]);
 
   // Handle view customers from InsightPage
   const handleViewCustomers = useCallback(async (customerIds: string[], tableName: string) => {
@@ -711,6 +769,10 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     MAX_SINGLE_FILE_BYTES,
     MAX_TOTAL_FILES_BYTES,
     analysisHistory,
+    onFilesLoaded: (attachmentIds: string[]) => {
+      // Auto-select the batch of attachments that just finished uploading.
+      setSelectedAttachmentIds(attachmentIds);
+    },
     onFileLoaded: (tableName: string) => {
       // Auto-show insight sidebar after file loaded
       console.log('[Workbench] Auto-showing insight for table:', tableName);
@@ -1179,6 +1241,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             onToggleFlow={() => setShowFlowModal(true)}
             onKernelSelected={handleKernelSelected}
             kernelFlowHint={kernelFlowHint}
+            selectedAttachmentIds={selectedAttachmentIds}
+            onToggleAttachmentSelection={handleToggleAttachmentSelection}
           />
         </div>
       </div>
@@ -1367,6 +1431,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           onSqlValidated={handleFlowSqlReady}
           defaultKernelName={pendingKernelTemplate ?? undefined}
           onKernelChange={(name) => setPendingKernelTemplate(name)}
+          allowedTableNames={allowedTableNames}
         />
       </DuckDBProvider>
     </Modal>

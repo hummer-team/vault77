@@ -29,6 +29,7 @@ interface ConditionDefinitionNodeProps {
   id: string;
   data: ConditionDefinitionNodeData;
   selected?: boolean;
+  allowedTableNames?: string[];
 }
 
 // Generate unique condition ID
@@ -38,6 +39,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   id,
   data,
   selected,
+  allowedTableNames,
 }) => {
   const { executeQuery, isDBReady } = useDuckDBContext();
   const removeNode = useFlowStore((state) => state.removeNode);
@@ -72,7 +74,10 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
       setIsLoadingTables(true);
       try {
         const tables = await getAvailableTables(executeQuery);
-        setAvailableTables(tables);
+        const filtered = allowedTableNames === undefined
+          ? tables
+          : tables.filter((n) => allowedTableNames.includes(n));
+        setAvailableTables(filtered);
       } catch (error) {
         console.error('[ConditionDefinitionNode] Failed to load tables:', error);
       } finally {
@@ -80,7 +85,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
       }
     };
     loadTables();
-  }, [canvasJoinedTables, executeQuery, isDBReady]);
+  }, [canvasJoinedTables, executeQuery, isDBReady, allowedTableNames]);
 
   // Load table fields when table changes
   React.useEffect(() => {

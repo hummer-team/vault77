@@ -43,6 +43,9 @@ interface ChatPanelProps {
   // Kernel @ mention
   onKernelSelected?: (kernelName: string) => void;
   kernelFlowHint?: string | null;
+  // Attachment selection
+  selectedAttachmentIds?: string[];
+  onToggleAttachmentSelection?: (ids: string[]) => void;
 }
 
 interface GroupedAttachment {
@@ -78,6 +81,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onToggleFlow,
   onKernelSelected,
   kernelFlowHint,
+  selectedAttachmentIds = [],
+  onToggleAttachmentSelection,
 }) => {
   const [form] = Form.useForm();
   const { userProfile } = useUserStore();
@@ -310,15 +315,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       {groupedAttachments.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0' }}>
           {groupedAttachments.map((group) => {
-            const tooltipTitle = group.sheetNames.length > 1 ? `Loaded sheets: ${group.sheetNames.join(', ')}` : `Loaded from ${group.fileName}`;
+            const isSelected = group.attachmentIds.some((id) => selectedAttachmentIds.includes(id));
+            const sheetsInfo =
+              group.sheetNames.length > 1
+                ? `包含工作表: ${group.sheetNames.join(', ')}`
+                : group.fileName;
+            const tooltipTitle = isSelected
+              ? `分析该文件（${sheetsInfo}）`
+              : `点击选择分析 — ${sheetsInfo}`;
             return (
               <Tooltip title={tooltipTitle} key={group.fileName}>
                 <Tag
                   closable
-                  onClose={() => handleDeleteGroup(group.attachmentIds)}
+                  onClose={(e) => {
+                    e.stopPropagation();
+                    handleDeleteGroup(group.attachmentIds);
+                  }}
+                  onClick={() => onToggleAttachmentSelection?.(group.attachmentIds)}
                   icon={group.status === 'uploading' ? <Spin size="small" /> : <FileExcelOutlined />}
                   color={group.status === 'error' ? 'error' : 'default'}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    border: isSelected ? '1.5px solid #ff6b35' : '1px solid #434343',
+                    boxShadow: isSelected ? '0 0 0 2px rgba(255, 107, 53, 0.25)' : 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
                 >
                   {group.fileName}
                   {group.status === 'error' && <Tooltip title={group.error}><CloseCircleFilled /></Tooltip>}

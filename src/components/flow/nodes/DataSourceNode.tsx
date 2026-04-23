@@ -21,9 +21,12 @@ interface DataSourceNodeProps {
   id: string;
   data: DataSourceNodeData;
   selected?: boolean;
+  /** When provided, only these table names will appear in the dropdown.
+   *  Pass `undefined` for "no filter" (show all), pass `[]` for "show none". */
+  allowedTableNames?: string[];
 }
 
-export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, selected }) => {
+export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, selected, allowedTableNames }) => {
   const updateNode = useFlowStore((state) => state.updateNode);
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
@@ -48,7 +51,14 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
         const tableNames = await getAvailableTables(executeQuery);
         console.log('[DataSourceNode] Loaded tables:', tableNames);
 
-        const tableOptions = tableNames.map((name) => ({
+        // Filter to only show tables from selected attachments.
+        // undefined = no filter; [] = no attachments selected (show none).
+        const visible =
+          allowedTableNames === undefined
+            ? tableNames
+            : tableNames.filter((n) => allowedTableNames.includes(n));
+
+        const tableOptions = visible.map((name) => ({
           value: name,
           label: name,
         }));
@@ -62,7 +72,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
     };
 
     loadTables();
-  }, [isDBReady, executeQuery, refreshKey]);
+  }, [isDBReady, executeQuery, refreshKey, allowedTableNames]);
 
   // Debug: log tables state changes
   useEffect(() => {

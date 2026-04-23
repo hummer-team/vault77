@@ -22,12 +22,13 @@ import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } from '../../../services/flow/types';
 import { ValueFillPanel } from '../panels/ValueFillPanel';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
+import { buildFlowSummary, type FlowSummary } from '../../../services/flow/flowSummary';
 
 interface EndNodeProps {
   id: string;
   data: EndNodeData;
   selected?: boolean;
-  onSqlValidated?: (sql: string) => void;
+  onSqlValidated?: (sql: string, flowSummary?: FlowSummary) => void;
 }
 
 export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValidated }) => {
@@ -157,7 +158,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         }
 
         if (onSqlValidated) {
-          onSqlValidated(sql);
+          const flowSummary = buildFlowSummary(storeNodes, edges);
+          onSqlValidated(sql, flowSummary);
         }
 
         updateNode(id, {

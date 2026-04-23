@@ -53,19 +53,24 @@ const edgeTypes = {
   deletable: DeletableEdge as unknown as EdgeTypes[string],
 };
 
+import type { FlowSummary } from '../../services/flow/flowSummary';
+
 interface FlowCanvasProps {
   className?: string;
-  onSqlValidated?: (sql: string) => void;
+  onSqlValidated?: (sql: string, flowSummary?: FlowSummary) => void;
   /** Pre-selected kernel name from ChatPanel "/" trigger */
   defaultKernelName?: string;
   /** Called when user changes the kernel selection inside canvas */
   onKernelChange?: (kernelName: string) => void;
+  /** Tables to show in DataSourceNode dropdown (filtered by selected attachments) */
+  allowedTableNames?: string[];
 }
 
 const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   className,
   onSqlValidated,
   defaultKernelName,
+  allowedTableNames,
 }) => {
   const setDefaultKernelName = useFlowStore((state) => state.setDefaultKernelName);
   const resetFlow = useFlowStore((state) => state.resetFlow);
@@ -136,20 +141,24 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
 
   const nodeTypesWithCallback = useMemo(
     () => ({
-      dataSource: DataSourceNode as unknown as NodeTypes[string],
+      dataSource: ((props: any) => (
+        <DataSourceNode {...props} allowedTableNames={allowedTableNames} />
+      )) as unknown as NodeTypes[string],
       table: TableNode as unknown as NodeTypes[string],
       merge: MergeNode as unknown as NodeTypes[string],
       operator: OperatorNode as unknown as NodeTypes[string],
       // join: JoinNode — removed; join config is now stored on edges (JoinEdge)
       condition: ConditionNode as unknown as NodeTypes[string],
       conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
-      conditionDefinition: ConditionDefinitionNode as unknown as NodeTypes[string],
+      conditionDefinition: ((props: any) => (
+        <ConditionDefinitionNode {...props} allowedTableNames={allowedTableNames} />
+      )) as unknown as NodeTypes[string],
       select: SelectNode as unknown as NodeTypes[string],
       selectAgg: SelectAggNode as unknown as NodeTypes[string],
       end: ((props: any) => <EndNode {...props} onSqlValidated={onSqlValidated} />) as unknown as NodeTypes[string],
       udfConfig: UdfConfigNode as unknown as NodeTypes[string],
     }),
-    [onSqlValidated]
+    [onSqlValidated, allowedTableNames]
   );
 
   // Local state for React Flow

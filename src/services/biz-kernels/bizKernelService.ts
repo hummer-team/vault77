@@ -342,6 +342,17 @@ class BizKernelService {
   }
 
   /**
+   * Remove the FlowCanvas-built template for a kernel (e.g. when associated files change).
+   * @param kernelName - The kernel's internal name
+   */
+  public clearFlowTemplate(kernelName: string): void {
+    const raw = localStorage.getItem(this.KERNEL_TEMPLATES_KEY);
+    const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    delete map[kernelName];
+    localStorage.setItem(this.KERNEL_TEMPLATES_KEY, JSON.stringify(map));
+  }
+
+  /**
    * Reset all user kernels (for testing)
    */
   public async resetUserKernels(): Promise<void> {

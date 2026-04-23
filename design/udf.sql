@@ -187,7 +187,7 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                    )::BIGINT  -- ← 修复：UBIGINT → BIGINT
                                ),
                                idx ->
-                                   'WHEN (' ||
+                                   'WHEN ("' || replace(col_k, '"', '""') || '" ' ||
                                    json_extract_string(
                                        flags_config::JSON,
                                        '$.' || col_k || '.cases[' || idx::VARCHAR || '][0]'

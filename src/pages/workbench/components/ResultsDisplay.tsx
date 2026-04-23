@@ -4,6 +4,7 @@ import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
+import type { FlowSummary } from '../../../services/flow/flowSummary';
 
 // --- M6: Clarification helpers ---
 const parseClarifyingQuestions = (errorText: string): string[] => {
@@ -47,6 +48,8 @@ interface ResultsDisplayProps {
     userSkillApplied?: boolean;
     userSkillDigestChars?: number;
     activeTable?: string;
+    // Flow builder: human-readable summary
+    flowSummary?: FlowSummary;
     // M10.5 Phase 3: Effective settings
     effectiveSettings?: {
       tableName: string;
@@ -88,6 +91,118 @@ const formatDurationSeconds = (ms?: number): string | null => {
   return `耗时 ${seconds.toFixed(1)}s`;
 };
 
+// ============================================================================
+// FlowSummaryPanel — business-readable flow step display
+// ============================================================================
+const LIST_STYLE: React.CSSProperties = {
+  margin: '6px 0 0 0',
+  paddingLeft: 20,
+  color: '#d9d9d9',
+  fontSize: 13,
+  lineHeight: '1.8',
+};
+
+const SECTION_TITLE_STYLE: React.CSSProperties = {
+  color: 'rgba(255,255,255,0.45)',
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase' as const,
+  marginBottom: 4,
+  marginTop: 12,
+};
+
+const FlowSummaryPanel: React.FC<{ summary: FlowSummary }> = ({ summary }) => {
+  const { operatorName, tables, joins, selectedFields, conditions, udfSummary } = summary;
+
+  return (
+    <div>
+      <Typography.Text strong>2. 分析流配置</Typography.Text>
+      <div style={{
+        marginTop: 8,
+        background: '#1f2123',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 6,
+        padding: '12px 16px',
+      }}>
+        {/* Operator */}
+        <div style={SECTION_TITLE_STYLE}>使用算子</div>
+        <ul style={LIST_STYLE}>
+          <li>{operatorName}</li>
+        </ul>
+
+        {/* Tables */}
+        {tables.length > 0 && (
+          <>
+            <div style={SECTION_TITLE_STYLE}>数据来源</div>
+            <ul style={LIST_STYLE}>
+              {tables.map((t) => <li key={t}>{t}</li>)}
+            </ul>
+          </>
+        )}
+
+        {/* Joins */}
+        {joins.length > 0 && (
+          <>
+            <div style={SECTION_TITLE_STYLE}>关联关系</div>
+            <ul style={LIST_STYLE}>
+              {joins.map((j, i) => (
+                <li key={i}>
+                  {j.leftTable}<strong style={{ color: '#fff' }}>.</strong>{j.leftField}
+                  {' '}<Tag color="geekblue" style={{ fontSize: 11, padding: '0 5px' }}>{j.joinTypeLabel}</Tag>{' '}
+                  {j.rightTable}<strong style={{ color: '#fff' }}>.</strong>{j.rightField}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* Selected fields */}
+        {selectedFields.length > 0 && (
+          <>
+            <div style={SECTION_TITLE_STYLE}>查询字段</div>
+            <ul style={LIST_STYLE}>
+              {selectedFields.map((f) => <li key={f}>{f}</li>)}
+            </ul>
+          </>
+        )}
+
+        {/* Conditions */}
+        {conditions.length > 0 && (
+          <>
+            <div style={SECTION_TITLE_STYLE}>筛选条件</div>
+            <ul style={LIST_STYLE}>
+              {conditions.map((cg) => (
+                <li key={cg.refId}>
+                  <span style={{ color: '#fa8c16', fontWeight: 600 }}>{cg.refId}</span>
+                  {cg.tableName ? <span style={{ color: 'rgba(255,255,255,0.45)' }}> · {cg.tableName}</span> : null}
+                  {cg.conditions.length > 0 && (
+                    <ul style={{ ...LIST_STYLE, marginTop: 2 }}>
+                      {cg.conditions.map((c, ci) => (
+                        <li key={ci}>{c.field} {c.operator}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* UDF config summary */}
+        {udfSummary.length > 0 && (
+          <>
+            <div style={SECTION_TITLE_STYLE}>算子配置</div>
+            <ul style={LIST_STYLE}>
+              {udfSummary.map((line, i) => <li key={i}>{line}</li>)}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ThinkingSteps: React.FC<{ 
   steps: { 
     tool: string; 
@@ -99,6 +214,8 @@ const ThinkingSteps: React.FC<{
     userSkillApplied?: boolean;
     userSkillDigestChars?: number;
     activeTable?: string;
+    // Flow builder: human-readable summary
+    flowSummary?: FlowSummary;
     // M10.5 Phase 3: Effective settings
     effectiveSettings?: {
       tableName: string;
@@ -312,20 +429,26 @@ const ThinkingSteps: React.FC<{
                 <Tag color="blue">{steps.tool}</Tag>
               </div>
             </div>
-            <div>
-              <Typography.Text strong>2. 准备了以下参数</Typography.Text>
-              <pre style={{
-                background: '#1f2123',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '8px 12px',
-                borderRadius: 4,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all',
-                marginTop: '4px'
-              }}>
-                <code>{JSON.stringify(steps.params, null, 2)}</code>
-              </pre>
-            </div>
+
+            {/* Flow builder: show business-readable summary instead of raw SQL */}
+            {steps.tool === 'flow_builder' && steps.flowSummary ? (
+              <FlowSummaryPanel summary={steps.flowSummary} />
+            ) : steps.tool !== 'flow_builder' ? (
+              <div>
+                <Typography.Text strong>2. 准备了以下参数</Typography.Text>
+                <pre style={{
+                  background: '#1f2123',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '8px 12px',
+                  borderRadius: 4,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  marginTop: '4px'
+                }}>
+                  <code>{JSON.stringify(steps.params, null, 2)}</code>
+                </pre>
+              </div>
+            ) : null}
             
             {/* M10.5 Phase 3: Effective Settings */}
             {renderEffectiveSettings()}
