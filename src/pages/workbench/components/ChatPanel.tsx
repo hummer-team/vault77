@@ -96,10 +96,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [errorBubbleOpen, setErrorBubbleOpen] = useState(false);
   const pillTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // When a new error arrives, append it and trigger the pill → bubble sequence
-  useEffect(() => {
-    if (!error) return;
-    setErrorList(prev => [...prev, error]);
+  // Unified helper to append a message to errorList and trigger pill → bubble sequence
+  const triggerErrorBubble = useCallback((msg: string) => {
+    setErrorList(prev => {
+      if (prev.includes(msg)) return prev; // deduplicate
+      return [...prev, msg];
+    });
     setShowErrorPill(true);
     setShowErrorBubble(false);
     if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
@@ -107,7 +109,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setShowErrorPill(false);
       setShowErrorBubble(true);
     }, 1200);
-  }, [error]);
+  }, []);
+
+  // When a new error arrives via prop, trigger bubble
+  useEffect(() => {
+    if (!error) return;
+    triggerErrorBubble(error);
+  }, [error, triggerErrorBubble]);
 
   const dismissError = useCallback((index: number) => {
     setErrorList(prev => {
@@ -248,6 +256,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     
     return `⚠ Not configured: ${Array.from(unconfiguredTables).join(', ')}`;
   }, [attachments, userSkillConfigs]);
+
+  // Watch userSkillStatusText — route to bubble instead of inline hints
+  const prevSkillStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userSkillStatusText || userSkillStatusText === prevSkillStatusRef.current) return;
+    prevSkillStatusRef.current = userSkillStatusText;
+    triggerErrorBubble(userSkillStatusText);
+  }, [userSkillStatusText, triggerErrorBubble]);
+
+  // Watch attachment upload failures — route each new error to bubble
+  const prevAttachmentErrorsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    attachments.forEach(att => {
+      if (att.status === 'error' && att.error) {
+        const key = `${att.file.name}: ${att.error}`;
+        if (!prevAttachmentErrorsRef.current.has(key)) {
+          prevAttachmentErrorsRef.current.add(key);
+          triggerErrorBubble(key);
+        }
+      }
+    });
+  }, [attachments, triggerErrorBubble]);
 
   const handleFinish = (values: { message: string }) => {
     if (!values.message || !values.message.trim()) {
@@ -526,7 +556,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               )}
             </div>
             {/* Hints column — unified color, left-aligned, vertically stacked */}
-            {(kernelFlowHint || !isLlmReady || userSkillStatusText || uploadHint || personaHint) && (
+            {(kernelFlowHint || !isLlmReady || uploadHint || personaHint) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
                 {kernelFlowHint && (
                   <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
@@ -536,11 +566,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 {!isLlmReady && (
                   <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
                     Connect an LLM in Settings to enable analysis.
-                  </Typography.Text>
-                )}
-                {userSkillStatusText && (
-                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
-                    {userSkillStatusText}
                   </Typography.Text>
                 )}
                 {uploadHint && (
