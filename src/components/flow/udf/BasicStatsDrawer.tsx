@@ -237,17 +237,36 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
 
   const updateAggField = useCallback(
     (id: string, patch: Partial<AggFieldConfig>) => {
-      setAggFields((prev) =>
-        prev.map((f) => {
-          if (f.id !== id) return f;
-          const updated = { ...f, ...patch };
-          // Auto-regenerate alias when func changes, unless user already edited it
-          if (patch.func && updated.alias === defaultAlias(f.func, f.column)) {
-            updated.alias = defaultAlias(patch.func, updated.column);
-          }
-          return updated;
-        })
-      );
+      setAggFields((prev) => {
+        const field = prev.find((f) => f.id === id);
+        if (!field) return prev;
+
+        const oldAlias = field.alias;
+        const updated = { ...field, ...patch };
+
+        // Auto-regenerate alias when func changes, unless user already edited it
+        if (patch.func && updated.alias === defaultAlias(field.func, field.column)) {
+          updated.alias = defaultAlias(patch.func, updated.column);
+        }
+
+        const newAlias = updated.alias;
+
+        // Cascade alias → havingFilters and sortConfigs when alias changes
+        if (newAlias !== oldAlias) {
+          setHavingFilters((filters) =>
+            filters.map((f) =>
+              f.resultAlias === oldAlias ? { ...f, resultAlias: newAlias } : f
+            )
+          );
+          setSortConfigs((sorts) =>
+            sorts.map((s) =>
+              s.column === oldAlias ? { ...s, column: newAlias } : s
+            )
+          );
+        }
+
+        return prev.map((f) => (f.id === id ? updated : f));
+      });
     },
     []
   );
