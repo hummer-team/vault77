@@ -40,6 +40,17 @@
   --vm-layout-bg: radial-gradient(circle at top, #2a2a2e, #1e1e20);
   --vm-grid-dot-color: rgba(255, 107, 0, 0.03);
 
+  /* Sider */
+  --vm-sider-bg: #001529;
+
+  /* Tables */
+  --vm-table-header-color: #FFB366;
+  --vm-table-header-bg: rgba(30, 32, 38, 0.6);
+  --vm-table-cell-color: rgba(255, 255, 255, 0.85);
+  --vm-table-cell-border: rgba(255, 255, 255, 0.06);
+  --vm-table-row-hover-bg: rgba(255, 255, 255, 0.03);
+  --vm-table-row-even-bg: rgba(255, 255, 255, 0.02);
+
   /* Legacy aliases — kept for backward compatibility */
   --color-primary: var(--vm-primary);
   --color-primary-hover: var(--vm-primary-hover);
@@ -119,14 +130,14 @@ body {
 
 /* Neon Glow Text Effect */
 .neon-glow-text {
-  text-shadow: 
-    0 0 20px rgba(255, 107, 0, 0.6),
-    0 0 40px rgba(255, 107, 0, 0.4);
+  text-shadow:
+    0 0 20px var(--vm-primary-glow),
+    0 0 40px var(--vm-primary-light);
 }
 
 /* Primary Color Glow */
 .primary-glow {
-  box-shadow: 0 0 15px rgba(255, 107, 0, 0.2);
+  box-shadow: 0 0 15px var(--vm-primary-glow);
 }
 
 /* Capability Tag Style */
@@ -147,8 +158,8 @@ body {
 }
 
 .capability-tag:hover {
-  border-color: rgba(255, 107, 0, 0.4);
-  background: rgba(255, 107, 0, 0.1);
+  border-color: var(--vm-primary-border);
+  background: var(--vm-primary-light);
 }
 
 /* Feature Card Style (for future welcome page) */
@@ -172,8 +183,8 @@ body {
 
 .feature-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 107, 0, 0.5);
-  box-shadow: 0 0 30px -10px rgba(255, 107, 0, 0.4);
+  border-color: var(--vm-primary-border);
+  box-shadow: 0 0 30px -10px var(--vm-primary-glow);
 }
 
 .feature-card .card-content {
@@ -259,7 +270,7 @@ body {
 
 /* Blueprint Logo Effect */
 .blueprint-logo {
-  filter: drop-shadow(0 0 8px rgba(255, 107, 0, 0.3));
+  filter: drop-shadow(0 0 8px var(--vm-primary-glow));
 }
 
 /* Holographic Flicker Animation */
@@ -311,30 +322,30 @@ body {
 
 /* Table Header - Light Orange */
 .ant-table-thead > tr > th {
-  color: #FFB366 !important;
+  color: var(--vm-table-header-color) !important;
   font-weight: 600 !important;
-  background: rgba(30, 32, 38, 0.6) !important;
-  border-bottom: 1px solid rgba(255, 179, 102, 0.2) !important;
+  background: var(--vm-table-header-bg) !important;
+  border-bottom: 1px solid var(--vm-primary-border) !important;
 }
 
 /* Table Body - Light White */
 .ant-table-tbody > tr > td {
-  color: rgba(255, 255, 255, 0.85) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: var(--vm-table-cell-color) !important;
+  border-bottom: 1px solid var(--vm-table-cell-border) !important;
 }
 
 /* Table Row Hover Effect */
 .ant-table-tbody > tr:hover > td {
-  background: rgba(255, 255, 255, 0.03) !important;
+  background: var(--vm-table-row-hover-bg) !important;
 }
 
 /* Table Striped Row (optional alternate row color) */
 .ant-table-tbody > tr:nth-child(even) > td {
-  background: rgba(255, 255, 255, 0.02) !important;
+  background: var(--vm-table-row-even-bg) !important;
 }
 
 .ant-table-tbody > tr:nth-child(even):hover > td {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--vm-table-row-hover-bg) !important;
 }
 
 /* ============================================
@@ -367,9 +378,9 @@ body {
 }
 
 .start-node-select-dropdown .ant-select-item-option-active {
-  background: rgba(255, 107, 0, 0.2) !important;
+  background: var(--vm-primary-light) !important;
 }
 
 .start-node-select-dropdown .ant-select-item-option-selected {
-  background: rgba(255, 107, 0, 0.3) !important;
+  background: var(--vm-primary-border) !important;
 }

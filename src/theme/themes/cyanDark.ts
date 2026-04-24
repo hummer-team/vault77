@@ -27,6 +27,13 @@ export const cyanDarkTheme: ThemeDef = {
     '--vm-text-danger': '#8c3030',
     '--vm-layout-bg': 'radial-gradient(ellipse at top, #1A1D23, #0B0E14)',
     '--vm-grid-dot-color': 'rgba(0, 210, 255, 0.03)',
+    '--vm-sider-bg': '#050A14',
+    '--vm-table-header-color': '#66D4FF',
+    '--vm-table-header-bg': 'rgba(20, 30, 50, 0.6)',
+    '--vm-table-cell-color': 'rgba(255, 255, 255, 0.85)',
+    '--vm-table-cell-border': 'rgba(255, 255, 255, 0.06)',
+    '--vm-table-row-hover-bg': 'rgba(255, 255, 255, 0.03)',
+    '--vm-table-row-even-bg': 'rgba(255, 255, 255, 0.02)',
   },
   antdTokens: {
     colorPrimary: '#00D2FF',

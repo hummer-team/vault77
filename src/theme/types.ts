@@ -21,6 +21,13 @@ export interface ThemeCssVarMap {
   '--vm-text-danger': string;
   '--vm-layout-bg': string;
   '--vm-grid-dot-color': string;
+  '--vm-sider-bg': string;
+  '--vm-table-header-color': string;
+  '--vm-table-header-bg': string;
+  '--vm-table-cell-color': string;
+  '--vm-table-cell-border': string;
+  '--vm-table-row-hover-bg': string;
+  '--vm-table-row-even-bg': string;
 }
 
 export interface AntdTokenConfig {

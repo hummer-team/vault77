@@ -60,7 +60,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} collapsedWidth={48} style={{ display: 'flex', flexDirection: 'column' }}>
+      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)} collapsedWidth={48} style={{ display: 'flex', flexDirection: 'column', background: 'var(--vm-sider-bg)' }}>
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div 
             style={{ 
