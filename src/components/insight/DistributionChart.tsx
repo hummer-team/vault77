@@ -38,6 +38,12 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
+
   const ec = useEChartsColors();
 
   // Initialize and update chart
@@ -48,7 +54,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
 
     // Initialize chart if not exists
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
+      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     }
 
     const chart = chartInstanceRef.current;
@@ -74,6 +80,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
 
     // Chart options
     const option: EChartsOption = {
+      backgroundColor: ec.chartBg,
       title: {
         text: 'Distribution Overview',
         textStyle: {

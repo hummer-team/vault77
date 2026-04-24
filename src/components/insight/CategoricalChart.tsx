@@ -24,6 +24,12 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
   const ec = useEChartsColors();
+  
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
 
   useEffect(() => {
     if (!chartRef.current || !data.values.length) {
@@ -32,7 +38,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
 
     // Initialize chart
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
+      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     }
 
     const chart = chartInstanceRef.current;
@@ -46,6 +52,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
     };
 
     const option: EChartsOption = {
+      backgroundColor: ec.chartBg,
       title: {
         text: data.columnName,
         textStyle: {
@@ -143,6 +150,12 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
   const ec = useEChartsColors();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
+  
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
 
   useEffect(() => {
     if (!chartRef.current || !data.values.length) {
@@ -151,7 +164,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
 
     // Initialize chart
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
+      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     }
 
     const chart = chartInstanceRef.current;

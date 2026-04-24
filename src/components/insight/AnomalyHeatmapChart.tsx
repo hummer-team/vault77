@@ -30,6 +30,12 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const ec = useEChartsColors();
+  
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
 
   // Limit data to top N for performance (heatmap aggregates data, so less critical)
   const displayData = useMemo(() => {
@@ -110,7 +116,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
     if (!chartRef.current || heatmapData.matrix.length === 0) return;
 
     // Initialize or get chart instance
-    const chartInstance = chartInstanceRef.current || echarts.init(chartRef.current, 'dark');
+    const chartInstance = chartInstanceRef.current || echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     chartInstanceRef.current = chartInstance;
 
     // Flatten matrix for ECharts
@@ -123,7 +129,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
 
     // Chart options
     const option: echarts.EChartsOption = {
-      backgroundColor: 'transparent',
+      backgroundColor: ec.chartBg,
       tooltip: {
         position: 'top',
         backgroundColor: ec.tooltipBg,

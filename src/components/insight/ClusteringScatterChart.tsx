@@ -38,6 +38,12 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const lastDataLengthRef = useRef(0);  // Track data length to detect real changes
   const ec = useEChartsColors();
+  
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -109,7 +115,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
 
     // Initialize chart only if not exists
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
+      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     }
     
     const chartInstance = chartInstanceRef.current;
@@ -171,7 +177,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
 
     // Chart options
     const option: echarts.EChartsOption = {
-      backgroundColor: 'transparent',
+      backgroundColor: ec.chartBg,
       tooltip: {
         trigger: 'item',
         backgroundColor: ec.tooltipBg,

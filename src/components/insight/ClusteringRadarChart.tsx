@@ -23,6 +23,12 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const ec = useEChartsColors();
+  
+  // Detect theme mode (dark vs light)
+  const isDarkTheme = () => {
+    const borderSubtle = ec.borderSubtle;
+    return borderSubtle.includes('255'); // white-based rgba = dark theme
+  };
 
   // Determine available dimensions based on data
   const availableDimensions = useMemo(() => {
@@ -72,7 +78,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
 
     // Initialize chart only if not exists
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, 'dark');
+      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
     }
     
     const chartInstance = chartInstanceRef.current;
@@ -147,10 +153,9 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
 
     // Chart options
     const option: echarts.EChartsOption = {
-      backgroundColor: 'transparent',
+      backgroundColor: ec.chartBg,
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
         borderColor: '#777',
         textStyle: { color: 'var(--vm-text-primary)' },
         formatter: (params: any) => {

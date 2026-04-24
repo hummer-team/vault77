@@ -20,6 +20,8 @@ export interface EChartsColors {
   borderLine: string;
   /** Very subtle grid lines */
   gridLine: string;
+  /** Chart background color */
+  chartBg: string;
 }
 
 /**
@@ -49,6 +51,16 @@ export const useEChartsColors = (): EChartsColors => {
     return 'rgba(150, 150, 150, 0.2)';
   };
 
+  const computeChartBg = (): string => {
+    const borderSubtle = v['--vm-border-subtle'];
+    // Dark theme: use transparent/dark background
+    if (borderSubtle.includes('255')) {
+      return 'transparent';
+    }
+    // Light theme: use light background from layout
+    return v['--vm-layout-bg'];
+  };
+
   return {
     textPrimary: v['--vm-text-primary'],
     textSecondary: v['--vm-text-secondary'],
@@ -59,5 +71,6 @@ export const useEChartsColors = (): EChartsColors => {
     primary: v['--vm-primary'],
     borderLine: computeBorderLine(),
     gridLine: computeGridLine(),
+    chartBg: computeChartBg(),
   };
 };
