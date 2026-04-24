@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Card, Skeleton, Row, Col, Space } from 'antd';
+import { TOKEN } from '../../theme';
 
 interface ClusteringSkeletonProps {
   showCharts?: boolean;
@@ -52,13 +53,13 @@ export const ClusteringSkeleton: React.FC<ClusteringSkeletonProps> = ({
                 <div style={{ 
                   width: '100%', 
                   height: 400, 
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  backgroundColor: TOKEN.bgSection,
                   borderRadius: 8,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 14,
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: TOKEN.textSecondary,
                 }}>
                   Loading scatter plot...
                 </div>
@@ -71,13 +72,13 @@ export const ClusteringSkeleton: React.FC<ClusteringSkeletonProps> = ({
                 <div style={{ 
                   width: '100%', 
                   height: 400, 
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  backgroundColor: TOKEN.bgSection,
                   borderRadius: 8,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 14,
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: TOKEN.textSecondary,
                 }}>
                   Loading radar chart...
                 </div>

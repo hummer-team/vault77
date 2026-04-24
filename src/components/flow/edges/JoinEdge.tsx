@@ -18,6 +18,7 @@ import { useFlowStore } from '../../../stores/flowStore';
 import { JOIN_TYPE_LABELS } from '../../../services/flow/constants';
 import type { JoinEdgeData } from '../../../services/flow/types';
 import { JoinType } from '../../../services/flow/types';
+import { TOKEN } from '../../../theme';
 
 // Join type stroke colours
 const JOIN_TYPE_COLORS: Record<JoinType, string> = {
@@ -103,7 +104,7 @@ export const JoinEdge: React.FC<EdgeProps> = ({
             /* ── Resting state: compact badge ── */
             <div
               style={{
-                background: '#1f1f1f',
+                background: TOKEN.flowNodeBg,
                 border: `1px solid ${isConfigured ? color : '#444'}`,
                 borderRadius: 4,
                 padding: '2px 8px',
@@ -122,7 +123,7 @@ export const JoinEdge: React.FC<EdgeProps> = ({
             <Space size={4} direction="vertical" align="center">
               <div
                 style={{
-                  background: '#1f1f1f',
+                  background: TOKEN.flowNodeBg,
                   border: `1px solid ${isConfigured ? color : '#444'}`,
                   borderRadius: 4,
                   padding: '2px 8px',

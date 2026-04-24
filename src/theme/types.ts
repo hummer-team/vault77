@@ -22,6 +22,8 @@ export interface ThemeCssVarMap {
   '--vm-layout-bg': string;
   '--vm-grid-dot-color': string;
   '--vm-sider-bg': string;
+  '--vm-flow-node-bg': string;
+  '--vm-flow-canvas-bg': string;
   '--vm-table-header-color': string;
   '--vm-table-header-bg': string;
   '--vm-table-cell-color': string;

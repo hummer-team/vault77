@@ -23,6 +23,8 @@ export const lightOrangeTheme: ThemeDef = {
     '--vm-bg-sidebar': '#E5E7EB',
     '--vm-bg-card': '#FFFFFF',
     '--vm-sider-bg': '#1E293B',     // deep blue sidebar (stays dark)
+    '--vm-flow-node-bg': '#FFFFFF',
+    '--vm-flow-canvas-bg': '#F0F2F5',
 
     // Borders (light)
     '--vm-border-subtle': 'rgba(0, 0, 0, 0.06)',

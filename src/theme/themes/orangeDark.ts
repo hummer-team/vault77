@@ -28,6 +28,8 @@ export const orangeDarkTheme: ThemeDef = {
     '--vm-layout-bg': 'radial-gradient(circle at top, #2a2a2e, #1e1e20)',
     '--vm-grid-dot-color': 'rgba(255, 107, 0, 0.03)',
     '--vm-sider-bg': '#001529',
+    '--vm-flow-node-bg': 'rgba(28, 25, 23, 0.97)',
+    '--vm-flow-canvas-bg': '#141414',
     '--vm-table-header-color': '#FFB366',
     '--vm-table-header-bg': 'rgba(30, 32, 38, 0.6)',
     '--vm-table-cell-color': 'rgba(255, 255, 255, 0.85)',

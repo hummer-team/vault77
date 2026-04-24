@@ -14,6 +14,7 @@ import {
   UnlockOutlined,
 } from '@ant-design/icons';
 import { useReactFlow, useViewport } from '@xyflow/react';
+import { TOKEN } from '../../../theme';
 
 interface CustomControlsProps {
   className?: string;
@@ -64,7 +65,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: 'rgba(255, 255, 255, 0.7)',
+            color: TOKEN.textSecondary,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -74,7 +75,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+            e.currentTarget.style.color = TOKEN.textSecondary;
           }}
         />
       </Tooltip>
@@ -89,7 +90,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            color: 'rgba(255, 255, 255, 0.5)',
+            color: TOKEN.textSecondary,
             fontSize: '11px',
             fontVariantNumeric: 'tabular-nums',
             userSelect: 'none',
@@ -103,7 +104,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-            (e.currentTarget as HTMLDivElement).style.color = 'rgba(255, 255, 255, 0.5)';
+            (e.currentTarget as HTMLDivElement).style.color = TOKEN.textSecondary;
           }}
         >
           {Math.round(zoom * 100)}%
@@ -124,7 +125,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: 'rgba(255, 255, 255, 0.7)',
+            color: TOKEN.textSecondary,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -134,7 +135,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+            e.currentTarget.style.color = TOKEN.textSecondary;
           }}
         />
       </Tooltip>
@@ -155,7 +156,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: 'rgba(255, 255, 255, 0.7)',
+            color: TOKEN.textSecondary,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -165,7 +166,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+            e.currentTarget.style.color = TOKEN.textSecondary;
           }}
         />
       </Tooltip>
@@ -192,7 +193,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: isLocked ? 'var(--vm-primary)' : 'rgba(255, 255, 255, 0.7)',
+            color: isLocked ? TOKEN.primary : TOKEN.textSecondary,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -205,7 +206,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           onMouseLeave={(e) => {
             if (!isLocked) {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+              e.currentTarget.style.color = TOKEN.textSecondary;
             }
           }}
         />

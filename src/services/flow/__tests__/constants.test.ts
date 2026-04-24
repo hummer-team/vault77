@@ -17,22 +17,22 @@ import {
 describe('Flow Constants', () => {
   describe('FLOW_COLORS', () => {
     it('should have correct node colors', () => {
-      expect(FLOW_COLORS.node.table.background).toBe('#1f1f1f');
-      expect(FLOW_COLORS.node.table.border).toBe('#434343');
-      expect(FLOW_COLORS.node.join.border).toBe('#fa8c16');
-      expect(FLOW_COLORS.node.condition.border).toBe('#1890ff');
-      expect(FLOW_COLORS.node.select.border).toBe('#52c41a');
+      expect(FLOW_COLORS.node.table.background).toBe('var(--vm-flow-node-bg)');
+      expect(FLOW_COLORS.node.table.border).toBe('var(--vm-border-mid)');
+      expect(FLOW_COLORS.node.join.border).toBe('#F97316');
+      expect(FLOW_COLORS.node.condition.border).toBe('#3B82F6');
+      expect(FLOW_COLORS.node.select.border).toBe('#10B981');
     });
 
     it('should have correct edge colors', () => {
-      expect(FLOW_COLORS.edge.default).toBe('#8c8c8c');
-      expect(FLOW_COLORS.edge.selected).toBe('#fa8c16');
-      expect(FLOW_COLORS.edge.error).toBe('#ff4d4f');
+      expect(FLOW_COLORS.edge.default).toBe('var(--vm-border-mid)');
+      expect(FLOW_COLORS.edge.selected).toBe('var(--vm-primary)');
+      expect(FLOW_COLORS.edge.error).toBe('#EF4444');
     });
 
     it('should have correct condition group colors', () => {
-      expect(FLOW_COLORS.conditionGroup.and.border).toBe('#fa8c16');
-      expect(FLOW_COLORS.conditionGroup.or.border).toBe('#ff9c2b');
+      expect(FLOW_COLORS.conditionGroup.and.border).toBe('var(--vm-primary)');
+      expect(FLOW_COLORS.conditionGroup.or.border).toBe('var(--vm-primary-hover)');
     });
   });
 

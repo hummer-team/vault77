@@ -28,6 +28,8 @@ export const cyanDarkTheme: ThemeDef = {
     '--vm-layout-bg': 'radial-gradient(ellipse at top, #1A1D23, #0B0E14)',
     '--vm-grid-dot-color': 'rgba(0, 210, 255, 0.03)',
     '--vm-sider-bg': '#050A14',
+    '--vm-flow-node-bg': 'rgba(14, 22, 36, 0.97)',
+    '--vm-flow-canvas-bg': '#0A0E16',
     '--vm-table-header-color': '#66D4FF',
     '--vm-table-header-bg': 'rgba(20, 30, 50, 0.6)',
     '--vm-table-cell-color': 'rgba(255, 255, 255, 0.85)',

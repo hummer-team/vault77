@@ -46,6 +46,7 @@ import {
   resolveSelectNodePanelType,
   SelectNodePanelType,
 } from '../../services/flow/bizKernelsBuilderStrategies';
+import { TOKEN } from '../../theme';
 
 // Register edge types
 const edgeTypes = {
@@ -370,11 +371,11 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
             if (n.type === 'dataSource') return '#52c41a';
             if (n.type === 'operator') return '#fa8c16';
             if (n.type === 'end') return '#ff4d4f';
-            return '#1f1f1f';
+            return TOKEN.flowNodeBg;
           }}
           maskColor="rgba(0, 0, 0, 0.5)"
           style={{
-            backgroundColor: '#141414',
+            backgroundColor: TOKEN.flowCanvasBg,
             border: '1px solid #434343',
           }}
         />

@@ -16,6 +16,7 @@ import { FLOW_COLORS } from '../../../services/flow/constants';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import type { DataSourceNodeData } from '../../../services/flow/types';
 import { FlowNodeType } from '../../../services/flow/types';
+import { TOKEN } from '../../../theme';
 
 interface DataSourceNodeProps {
   id: string;
@@ -194,7 +195,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
           display: 'flex',
           alignItems: 'center',
           marginBottom: 12,
-          color: '#fff',
+          color: TOKEN.textPrimary,
           fontWeight: 500,
         }}
       >
@@ -214,7 +215,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
           onChange={handleTableSelect}
           style={{ width: '100%' }}
           options={tables}
-          dropdownStyle={{ background: '#1f1f1f', border: '1px solid #434343' }}
+          dropdownStyle={{ background: TOKEN.flowNodeBg, border: `1px solid ${TOKEN.borderMid}` }}
           popupClassName="datasource-node-select-dropdown nodrag"
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
           getPopupContainer={() => document.body}

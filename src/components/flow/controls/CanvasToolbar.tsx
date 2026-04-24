@@ -10,6 +10,7 @@ import { useReactFlow, Position } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { FlowNode, FlowEdge } from '../../../services/flow/types';
+import { TOKEN } from '../../../theme';
 
 // Node dimensions for layout calculation - optimized for visual compactness
 const NODE_WIDTH = 180; // Reduced from 240 for tighter layout
@@ -181,7 +182,7 @@ export const CanvasToolbar: React.FC = () => {
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: hasDeletableNodes ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)',
+            color: hasDeletableNodes ? TOKEN.textSecondary : TOKEN.textMuted,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -195,8 +196,8 @@ export const CanvasToolbar: React.FC = () => {
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.color = hasDeletableNodes
-              ? 'rgba(255, 255, 255, 0.7)'
-              : 'rgba(255, 255, 255, 0.3)';
+              ? TOKEN.textSecondary
+              : TOKEN.textMuted;
             e.currentTarget.style.boxShadow = 'none';
           }}
         />
@@ -225,7 +226,7 @@ export const CanvasToolbar: React.FC = () => {
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: storeNodes.length > 1 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)',
+            color: storeNodes.length > 1 ? TOKEN.textSecondary : TOKEN.textMuted,
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
@@ -239,7 +240,7 @@ export const CanvasToolbar: React.FC = () => {
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.color =
-              storeNodes.length > 1 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)';
+              storeNodes.length > 1 ? TOKEN.textSecondary : TOKEN.textMuted;
             e.currentTarget.style.boxShadow = 'none';
           }}
         />

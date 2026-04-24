@@ -6,6 +6,7 @@
 
 import React, { useEffect } from 'react';
 import { UserOutlined, BarChartOutlined } from '@ant-design/icons';
+import { TOKEN } from '../../theme';
 
 export interface CustomerContextMenuProps {
   visible: boolean;
@@ -105,7 +106,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
         onClick={isViewDisabled ? undefined : () => onViewDetails?.(customerId)}
         style={{
           padding: '12px 16px',
-          color: isViewDisabled ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.9)',
+          color: isViewDisabled ? TOKEN.textMuted : TOKEN.textPrimary,
           cursor: isViewDisabled ? 'not-allowed' : 'pointer',
           fontSize: '13px',
           fontWeight: 500,
@@ -121,7 +122,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = isViewDisabled ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.9)';
+          e.currentTarget.style.color = isViewDisabled ? TOKEN.textMuted : TOKEN.textPrimary;
         }}
       >
         <UserOutlined style={{ marginRight: 12, fontSize: 14, opacity: 0.8 }} />
@@ -143,7 +144,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
         onClick={isCompareDisabled ? undefined : () => onCompare?.(customerId)}
         style={{
           padding: '12px 16px',
-          color: isCompareDisabled ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.9)',
+          color: isCompareDisabled ? TOKEN.textMuted : TOKEN.textPrimary,
           cursor: isCompareDisabled ? 'not-allowed' : 'pointer',
           fontSize: '13px',
           fontWeight: 500,
@@ -159,7 +160,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = isCompareDisabled ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.9)';
+          e.currentTarget.style.color = isCompareDisabled ? TOKEN.textMuted : TOKEN.textPrimary;
         }}
       >
         <BarChartOutlined style={{ marginRight: 12, fontSize: 14, opacity: 0.8 }} />

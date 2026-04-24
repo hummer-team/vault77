@@ -8,6 +8,7 @@ import { Card, Button, Space, Typography, Tag, Alert, Spin, message } from 'antd
 import { CopyOutlined, DownloadOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { InsightAction } from '../../types/insight-action.types';
 import './ActionPanel.css';
+import { TOKEN } from '../../theme';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -114,7 +115,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       >
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <Spin size="large" />
-          <Paragraph style={{ marginTop: 16, color: 'rgba(255, 255, 255, 0.45)' }}>
+          <Paragraph style={{ marginTop: 16, color: TOKEN.textSecondary }}>
             AI is analyzing anomalies and generating insights...
           </Paragraph>
         </div>

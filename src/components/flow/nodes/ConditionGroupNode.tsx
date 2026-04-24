@@ -18,6 +18,7 @@ import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../
 import { FLOW_COLORS, CUSTOM_EXPRESSION_CONSTANTS } from '../../../services/flow/constants';
 import { FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { TOKEN } from '../../../theme';
 
 interface ConditionGroupNodeProps {
   id: string;
@@ -309,7 +310,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+          background: selected ? TOKEN.bgRow : 'transparent',
         }}
       >
         {/* Logic type icon */}
@@ -319,7 +320,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
             height: 24,
             borderRadius: '4px',
             background: colors.border,
-            color: '#fff',
+            color: TOKEN.textPrimary,
             fontSize: 10,
             fontWeight: 'bold',
             display: 'flex',
@@ -336,7 +337,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: TOKEN.textPrimary,
             fontWeight: 500,
             fontSize: 13,
           }}

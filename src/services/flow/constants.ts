@@ -14,58 +14,58 @@ import { FieldType } from './types';
 export const FLOW_COLORS: FlowColors = {
   conditionGroup: {
     and: {
-      background: 'rgba(255, 107, 0, 0.12)', // Subtle orange transparent
-      border: 'rgba(255, 107, 0, 0.6)',
-      title: '#FF8533',
+      background: 'var(--vm-primary-light)',
+      border: 'var(--vm-primary)',
+      title: 'var(--vm-primary-hover)',
     },
     or: {
-      background: 'rgba(255, 107, 0, 0.2)', // Deeper orange
-      border: 'rgba(255, 133, 51, 0.7)',
-      title: '#FF9A5C',
+      background: 'var(--vm-primary-glow)',
+      border: 'var(--vm-primary-hover)',
+      title: 'var(--vm-primary-hover)',
     },
     nested: {
-      background: 'rgba(255, 107, 0, 0.28)', // Deepest orange
-      border: 'rgba(255, 154, 92, 0.8)',
-      title: '#FFAF85',
+      background: 'var(--vm-primary-border)',
+      border: 'var(--vm-primary)',
+      title: 'var(--vm-primary-hover)',
     },
   },
   node: {
     table: {
-      background: 'rgba(28, 25, 23, 0.95)', // Warm dark
-      border: 'rgba(68, 64, 60, 0.8)', // Stone-700
+      background: 'var(--vm-flow-node-bg)',
+      border: 'var(--vm-border-mid)',
     },
     merge: {
-      background: 'rgba(28, 25, 23, 0.98)',
-      border: 'var(--vm-primary)', // Primary orange for + node
+      background: 'var(--vm-flow-node-bg)',
+      border: 'var(--vm-primary)',
     },
     operator: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#FA8C16', // Orange for business operator
+      background: 'var(--vm-flow-node-bg)',
+      border: '#FA8C16',
     },
     join: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#F97316', // Orange accent
+      background: 'var(--vm-flow-node-bg)',
+      border: '#F97316',
     },
     condition: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#3B82F6', // Blue accent
+      background: 'var(--vm-flow-node-bg)',
+      border: '#3B82F6',
     },
     conditionDefinition: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#8B5CF6', // Purple accent for condition definition nodes (CG1, CG2, etc.)
+      background: 'var(--vm-flow-node-bg)',
+      border: '#8B5CF6',
       title: '#A78BFA',
     },
     select: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#10B981', // Emerald accent
+      background: 'var(--vm-flow-node-bg)',
+      border: '#10B981',
     },
     end: {
-      background: 'rgba(28, 25, 23, 0.95)',
-      border: '#CA8A04', // Gold accent
+      background: 'var(--vm-flow-node-bg)',
+      border: '#CA8A04',
     },
   },
   edge: {
-    default: 'rgba(120, 113, 108, 0.6)', // Stone-500
+    default: 'var(--vm-border-mid)',
     selected: 'var(--vm-primary)',
     error: '#EF4444',
   },

@@ -23,6 +23,7 @@ import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } 
 import { ValueFillPanel } from '../panels/ValueFillPanel';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import { buildFlowSummary, type FlowSummary } from '../../../services/flow/flowSummary';
+import { TOKEN } from '../../../theme';
 
 interface EndNodeProps {
   id: string;
@@ -307,7 +308,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           display: 'flex',
           alignItems: 'center',
           marginBottom: 12,
-          color: '#fff',
+          color: TOKEN.textPrimary,
           fontWeight: 500,
         }}
       >

@@ -24,6 +24,7 @@ import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useCanvasJoinedTables } from '../hooks/useUpstreamJoinedTables';
+import { TOKEN } from '../../../theme';
 
 interface ConditionDefinitionNodeProps {
   id: string;
@@ -433,7 +434,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
               gap: 8,
               marginBottom: 8,
               padding: '8px',
-              background: 'rgba(255, 255, 255, 0.03)',
+              background: TOKEN.bgSection,
               borderRadius: '4px',
             }}
           >

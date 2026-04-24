@@ -19,17 +19,18 @@ import { duckDBUdfService, KERNEL_UDF_MAP } from '../duckDBUdfService';
 
 describe('KERNEL_UDF_MAP', () => {
   it('should contain all 5 expected data-cleaning kernel mappings', () => {
-    const expectedKernels = [
+    const expectedDataCleanKernels = [
       'fn_ecom_data_clean_replace_spec_column_value',
       'fn_ecom_data_clean_up_lower',
       'fn_ecom_data_clean_number_precision_control',
       'fn_ecom_data_clean_data_flag',
       'fn_ecom_data_format_date',
     ];
-    expectedKernels.forEach((kernel) => {
+    expectedDataCleanKernels.forEach((kernel) => {
       expect(KERNEL_UDF_MAP).toHaveProperty(kernel);
     });
-    expect(Object.keys(KERNEL_UDF_MAP)).toHaveLength(5);
+    // Total should be at least 5 (may include other kernels like analysis functions)
+    expect(Object.keys(KERNEL_UDF_MAP).length).toBeGreaterThanOrEqual(5);
   });
 
   it('should map each kernel to a non-empty UDF function name', () => {

@@ -16,6 +16,7 @@ import type { ConditionNodeData, LogicType } from '../../../services/flow/types'
 import { FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS, SQL_OPERATORS } from '../../../services/flow/constants';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { TOKEN } from '../../../theme';
 
 interface ConditionNodeProps {
   id: string;
@@ -226,7 +227,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: TOKEN.textPrimary,
             fontWeight: 500,
             fontSize: 13,
             overflow: 'hidden',
@@ -297,7 +298,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
           <div
             style={{
               padding: '6px 10px',
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: TOKEN.bgSection,
               borderRadius: '4px',
               fontSize: 12,
               color: '#d9d9d9',

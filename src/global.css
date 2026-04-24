@@ -43,6 +43,9 @@
   /* Sider */
   --vm-sider-bg: #001529;
 
+  --vm-flow-node-bg: rgba(28, 25, 23, 0.97);
+  --vm-flow-canvas-bg: #141414;
+
   /* Tables */
   --vm-table-header-color: #FFB366;
   --vm-table-header-bg: rgba(30, 32, 38, 0.6);

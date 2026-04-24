@@ -86,3 +86,4 @@ export const useTheme = (): ThemeContextValue => useContext(ThemeContext);
 export { TOKEN } from './tokens';
 export type { ThemeDef } from './types';
 export { orangeDarkTheme } from './themes/orangeDark';
+export { useEChartsColors } from './useEChartsTheme';

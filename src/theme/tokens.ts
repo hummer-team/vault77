@@ -10,6 +10,8 @@ export const TOKEN = {
   bgSection: 'var(--vm-bg-section)',
   bgRow: 'var(--vm-bg-row)',
   bgCard: 'var(--vm-bg-card)',
+  flowNodeBg: 'var(--vm-flow-node-bg)',
+  flowCanvasBg: 'var(--vm-flow-canvas-bg)',
   bgRowHover: 'var(--vm-primary-row-hover)',
   bgRowComplete: 'rgba(114, 46, 209, 0.04)',  // purple accent — not theme-sensitive
 
