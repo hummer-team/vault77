@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { AnomalyRecord } from '../../types/anomaly.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
+import { useEChartsColors } from '../../theme';
 
 export interface AnomalyScatterChartProps {
   data: AnomalyRecord[];
@@ -28,6 +29,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const ec = useEChartsColors();
 
   // Limit data to top N for performance
   const displayData = useMemo(() => {
@@ -67,9 +69,9 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderColor: '#777',
-        textStyle: { color: '#fff' },
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderMid,
+        textStyle: { color: ec.textPrimary },
         z: 99999,  // Ensure tooltip is on top of all other elements
         appendToBody: true,  // Append to body to avoid z-index stacking issues
         formatter: (params: any) => {
@@ -97,12 +99,12 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         nameLocation: 'middle',
         nameGap: 30,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
-        axisLabel: { color: 'rgba(255, 255, 255, 0.65)' },
-        splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
+        axisLine: { lineStyle: { color: ec.borderSubtle } },
+        axisLabel: { color: ec.textSecondary },
+        splitLine: { lineStyle: { color: ec.borderSubtle } },
       },
       yAxis: {
         type: 'value',
@@ -110,13 +112,13 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
         max: 1,
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
-        axisLabel: { color: 'rgba(255, 255, 255, 0.65)' },
-        splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
+        axisLine: { lineStyle: { color: ec.borderSubtle } },
+        axisLabel: { color: ec.textSecondary },
+        splitLine: { lineStyle: { color: ec.borderSubtle } },
       },
       series: [
         {
@@ -141,7 +143,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         data: ['Anomalous Orders'],
         bottom: '5%',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
       },
     };
@@ -169,7 +171,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         chartInstance.off('click');
       }
     };
-  }, [displayData, xAxisFeature, yAxisLabel, onPointClick]);
+  }, [displayData, xAxisFeature, yAxisLabel, onPointClick, ec]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -188,7 +190,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        color: 'rgba(255, 255, 255, 0.45)',
+        color: ec.textMuted,
       }}>
         No data to display
       </div>
