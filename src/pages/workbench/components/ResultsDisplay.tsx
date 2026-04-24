@@ -148,9 +148,9 @@ const FlowSummaryPanel: React.FC<{ summary: FlowSummary }> = ({ summary }) => {
             <ul style={LIST_STYLE}>
               {joins.map((j, i) => (
                 <li key={i}>
-                  {j.leftTable}<strong style={{ color: '#fff' }}>.</strong>{j.leftField}
+                  {j.leftTable}<strong style={{ color: 'var(--vm-text-primary)' }}>.</strong>{j.leftField}
                   {' '}<Tag color="geekblue" style={{ fontSize: 11, padding: '0 5px' }}>{j.joinTypeLabel}</Tag>{' '}
-                  {j.rightTable}<strong style={{ color: '#fff' }}>.</strong>{j.rightField}
+                  {j.rightTable}<strong style={{ color: 'var(--vm-text-primary)' }}>.</strong>{j.rightField}
                 </li>
               ))}
             </ul>

@@ -44,6 +44,8 @@ export interface AntdTokenConfig {
 export interface ThemeDef {
   name: string;
   displayName: string;
+  /** Optional display color for theme switcher circle. Defaults to --vm-primary if not set. */
+  circleColor?: string;
   /** Ant Design dark | light algorithm */
   algorithm: 'dark' | 'light';
   cssVars: ThemeCssVarMap;

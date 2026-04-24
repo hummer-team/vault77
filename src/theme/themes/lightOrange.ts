@@ -3,6 +3,7 @@ import type { ThemeDef } from '../types';
 export const lightOrangeTheme: ThemeDef = {
   name: 'light-orange',
   displayName: 'V2 Light',
+  circleColor: '#F9FAFB',
   algorithm: 'light',
   cssVars: {
     // Primary (Safety Orange)

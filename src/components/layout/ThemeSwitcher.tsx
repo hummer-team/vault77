@@ -26,6 +26,7 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ collapsed }) => {
       {themeList.map((themeDef) => {
         const isActive = currentTheme.name === themeDef.name;
         const primaryColor = themeDef.cssVars['--vm-primary'];
+        const circleColor = themeDef.circleColor ?? primaryColor;
         return (
           <Tooltip
             key={themeDef.name}
@@ -38,11 +39,11 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ collapsed }) => {
                 width: isActive ? 20 : 14,
                 height: isActive ? 20 : 14,
                 borderRadius: '50%',
-                backgroundColor: primaryColor,
+                backgroundColor: circleColor,
                 cursor: 'pointer',
                 border: isActive
                   ? '2px solid rgba(255, 255, 255, 0.85)'
-                  : '2px solid rgba(255, 255, 255, 0.2)',
+                  : '2px solid rgba(255, 255, 255, 0.4)',
                 transition: 'all 0.25s ease',
                 boxShadow: isActive
                   ? `0 0 10px ${primaryColor}, 0 0 20px ${primaryColor}40`

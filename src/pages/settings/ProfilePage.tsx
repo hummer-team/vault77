@@ -677,7 +677,7 @@ const ProfilePage: React.FC = () => {
     label: (
       <div>
         <span>{persona.icon} {persona.displayName}</span>
-        <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '2px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--vm-text-secondary)', marginTop: '2px' }}>
           Expertise: {persona.expertise.join('、')}
         </div>
       </div>

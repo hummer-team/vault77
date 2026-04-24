@@ -91,7 +91,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
       {/* Description */}
       <Paragraph
         ellipsis={{ rows: 2 }}
-        style={{ marginBottom: 8, fontSize: 13, color: 'rgba(255,255,255,0.75)', minHeight: 40 }}
+        style={{ marginBottom: 8, fontSize: 13, color: 'var(--vm-text-secondary)', minHeight: 40 }}
       >
         {kernel.description}
       </Paragraph>
@@ -103,19 +103,19 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
         style={{ marginBottom: 8, fontSize: 12, marginTop: 'auto' }}
       >
         <Tooltip title="热度">
-          <Space size={4} style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
             <LikeOutlined style={{ color: '#ff4d4f' }} />
             <Text style={{ color: 'inherit' }}>{kernel.likes}</Text>
           </Space>
         </Tooltip>
         <Tooltip title="积分消耗">
-          <Space size={4} style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
             <ThunderboltOutlined style={{ color: '#faad14' }} />
             <Text style={{ color: 'inherit' }}>{kernel.credits}</Text>
           </Space>
         </Tooltip>
         <Tooltip title="数据量">
-          <Space size={4} style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
             <DatabaseOutlined style={{ color: '#52c41a' }} />
             <Text style={{ color: 'inherit' }}>{kernel.dataVolume}</Text>
           </Space>
@@ -165,7 +165,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
         <Button
           type="link"
           onClick={onViewDetail}
-          style={{ color: 'rgba(255,255,255,0.65)' }}
+          style={{ color: 'var(--vm-text-secondary)' }}
         >
           详情
         </Button>

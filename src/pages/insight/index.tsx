@@ -402,7 +402,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       <div className="insight-page">
         <div className="insight-loading">
           <Spin size="large" />
-          <Text style={{ marginTop: 16, color: 'rgba(255, 255, 255, 0.65)' }}>
+          <Text style={{ marginTop: 16, color: 'var(--vm-text-secondary)' }}>
             Waiting for database connection...
           </Text>
         </div>
@@ -416,7 +416,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       <div className="insight-page">
         <div className="insight-loading">
           <Spin size="large" />
-          <Text style={{ marginTop: 16, color: 'rgba(255, 255, 255, 0.65)' }}>
+          <Text style={{ marginTop: 16, color: 'var(--vm-text-secondary)' }}>
             Analyzing table structure...
           </Text>
         </div>
@@ -433,7 +433,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
     return (
       <Space style={{ marginLeft: 16, flexWrap: 'wrap' }} size={[8, 4]}>
-        <Text style={{ color: 'rgba(255, 255, 255, 0.65)', whiteSpace: 'nowrap' }}>
+        <Text style={{ color: 'var(--vm-text-secondary)', whiteSpace: 'nowrap' }}>
           <InfoCircleOutlined /> Cache hits:
         </Text>
         {cacheHit.summary && <Tag color="green">Summary</Tag>}
@@ -454,7 +454,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             </Title>
             {renderCacheIndicator()}
           </div>
-          <Paragraph style={{ margin: '8px 0 0 0', color: 'rgba(255, 255, 255, 0.65)' }}>
+          <Paragraph style={{ margin: '8px 0 0 0', color: 'var(--vm-text-secondary)' }}>
             Automatic analysis for <strong>{tableName}</strong>
             {config?.enableSampling && (
               <span>

@@ -118,7 +118,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
     >
       {/* Header */}
       <Space direction="vertical" size={0} style={{ width: '100%', marginBottom: 12 }}>
-        <Title level={4} style={{ margin: 0, color: '#fff' }}>
+        <Title level={4} style={{ margin: 0, color: 'var(--vm-text-primary)' }}>
           {kernel.displayName}
         </Title>
         <Space size={8} style={{ marginTop: 8 }} wrap>
@@ -146,7 +146,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       </Space>
 
       {/* Description - 紧接标题，减少空白 */}
-      <Paragraph style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 8 }}>
+      <Paragraph style={{ color: 'var(--vm-text-secondary)', fontSize: 13, marginBottom: 8 }}>
         {kernel.description}
       </Paragraph>
 
@@ -163,10 +163,10 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>热度</span>}
+              title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>热度</span>}
               value={kernel.likes}
               prefix={<LikeOutlined style={{ color: '#ff4d4f' }} />}
-              valueStyle={{ color: '#fff', fontSize: 14 }}
+              valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 14 }}
             />
           </Card>
         </Col>
@@ -181,10 +181,10 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>积分</span>}
+              title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>积分</span>}
               value={kernel.credits}
               prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
-              valueStyle={{ color: '#fff', fontSize: 14 }}
+              valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 14 }}
             />
           </Card>
         </Col>
@@ -199,10 +199,10 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>数据量</span>}
+              title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>数据量</span>}
               value={kernel.dataVolume}
               prefix={<DatabaseOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#fff', fontSize: 12 }}
+              valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
             />
           </Card>
         </Col>
@@ -217,10 +217,10 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             bodyStyle={{ padding: '6px' }}
           >
             <Statistic
-              title={<span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>预估耗时</span>}
+              title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>预估耗时</span>}
               value={kernel.estimatedTime}
               prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#fff', fontSize: 12 }}
+              valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
             />
           </Card>
         </Col>
@@ -229,15 +229,15 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
 
       {/* Description */}
-      <Title level={5} style={{ color: '#fff', marginBottom: 6 }}>解决痛点</Title>
-      <Paragraph style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, marginBottom: 12 }}>
+      <Title level={5} style={{ color: 'var(--vm-text-primary)', marginBottom: 6 }}>解决痛点</Title>
+      <Paragraph style={{ color: 'var(--vm-text-secondary)', fontSize: 14, marginBottom: 12 }}>
         {kernel.description}
       </Paragraph>
 
       {kernel.detailedDescription && (
         <>
-          <Title level={5} style={{ color: '#fff', marginTop: 12, marginBottom: 8 }}>核心洞察</Title>
-          <Paragraph style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, marginBottom: 12 }}>
+          <Title level={5} style={{ color: 'var(--vm-text-primary)', marginTop: 12, marginBottom: 8 }}>核心洞察</Title>
+          <Paragraph style={{ color: 'var(--vm-text-secondary)', fontSize: 13, marginBottom: 12 }}>
             {kernel.detailedDescription}
           </Paragraph>
         </>
@@ -247,7 +247,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       {kernel.metadata && (
         <>
           <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
-          <Title level={5} style={{ color: '#fff', marginBottom: 8 }}>
+          <Title level={5} style={{ color: 'var(--vm-text-primary)', marginBottom: 8 }}>
             <CodeOutlined style={{ marginRight: 8 }} />
             配置需求
           </Title>
@@ -264,8 +264,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
                 size="small"
                 column={1}
                 style={{ marginBottom: 8 }}
-                labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                contentStyle={{ color: 'rgba(255,255,255,0.85)' }}
+                labelStyle={{ color: 'var(--vm-text-secondary)' }}
+                contentStyle={{ color: 'var(--vm-text-primary)' }}
               >
                 <Descriptions.Item label="输入字段">
                   <Space wrap>
@@ -283,8 +283,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
                 size="small"
                 column={1}
                 style={{ marginBottom: 8 }}
-                labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                contentStyle={{ color: 'rgba(255,255,255,0.85)' }}
+                labelStyle={{ color: 'var(--vm-text-secondary)' }}
+                contentStyle={{ color: 'var(--vm-text-primary)' }}
               >
                 <Descriptions.Item label="输出字段">
                   <Space wrap>
@@ -301,8 +301,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               <Descriptions
                 size="small"
                 column={1}
-                labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                contentStyle={{ color: 'rgba(255,255,255,0.85)' }}
+                labelStyle={{ color: 'var(--vm-text-secondary)' }}
+                contentStyle={{ color: 'var(--vm-text-primary)' }}
               >
                 <Descriptions.Item label="约束条件">
                   {kernel.metadata.constraints.join('; ')}
