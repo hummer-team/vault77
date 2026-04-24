@@ -28,6 +28,7 @@ import { ClusteringScatterChart } from '../../components/insight/ClusteringScatt
 import { ClusteringRadarChart } from '../../components/insight/ClusteringRadarChart';
 import { ClusteringErrorBoundary } from '../../components/insight/ClusteringErrorBoundary';
 import { ActionPanel } from '../../components/insight/ActionPanel';
+import { TOKEN } from '../../theme';
 import { useDuckDBContext } from '../../contexts/DuckDBContext';
 import { createInsightActionService } from '../../services/insight/insightActionService';
 import { downloadReport } from '../../services/insight/reportGenerator';
@@ -474,7 +475,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
         </Space>
       </div>
 
-      <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+      <Divider style={{ borderColor: TOKEN.borderSubtle }} />
 
       {/* Section 1: Global Summary */}
       <div className="insight-section">
@@ -490,8 +491,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
         ) : (
           summary && (
             <div style={{ 
-              background: '#2a2d30', 
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: TOKEN.bgCard, 
+              border: `1px solid ${TOKEN.borderMid}`,
               borderRadius: '8px',
               padding: '16px'
             }}>
@@ -501,7 +502,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
         )}
       </div>
 
-      <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+      <Divider style={{ borderColor: TOKEN.borderSubtle }} />
 
       {/* Section 2: Distribution Overview */}
       {config && config.numericColumns.length > 0 && (
@@ -510,7 +511,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'inline' }}>
                 Distribution Overview
-                <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.45)', marginLeft: 8 }}>
+                <Text style={{ fontSize: 12, color: TOKEN.textSecondary, marginLeft: 8 }}>
                   Histograms for top {Math.min(config.numericColumns.length, 5)} numeric columns
                 </Text>
               </Title>
@@ -526,7 +527,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             )}
           </div>
 
-          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+          <Divider style={{ borderColor: TOKEN.borderSubtle }} />
         </>
       )}
 
@@ -536,7 +537,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
           <div className="section-header">
             <Title level={4} style={{ margin: 0, display: 'inline' }}>
               Categorical Analysis
-              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.45)', marginLeft: 8 }}>
+              <Text style={{ fontSize: 12, color: TOKEN.textSecondary, marginLeft: 8 }}>
                 Distribution of status and category columns
               </Text>
             </Title>
@@ -562,7 +563,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       {/* Section 4: Anomaly Detection (if available) */}
       {anomalyResult && (
         <>
-          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+          <Divider style={{ borderColor: TOKEN.borderSubtle }} />
           <div className="insight-section">
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -584,7 +585,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 {/* GPU Acceleration status indicator */}
                 <span style={{ 
                   fontSize: '12px', 
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: TOKEN.textSecondary,
                   marginLeft: 'auto',
                   fontWeight: 'normal',
                 }}>
@@ -600,7 +601,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 <Card 
                   size="small" 
                   style={{ 
-                    background: '#2a2d30', 
+                    background: TOKEN.bgCard, 
                     border: '2px solid #ff4d4f',  // Highlighted border
                     boxShadow: '0 0 12px rgba(255, 77, 79, 0.4)',  // Red glow
                     position: 'relative',
@@ -612,8 +613,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       items: anomalyMenuItems, 
                       onClick: handleMenuClick,
                       style: {
-                        background: '#2a2d30',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: TOKEN.bgCard,
+                        border: `1px solid ${TOKEN.borderMid}`,
                       },
                     }} 
                     trigger={['click']}
@@ -624,7 +625,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       icon={<MoreOutlined style={{ fontSize: 16 }} />} 
                       size="small"
                       style={{ 
-                        color: 'rgba(255, 255, 255, 0.85)',
+                        color: TOKEN.textPrimary,
                         position: 'absolute',
                         top: 12,
                         right: 12,
@@ -644,7 +645,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
               {/* Card 2: Anomalous Orders */}
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic
                     title="Anomalous Orders"
                     value={anomalyResult.anomalyCount}
@@ -655,7 +656,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
               {/* Card 3: Normal Orders */}
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic
                     title="Normal Orders"
                     value={anomalyResult.totalProcessed - anomalyResult.anomalyCount}
@@ -666,11 +667,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
               {/* Card 4: Total Processed */}
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic
                     title="Total Processed"
                     value={anomalyResult.totalProcessed}
-                    valueStyle={{ color: 'rgba(255, 255, 255, 0.85)' }}
+                    valueStyle={{ color: TOKEN.textPrimary }}
                   />
                 </Card>
               </Col>
@@ -678,7 +679,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
             {/* Threshold Adjuster */}
             <div style={{ marginBottom: 24 }}>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.85)', marginRight: 16 }}>
+              <Text style={{ color: TOKEN.textPrimary, marginRight: 16 }}>
                 Anomaly Threshold: {anomalyThreshold.toFixed(2)}
               </Text>
               <Slider
@@ -716,7 +717,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       : 'Individual Anomalies (Scatter Plot)'
                   }
                   size="small"
-                  style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                  style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}
                 >
                   {anomalyResult.metadata.featureColumns.length > 0 && (
                     <AnomalyScatterChart
@@ -737,7 +738,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       : 'Feature Correlation (Heatmap)'
                   }
                   size="small"
-                  style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                  style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}
                 >
                   {anomalyResult.metadata.featureColumns.length >= 2 && (
                     <AnomalyHeatmapChart
@@ -770,7 +771,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       {/* Section 5: Customer Clustering (if available) */}
       {clusteringResult && (
         <>
-          <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }} />
+          <Divider style={{ borderColor: TOKEN.borderMid }} />
           <div className="insight-section">
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -778,7 +779,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 Customer Clustering (RFM Analysis)
                 <span style={{ 
                   fontSize: '12px', 
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: TOKEN.textSecondary,
                   marginLeft: 'auto',
                   fontWeight: 'normal',
                 }}>
@@ -804,8 +805,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 <Card 
                   size="small" 
                   style={{ 
-                    background: '#2a2d30', 
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: TOKEN.bgCard, 
+                    border: `1px solid ${TOKEN.borderMid}`,
                     position: 'relative',
                   }}
                 >
@@ -861,8 +862,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                         }
                       },
                       style: {
-                        background: '#2a2d30',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        background: TOKEN.bgCard,
+                        border: `1px solid ${TOKEN.borderMid}`,
                       },
                     }} 
                     trigger={['click']}
@@ -873,7 +874,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       icon={<MoreOutlined style={{ fontSize: 16 }} />} 
                       size="small"
                       style={{ 
-                        color: 'rgba(255, 255, 255, 0.85)',
+                        color: TOKEN.textPrimary,
                         position: 'absolute',
                         top: 12,
                         right: 12,
@@ -902,7 +903,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic 
                     title="Number of Clusters" 
                     value={clusteringResult.clusters.length}
@@ -911,7 +912,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic 
                     title="Avg Recency" 
                     value={clusteringResult.clusters.reduce((sum, c) => sum + c.avgRecency, 0) / clusteringResult.clusters.length}
@@ -922,11 +923,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <Card size="small" style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}>
                   <Statistic 
                     title="Total Processed" 
                     value={clusteringResult.metadata.rowsTotal}
-                    valueStyle={{ color: 'rgba(255, 255, 255, 0.85)' }}
+                    valueStyle={{ color: TOKEN.textPrimary }}
                   />
                 </Card>
               </Col>
@@ -934,7 +935,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
             {/* K Value Slider */}
             <div style={{ marginBottom: 24 }}>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.85)', marginRight: 16 }}>
+              <Text style={{ color: TOKEN.textPrimary, marginRight: 16 }}>
                 Number of Clusters (K): {kValue}
               </Text>
               <Slider
@@ -988,7 +989,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       </Space>
                     }
                     size="small"
-                    style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                    style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}
                   >
                     <ClusteringScatterChart
                       key={`clustering-scatter-${clusteringResult.totalCustomers}-${clusteringResult.metadata.nClusters}`}
@@ -1014,7 +1015,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   <Card 
                     title="Cluster Characteristics (Radar Chart)"
                     size="small"
-                    style={{ background: '#2a2d30', border: '1px solid rgba(255, 255, 255, 0.15)' }}
+                    style={{ background: TOKEN.bgCard, border: `1px solid ${TOKEN.borderMid}` }}
                   >
                     <ClusteringRadarChart
                       key={`clustering-radar-${clusteringResult.totalCustomers}-${clusteringResult.metadata.nClusters}`}

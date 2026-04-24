@@ -33,6 +33,7 @@ import { DuckDBProvider } from '../../contexts/DuckDBContext';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService';
 import { operatorBindingService } from '../../services/flow/operatorBindingService';
 import type { FlowSummary } from '../../services/flow/flowSummary';
+import { TOKEN } from '../../theme';
 import './workbench.css';
 
 const InsightPage = React.lazy(() => import('../insight'));
@@ -1451,7 +1452,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       bodyStyle={{
         height: '90vh',
         padding: 0,
-        background: '#1a1a1a',
+        background: TOKEN.bgSection,
       }}
     >
       <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady} refreshKey={showFlowModal ? Date.now() : 0}>

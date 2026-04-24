@@ -1,4 +1,5 @@
 import React from 'react';
+import { TOKEN } from '../../theme';
 import { Card, Table, Typography, Collapse, Space, Tooltip, App } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 
@@ -154,7 +155,7 @@ const TemplateListPage: React.FC = () => {
           <Panel header={<Title level={5} style={{ margin: 0 }}>{category.name}</Title>} key={category.id}>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               {category.templates.map((template) => (
-                <Card key={template.id} title={template.name} bordered={false} style={{ background: '#2d2d2f' }}>
+                <Card key={template.id} title={template.name} bordered={false} style={{ background: TOKEN.bgCard }}>
                   <Paragraph type="secondary">{template.description}</Paragraph>
                   <Table
                     columns={template.columns}
@@ -167,7 +168,7 @@ const TemplateListPage: React.FC = () => {
                     <Text strong>Recommended Prompt:</Text>
                     <div
                       style={{
-                        background: '#1f1f1f',
+                        background: TOKEN.bgSection,
                         padding: '12px',
                         borderRadius: '6px',
                         marginTop: '8px',

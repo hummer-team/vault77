@@ -9,6 +9,7 @@ export const TOKEN = {
   bgHeader: 'var(--vm-bg-header)',
   bgSection: 'var(--vm-bg-section)',
   bgRow: 'var(--vm-bg-row)',
+  bgCard: 'var(--vm-bg-card)',
   bgRowHover: 'var(--vm-primary-row-hover)',
   bgRowComplete: 'rgba(114, 46, 209, 0.04)',  // purple accent — not theme-sensitive
 

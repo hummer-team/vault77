@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Drawer, Button, Select, Space, Typography, Table, Tag } from 'antd';
 import { CalendarOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { TOKEN } from '../../../theme';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType } from '../../../services/flow/types';
 import type { FormatDateConfig, TableNodeData } from '../../../services/flow/types';
@@ -201,7 +202,7 @@ export const FormatDateDrawer: React.FC<FormatDateDrawerProps> = ({
           onChange={setOutputColumns}
         />
 
-        <div style={{ background: '#1a1a2e', borderRadius: 6, padding: 12 }}>
+        <div style={{ background: TOKEN.bgSection, borderRadius: 6, padding: 12 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             💡 常用格式参考：
           </Text>

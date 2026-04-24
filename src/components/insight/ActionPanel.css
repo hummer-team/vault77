@@ -3,12 +3,12 @@
  */
 
 .action-panel {
-  background: #1f1f1f;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--vm-bg-section);
+  border: 1px solid var(--vm-border-subtle);
 }
 
 .action-panel .ant-card-head {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--vm-border-subtle);
 }
 
 .action-panel .ant-card-body {
@@ -25,7 +25,7 @@
 
 .action-section h5 {
   margin-bottom: 12px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--vm-text-primary);
 }
 
 .pattern-list {
@@ -36,18 +36,18 @@
 
 .pattern-list li {
   margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--vm-text-secondary);
 }
 
 .recommendation-card {
-  background: #2a2a2a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--vm-bg-card);
+  border: 1px solid var(--vm-border-subtle);
   transition: all 0.3s ease;
 }
 
 .recommendation-card:hover {
-  background: #2f2f2f;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--vm-bg-section);
+  border-color: var(--vm-border-mid);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }

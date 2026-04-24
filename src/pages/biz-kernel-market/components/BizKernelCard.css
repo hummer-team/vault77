@@ -5,8 +5,8 @@
 }
 
 .biz-kernel-card:hover {
-  border-color: #FF6B00 !important;
-  box-shadow: 0 0 16px rgba(255, 107, 0, 0.5), inset 0 0 0 1px rgba(255, 107, 0, 0.3) !important;
+  border-color: var(--vm-primary) !important;
+  box-shadow: 0 0 16px var(--vm-primary-glow), inset 0 0 0 1px var(--vm-primary-border) !important;
 }
 
 /* Ensure the card body doesn't interfere with border */

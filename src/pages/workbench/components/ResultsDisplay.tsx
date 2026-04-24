@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for bett
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
+import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
 const parseClarifyingQuestions = (errorText: string): string[] => {
@@ -103,7 +104,7 @@ const LIST_STYLE: React.CSSProperties = {
 };
 
 const SECTION_TITLE_STYLE: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.45)',
+  color: TOKEN.textSecondary,
   fontSize: 12,
   fontWeight: 600,
   letterSpacing: '0.05em',
@@ -120,8 +121,8 @@ const FlowSummaryPanel: React.FC<{ summary: FlowSummary }> = ({ summary }) => {
       <Typography.Text strong>2. 分析流配置</Typography.Text>
       <div style={{
         marginTop: 8,
-        background: '#1f2123',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: TOKEN.bgSection,
+        border: `1px solid ${TOKEN.borderSubtle}`,
         borderRadius: 6,
         padding: '12px 16px',
       }}>
@@ -175,7 +176,7 @@ const FlowSummaryPanel: React.FC<{ summary: FlowSummary }> = ({ summary }) => {
               {conditions.map((cg) => (
                 <li key={cg.refId}>
                   <span style={{ color: '#fa8c16', fontWeight: 600 }}>{cg.refId}</span>
-                  {cg.tableName ? <span style={{ color: 'rgba(255,255,255,0.45)' }}> · {cg.tableName}</span> : null}
+                  {cg.tableName ? <span style={{ color: TOKEN.textSecondary }}> · {cg.tableName}</span> : null}
                   {cg.conditions.length > 0 && (
                     <ul style={{ ...LIST_STYLE, marginTop: 2 }}>
                       {cg.conditions.map((c, ci) => (
@@ -310,8 +311,8 @@ const ThinkingSteps: React.FC<{
         <div style={{ 
           marginTop: '8px', 
           padding: '12px',
-          background: '#1f2123',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: TOKEN.bgSection,
+          border: `1px solid ${TOKEN.borderSubtle}`,
           borderRadius: 4,
         }}>
           <Space direction="vertical" style={{ width: '100%', gap: '8px' }}>
@@ -437,8 +438,8 @@ const ThinkingSteps: React.FC<{
               <div>
                 <Typography.Text strong>2. 准备了以下参数</Typography.Text>
                 <pre style={{
-                  background: '#1f2123',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: TOKEN.bgSection,
+                  border: `1px solid ${TOKEN.borderSubtle}`,
                   padding: '8px 12px',
                   borderRadius: 4,
                   whiteSpace: 'pre-wrap',
@@ -916,7 +917,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 <Typography.Text type="secondary">你可以直接点选一个选项来补全问题：</Typography.Text>
                 <ul style={{ marginTop: 8, marginBottom: 8, paddingLeft: 18 }}>
                   {clarifyingQuestions.map((q: string) => (
-                    <li key={q} style={{ color: 'rgba(255,255,255,0.85)' }}>
+                    <li key={q} style={{ color: TOKEN.textPrimary }}>
                       {q}
                     </li>
                   ))}
