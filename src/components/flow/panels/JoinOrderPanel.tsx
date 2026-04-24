@@ -106,7 +106,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
       headerStyle={{
         background: 'var(--vm-bg-dark)',
         borderBottom: '1px solid #303030',
-        color: '#fff',
+        color: 'var(--vm-text-primary)',
       }}
       bodyStyle={{
         padding: '16px',
@@ -167,7 +167,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                         height: 24,
                         borderRadius: '50%',
                         background: JOIN_TYPE_COLORS[data.joinType],
-                        color: '#fff',
+                        color: 'var(--vm-text-primary)',
                         fontSize: 12,
                         fontWeight: 'bold',
                         display: 'flex',

@@ -123,7 +123,7 @@ const InitialWelcomeView: React.FC = () => (
           fontSize: 40,
           fontWeight: 800,
           lineHeight: 1.2,
-          color: 'rgba(255, 255, 255, 0.95)'
+          color: 'var(--vm-text-primary)'
         }}
       >
         <span style={{
@@ -1426,7 +1426,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                     boxShadow: '0 0 12px rgba(255, 107, 0, 0.4)',
                   }}>{step.num}</div>
                   <span style={{
-                    color: 'rgba(255, 255, 255, 0.95)',
+                    color: 'var(--vm-text-primary)',
                     whiteSpace: 'nowrap',
                   }}>{step.text}</span>
                 </div>
@@ -1436,7 +1436,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                     display: 'flex',
                     alignItems: 'center',
                     padding: '0 4px',
-                    color: 'rgba(255, 255, 255, 0.2)',
+                    color: 'var(--vm-surface-lighter)',
                   }}>→</div>
                 )}
               </React.Fragment>

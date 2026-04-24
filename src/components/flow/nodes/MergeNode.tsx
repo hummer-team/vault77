@@ -579,7 +579,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         <PlusOutlined
           style={{
             fontSize: '20px',
-            color: selected ? 'var(--vm-primary)' : 'rgba(255, 255, 255, 0.9)',
+            color: selected ? 'var(--vm-primary)' : 'var(--vm-text-primary)',
           }}
         />
       </div>

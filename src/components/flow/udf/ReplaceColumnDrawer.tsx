@@ -393,7 +393,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             width: 20,
             height: 20,
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.04)',
+            background: 'var(--vm-surface-lighter)',
             border: '1px solid rgba(255,255,255,0.1)',
             display: 'flex',
             alignItems: 'center',
@@ -656,9 +656,9 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
 
           {/* Breadcrumb: plain text, no borders */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>数据清洗</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>数据清洗</span>
             <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
-            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>替换特定列值</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>替换特定列值</span>
           </div>
         </div>
       }
@@ -795,7 +795,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             style={{
               marginTop: 16,
               padding: '10px 12px',
-              background: 'rgba(255, 255, 255, 0.02)',
+              background: 'var(--vm-surface-hover-light)',
               borderRadius: TOKEN.radius,
               border: `1px solid ${TOKEN.borderSubtle}`,
             }}

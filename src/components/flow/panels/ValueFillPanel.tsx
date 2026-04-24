@@ -251,7 +251,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       title={
         <Space>
           <PlayCircleOutlined style={{ color: 'var(--vm-primary)' }} />
-          <span style={{ color: '#fff', fontWeight: 600 }}>执行参数</span>
+          <span style={{ color: 'var(--vm-text-primary)', fontWeight: 600 }}>执行参数</span>
         </Space>
       }
       placement="right"
@@ -359,7 +359,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                 style={{
                   marginBottom: 20,
                   padding: 16,
-                  background: 'rgba(255, 255, 255, 0.03)',
+                  background: 'var(--vm-surface-lighter)',
                   borderRadius: 8,
                   border: '1px solid #303030',
                 }}

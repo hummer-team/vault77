@@ -42,8 +42,8 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ collapsed }) => {
                 backgroundColor: circleColor,
                 cursor: 'pointer',
                 border: isActive
-                  ? '2px solid rgba(255, 255, 255, 0.85)'
-                  : '2px solid rgba(255, 255, 255, 0.4)',
+                  ? '2px solid var(--vm-text-primary)'
+                  : '2px solid var(--vm-text-muted)',
                 transition: 'all 0.25s ease',
                 boxShadow: isActive
                   ? `0 0 10px ${primaryColor}, 0 0 20px ${primaryColor}40`

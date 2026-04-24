@@ -391,9 +391,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
             <BarChartOutlined style={{ color: TOKEN.primary, fontSize: 14 }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>数据分析</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>数据分析</span>
             <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
-            <span style={{ fontSize: 15, fontWeight: 500, color: '#fff' }}>基础统计分析</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>基础统计分析</span>
           </div>
         </div>
       }

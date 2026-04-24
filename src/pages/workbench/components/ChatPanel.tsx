@@ -343,7 +343,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         background: 'rgba(30, 32, 38, 0.95)',
         borderRadius: '12px',
         padding: '16px',
-        border: '1px solid rgba(255, 255, 255, 0.1)'
+        border: '1px solid var(--vm-border-mid)'
       }}>
       <FloatButton
         icon={<DownOutlined />}
@@ -548,7 +548,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     onClick={onToggleInsight}
                     type={showInsightSidebar ? "default" : "default"}
                     style={{
-                      background: showInsightSidebar ? 'rgba(255, 255, 255, 0.08)' : undefined,
+                      background: showInsightSidebar ? 'var(--vm-surface-inset)' : undefined,
                       borderColor: showInsightSidebar ? 'rgba(24, 144, 255, 0.5)' : undefined,
                     }}
                   />

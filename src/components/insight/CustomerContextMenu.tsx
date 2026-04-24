@@ -96,7 +96,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
         padding: '8px 0',
         minWidth: '200px',
         maxWidth: '240px',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7), 0 0 1px rgba(255, 255, 255, 0.1) inset',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7), 0 0 1px var(--vm-border-mid) inset',
         backdropFilter: 'blur(12px)',
       }}
     >
@@ -133,7 +133,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
       <div
         style={{
           height: '1px',
-          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent)',
+          background: 'linear-gradient(90deg, transparent, var(--vm-surface-light), transparent)',
           margin: '6px 12px',
         }}
       />
@@ -173,8 +173,8 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
           padding: '10px 16px',
           fontSize: '11px',
           fontWeight: 500,
-          color: 'rgba(255, 255, 255, 0.5)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          color: 'var(--vm-text-secondary)',
+          borderTop: '1px solid var(--vm-border-subtle)',
           marginTop: '6px',
           background: 'rgba(0, 0, 0, 0.2)',
           letterSpacing: '0.5px',

@@ -194,7 +194,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
                 style={{
                   padding: '6px 8px',
                   marginBottom: 4,
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--vm-surface-hover)',
                   borderRadius: '4px',
                   display: 'flex',
                   alignItems: 'center',

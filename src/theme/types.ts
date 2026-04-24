@@ -14,6 +14,11 @@ export interface ThemeCssVarMap {
   '--vm-bg-card': string;
   '--vm-border-subtle': string;
   '--vm-border-mid': string;
+  '--vm-surface-light': string;
+  '--vm-surface-lighter': string;
+  '--vm-surface-hover': string;
+  '--vm-surface-hover-light': string;
+  '--vm-surface-inset': string;
   '--vm-text-primary': string;
   '--vm-text-secondary': string;
   '--vm-text-muted': string;

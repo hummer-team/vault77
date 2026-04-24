@@ -220,7 +220,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
           transition: 'all 0.15s ease',
         }}
       >
-        <PlusOutlined style={{ fontSize: 9, color: '#fff', lineHeight: 1 }} />
+        <PlusOutlined style={{ fontSize: 9, color: 'var(--vm-text-primary)', lineHeight: 1 }} />
       </div>
 
       {/* Overlay action menu */}

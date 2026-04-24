@@ -89,7 +89,7 @@ export const NodeDetailPanel: React.FC = () => {
         selectedNode ? (
           <Space>
             <InfoCircleOutlined style={{ color: 'var(--vm-primary)' }} />
-            <span style={{ color: '#fff', fontWeight: 500 }}>{getNodeTitle(selectedNode)}</span>
+            <span style={{ color: 'var(--vm-text-primary)', fontWeight: 500 }}>{getNodeTitle(selectedNode)}</span>
           </Space>
         ) : (
           '节点详情'
@@ -110,7 +110,7 @@ export const NodeDetailPanel: React.FC = () => {
       headerStyle={{
         background: 'rgba(28, 25, 23, 0.98)',
         borderBottom: '1px solid rgba(68, 64, 60, 0.6)',
-        color: '#fff',
+        color: 'var(--vm-text-primary)',
         padding: '16px 20px',
       }}
       bodyStyle={{
@@ -123,7 +123,7 @@ export const NodeDetailPanel: React.FC = () => {
         boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.4), -1px 0 0 rgba(255, 107, 0, 0.1)',
       }}
       closeIcon={
-        <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '16px' }}>✕</span>
+        <span style={{ color: 'var(--vm-text-secondary)', fontSize: '16px' }}>✕</span>
       }
     >
       {selectedNode ? (

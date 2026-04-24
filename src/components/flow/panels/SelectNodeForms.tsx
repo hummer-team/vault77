@@ -27,9 +27,9 @@ const T = {
   accent: '#10B981',          // Emerald — select node brand color
   accentDim: 'rgba(16, 185, 129, 0.12)',
   accentBorder: 'rgba(16, 185, 129, 0.35)',
-  surface: 'rgba(255, 255, 255, 0.04)',
-  surfaceHover: 'rgba(255, 255, 255, 0.07)',
-  border: 'rgba(255, 255, 255, 0.08)',
+  surface: 'var(--vm-surface-lighter)',
+  surfaceHover: 'var(--vm-surface-light)',
+  border: 'var(--vm-surface-inset)',
   textPrimary: '#e5e7eb',
   textMuted: '#6b7280',
   danger: '#ef4444',

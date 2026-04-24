@@ -30,6 +30,13 @@ export const lightOrangeTheme: ThemeDef = {
     '--vm-border-subtle': 'rgba(0, 0, 0, 0.06)',
     '--vm-border-mid': '#E5E7EB',
 
+    // Surface overlays (for panels, dropdowns, etc.)
+    '--vm-surface-light': 'rgba(0, 0, 0, 0.02)',
+    '--vm-surface-lighter': 'rgba(0, 0, 0, 0.01)',
+    '--vm-surface-hover': 'rgba(0, 0, 0, 0.03)',
+    '--vm-surface-hover-light': 'rgba(0, 0, 0, 0.015)',
+    '--vm-surface-inset': 'rgba(0, 0, 0, 0.015)',
+
     // Text (dark on light)
     '--vm-text-primary': 'rgba(15, 23, 42, 0.88)',
     '--vm-text-secondary': 'rgba(71, 85, 105, 0.75)',

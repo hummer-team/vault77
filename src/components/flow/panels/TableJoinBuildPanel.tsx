@@ -346,7 +346,7 @@ export const TableJoinBuildPanel: React.FC = () => {
         <span
           style={{
             background: T.orange,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             borderRadius: 4,
             padding: '1px 7px',
             fontSize: 11,

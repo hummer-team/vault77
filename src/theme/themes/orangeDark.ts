@@ -20,6 +20,14 @@ export const orangeDarkTheme: ThemeDef = {
     '--vm-bg-card': 'rgba(30, 32, 38, 0.4)',
     '--vm-border-subtle': 'rgba(255, 255, 255, 0.06)',
     '--vm-border-mid': 'rgba(255, 255, 255, 0.1)',
+    
+    // Surface overlays (for panels, dropdowns, etc.)
+    '--vm-surface-light': 'rgba(255, 255, 255, 0.07)',
+    '--vm-surface-lighter': 'rgba(255, 255, 255, 0.04)',
+    '--vm-surface-hover': 'rgba(255, 255, 255, 0.05)',
+    '--vm-surface-hover-light': 'rgba(255, 255, 255, 0.02)',
+    '--vm-surface-inset': 'rgba(255, 255, 255, 0.08)',
+    
     '--vm-text-primary': 'rgba(255, 255, 255, 0.88)',
     '--vm-text-secondary': 'rgba(255, 255, 255, 0.45)',
     '--vm-text-muted': 'rgba(255, 255, 255, 0.25)',

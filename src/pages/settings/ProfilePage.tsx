@@ -700,7 +700,7 @@ const ProfilePage: React.FC = () => {
         maxWidth: '1000px',
         margin: '0 auto',
         borderRadius: 16,
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid var(--vm-border-subtle)',
         boxSizing: 'border-box',
       }}
     >
@@ -715,7 +715,7 @@ const ProfilePage: React.FC = () => {
           }}
           style={{
             background: 'rgba(24, 24, 28, 0.98)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
+            border: '1px solid var(--vm-border-mid)',
           }}
         >
           {userProfile && (
@@ -800,7 +800,7 @@ const ProfilePage: React.FC = () => {
             }}
             style={{
               background: 'rgba(24, 24, 28, 0.98)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
+              border: '1px solid var(--vm-border-mid)',
             }}
           >
             {/* Compact header with title and tip in one line */}
@@ -815,7 +815,7 @@ const ProfilePage: React.FC = () => {
               style={{
                 background: 'rgba(24, 24, 28, 0.98)',
                 borderRadius: 8,
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--vm-border-subtle)',
                 /* Auto height based on content, max height for large lists */
                 maxHeight: 200,
                 overflowY: 'auto',
@@ -869,7 +869,7 @@ const ProfilePage: React.FC = () => {
             <div
               style={{
                 background: 'rgba(24, 24, 28, 0.98)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
+                border: '1px solid var(--vm-border-mid)',
                 borderRadius: 8,
               }}
             >
@@ -900,7 +900,7 @@ const ProfilePage: React.FC = () => {
           <div
             style={{
               background: 'rgba(24, 24, 28, 0.98)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
+              border: '1px solid var(--vm-border-mid)',
               borderRadius: 8,
             }}
           >
@@ -953,8 +953,8 @@ const ProfilePage: React.FC = () => {
               <Collapse
                 defaultActiveKey={['industry']}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'var(--vm-surface-hover-light)',
+                  border: '1px solid var(--vm-border-subtle)',
                 }}
               >
                 <Panel header="Industry & Field Mapping" key="industry">
@@ -1158,7 +1158,7 @@ const ProfilePage: React.FC = () => {
                               </List.Item>
                             );
                           }}
-                          style={{ background: 'rgba(255, 255, 255, 0.02)' }}
+                          style={{ background: 'var(--vm-surface-hover-light)' }}
                         />
                       ) : (
                         <Alert
@@ -1219,7 +1219,7 @@ const ProfilePage: React.FC = () => {
                             </List.Item>
                           );
                         }}
-                        style={{ background: 'rgba(255, 255, 255, 0.02)' }}
+                        style={{ background: 'var(--vm-surface-hover-light)' }}
                       />
                     </div>
 
@@ -1303,7 +1303,7 @@ const ProfilePage: React.FC = () => {
                               </List.Item>
                             );
                           }}
-                          style={{ background: 'rgba(255, 255, 255, 0.02)' }}
+                          style={{ background: 'var(--vm-surface-hover-light)' }}
                         />
                       ) : (
                         <Alert

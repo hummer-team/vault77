@@ -27,7 +27,7 @@ export const OutputColumnsSelector: React.FC<OutputColumnsSelectorProps> = ({
   <div
     style={{
       padding: '10px 12px',
-      background: 'rgba(255, 255, 255, 0.02)',
+      background: 'var(--vm-surface-hover-light)',
       borderRadius: 6,
       border: `1px solid ${TOKEN.borderSubtle}`,
     }}
