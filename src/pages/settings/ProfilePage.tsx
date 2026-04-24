@@ -708,13 +708,13 @@ const ProfilePage: React.FC = () => {
         <Card
           styles={{
             body: {
-              background: 'rgba(24, 24, 28, 0.98)',
+              background: 'var(--vm-bg-base)',
               borderRadius: 12,
               padding: '16px 20px',
             },
           }}
           style={{
-            background: 'rgba(24, 24, 28, 0.98)',
+            background: 'var(--vm-bg-base)',
             border: '1px solid var(--vm-border-mid)',
           }}
         >
@@ -775,7 +775,7 @@ const ProfilePage: React.FC = () => {
                   <EditOutlined />
                   Configure User Skills
                   {userSkillConfig && Object.keys(userSkillConfig.tables).length > 0 && (
-                    <span style={{ color: '#52c41a', marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--vm-color-success)', marginLeft: '4px' }}>
                       ({Object.keys(userSkillConfig.tables).length} table{Object.keys(userSkillConfig.tables).length > 1 ? 's' : ''} configured)
                     </span>
                   )}
@@ -793,13 +793,13 @@ const ProfilePage: React.FC = () => {
           <Card
             styles={{
               body: {
-                background: 'rgba(24, 24, 28, 0.98)',
+                background: 'var(--vm-bg-base)',
                 borderRadius: 12,
                 padding: '16px 20px',
               },
             }}
             style={{
-              background: 'rgba(24, 24, 28, 0.98)',
+              background: 'var(--vm-bg-base)',
               border: '1px solid var(--vm-border-mid)',
             }}
           >
@@ -868,7 +868,7 @@ const ProfilePage: React.FC = () => {
           modalRender={(modal) => (
             <div
               style={{
-                background: 'rgba(24, 24, 28, 0.98)',
+                background: 'var(--vm-bg-base)',
                 border: '1px solid var(--vm-border-mid)',
                 borderRadius: 8,
               }}
@@ -899,7 +899,7 @@ const ProfilePage: React.FC = () => {
         modalRender={(modal) => (
           <div
             style={{
-              background: 'rgba(24, 24, 28, 0.98)',
+              background: 'var(--vm-bg-base)',
               border: '1px solid var(--vm-border-mid)',
               borderRadius: 8,
             }}

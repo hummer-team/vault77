@@ -99,6 +99,39 @@
   /* Card Colors */
   --card-bg-dark: var(--vm-bg-card);
   --card-bg-light: rgba(255, 255, 255, 0.8);
+
+  /* Semantic Color Aliases (for convenience) */
+  --vm-color-success: var(--vm-flow-success);
+  --vm-color-error: var(--vm-flow-error);
+  --vm-color-warning: var(--vm-flow-warning);
+  --vm-color-info: var(--vm-flow-info);
+
+  /* Additional Antd-like colors used in charts/components */
+  --vm-chart-blue: #5470c6;
+  --vm-chart-orange: #ee6666;
+  --vm-chart-green: #91cc75;
+  --vm-chart-yellow: #fac858;
+  --vm-chart-cyan: #73c0de;
+
+  /* Surface colors for interactive elements */
+  --vm-surface-light: rgba(255, 255, 255, 0.06);
+  --vm-surface-hover: rgba(255, 255, 255, 0.08);
+
+  /* Flow node background colors */
+  --vm-node-bg-start: #1a1a2e;
+  --vm-node-bg-success: #1a2e15;
+  --vm-node-bg-processing: #261a40;
+  --vm-node-bg-warning: #2e1a0f;
+  
+  /* UI Text colors */
+  --vm-text-helper: #8c8c8c;
+  --vm-text-light: #d9d9d9;
+  
+  /* Orange accent colors (primary warning-like accent for UI) */
+  --vm-accent-orange-subtle: rgba(251, 146, 60, 0.15);
+  --vm-accent-orange-border: rgba(251, 146, 60, 0.25);
+  --vm-accent-orange-border-light: rgba(251, 146, 60, 0.2);
+  --vm-accent-orange-border-strong: rgba(251, 146, 60, 0.4);
 }
 
 /* Base Layout - Dark Background with Data Grid */

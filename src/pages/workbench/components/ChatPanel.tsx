@@ -340,7 +340,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         maxWidth: '896px', 
         margin: '0 auto', 
         width: '100%',
-        background: 'rgba(30, 32, 38, 0.95)',
+        background: 'var(--vm-bg-card)',
         borderRadius: '12px',
         padding: '16px',
         border: '1px solid var(--vm-border-mid)'
@@ -401,7 +401,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     e.stopPropagation();
                     modal.confirm({
                       title: '删除附件',
-                      icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
+                      icon: <ExclamationCircleOutlined style={{ color: 'var(--vm-color-warning)' }} />,
                       content: (
                         <div>
                           <p>确定要删除 <strong>{group.fileName}</strong> 吗？</p>
@@ -425,7 +425,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     gap: '4px',
                     cursor: 'pointer',
                     border: isSelected ? '1.5px solid #ff6b35' : '1px solid #434343',
-                    boxShadow: isSelected ? '0 0 0 2px rgba(255, 107, 53, 0.25)' : 'none',
+                    boxShadow: isSelected ? '0 0 0 2px var(--vm-primary-light)' : 'none',
                     transition: 'border-color 0.2s, box-shadow 0.2s',
                   }}
                 >
@@ -510,7 +510,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     border: !hasPersona ? '2px solid #1890ff' : undefined,
-                    boxShadow: !hasPersona ? '0 0 8px rgba(24, 144, 255, 0.5)' : undefined,
+                    boxShadow: !hasPersona ? '0 0 8px var(--vm-flow-info-light)' : undefined,
                   }}
                 >
                   {hasPersona && <span style={{ marginLeft: 4 }}>Skills</span>}
@@ -549,7 +549,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     type={showInsightSidebar ? "default" : "default"}
                     style={{
                       background: showInsightSidebar ? 'var(--vm-surface-inset)' : undefined,
-                      borderColor: showInsightSidebar ? 'rgba(24, 144, 255, 0.5)' : undefined,
+                      borderColor: showInsightSidebar ? 'var(--vm-flow-info-light)' : undefined,
                     }}
                   />
                 </Tooltip>
@@ -559,22 +559,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             {(kernelFlowHint || !isLlmReady || uploadHint || personaHint) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
                 {kernelFlowHint && (
-                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                  <Typography.Text style={{ fontSize: 12, color: 'var(--vm-color-warning)' }}>
                     {kernelFlowHint}
                   </Typography.Text>
                 )}
                 {!isLlmReady && (
-                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                  <Typography.Text style={{ fontSize: 12, color: 'var(--vm-color-warning)' }}>
                     Connect an LLM in Settings to enable analysis.
                   </Typography.Text>
                 )}
                 {uploadHint && (
-                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                  <Typography.Text style={{ fontSize: 12, color: 'var(--vm-color-warning)' }}>
                     {uploadHint}
                   </Typography.Text>
                 )}
                 {personaHint && (
-                  <Typography.Text style={{ fontSize: 12, color: '#fa8c16' }}>
+                  <Typography.Text style={{ fontSize: 12, color: 'var(--vm-color-warning)' }}>
                     {personaHint}
                   </Typography.Text>
                 )}
@@ -608,15 +608,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           trigger="click"
           overlayStyle={{ maxWidth: 340 }}
           overlayInnerStyle={{
-            background: 'rgba(28, 24, 18, 0.97)',
-            border: '1px solid rgba(250, 140, 22, 0.45)',
+            background: 'var(--vm-bg-base)',
+            border: '1px solid var(--vm-color-warning)',
             borderRadius: 10,
             padding: '12px 14px',
           }}
           content={
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <Typography.Text style={{ color: '#fa8c16', fontWeight: 600, fontSize: 13 }}>
+                <Typography.Text style={{ color: 'var(--vm-color-warning)', fontWeight: 600, fontSize: 13 }}>
                   错误信息 ({errorList.length})
                 </Typography.Text>
                 <Button
@@ -637,12 +637,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 8,
-                      background: 'rgba(250, 140, 22, 0.08)',
+                      background: 'var(--vm-color-warning)',
+                      opacity: 0.08,
                       borderRadius: 6,
                       padding: '6px 8px',
                     }}
                   >
-                    <WarningFilled style={{ color: '#fa8c16', fontSize: 13, marginTop: 2, flexShrink: 0 }} />
+                    <WarningFilled style={{ color: 'var(--vm-color-warning)', fontSize: 13, marginTop: 2, flexShrink: 0 }} />
                     <Typography.Text style={{ color: 'var(--vm-text-primary)', fontSize: 12, flex: 1, wordBreak: 'break-word' }}>
                       {msg}
                     </Typography.Text>
@@ -668,8 +669,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               width: 28,
               height: 28,
               borderRadius: '50%',
-              background: 'rgba(250, 140, 22, 0.15)',
-              border: '1.5px solid #fa8c16',
+              background: 'var(--vm-color-warning)',
+              opacity: 0.15,
+              border: '1.5px solid var(--vm-color-warning)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -677,7 +679,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               zIndex: 20,
             }}
           >
-            <WarningFilled style={{ color: '#fa8c16', fontSize: 13 }} />
+            <WarningFilled style={{ color: 'var(--vm-color-warning)', fontSize: 13 }} />
           </div>
         </Popover>
       )}
@@ -695,7 +697,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           pointerEvents: 'none',
         }}
       >
-        <Typography.Text style={{ fontSize: 12, color: '#ff4d4f' }}>
+        <Typography.Text style={{ fontSize: 12, color: 'var(--vm-color-error)' }}>
           {error}
         </Typography.Text>
       </div>

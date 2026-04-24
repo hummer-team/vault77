@@ -66,7 +66,18 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       bodyStyle={{
         background: 'transparent',
         paddingBottom: 12,
+        borderRadius: 12,
       }}
+      modalRender={(modal) => (
+        <div
+          style={{
+            borderRadius: 12,
+            overflow: 'hidden',
+          }}
+        >
+          {modal}
+        </div>
+      )}
       footer={
         <Space>
           {isApplied ? (

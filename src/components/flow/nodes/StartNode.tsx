@@ -213,7 +213,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           style={{
             marginTop: 8,
             fontSize: 12,
-            color: '#8c8c8c',
+            color: 'var(--vm-text-helper)',
           }}
         >
           <span>已选择: {data.selectedTables.length}</span>

@@ -370,7 +370,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
               e.stopPropagation();
               setIsEditingName(true);
             }}
-            style={{ color: '#8c8c8c' }}
+            style={{ color: 'var(--vm-text-helper)' }}
           />
           <Button
             type="text"
@@ -378,7 +378,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
           <Tooltip title={contentExpanded ? 'Collapse' : 'Expand'}>
             <Button
@@ -389,7 +389,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
                 e.stopPropagation();
                 setContentExpanded((prev) => !prev);
               }}
-              style={{ color: '#8c8c8c' }}
+              style={{ color: 'var(--vm-text-helper)' }}
             />
           </Tooltip>
         </Space>
@@ -400,7 +400,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         <div style={{ padding: '12px' }}>
         {/* Table selection */}
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--vm-text-helper)', marginBottom: 4 }}>
             Table ({availableTables.length} available)
           </div>
           <div className="nodrag nowheel">
@@ -517,7 +517,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
               background: 'var(--vm-flow-error-light)',
               borderRadius: '4px',
               fontSize: 11,
-              color: '#ff4d4f',
+              color: 'var(--vm-color-error)',
             }}
           >
             Please select table and configure all conditions

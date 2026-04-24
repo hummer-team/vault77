@@ -182,7 +182,7 @@ const TemplateListPage: React.FC = () => {
                       </Paragraph>
                       <Tooltip title="Copy Prompt">
                         <CopyOutlined
-                          style={{ cursor: 'pointer', marginLeft: '12px', color: '#888' }}
+                          style={{ cursor: 'pointer', marginLeft: '12px', color: 'var(--vm-text-secondary)' }}
                           onClick={() => handleCopy(template.recommendedPrompt)}
                         />
                       </Tooltip>

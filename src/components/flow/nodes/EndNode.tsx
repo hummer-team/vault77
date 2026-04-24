@@ -340,7 +340,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           position: 'absolute',
           top: 6,
           right: 6,
-          color: '#ff4d4f',
+          color: 'var(--vm-color-error)',
           zIndex: 10,
         }}
       />
@@ -356,7 +356,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       >
         <Space>
           <span style={{ fontSize: 16 }}>{hasErrors ? '⚠️' : '✓'}</span>
-          <span style={{ color: '#d9d9d9', fontSize: 13 }}>
+          <span style={{ color: 'var(--vm-text-light)', fontSize: 13 }}>
             {hasErrors ? '配置异常' : '配置完整'}
           </span>
         </Space>
@@ -373,7 +373,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
                 content={
                   <ul style={{ margin: 0, paddingLeft: 16, maxWidth: 320 }}>
                     {(data.errors ?? []).map((e, i) => (
-                      <li key={`${e.nodeId}-${i}`} style={{ color: '#ff4d4f', fontSize: 12 }}>
+                      <li key={`${e.nodeId}-${i}`} style={{ color: 'var(--vm-color-error)', fontSize: 12 }}>
                         {e.message}
                       </li>
                     ))}
@@ -383,7 +383,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
                 trigger="click"
                 placement="top"
               >
-                <span style={{ cursor: 'pointer', color: '#ff4d4f', fontSize: 12 }}>
+                <span style={{ cursor: 'pointer', color: 'var(--vm-color-error)', fontSize: 12 }}>
                   存在 {errorCount} 个错误，点击查看详情
                 </span>
               </Popover>

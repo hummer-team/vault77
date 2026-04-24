@@ -427,7 +427,7 @@ const SelectAggNodeForm: React.FC<{
       {/* GROUP BY Section */}
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          <FunctionOutlined style={{ marginRight: 5, color: '#a78bfa' }} />
+          <FunctionOutlined style={{ marginRight: 5, color: 'var(--vm-flow-purple)' }} />
           分组字段 (GROUP BY)
         </div>
 
@@ -441,7 +441,7 @@ const SelectAggNodeForm: React.FC<{
                 style={{
                   background: 'var(--vm-flow-purple-bg)',
                   borderColor: 'var(--vm-flow-purple-border)',
-                  color: '#a78bfa',
+                  color: 'var(--vm-flow-purple)',
                   cursor: 'default',
                 }}
               >

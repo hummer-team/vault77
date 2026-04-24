@@ -133,7 +133,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
           data: anomalyData,
           symbolSize: 8,
           itemStyle: {
-            color: '#ff4d4f',
+            color: 'var(--vm-color-error)',
             opacity: 0.8,
           },
           emphasis: {

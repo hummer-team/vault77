@@ -550,7 +550,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
               <Button
                 type="text"
                 size="small"
-                icon={<DeleteOutlined style={{ fontSize: 11, color: '#cf1322' }} />}
+                icon={<DeleteOutlined style={{ fontSize: 11, color: 'var(--vm-color-error)' }} />}
                 onClick={() => removeBucket(index)}
                 style={{ padding: '2px 3px', minWidth: 'unset', height: 22, borderRadius: 4 }}
               />

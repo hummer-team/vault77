@@ -1284,13 +1284,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           style={{
             width: '4px',
             cursor: 'col-resize',
-            backgroundColor: isDragging ? 'rgba(24, 144, 255, 0.5)' : 'transparent',
+            backgroundColor: isDragging ? 'var(--vm-flow-info-light)' : 'transparent',
             transition: isDragging ? 'none' : 'background-color 0.2s',
             position: 'relative',
             flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.backgroundColor = 'rgba(24, 144, 255, 0.3)';
+            (e.target as HTMLElement).style.backgroundColor = 'var(--vm-flow-info-light)';
           }}
           onMouseLeave={(e) => {
             if (!isDragging) {
@@ -1343,13 +1343,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       onClose={handleProfileDrawerClose}
       open={profileDrawerVisible}
       width={600}
-      maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.45)' }}
       style={{
-        background: 'rgba(24, 24, 28, 0.98)',
+        background: 'var(--vm-bg-base)',
       }}
       bodyStyle={{
         padding: 24,
-        background: 'rgba(24, 24, 28, 0.98)',
+        background: 'var(--vm-bg-base)',
       }}
     >
       <ProfilePage />
@@ -1423,7 +1423,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                     alignItems: 'center',
                     fontSize: '11px',
                     fontWeight: 'bold',
-                    boxShadow: '0 0 12px rgba(255, 107, 0, 0.4)',
+                    boxShadow: '0 0 12px var(--vm-primary-glow)',
                   }}>{step.num}</div>
                   <span style={{
                     color: 'var(--vm-text-primary)',

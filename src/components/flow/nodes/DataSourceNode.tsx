@@ -226,7 +226,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
       </Spin>
 
       {data.selectedTables && data.selectedTables.length > 0 && (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--vm-text-helper)' }}>
           <span>已选择: {data.selectedTables.length}</span>
         </div>
       )}

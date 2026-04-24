@@ -116,7 +116,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
         <Empty
           description="暂无 JOIN 节点"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          style={{ color: '#8c8c8c' }}
+          style={{ color: 'var(--vm-text-helper)' }}
         />
       ) : (
         <>
@@ -132,7 +132,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
             <div style={{ color: 'var(--vm-flow-warning)', fontSize: 12, marginBottom: 4 }}>
               提示
             </div>
-            <div style={{ color: '#d9d9d9', fontSize: 12 }}>
+            <div style={{ color: 'var(--vm-text-light)', fontSize: 12 }}>
               JOIN 按照顺序号从小到大依次执行。调整顺序可改变查询执行计划。
             </div>
           </div>
@@ -182,7 +182,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                     {/* Drag handle */}
                     <DragOutlined
                       style={{
-                        color: '#8c8c8c',
+                        color: 'var(--vm-text-helper)',
                         marginRight: 8,
                         cursor: 'grab',
                       }}
@@ -251,7 +251,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                     >
                       {data.leftTable}
                     </Tag>
-                    <span style={{ color: '#8c8c8c', fontSize: 12 }}>→</span>
+                    <span style={{ color: 'var(--vm-text-helper)', fontSize: 12 }}>→</span>
                     <Tag
                       color="default"
                       style={{

@@ -244,7 +244,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
             type="text"
             size="small"
             icon={<EditOutlined />}
-            style={{ color: '#8c8c8c' }}
+            style={{ color: 'var(--vm-text-helper)' }}
           />
           <Button
             type="text"
@@ -252,7 +252,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -264,7 +264,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
           style={{
             marginBottom: 8,
             fontSize: 12,
-            color: '#d9d9d9',
+            color: 'var(--vm-text-light)',
           }}
         >
           <Tag color="default" style={{ fontSize: 11 }}>
@@ -301,7 +301,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
               background: TOKEN.bgSection,
               borderRadius: '4px',
               fontSize: 12,
-              color: '#d9d9d9',
+              color: 'var(--vm-text-light)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -320,7 +320,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
               background: 'var(--vm-flow-error-light)',
               borderRadius: '4px',
               fontSize: 11,
-              color: '#ff4d4f',
+              color: 'var(--vm-color-error)',
             }}
           >
             配置不完整

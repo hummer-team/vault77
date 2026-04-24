@@ -109,7 +109,7 @@ const BizKernelGrid: React.FC<BizKernelGridProps> = ({
       {/* No more data indicator */}
       {!hasMore && kernels.length > 0 && (
         <div style={{ textAlign: 'center', padding: 24 }}>
-          <span style={{ color: '#999' }}>没有更多了</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>没有更多了</span>
         </div>
       )}
     </div>

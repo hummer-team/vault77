@@ -567,7 +567,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
           <div className="insight-section">
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                <ExclamationCircleOutlined style={{ color: 'var(--vm-color-error)' }} />
                 Anomaly Detection
                 {anomalyResult.anomalyCount > 0 ? (
                   <>
@@ -602,8 +602,8 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   size="small" 
                   style={{ 
                     background: TOKEN.bgCard, 
-                    border: '2px solid #ff4d4f',  // Highlighted border
-                    boxShadow: '0 0 12px rgba(255, 77, 79, 0.4)',  // Red glow
+                    border: '2px solid var(--vm-color-error)',
+                    boxShadow: '0 0 12px var(--vm-flow-error-light)',
                     position: 'relative',
                   }}
                 >
@@ -638,7 +638,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                     title="Anomaly Rate"
                     value={(anomalyResult.anomalyRate * 100).toFixed(2)}
                     suffix="%"
-                    valueStyle={{ color: '#ff4d4f', fontWeight: 'bold' }}
+                    valueStyle={{ color: 'var(--vm-color-error)', fontWeight: 'bold' }}
                   />
                 </Card>
               </Col>
@@ -649,7 +649,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   <Statistic
                     title="Anomalous Orders"
                     value={anomalyResult.anomalyCount}
-                    valueStyle={{ color: '#ff4d4f' }}
+                    valueStyle={{ color: 'var(--vm-color-error)' }}
                   />
                 </Card>
               </Col>
@@ -660,7 +660,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   <Statistic
                     title="Normal Orders"
                     value={anomalyResult.totalProcessed - anomalyResult.anomalyCount}
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: 'var(--vm-color-success)' }}
                   />
                 </Card>
               </Col>
@@ -775,7 +775,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
           <div className="insight-section">
             <div className="section-header">
               <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <BulbOutlined style={{ color: '#52c41a' }} />
+                <BulbOutlined style={{ color: 'var(--vm-color-success)' }} />
                 Customer Clustering (RFM Analysis)
                 <span style={{ 
                   fontSize: '12px', 
@@ -892,13 +892,13 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                             title={`${scatterSamplingInfo.display} customers shown in scatter plot. Click 'View' menu to see all ${clusteringResult.totalCustomers} customers with RFM analysis.`}
                             placement="top"
                           >
-                            <InfoCircleOutlined style={{ color: '#faad14', fontSize: 12, cursor: 'help' }} />
+                            <InfoCircleOutlined style={{ color: 'var(--vm-color-warning)', fontSize: 12, cursor: 'help' }} />
                           </Tooltip>
                         )}
                       </Space>
                     }
                     value={clusteringResult.totalCustomers}
-                    valueStyle={{ color: '#3f8600' }}
+                    valueStyle={{ color: 'var(--vm-color-success)' }}
                   />
                 </Card>
               </Col>
@@ -907,7 +907,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                   <Statistic 
                     title="Number of Clusters" 
                     value={clusteringResult.clusters.length}
-                    valueStyle={{ color: '#1890ff' }}
+                    valueStyle={{ color: 'var(--vm-color-info)' }}
                   />
                 </Card>
               </Col>
@@ -918,7 +918,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                     value={clusteringResult.clusters.reduce((sum, c) => sum + c.avgRecency, 0) / clusteringResult.clusters.length}
                     precision={0}
                     suffix="days"
-                    valueStyle={{ color: '#cf1322' }}
+                    valueStyle={{ color: 'var(--vm-color-error)' }}
                   />
                 </Card>
               </Col>
@@ -983,7 +983,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                             title={`For performance, showing top 100 high-value customers per cluster (${scatterSamplingInfo.display} / ${scatterSamplingInfo.total}). Click 'View' in Total Customers menu to see complete analysis.`}
                             placement="top"
                           >
-                            <InfoCircleOutlined style={{ color: '#faad14', cursor: 'help' }} />
+                            <InfoCircleOutlined style={{ color: 'var(--vm-color-warning)', cursor: 'help' }} />
                           </Tooltip>
                         )}
                       </Space>

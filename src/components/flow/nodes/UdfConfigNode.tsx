@@ -147,14 +147,14 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
                 icon={<DeleteOutlined />}
                 onClick={handleDelete}
                 danger
-                style={{ color: '#ff4d4f' }}
+                style={{ color: 'var(--vm-color-error)' }}
               />
             )}
           </Space>
         </div>
 
         {/* Kernel name */}
-        <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--vm-text-helper)', marginBottom: 8 }}>
           {data.kernelName || '未关联算子'}
         </div>
 

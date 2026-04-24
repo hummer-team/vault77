@@ -2,14 +2,10 @@
 .biz-kernel-card {
   border: 2px solid transparent !important;
   transition: all 0.3s ease;
+  border-radius: 12px !important;
 }
 
 .biz-kernel-card:hover {
   border-color: var(--vm-primary) !important;
   box-shadow: 0 0 16px var(--vm-primary-glow), inset 0 0 0 1px var(--vm-primary-border) !important;
-}
-
-/* Ensure the card body doesn't interfere with border */
-.biz-kernel-card .ant-card-body {
-  border-radius: 0 0 10px 10px;
 }

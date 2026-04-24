@@ -197,7 +197,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
             type="text"
             size="small"
             icon={<EditOutlined />}
-            style={{ color: '#8c8c8c' }}
+            style={{ color: 'var(--vm-text-helper)' }}
           />
           <Button
             type="text"
@@ -205,7 +205,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -236,7 +236,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
           >
             {data.leftTable}
           </Tag>
-          <LinkOutlined style={{ color: '#8c8c8c', fontSize: 12 }} />
+          <LinkOutlined style={{ color: 'var(--vm-text-helper)', fontSize: 12 }} />
           <Tag
             color="default"
             style={{
@@ -262,7 +262,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
           <div
             style={{
               fontSize: 11,
-              color: '#8c8c8c',
+              color: 'var(--vm-text-helper)',
               marginBottom: 4,
             }}
           >
@@ -271,7 +271,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
           <div
             style={{
               fontSize: 12,
-              color: '#d9d9d9',
+              color: 'var(--vm-text-light)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -291,7 +291,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
             background: 'var(--vm-flow-error-light)',
           }}
         >
-          <span style={{ fontSize: 11, color: '#ff4d4f' }}>
+          <span style={{ fontSize: 11, color: 'var(--vm-color-error)' }}>
             请配置关联条件
           </span>
         </div>

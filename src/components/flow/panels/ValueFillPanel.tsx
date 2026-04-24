@@ -275,7 +275,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
           background: 'var(--vm-bg-dark)',
         },
       }}
-      closeIcon={<CloseOutlined style={{ color: '#8c8c8c' }} />}
+      closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-helper)' }} />}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Preview result — shown above buttons */}
@@ -287,9 +287,9 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
               borderRadius: 6,
               textAlign: 'center',
             }}>
-              <span style={{ color: '#8c8c8c', fontSize: 12 }}>🫧预计影响: </span>
+              <span style={{ color: 'var(--vm-text-helper)', fontSize: 12 }}>🫧预计影响: </span>
               <span style={{ color: 'var(--vm-primary)', fontWeight: 700, fontSize: 16 }}>{previewCount.toLocaleString()}</span>
-              <span style={{ color: '#8c8c8c', fontSize: 12 }}> 行数据</span>
+              <span style={{ color: 'var(--vm-text-helper)', fontSize: 12 }}> 行数据</span>
             </div>
           )}
           {previewFailed && (
@@ -299,7 +299,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
               border: '1px solid var(--vm-flow-error-light)',
               borderRadius: 6,
               textAlign: 'center',
-              color: '#ff4d4f',
+              color: 'var(--vm-color-error)',
               fontSize: 12,
             }}>
               预览失败，请检查配置
@@ -349,7 +349,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
         />
       ) : (
         <>
-          <div style={{ marginBottom: 16, color: '#8c8c8c', fontSize: 12 }}>
+          <div style={{ marginBottom: 16, color: 'var(--vm-text-helper)', fontSize: 12 }}>
             请填写以下条件值后执行分析
           </div>
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -368,7 +368,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, gap: 8 }}>
                   <FilterOutlined style={{ color: 'var(--vm-flow-purple)', fontSize: 13 }} />
                   <Tag color="purple" style={{ fontWeight: 600, margin: 0 }}>{refId}</Tag>
-                  <Text style={{ color: '#595959', fontSize: 11 }}>
+                  <Text style={{ color: 'var(--vm-text-helper)', fontSize: 11 }}>
                     {items[0]?.tableName}
                   </Text>
                 </div>
@@ -381,14 +381,14 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                       key={p.placeholder}
                       label={
                         <Space size={6}>
-                          <Text style={{ color: '#d9d9d9', fontSize: 13 }}>{p.field}</Text>
+                          <Text style={{ color: 'var(--vm-text-light)', fontSize: 13 }}>{p.field}</Text>
                           <Tag
                             style={{
                               fontSize: 11,
                               padding: '0 6px',
                               background: 'var(--vm-flow-purple-bg)',
                               border: '1px solid #531dab',
-                              color: '#b37feb',
+                              color: 'var(--vm-flow-purple)',
                             }}
                           >
                             {operatorLabel}

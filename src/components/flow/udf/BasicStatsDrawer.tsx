@@ -697,7 +697,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                 <Button
                   type="text"
                   size="small"
-                  icon={<DeleteOutlined style={{ fontSize: 11, color: '#cf1322' }} />}
+                  icon={<DeleteOutlined style={{ fontSize: 11, color: 'var(--vm-color-error)' }} />}
                   onClick={() => removeHavingFilter(filter.id)}
                   style={{ padding: '2px 3px', minWidth: 'unset', height: 22, borderRadius: 4 }}
                 />
@@ -796,7 +796,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     <Button
                       type="text"
                       size="small"
-                      icon={<DeleteOutlined style={{ fontSize: 11, color: '#cf1322' }} />}
+                      icon={<DeleteOutlined style={{ fontSize: 11, color: 'var(--vm-color-error)' }} />}
                       onClick={() => removeSortConfig(sort.id)}
                       style={{
                         padding: '2px 3px',

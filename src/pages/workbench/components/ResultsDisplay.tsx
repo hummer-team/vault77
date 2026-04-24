@@ -175,7 +175,7 @@ const FlowSummaryPanel: React.FC<{ summary: FlowSummary }> = ({ summary }) => {
             <ul style={LIST_STYLE}>
               {conditions.map((cg) => (
                 <li key={cg.refId}>
-                  <span style={{ color: '#fa8c16', fontWeight: 600 }}>{cg.refId}</span>
+                  <span style={{ color: 'var(--vm-flow-warning)', fontWeight: 600 }}>{cg.refId}</span>
                   {cg.tableName ? <span style={{ color: TOKEN.textSecondary }}> · {cg.tableName}</span> : null}
                   {cg.conditions.length > 0 && (
                     <ul style={{ ...LIST_STYLE, marginTop: 2 }}>
@@ -803,12 +803,12 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           title={renderCardTitle()}
           style={{ 
             background: 'linear-gradient(135deg, var(--vm-bg-dark) 0%, var(--vm-bg-card) 100%)',
-            border: '1px solid rgba(251, 146, 60, 0.25)',
+            border: '1px solid var(--vm-accent-orange-border)',
             borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--vm-accent-orange-border-light)',
           }}
           headStyle={{
-            borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
+            borderBottom: '1px solid var(--vm-accent-orange-border-light)',
             background: 'var(--vm-bg-section)',
           }}
         >
@@ -826,16 +826,16 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         title: renderCardTitle(),
         style: { 
           background: 'linear-gradient(135deg, var(--vm-bg-dark) 0%, var(--vm-bg-card) 100%)',
-          border: '1px solid rgba(251, 146, 60, 0.25)',
+          border: '1px solid var(--vm-accent-orange-border)',
           borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--vm-accent-orange-border-light)',
         },
         bodyStyle: { 
           padding: '0 24px 16px 24px',
           background: 'transparent',
         },
         headStyle: {
-          borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
+          borderBottom: '1px solid var(--vm-accent-orange-border-light)',
           background: 'var(--vm-bg-section)',
         },
       };
@@ -844,7 +844,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         <Space direction="vertical" style={{ width: '100%' }}>
           {renderAttachmentsInline()}
           {renderThinkingPanel()}
-          <Divider style={{ borderColor: 'rgba(251, 146, 60, 0.25)', margin: '0' }} />
+          <Divider style={{ borderColor: 'var(--vm-accent-orange-border)', margin: '0' }} />
           <div
             style={{
               paddingTop: '16px',
@@ -868,7 +868,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 margin: 0,
                 fontSize: '15px',
                 fontWeight: 600,
-                color: '#FAFAFA',
+                color: 'var(--vm-text-primary)',
                 fontFamily: 'Fira Sans, sans-serif',
               }}>
                 分析结果
@@ -880,8 +880,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 style={{ 
                   fontSize: 11,
                   fontFamily: 'Fira Code, monospace',
-                  background: 'rgba(249, 115, 22, 0.15)',
-                  border: '1px solid rgba(251, 146, 60, 0.4)',
+                  background: 'var(--vm-accent-orange-subtle)',
+                  border: '1px solid var(--vm-accent-orange-border-strong)',
                   color: 'var(--vm-primary)',
                 }}
               >
@@ -981,12 +981,12 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           render: renderFunction,
           onHeaderCell: () => ({
             style: {
-              background: 'rgba(24, 24, 27, 0.9)',
+              background: 'var(--vm-bg-base)',
               color: 'var(--vm-primary)',
               fontWeight: 600,
               fontFamily: 'Fira Sans, sans-serif',
               fontSize: '13px',
-              borderBottom: '2px solid rgba(251, 146, 60, 0.4)',
+              borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
             },
           }),
           onCell: () => ({

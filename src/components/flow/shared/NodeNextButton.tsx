@@ -337,7 +337,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 }}
                 onClick={onExecuteSave}
               >
-                <CheckCircleOutlined style={{ fontSize: 10, color: '#7c3aed' }} />
+                <CheckCircleOutlined style={{ fontSize: 10, color: 'var(--vm-flow-purple)' }} />
                 <span>执行OR保存</span>
               </button>
             </>

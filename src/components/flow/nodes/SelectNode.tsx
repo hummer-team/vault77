@@ -368,7 +368,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             type="text"
             size="small"
             icon={<EditOutlined />}
-            style={{ color: '#8c8c8c' }}
+            style={{ color: 'var(--vm-text-helper)' }}
           />
           <Button
             type="text"
@@ -376,7 +376,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -392,7 +392,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             background: 'var(--vm-flow-error-light)',
           }}
         >
-          <span style={{ fontSize: 11, color: '#ff4d4f' }}>
+          <span style={{ fontSize: 11, color: 'var(--vm-color-error)' }}>
             点击配置替换规则
           </span>
         </div>
@@ -439,7 +439,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
                   <Tag color="default" style={{ fontSize: 10, marginRight: 4 }}>
                     {field.tableName}
                   </Tag>
-                  <span style={{ color: '#d9d9d9' }}>{field.fieldName}</span>
+                  <span style={{ color: 'var(--vm-text-light)' }}>{field.fieldName}</span>
                 </div>
 
                 {/* Alias */}
@@ -492,7 +492,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             background: 'var(--vm-flow-error-light)',
           }}
         >
-          <span style={{ fontSize: 11, color: '#ff4d4f' }}>
+          <span style={{ fontSize: 11, color: 'var(--vm-color-error)' }}>
             请至少选择一个字段
           </span>
         </div>

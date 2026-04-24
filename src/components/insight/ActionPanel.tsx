@@ -206,7 +206,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       {/* Diagnosis Section */}
       <div className="action-section">
         <Title level={5}>
-          <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+          <CheckCircleOutlined style={{ color: 'var(--vm-color-success)', marginRight: 8 }} />
           Diagnosis
         </Title>
         <Paragraph style={{ fontSize: 14, lineHeight: 1.6 }}>

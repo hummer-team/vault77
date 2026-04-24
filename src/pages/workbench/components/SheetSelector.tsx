@@ -44,7 +44,7 @@ export const SheetSelector: React.FC<SheetSelectorProps> = ({ sheets, onLoad, on
   return (
     <Card bordered={false} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ textAlign: 'center', margin: '20px 0' }}>
-        <InboxOutlined style={{ fontSize: '48px', color: '#1677ff' }} />
+        <InboxOutlined style={{ fontSize: '48px', color: 'var(--vm-color-info)' }} />
         <Title level={4}>Excel File Detected</Title>
         <Text type="secondary">
           This file contains multiple sheets. Please select the sheets you want to load.

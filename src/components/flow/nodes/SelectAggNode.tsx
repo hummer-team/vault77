@@ -155,7 +155,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
             type="text"
             size="small"
             icon={<EditOutlined />}
-            style={{ color: '#8c8c8c' }}
+            style={{ color: 'var(--vm-text-helper)' }}
           />
           <Button
             type="text"
@@ -163,7 +163,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -179,7 +179,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
           <div
             style={{
               fontSize: 11,
-              color: '#8c8c8c',
+              color: 'var(--vm-text-helper)',
               marginBottom: 4,
               paddingLeft: 8,
             }}
@@ -218,7 +218,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
                   <Tag color="default" style={{ fontSize: 10, marginRight: 4 }}>
                     {field.tableName}
                   </Tag>
-                  <span style={{ color: '#d9d9d9' }}>{field.fieldName}</span>
+                  <span style={{ color: 'var(--vm-text-light)' }}>{field.fieldName}</span>
                 </div>
 
                 {/* Alias */}
@@ -272,7 +272,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
             background: 'var(--vm-flow-error-light)',
           }}
         >
-          <span style={{ fontSize: 11, color: '#ff4d4f' }}>
+          <span style={{ fontSize: 11, color: 'var(--vm-color-error)' }}>
             请添加聚合字段
           </span>
         </div>

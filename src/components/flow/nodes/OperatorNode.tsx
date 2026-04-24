@@ -279,7 +279,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -299,7 +299,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           <Select.Option key={k.name} value={k.name}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontWeight: 500 }}>{k.displayName}</span>
-              <span style={{ fontSize: '11px', color: '#8c8c8c' }}>
+              <span style={{ fontSize: '11px', color: 'var(--vm-text-helper)' }}>
                 {k.category}
               </span>
             </div>
@@ -320,7 +320,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             borderRadius: '4px',
           }}
         >
-          <span style={{ fontSize: '11px', color: '#ff4d4f' }}>请选择业务算子</span>
+          <span style={{ fontSize: '11px', color: 'var(--vm-color-error)' }}>请选择业务算子</span>
         </div>
       )}
 

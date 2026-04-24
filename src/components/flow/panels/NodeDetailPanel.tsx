@@ -55,7 +55,7 @@ export const NodeDetailPanel: React.FC = () => {
         // Merge node should not show detail panel
         return null;
       default:
-        return <div style={{ color: '#8c8c8c' }}>暂无配置项</div>;
+        return <div style={{ color: 'var(--vm-text-helper)' }}>暂无配置项</div>;
     }
   };
 
@@ -129,7 +129,7 @@ export const NodeDetailPanel: React.FC = () => {
       {selectedNode ? (
         renderNodeForm(selectedNode)
       ) : (
-        <div style={{ color: '#8c8c8c', textAlign: 'center', padding: '40px 0' }}>
+        <div style={{ color: 'var(--vm-text-helper)', textAlign: 'center', padding: '40px 0' }}>
           请选择一个节点查看详情
         </div>
       )}
@@ -318,7 +318,7 @@ const ConditionGroupNodeForm: React.FC<{
 
       <Form.Item label="组内条件">
         {childConditions.length === 0 ? (
-          <div style={{ color: '#8c8c8c', fontSize: 12, marginBottom: 12 }}>
+          <div style={{ color: 'var(--vm-text-helper)', fontSize: 12, marginBottom: 12 }}>
             暂无条件，请添加
           </div>
         ) : (
@@ -341,7 +341,7 @@ const ConditionGroupNodeForm: React.FC<{
                 </span>
                 <span
                   style={{
-                    color: '#ff4d4f',
+                    color: 'var(--vm-color-error)',
                     fontSize: 12,
                     cursor: 'pointer',
                   }}
@@ -396,7 +396,7 @@ const EndNodeForm: React.FC<{
       {data.errors.length > 0 && (
         <Form.Item label="错误列表">
           {data.errors.map((error, index) => (
-            <div key={index} style={{ color: '#ff4d4f', fontSize: 12, marginBottom: 4 }}>
+            <div key={index} style={{ color: 'var(--vm-color-error)', fontSize: 12, marginBottom: 4 }}>
               • {error.message}
             </div>
           ))}

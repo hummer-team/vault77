@@ -292,7 +292,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         >
           <span style={{
             fontSize: 11,
-            color: '#a78bfa',
+            color: 'var(--vm-flow-purple)',
             background: 'var(--vm-flow-processing-bg)',
             padding: '3px 10px',
             borderRadius: 4,
@@ -353,7 +353,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
           <Tooltip title={configExpanded ? 'Collapse config' : 'Expand config'}>
             <Button
@@ -361,7 +361,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
               size="small"
               icon={configExpanded ? <DownOutlined /> : <RightOutlined />}
               onClick={handleConfigExpand}
-              style={{ color: '#8c8c8c' }}
+              style={{ color: 'var(--vm-text-helper)' }}
             />
           </Tooltip>
         </Space>
@@ -376,7 +376,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
             background: 'var(--vm-surface-lighter)',
           }}
         >
-          <div style={{ marginBottom: 8, fontSize: 12, color: '#8c8c8c' }}>Relation Type</div>
+          <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--vm-text-helper)' }}>Relation Type</div>
           <div className="nodrag">
             <Radio.Group
               value={relationType}
@@ -395,7 +395,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
           {/* Warning message when disabled by CUSTOM mode */}
           {isDisabledByCustomMode && (
-            <div style={{ marginTop: 8, fontSize: 11, color: '#ff4d4f' }}>
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--vm-color-error)' }}>
               Disabled: Another node is in Custom mode
             </div>
           )}
@@ -414,11 +414,11 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
                 />
               </div>
               {!expressionValidation.valid && (
-                <div style={{ marginTop: 4, fontSize: 11, color: '#ff4d4f' }}>
+                <div style={{ marginTop: 4, fontSize: 11, color: 'var(--vm-color-error)' }}>
                   {expressionValidation.error}
                 </div>
               )}
-              <div style={{ marginTop: 4, fontSize: 11, color: '#8c8c8c' }}>
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--vm-text-helper)' }}>
                 Available: {availableConditionDefs.map((n) =>
                   (n.data as ConditionDefinitionNodeData).refId
                 ).join(', ')}
@@ -428,7 +428,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
           {/* Condition definition selector (for AND/OR mode only, disabled in CUSTOM mode) */}
           <div style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 4, fontSize: 12, color: '#8c8c8c' }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: 'var(--vm-text-helper)' }}>
               Select Conditions {selectedConditionDefs.length}
             </div>
             <div className="nodrag nowheel">
@@ -454,7 +454,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
                       <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>
                         {nodeData.refId}
                       </Tag>
-                      <span style={{ color: '#d9d9d9', fontSize: 12 }}>
+                      <span style={{ color: 'var(--vm-text-light)', fontSize: 12 }}>
                         {nodeData.tableName || 'No table'} {nodeData.conditions.length} conditions
                       </span>
                     </div>
@@ -482,7 +482,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            color: '#8c8c8c',
+            color: 'var(--vm-text-helper)',
             fontSize: 12,
           }}
         >

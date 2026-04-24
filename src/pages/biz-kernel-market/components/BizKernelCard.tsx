@@ -46,6 +46,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
         display: 'flex',
         flexDirection: 'column',
         transition: 'all 0.3s ease',
+        borderRadius: 12,
       }}
       className="biz-kernel-card"
       bodyStyle={{
@@ -53,10 +54,11 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
         display: 'flex',
         flexDirection: 'column',
         padding: 16,
+        borderRadius: 12,
       }}
       styles={{
         body: {
-          background: 'rgba(30, 30, 35, 0.6)',
+          background: 'var(--vm-bg-card)',
         },
       }}
     >

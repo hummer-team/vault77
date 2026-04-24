@@ -52,14 +52,14 @@ const FieldItem: React.FC<{
       draggable
       onDragStart={() => onDragStart(field)}
     >
-      <DragOutlined style={{ marginRight: 8, color: '#8c8c8c', fontSize: 12 }} />
+      <DragOutlined style={{ marginRight: 8, color: 'var(--vm-text-helper)', fontSize: 12 }} />
       <Tooltip title={field.type}>
         <span style={{ marginRight: 8, fontSize: 14 }}>{iconConfig.icon}</span>
       </Tooltip>
       <span
         style={{
           flex: 1,
-          color: '#d9d9d9',
+          color: 'var(--vm-text-light)',
           fontSize: 13,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -219,7 +219,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
                 e.stopPropagation();
                 handleExpand();
               }}
-              style={{ color: '#8c8c8c' }}
+              style={{ color: 'var(--vm-text-helper)' }}
             />
           </Spin>
           <Button
@@ -228,7 +228,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
             icon={<DeleteOutlined />}
             onClick={handleDelete}
             danger
-            style={{ color: '#ff4d4f' }}
+            style={{ color: 'var(--vm-color-error)' }}
           />
         </Space>
       </div>
@@ -252,7 +252,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
           style={{
             padding: '16px',
             textAlign: 'center',
-            color: '#8c8c8c',
+            color: 'var(--vm-text-helper)',
             fontSize: 12,
           }}
         >
@@ -266,7 +266,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
           style={{
             padding: '4px 12px',
             fontSize: 11,
-            color: '#8c8c8c',
+            color: 'var(--vm-text-helper)',
             textAlign: 'center',
             borderTop: '1px solid #303030',
           }}

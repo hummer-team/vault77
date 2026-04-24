@@ -35,3 +35,5 @@ docs
 design/udf.md
 design/udf_3.md
 prompts/
+*.md
+AGENTS_bak
