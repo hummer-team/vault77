@@ -25,6 +25,8 @@ export const orangeDarkTheme: ThemeDef = {
     '--vm-text-muted': 'rgba(255, 255, 255, 0.25)',
     '--vm-text-error': '#ff4d4f',
     '--vm-text-danger': '#8c3030',
+    '--vm-layout-bg': 'radial-gradient(circle at top, #2a2a2e, #1e1e20)',
+    '--vm-grid-dot-color': 'rgba(255, 107, 0, 0.03)',
   },
   antdTokens: {
     colorPrimary: '#FF6B00',

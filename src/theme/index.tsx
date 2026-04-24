@@ -2,10 +2,12 @@ import React, { createContext, useContext, useLayoutEffect, useState } from 'rea
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import type { ThemeDef } from './types';
 import { orangeDarkTheme } from './themes/orangeDark';
+import { cyanDarkTheme } from './themes/cyanDark';
 
 // Registry of available themes
 export const THEMES: Record<string, ThemeDef> = {
   'orange-dark': orangeDarkTheme,
+  'cyan-dark': cyanDarkTheme,
 };
 
 export const DEFAULT_THEME = orangeDarkTheme;

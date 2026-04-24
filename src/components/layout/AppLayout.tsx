@@ -12,6 +12,7 @@ import {
 import type { MenuProps } from 'antd';
 import { Layout, Menu, Typography, Space, Popover, Avatar } from 'antd';
 import { useUserStore } from '../../status/appStatusManager.ts';
+import ThemeSwitcher from './ThemeSwitcher';
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
@@ -102,6 +103,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
             style={{ flex: 1, minHeight: 0 }}
           />
         </div>
+        <ThemeSwitcher collapsed={collapsed} />
         <div style={{ 
           padding: collapsed ? '16px 0' : '16px',
           flexShrink: 0,
@@ -120,7 +122,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
       <Layout style={{ 
         display: 'flex', 
         flexDirection: 'column',
-        background: `radial-gradient(circle at top, #2a2a2e, #1e1e20)`
+        background: 'var(--vm-layout-bg)'
       }}>
         <Content style={{ 
           margin: '16px',

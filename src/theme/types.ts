@@ -19,6 +19,8 @@ export interface ThemeCssVarMap {
   '--vm-text-muted': string;
   '--vm-text-error': string;
   '--vm-text-danger': string;
+  '--vm-layout-bg': string;
+  '--vm-grid-dot-color': string;
 }
 
 export interface AntdTokenConfig {

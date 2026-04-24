@@ -36,6 +36,10 @@
   --vm-text-error: #ff4d4f;
   --vm-text-danger: #8c3030;
 
+  /* Layout & grid */
+  --vm-layout-bg: radial-gradient(circle at top, #2a2a2e, #1e1e20);
+  --vm-grid-dot-color: rgba(255, 107, 0, 0.03);
+
   /* Legacy aliases — kept for backward compatibility */
   --color-primary: var(--vm-primary);
   --color-primary-hover: var(--vm-primary-hover);
@@ -82,7 +86,7 @@ body {
 .data-grid-bg {
   background-image: radial-gradient(
     circle at 2px 2px,
-    rgba(255, 107, 0, 0.03) 1px,
+    var(--vm-grid-dot-color) 1px,
     transparent 0
   );
   background-size: 40px 40px;
@@ -95,7 +99,7 @@ body {
   inset: 0;
   background-image: radial-gradient(
     circle at 2px 2px,
-    rgba(255, 107, 0, 0.03) 1px,
+    var(--vm-grid-dot-color) 1px,
     transparent 0
   );
   background-size: 40px 40px;
