@@ -88,7 +88,7 @@ export const NodeDetailPanel: React.FC = () => {
       title={
         selectedNode ? (
           <Space>
-            <InfoCircleOutlined style={{ color: '#FF6B00' }} />
+            <InfoCircleOutlined style={{ color: 'var(--vm-primary)' }} />
             <span style={{ color: '#fff', fontWeight: 500 }}>{getNodeTitle(selectedNode)}</span>
           </Space>
         ) : (

@@ -70,7 +70,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
-            e.currentTarget.style.color = '#FF6B00';
+            e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -99,7 +99,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLDivElement).style.background = 'rgba(255, 107, 0, 0.15)';
-            (e.currentTarget as HTMLDivElement).style.color = '#FF6B00';
+            (e.currentTarget as HTMLDivElement).style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLDivElement).style.background = 'transparent';
@@ -130,7 +130,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
-            e.currentTarget.style.color = '#FF6B00';
+            e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -161,7 +161,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
-            e.currentTarget.style.color = '#FF6B00';
+            e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -177,7 +177,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           type="text"
           icon={
             isLocked ? (
-              <LockOutlined style={{ fontSize: '16px', color: '#FF6B00' }} />
+              <LockOutlined style={{ fontSize: '16px', color: 'var(--vm-primary)' }} />
             ) : (
               <UnlockOutlined style={{ fontSize: '16px' }} />
             )
@@ -192,14 +192,14 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             justifyContent: 'center',
             border: 'none',
             background: 'transparent',
-            color: isLocked ? '#FF6B00' : 'rgba(255, 255, 255, 0.7)',
+            color: isLocked ? 'var(--vm-primary)' : 'rgba(255, 255, 255, 0.7)',
             borderRadius: '8px',
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
             if (!isLocked) {
               e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
-              e.currentTarget.style.color = '#FF6B00';
+              e.currentTarget.style.color = 'var(--vm-primary)';
             }
           }}
           onMouseLeave={(e) => {

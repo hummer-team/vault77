@@ -536,7 +536,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         background: selected
           ? 'rgba(255, 107, 0, 0.25)'
           : 'rgba(28, 25, 23, 0.98)',
-        border: `2px solid ${selected ? '#FF6B00' : 'rgba(255, 107, 0, 0.6)'}`,
+        border: `2px solid ${selected ? 'var(--vm-primary)' : 'rgba(255, 107, 0, 0.6)'}`,
         borderRadius: '50%',
         width: '48px',
         height: '48px',
@@ -562,7 +562,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         style={{
           width: 10,
           height: 10,
-          background: '#FF6B00',
+          background: 'var(--vm-primary)',
           border: '2px solid #fff',
         }}
       />
@@ -579,7 +579,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         <PlusOutlined
           style={{
             fontSize: '20px',
-            color: selected ? '#FF6B00' : 'rgba(255, 255, 255, 0.9)',
+            color: selected ? 'var(--vm-primary)' : 'rgba(255, 255, 255, 0.9)',
           }}
         />
       </div>
@@ -592,7 +592,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         style={{
           width: 10,
           height: 10,
-          background: '#FF6B00',
+          background: 'var(--vm-primary)',
           border: '2px solid #fff',
         }}
       />

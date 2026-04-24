@@ -232,7 +232,7 @@ export const CanvasToolbar: React.FC = () => {
           onMouseEnter={(e) => {
             if (storeNodes.length > 1) {
               e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
-              e.currentTarget.style.color = '#FF6B00';
+              e.currentTarget.style.color = 'var(--vm-primary)';
               e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 107, 0, 0.2)';
             }
           }}

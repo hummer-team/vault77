@@ -39,6 +39,7 @@ import type {
   ComparisonType,
 } from '../../../services/flow/types';
 import dayjs, { type Dayjs } from 'dayjs';
+import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -56,29 +57,6 @@ export interface OrderDistributionDrawerProps {
   onConfirm: (config: OrderDistributionConfig) => void;
   onCancel: () => void;
 }
-
-// ============================================================================
-// Design tokens (aligned with BasicStatsDrawer / global.css)
-// ============================================================================
-
-const TOKEN = {
-  bgBase: 'rgba(14, 14, 16, 0.99)',
-  bgHeader: 'rgba(22, 20, 18, 0.99)',
-  bgSection: 'rgba(255, 255, 255, 0.02)',
-  bgRow: 'rgba(255, 255, 255, 0.015)',
-  bgRowHover: 'rgba(255, 107, 0, 0.045)',
-  borderSubtle: 'rgba(255, 255, 255, 0.06)',
-  borderMid: 'rgba(255, 255, 255, 0.1)',
-  borderPrimary: 'rgba(255, 107, 0, 0.35)',
-  primary: '#FF6B00',
-  primaryHover: '#FF8533',
-  textPrimary: 'rgba(255, 255, 255, 0.88)',
-  textSecondary: 'rgba(255, 255, 255, 0.45)',
-  textMuted: 'rgba(255, 255, 255, 0.25)',
-  textError: '#ff4d4f',
-  radius: '6px',
-  radiusLg: '8px',
-};
 
 // ============================================================================
 // Section wrapper (same pattern as BasicStatsDrawer)

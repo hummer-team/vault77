@@ -36,7 +36,7 @@ export const FLOW_COLORS: FlowColors = {
     },
     merge: {
       background: 'rgba(28, 25, 23, 0.98)',
-      border: '#FF6B00', // Primary orange for + node
+      border: 'var(--vm-primary)', // Primary orange for + node
     },
     operator: {
       background: 'rgba(28, 25, 23, 0.95)',
@@ -66,7 +66,7 @@ export const FLOW_COLORS: FlowColors = {
   },
   edge: {
     default: 'rgba(120, 113, 108, 0.6)', // Stone-500
-    selected: '#FF6B00',
+    selected: 'var(--vm-primary)',
     error: '#EF4444',
   },
 };

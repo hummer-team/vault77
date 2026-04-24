@@ -1,6 +1,7 @@
 import React, { useState, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { App as AntdApp, ConfigProvider, theme, MenuProps, Spin } from 'antd';
+import { App as AntdApp, MenuProps, Spin } from 'antd';
+import { ThemeProvider } from './theme';
 import AppLayout from './components/layout/AppLayout';
 // import Workbench from './pages/workbench';
 const Workbench = React.lazy(() => import('./pages/workbench')); // 懒加载 Workbench
@@ -100,36 +101,7 @@ const App = () => {
   };
 
   return (
-    <ConfigProvider 
-      theme={{ 
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#FF6B00',
-          colorInfo: '#FF6B00',
-          colorLink: '#FF6B00',
-          colorSuccess: '#52c41a',
-          colorWarning: '#faad14',
-          colorError: '#ff4d4f',
-          borderRadius: 12,
-          fontSize: 14,
-        },
-        components: {
-          Button: {
-            colorPrimary: '#FF6B00',
-            algorithm: true,
-          },
-          Input: {
-            borderRadius: 8,
-          },
-          Card: {
-            borderRadiusLG: 12,
-          },
-          Table: {
-            borderRadius: 8,
-          },
-        },
-      }}
-    >
+    <ThemeProvider>
       <AntdApp style={{ height: '100%' }}>
         <AppLayout
           currentKey={currentPage}
@@ -142,7 +114,7 @@ const App = () => {
           onClose={() => setIsFeedbackDrawerOpen(false)}
         />
       </AntdApp>
-    </ConfigProvider>
+    </ThemeProvider>
   );
 };
 

@@ -7,16 +7,9 @@
 import React from 'react';
 import { Select, Typography } from 'antd';
 import { TableOutlined, CheckOutlined } from '@ant-design/icons';
+import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
-
-const TOKEN = {
-  primary: '#FF6B00',
-  textPrimary: 'rgba(255, 255, 255, 0.88)',
-  textSecondary: 'rgba(255, 255, 255, 0.45)',
-  textMuted: 'rgba(255, 255, 255, 0.25)',
-  borderSubtle: 'rgba(255, 255, 255, 0.06)',
-};
 
 export interface OutputColumnsSelectorProps {
   /** All available columns to choose from */

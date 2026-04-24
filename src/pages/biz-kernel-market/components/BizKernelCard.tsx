@@ -62,7 +62,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
     >
       {/* Header: Industry and Category */}
       <Space wrap size="small" style={{ marginBottom: 8 }}>
-        <Tag style={{ background: 'rgba(255,107,0,0.15)', borderColor: '#FF6B00', color: '#FF6B00' }}>
+        <Tag style={{ background: 'var(--vm-primary-light)', borderColor: 'var(--vm-primary)', color: 'var(--vm-primary)' }}>
           {kernel.industry}
         </Tag>
         <Tag color="blue" style={{ background: 'rgba(24,144,255,0.15)' }}>
@@ -155,8 +155,8 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
             onClick={onApply}
             style={{
               flex: 1,
-              background: '#FF6B00',
-              borderColor: '#FF6B00',
+              background: 'var(--vm-primary)',
+              borderColor: 'var(--vm-primary)',
             }}
           >
             应用算子

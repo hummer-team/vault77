@@ -127,7 +127,7 @@ const InitialWelcomeView: React.FC = () => (
       >
         <span style={{
           fontFamily: 'monospace', 
-          color: '#FF6B00', 
+          color: 'var(--vm-primary)', 
           fontStyle: 'italic',
           textTransform: 'uppercase',
           padding: '0 8px'
@@ -149,22 +149,22 @@ const InitialWelcomeView: React.FC = () => (
     {/* Capability Tags */}
     <Space size={[10, 10]} wrap style={{ justifyContent: 'center', maxWidth: 800 }}>
       <span className="capability-tag">
-        <SafetyOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Security
+        <SafetyOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Security
       </span>
       <span className="capability-tag">
-        <ThunderboltOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> High Performance
+        <ThunderboltOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> High Performance
       </span>
       <span className="capability-tag">
-        <CodeOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Excel &amp; CSV Analysis
+        <CodeOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Excel &amp; CSV Analysis
       </span>
       <span className="capability-tag">
-        <BarChartOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Smart Charting
+        <BarChartOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Smart Charting
       </span>
       <span className="capability-tag">
-        <BulbOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> Data Insight
+        <BulbOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Data Insight
       </span>
       <span className="capability-tag">
-        <StarOutlined style={{ color: '#FF6B00', fontSize: 14 }} /> AI Report Gen
+        <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> AI Report Gen
       </span>
     </Space>
   </div>
@@ -1370,7 +1370,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             <div style={{
               width: '4px',
               height: '24px',
-              background: 'linear-gradient(180deg, #FF6B00 0%, #FF8533 100%)',
+              background: 'linear-gradient(180deg, var(--vm-primary) 0%, var(--vm-primary-hover) 100%)',
               borderRadius: '2px',
             }} />
             <span style={{
@@ -1415,7 +1415,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
                     width: '22px',
                     height: '22px',
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #FF6B00 0%, #FF8533 100%)',
+                    background: 'linear-gradient(135deg, var(--vm-primary) 0%, var(--vm-primary-hover) 100%)',
                     border: 'none',
                     color: '#fff',
                     display: 'flex',

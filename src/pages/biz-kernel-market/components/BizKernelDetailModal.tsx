@@ -97,8 +97,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               type="primary"
               onClick={onApply}
               style={{
-                background: '#FF6B00',
-                borderColor: '#FF6B00',
+                background: 'var(--vm-primary)',
+                borderColor: 'var(--vm-primary)',
               }}
             >
               应用算子
@@ -133,7 +133,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             <AuthorIcon style={{ marginRight: 4 }} />
             {authorText}
           </Tag>
-          <Tag style={{ background: 'rgba(255,107,0,0.15)', borderColor: '#FF6B00', color: '#FF6B00' }}>
+          <Tag style={{ background: 'var(--vm-primary-light)', borderColor: 'var(--vm-primary)', color: 'var(--vm-primary)' }}>
             {kernel.industry}
           </Tag>
           <Tag color="blue" style={{ background: 'rgba(24,144,255,0.15)' }}>

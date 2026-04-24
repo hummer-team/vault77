@@ -33,6 +33,7 @@ import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema } from '../../../services/flow/flowService';
 import type { ReplaceRule } from '../../../services/flow/types';
 import { resolveColumnConflicts } from '../../../services/flow/strategies/columnRenaming';
+import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
 
@@ -62,37 +63,6 @@ const CONDITION_OPTIONS = [
   { label: '包含', value: 'contains' },
   { label: '全部', value: 'replace_all' },
 ] as const;
-
-// ============================================================================
-// Design tokens (aligned with system global.css + NodeDetailPanel pattern)
-// ============================================================================
-
-const TOKEN = {
-  bgBase: 'rgba(14, 14, 16, 0.99)',
-  bgHeader: 'rgba(22, 20, 18, 0.99)',
-  bgSection: 'rgba(255, 255, 255, 0.02)',
-  bgRow: 'rgba(255, 255, 255, 0.015)',
-  bgRowHover: 'rgba(255, 107, 0, 0.045)',
-  bgRowComplete: 'rgba(114, 46, 209, 0.04)',
-  borderSubtle: 'rgba(255, 255, 255, 0.06)',
-  borderMid: 'rgba(255, 255, 255, 0.1)',
-  borderPrimary: 'rgba(255, 107, 0, 0.35)',
-  borderPurple: 'rgba(114, 46, 209, 0.4)',
-  primary: '#FF6B00',
-  primaryHover: '#FF8533',
-  primaryGlow: 'rgba(255, 107, 0, 0.2)',
-  purple: '#722ed1',
-  purpleLight: '#b37feb',
-  purpleBg: 'rgba(114, 46, 209, 0.12)',
-  textPrimary: 'rgba(255, 255, 255, 0.88)',
-  textSecondary: 'rgba(255, 255, 255, 0.45)',
-  textMuted: 'rgba(255, 255, 255, 0.25)',
-  textDanger: '#8c3030',
-  success: '#389e0d',
-  successLight: 'rgba(56, 158, 13, 0.12)',
-  radius: '6px',
-  radiusLg: '8px',
-};
 
 // ============================================================================
 // Helpers

@@ -32,6 +32,7 @@ import type {
   RepurchaseCycleRefDateMode,
   RepurchaseCycleThresholds,
 } from '../../../services/flow/types';
+import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
 
@@ -48,27 +49,6 @@ export interface RepurchaseCycleDrawerProps {
   onConfirm: (config: RepurchaseCycleConfig) => void;
   onCancel: () => void;
 }
-
-// ============================================================================
-// Design tokens (aligned with OrderDistributionDrawer)
-// ============================================================================
-
-const TOKEN = {
-  bgBase: 'rgba(14, 14, 16, 0.99)',
-  bgHeader: 'rgba(22, 20, 18, 0.99)',
-  bgSection: 'rgba(255, 255, 255, 0.02)',
-  borderSubtle: 'rgba(255, 255, 255, 0.06)',
-  borderMid: 'rgba(255, 255, 255, 0.1)',
-  borderPrimary: 'rgba(255, 107, 0, 0.35)',
-  primary: '#FF6B00',
-  primaryHover: '#FF8533',
-  textPrimary: 'rgba(255, 255, 255, 0.88)',
-  textSecondary: 'rgba(255, 255, 255, 0.45)',
-  textMuted: 'rgba(255, 255, 255, 0.25)',
-  textError: '#ff4d4f',
-  radius: '6px',
-  radiusLg: '8px',
-};
 
 // ============================================================================
 // Section wrapper
@@ -354,7 +334,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
           </div>
         </Section>
 
-        {/* ── 2. 输出方式 ──────────────────────────────────────────────── */}
+        {/* ── 2. Output mode ──────────────────────────────────────────────── */}
         <Section icon={<BarChartOutlined />} title="输出方式">
           <Radio.Group
             value={outputMode}
@@ -372,7 +352,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
           </Radio.Group>
         </Section>
 
-        {/* ── 3. 分析基准日 ─────────────────────────────────────────────── */}
+        {/* ── 3. Analysis Benchmark Date ─────────────────────────────────────────────── */}
         <Section icon={<ClockCircleOutlined />} title="分析基准日">
           <Radio.Group
             value={refDateMode}
@@ -403,7 +383,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
           )}
         </Section>
 
-        {/* ── 4. 风险阈值配置 ──────────────────────────────────────────── */}
+        {/* ── 4. Risk Threshold Configuration ──────────────────────────────────────────── */}
         <Section icon={<SettingOutlined />} title="风险阈值配置">
           <Text style={{ fontSize: 11, color: TOKEN.textMuted, display: 'block', marginBottom: 10 }}>
             当前间隔 / 平均复购周期 的比值划分风险等级
@@ -448,7 +428,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
           </div>
         </Section>
 
-        {/* ── 5. 输出过滤（仅明细模式）────────────────────────────────── */}
+        {/* ── 5. Output Filtering (Detail Mode Only) ────────────────────────────────── */}
         {outputMode === 'detail' && (
           <Section icon={<FilterOutlined />} title="输出过滤">
             <Text style={{ fontSize: 11, color: TOKEN.textSecondary, display: 'block', marginBottom: 8 }}>
@@ -462,7 +442,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
           </Section>
         )}
 
-        {/* ── 6. 汇总选项（仅汇总模式）────────────────────────────────── */}
+        {/* ── 6. Output Filtering (Detail Mode Only) ────────────────────────────────── */}
         {outputMode === 'summary' && (
           <Section icon={<TagOutlined />} title="汇总选项">
             <Checkbox
@@ -491,7 +471,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
               onClick={handleConfirm}
               style={{ minWidth: 88, fontWeight: 600 }}
             >
-              确认运行
+              确认应用
             </Button>
             <Button
               size="middle"

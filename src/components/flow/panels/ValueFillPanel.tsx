@@ -250,7 +250,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
     <Drawer
       title={
         <Space>
-          <PlayCircleOutlined style={{ color: '#FF6B00' }} />
+          <PlayCircleOutlined style={{ color: 'var(--vm-primary)' }} />
           <span style={{ color: '#fff', fontWeight: 600 }}>执行参数</span>
         </Space>
       }
@@ -288,7 +288,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
               textAlign: 'center',
             }}>
               <span style={{ color: '#8c8c8c', fontSize: 12 }}>🫧预计影响: </span>
-              <span style={{ color: '#FF6B00', fontWeight: 700, fontSize: 16 }}>{previewCount.toLocaleString()}</span>
+              <span style={{ color: 'var(--vm-primary)', fontWeight: 700, fontSize: 16 }}>{previewCount.toLocaleString()}</span>
               <span style={{ color: '#8c8c8c', fontSize: 12 }}> 行数据</span>
             </div>
           )}

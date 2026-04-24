@@ -157,8 +157,8 @@ export const TableNode: React.FC<TableNodeProps> = ({
         minHeight={60}
         maxWidth={400}
         maxHeight={500}
-        lineStyle={{ borderColor: '#FF6B00', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#FF6B00', borderColor: '#fff', width: 10, height: 10 }}
+        lineStyle={{ borderColor: 'var(--vm-primary)', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: 'var(--vm-primary)', borderColor: '#fff', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle

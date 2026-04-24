@@ -32,8 +32,8 @@ const T = {
   surface: '#1e1e24',
   surfaceRaised: '#26262e',
   border: '#333340',
-  orange: '#FF6B00',
-  orangeHover: '#FF8533',
+  orange: 'var(--vm-primary)',
+  orangeHover: 'var(--vm-primary-hover)',
   orangeDim: 'rgba(255, 107, 0, 0.15)',
   orangeBorder: 'rgba(255, 107, 0, 0.4)',
   textPrimary: '#e8e8f0',
@@ -98,12 +98,12 @@ function fieldTypeLabel(t: FieldType): string {
 // CSS injected once to override antd Select border with orange when there is a type error
 const JOIN_ERROR_STYLE = `
   .join-cond-error .ant-select-selector {
-    border-color: #FF6B00 !important;
+    border-color: var(--vm-primary) !important;
     box-shadow: none !important;
   }
   .join-cond-error.ant-select-focused .ant-select-selector,
   .join-cond-error.ant-select-open .ant-select-selector {
-    border-color: #FF6B00 !important;
+    border-color: var(--vm-primary) !important;
     box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.20) !important;
   }
 `;

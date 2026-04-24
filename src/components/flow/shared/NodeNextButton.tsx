@@ -207,7 +207,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
           width: 18,
           height: 18,
           borderRadius: '50%',
-          background: buttonHovered ? '#FF8533' : '#FF6B00',
+          background: buttonHovered ? 'var(--vm-primary-hover)' : 'var(--vm-primary)',
           border: '2px solid rgba(255,255,255,0.25)',
           display: 'flex',
           alignItems: 'center',
