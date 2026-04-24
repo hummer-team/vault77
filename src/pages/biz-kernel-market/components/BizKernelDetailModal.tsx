@@ -64,9 +64,6 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
         background: 'var(--vm-bg-base)',
       }}
       styles={{
-        header: {
-          borderRadius: '12px 12px 0 0',
-        },
         body: {
           background: 'transparent',
           paddingBottom: 12,
