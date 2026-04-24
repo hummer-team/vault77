@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { AnomalyRecord } from '../../types/anomaly.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
+import { useEChartsColors } from '../../theme';
 
 export interface AnomalyHeatmapChartProps {
   data: AnomalyRecord[];
@@ -28,6 +29,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const ec = useEChartsColors();
 
   // Limit data to top N for performance (heatmap aggregates data, so less critical)
   const displayData = useMemo(() => {
@@ -124,9 +126,9 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
       backgroundColor: 'transparent',
       tooltip: {
         position: 'top',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderColor: '#777',
-        textStyle: { color: '#fff' },
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderMid,
+        textStyle: { color: ec.textPrimary },
         formatter: (params: any) => {
           const [x, y, rate] = params.value;
           return `
@@ -149,12 +151,12 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
         nameLocation: 'middle',
         nameGap: 30,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
+        axisLine: { lineStyle: { color: ec.borderSubtle } },
         axisLabel: { 
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           rotate: 45,
         },
         splitArea: { show: true },
@@ -166,11 +168,11 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
         nameLocation: 'middle',
         nameGap: 60,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
-        axisLabel: { color: 'rgba(255, 255, 255, 0.65)' },
+        axisLine: { lineStyle: { color: ec.borderSubtle } },
+        axisLabel: { color: ec.textSecondary },
         splitArea: { show: true },
       },
       visualMap: {
@@ -181,7 +183,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
         left: 'center',
         bottom: '0%',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         inRange: {
           color: ['#50a3ba', '#eac736', '#d94e5d'],
@@ -194,7 +196,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
           data: flatData,
           emphasis: {
             itemStyle: {
-              borderColor: '#fff',
+              borderColor: ec.textPrimary,
               borderWidth: 1,
             },
           },
@@ -214,7 +216,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [heatmapData, feature1, feature2]);
+  }, [heatmapData, feature1, feature2, ec]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -233,7 +235,7 @@ export const AnomalyHeatmapChart: React.FC<AnomalyHeatmapChartProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        color: 'rgba(255, 255, 255, 0.45)',
+        color: ec.textMuted,
       }}>
         No data to display
       </div>
