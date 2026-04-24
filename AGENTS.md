@@ -31,6 +31,7 @@
 - 全局状态统一用 Zustand，禁止用 Context 替代
 - LLM 调用统一经过 `AgentExecutor` / `agentRuntime`，禁止组件层直接调用 OpenAI SDK
 - Chrome Extension Manifest V3：禁止 `eval`、`innerHTML` 赋值、动态脚本注入
+- **主题色切换系统（Theme Switching）：** 所有颜色必须使用 CSS 变量，禁止硬编码颜色值。详见 [主题切换技术原则](#主题切换技术原则)
 
 ---
 
@@ -163,6 +164,261 @@ src/services/llm/agentExecutor.ts   — Agent 核心执行链
 vite.config.ts                      — 构建配置
 tsconfig.json / tsconfig.node.json  — TS 编译配置
 package.json                        — 依赖变更需人类审批
+```
+
+---
+
+## 四、主题切换技术原则
+
+### 总体规则（绝对约束）
+
+**禁止硬编码任何颜色值。所有颜色必须使用 CSS 变量引用。**
+
+| 禁止 | 替代方案 |
+|------|---------|
+| `color: 'white'` | `color: 'var(--vm-text-primary)'` |
+| `backgroundColor: '#1f1f1f'` | `backgroundColor: 'var(--vm-bg-base)'` |
+| `borderColor: 'rgba(255,255,255,0.1)'` | `borderColor: 'var(--vm-border-subtle)'` |
+| `fill: '#FF6B00'` | `fill: 'var(--vm-primary)'` |
+
+### 三主题架构
+
+Vaultmind 支持 3 个完整的视觉主题，**所有主题有相同的 CSS 变量键（71 个），仅值不同**：
+
+| 主题 | 文件 | 背景色 | 文字色 | 强调色 |
+|------|------|--------|--------|--------|
+| **Light Orange** | `src/theme/themes/lightOrange.ts` | 浅色 (#F9FAFB) | 深色 (Slate-900) | 橙色 (#FF8C00) |
+| **Orange Dark** | `src/theme/themes/orangeDark.ts` | 深色 (#0B0E14) | 浅色 (白色) | 橙色 (#FF6B00) |
+| **Cyan Dark** | `src/theme/themes/cyanDark.ts` | 深色 (#0B0E14) | 浅色 (白色) | 青色 (#00D2FF) |
+
+### CSS 变量分类（必须使用）
+
+#### 1. 布局颜色
+```typescript
+--vm-layout-bg           // 页面背景（Light: #F9FAFB, Dark: #0B0E14）
+--vm-sider-bg            // 侧边栏（始终保持深色）
+--vm-bg-base             // 基础背景（卡片、容器）
+--vm-bg-card             // 卡片背景
+--vm-bg-header           // 头部背景（表头、抽屉头）
+```
+
+#### 2. 文字颜色
+```typescript
+--vm-text-primary        // 主文字（标题、导航）Light: Slate-900, Dark: 白色
+--vm-text-secondary      // 辅助文字（描述、标签）Light: Slate-600, Dark: 白色 70%
+--vm-text-muted          // 禁用文字（占位符、提示）Light: Slate-500, Dark: 白色 50%
+--vm-text-helper         // 帮助文字
+--vm-text-light          // 浅色文字变体
+```
+
+#### 3. 边框颜色
+```typescript
+--vm-border-subtle       // 微妙边框（分割线、网格）
+--vm-border-mid          // 中等边框（输入框、卡片）
+```
+
+#### 4. 交互颜色
+```typescript
+--vm-primary             // 品牌色（按钮、链接、高亮）
+--vm-surface-light       // 浅层叠加（输入框背景）
+--vm-surface-hover       // 悬停状态（hover 时背景）
+```
+
+#### 5. 语义颜色
+```typescript
+--vm-color-error         // 错误（红色）
+--vm-color-success       // 成功（绿色）
+--vm-color-warning       // 警告（橙色/黄色）
+--vm-color-info          // 信息（蓝色）
+```
+
+#### 6. 流程图颜色
+```typescript
+--vm-flow-node-bg        // 节点背景
+--vm-flow-canvas-bg      // 画布背景
+--vm-flow-shadow-*       // 阴影效果
+```
+
+#### 7. 表格颜色
+```typescript
+--vm-table-header-bg     // 表头背景
+--vm-table-header-color  // 表头文字
+--vm-table-cell-color    // 表格单元格文字
+--vm-table-row-hover-bg  // 行悬停背景
+```
+
+### 新增页面/组件的实现清单
+
+新增任何页面或组件时，**必须完整执行以下检查**：
+
+#### ✅ 第 1 步：颜色审查
+- [ ] 扫描所有颜色值：`backgroundColor`、`color`、`borderColor`、`fill`、`stroke`、`boxShadow`
+- [ ] 确认没有硬编码颜色（#hex、rgba、named colors）
+- [ ] 所有颜色都使用 `var(--vm-*)` 形式
+
+#### ✅ 第 2 步：主题兼容性测试
+- [ ] Light Orange 主题：背景浅、文字深、可读性强
+- [ ] Orange Dark 主题：背景深、文字浅、橙色强调
+- [ ] Cyan Dark 主题：背景深、文字浅、青色强调
+- [ ] 确认所有主题下文字可读（无白文字在白背景等）
+
+#### ✅ 第 3 步：组件类型检查
+根据组件类型使用对应 CSS 变量：
+
+**页面/容器：**
+```typescript
+<div style={{ background: 'var(--vm-layout-bg)', color: 'var(--vm-text-primary)' }}>
+  {/* 内容 */}
+</div>
+```
+
+**卡片/面板：**
+```typescript
+<div style={{
+  background: 'var(--vm-bg-card)',
+  color: 'var(--vm-text-primary)',
+  borderColor: 'var(--vm-border-subtle)',
+}}>
+  {/* 内容 */}
+</div>
+```
+
+**表格：**
+```typescript
+<Table
+  columns={columns}
+  styles={{
+    header: { background: 'var(--vm-table-header-bg)' },
+  }}
+  className="theme-aware-table"
+/>
+```
+
+**图表（ECharts）：**
+```typescript
+import { useEChartsTheme } from '@/theme/useEChartsTheme';
+
+const MyChart = () => {
+  const ec = useEChartsTheme();
+  
+  const options = {
+    backgroundColor: ec.chartBg,  // 不使用 'transparent'
+    textStyle: { color: ec.textColor },
+    grid: { borderColor: ec.gridColor },
+    // ...
+  };
+  
+  const chart = echarts.init(ref, ec.isDarkTheme ? 'dark' : null);
+  // ...
+};
+```
+
+**抽屉/模态：**
+```typescript
+<Drawer
+  styles={{
+    header: { background: 'var(--vm-bg-header)' },
+    body: { background: 'var(--vm-bg-base)', color: 'var(--vm-text-primary)' },
+  }}
+>
+  {/* 内容 */}
+</Drawer>
+```
+
+**表单输入：**
+```typescript
+<Input
+  style={{
+    background: 'var(--vm-surface-light)',
+    color: 'var(--vm-text-primary)',
+    borderColor: 'var(--vm-border-mid)',
+  }}
+/>
+```
+
+#### ✅ 第 4 步：构建验证
+```bash
+bun run build
+# 确认：
+# 1. TypeScript 0 errors
+# 2. CSS variables all valid
+# 3. No hardcoded colors in output
+```
+
+#### ✅ 第 5 步：视觉验证
+- [ ] 在浏览器打开应用
+- [ ] 测试 Light Orange 主题：所有文字深色、背景浅色
+- [ ] 测试 Orange Dark 主题：所有文字浅色、背景深色、橙色强调
+- [ ] 测试 Cyan Dark 主题：所有文字浅色、背景深色、青色强调
+- [ ] 检查没有不可读的元素（文字对比度）
+
+### 特殊情况处理
+
+#### Light 主题的不透明度反转（关键！）
+Light Orange 主题**必须使用黑色基础的不透明度**，因为背景是浅色：
+
+```typescript
+// ❌ 错误（白色基础，在浅色背景上不可见）
+const lightThemeVar = 'rgba(255, 255, 255, 0.1)';  // 浅色透明度
+
+// ✅ 正确（黑色基础，在浅色背景上可见）
+const lightThemeVar = 'rgba(0, 0, 0, 0.1)';  // 深色透明度
+```
+
+#### ECharts Canvas 限制
+ECharts 渲染到 HTML canvas，**无法直接读取 CSS 变量**。必须使用 `useEChartsTheme()` hook：
+
+```typescript
+import { useEChartsTheme } from '@/theme/useEChartsTheme';
+
+const ec = useEChartsTheme();
+// ec.chartBg      - 图表背景色
+// ec.textColor    - 文字颜色
+// ec.gridColor    - 网格线颜色
+// ec.isDarkTheme  - 是否深色主题
+```
+
+#### 语义颜色的使用
+功能颜色（错误、成功等）**不得自行定义**，必须使用主题定义的语义颜色：
+
+```typescript
+// ❌ 错误
+<Alert message="Success" style={{ background: '#52c41a' }} />
+
+// ✅ 正确
+<Alert message="Success" style={{ background: 'var(--vm-color-success)' }} />
+```
+
+### 常见陷阱及排查
+
+| 问题 | 原因 | 解决方案 |
+|------|------|---------|
+| 亮色主题文字不可见 | 使用 `--vm-text-primary` 但值为白色 | Light 主题中 `--vm-text-primary` = Slate-900（深色） |
+| 表格在亮色主题不可读 | 表头/单元格背景仍为深色 | 使用 `--vm-table-*` 变量，不硬编码背景 |
+| 图表背景错误 | ECharts 初始化时使用硬编码 'dark' | 动态使用 `ec.isDarkTheme ? 'dark' : null` |
+| 边框在深色主题不可见 | 使用白色边框但透明度太低 | `--vm-border-subtle` 自动调整透明度 |
+| 按钮在某个主题看不清 | 按钮颜色与背景色接近 | 使用 `--vm-primary` 确保足够对比度 |
+
+### 检查清单（提交前必读）
+
+```
+主题切换系统检查清单
+═════════════════════════════════════════
+
+[ ] ✅ 已读本技术原则部分
+[ ] ✅ 页面中没有硬编码颜色值
+[ ] ✅ 所有颜色都使用 CSS var(--vm-*) 形式
+[ ] ✅ Light Orange 主题测试通过
+[ ] ✅ Orange Dark 主题测试通过
+[ ] ✅ Cyan Dark 主题测试通过
+[ ] ✅ 所有文字在所有主题下都可读
+[ ] ✅ 表格/图表/抽屉都正确主题化
+[ ] ✅ ECharts 图表使用 useEChartsTheme() hook
+[ ] ✅ 构建成功（bun run build）
+[ ] ✅ TypeScript 0 errors
+[ ] ✅ 提交前运行了视觉验证
+
+通过所有检查项后，可提交代码。
 ```
 
 ---
