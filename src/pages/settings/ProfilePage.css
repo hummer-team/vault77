@@ -1,49 +1,59 @@
-/* ProfilePage dark theme fixes (scoped)
- * Purpose: ensure Ant Design Table/Pagination/Empty never leaks default white background
- * when running inside Drawer.
- */
-
+/* ProfilePage theme-aware styles using CSS variables */
 .profile-page {
   width: 100%;
 }
 
 /* Table wrapper + content */
 .profile-page :where(.ant-table-wrapper, .ant-table, .ant-table-container, .ant-table-content) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
-/* Header / Body / Cells */
-.profile-page :where(.ant-table-thead > tr > th, .ant-table-tbody > tr > td) {
-  background: rgba(24, 24, 28, 0.98);
+/* Header */
+.profile-page .ant-table-thead > tr > th {
+  background: var(--vm-table-header-bg) !important;
+  color: var(--vm-table-header-color) !important;
+  border-bottom: 1px solid var(--vm-primary-border) !important;
+}
+
+/* Body / Cells */
+.profile-page .ant-table-tbody > tr > td {
+  background: transparent !important;
+  color: var(--vm-table-cell-color) !important;
+  border-bottom: 1px solid var(--vm-table-cell-border) !important;
+}
+
+/* Row hover */
+.profile-page .ant-table-tbody > tr:hover > td {
+  background: var(--vm-table-row-hover-bg) !important;
 }
 
 /* Pagination area */
 .profile-page :where(.ant-table-pagination, .ant-pagination) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
 /* Empty state */
 .profile-page :where(.ant-empty, .ant-empty-normal, .ant-empty-description) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
 /* Avoid white strip caused by sticky scrollbar area */
 .profile-page :where(.ant-table-body, .ant-table-content) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
 .profile-page :where(.profile-llm-table, .profile-llm-table .ant-table-wrapper, .profile-llm-table .ant-table, .profile-llm-table .ant-table-container, .profile-llm-table .ant-table-content) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
 /* Empty row placeholder (common white leak source) */
 .profile-page :where(.profile-llm-table .ant-table-placeholder, .profile-llm-table .ant-table-placeholder td) {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent !important;
 }
 
 /* Dark scrollbar for the LLM configs table container (Chromium/WebKit) */
 .profile-page :where(.profile-llm-table) {
-  scrollbar-color: rgba(255, 255, 255, 0.28) rgba(24, 24, 28, 0.98); /* Firefox */
+  scrollbar-color: var(--vm-text-secondary) transparent;
   scrollbar-width: thin;
 }
 
@@ -53,22 +63,22 @@
 }
 
 .profile-page :where(.profile-llm-table)::-webkit-scrollbar-track {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent;
 }
 
 .profile-page :where(.profile-llm-table)::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.22);
+  background-color: var(--vm-text-secondary);
   border-radius: 10px;
-  border: 2px solid rgba(24, 24, 28, 0.98);
+  border: 2px solid transparent;
 }
 
 .profile-page :where(.profile-llm-table)::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.32);
+  background-color: var(--vm-text-primary);
 }
 
 /* Also cover the outer fixed-height scroller container (it owns the vertical scrollbar) */
 .profile-page :where(.profile-llm-table-scroller) {
-  scrollbar-color: rgba(255, 255, 255, 0.28) rgba(24, 24, 28, 0.98);
+  scrollbar-color: var(--vm-text-secondary) transparent;
   scrollbar-width: thin;
 }
 
@@ -78,15 +88,15 @@
 }
 
 .profile-page :where(.profile-llm-table-scroller)::-webkit-scrollbar-track {
-  background: rgba(24, 24, 28, 0.98);
+  background: transparent;
 }
 
 .profile-page :where(.profile-llm-table-scroller)::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.22);
+  background-color: var(--vm-text-secondary);
   border-radius: 10px;
-  border: 2px solid rgba(24, 24, 28, 0.98);
+  border: 2px solid transparent;
 }
 
 .profile-page :where(.profile-llm-table-scroller)::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.32);
+  background-color: var(--vm-text-primary);
 }

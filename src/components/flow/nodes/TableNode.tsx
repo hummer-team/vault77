@@ -142,7 +142,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
         minHeight: '60px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
       }}
@@ -193,10 +193,10 @@ export const TableNode: React.FC<TableNodeProps> = ({
           alignItems: 'center',
           padding: '12px 16px',
           borderBottom: data.expanded ? '1px solid #303030' : 'none',
-          background: selected ? 'rgba(250, 140, 22, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-warning-light)' : 'transparent',
         }}
       >
-        <TableOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+        <TableOutlined style={{ marginRight: 8, color: 'var(--vm-flow-info)' }} />
         <span
           style={{
             flex: 1,

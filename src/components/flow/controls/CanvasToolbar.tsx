@@ -158,11 +158,11 @@ export const CanvasToolbar: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        background: 'rgba(28, 25, 23, 0.95)',
-        border: '1px solid rgba(68, 64, 60, 0.6)',
+        background: 'var(--vm-flow-node-bg)',
+        border: '1px solid var(--vm-border-mid)',
         borderRadius: '10px',
         padding: '8px 16px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 107, 0, 0.1)',
+        boxShadow: 'var(--vm-flow-shadow-control)',
         zIndex: 10,
         backdropFilter: 'blur(12px)',
       }}
@@ -188,9 +188,9 @@ export const CanvasToolbar: React.FC = () => {
           }}
           onMouseEnter={(e) => {
             if (hasDeletableNodes) {
-              e.currentTarget.style.background = 'rgba(255, 77, 79, 0.15)';
+              e.currentTarget.style.background = 'var(--vm-flow-error-light)';
               e.currentTarget.style.color = '#ff4d4f';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 77, 79, 0.2)';
+              e.currentTarget.style.boxShadow = '0 0 12px var(--vm-flow-error-light)';
             }
           }}
           onMouseLeave={(e) => {
@@ -207,7 +207,7 @@ export const CanvasToolbar: React.FC = () => {
         style={{
           width: '1px',
           height: '20px',
-          background: 'rgba(68, 64, 60, 0.5)',
+          background: 'var(--vm-border-subtle)',
         }}
       />
 
@@ -232,9 +232,9 @@ export const CanvasToolbar: React.FC = () => {
           }}
           onMouseEnter={(e) => {
             if (storeNodes.length > 1) {
-              e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
+              e.currentTarget.style.background = 'var(--vm-primary-light)';
               e.currentTarget.style.color = 'var(--vm-primary)';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 107, 0, 0.2)';
+              e.currentTarget.style.boxShadow = '0 0 12px var(--vm-primary-glow)';
             }
           }}
           onMouseLeave={(e) => {

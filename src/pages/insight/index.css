@@ -39,7 +39,7 @@
 
 .section-header h4 {
   margin-bottom: 4px !important;
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--vm-text-primary) !important;
 }
 
 .section-loading {
@@ -47,13 +47,13 @@
   align-items: center;
   justify-content: center;
   padding: 60px 0;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--vm-text-secondary);
 }
 
 .insight-footer {
   margin-top: 48px;
   padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--vm-border-subtle);
   text-align: center;
 }
 
@@ -69,24 +69,24 @@
   }
 }
 
-/* Dark theme adjustments */
+/* Theme-aware table styles using CSS variables */
 .insight-page .ant-table {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: transparent !important;
 }
 
 .insight-page .ant-table-thead > tr > th {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: var(--vm-table-header-bg) !important;
+  color: var(--vm-table-header-color) !important;
+  border-bottom: 1px solid var(--vm-primary-border) !important;
 }
 
 .insight-page .ant-table-tbody > tr > td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: rgba(255, 255, 255, 0.65) !important;
+  border-bottom: 1px solid var(--vm-table-cell-border) !important;
+  color: var(--vm-table-cell-color) !important;
 }
 
 .insight-page .ant-table-tbody > tr:hover > td {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: var(--vm-table-row-hover-bg) !important;
 }
 
 /* Fix: Align Anomaly Rate card title with other cards */

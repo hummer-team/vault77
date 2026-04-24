@@ -23,10 +23,10 @@ interface JoinOrderPanelProps {
 
 // Join type colors
 const JOIN_TYPE_COLORS: Record<string, string> = {
-  INNER: '#52c41a',
-  LEFT: '#1890ff',
-  RIGHT: '#fa8c16',
-  CROSS: '#722ed1',
+  INNER: 'var(--vm-flow-success)',
+  LEFT: 'var(--vm-flow-info)',
+  RIGHT: 'var(--vm-flow-warning)',
+  CROSS: 'var(--vm-flow-purple)',
 };
 
 export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
@@ -124,12 +124,12 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
             style={{
               marginBottom: 16,
               padding: 12,
-              background: 'rgba(250, 140, 22, 0.1)',
+              background: 'var(--vm-flow-warning-light)',
               borderRadius: 4,
-              border: '1px solid rgba(250, 140, 22, 0.3)',
+              border: '1px solid var(--vm-flow-warning-light)',
             }}
           >
-            <div style={{ color: '#fa8c16', fontSize: 12, marginBottom: 4 }}>
+            <div style={{ color: 'var(--vm-flow-warning)', fontSize: 12, marginBottom: 4 }}>
               提示
             </div>
             <div style={{ color: '#d9d9d9', fontSize: 12 }}>

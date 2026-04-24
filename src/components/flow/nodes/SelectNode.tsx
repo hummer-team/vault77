@@ -67,11 +67,11 @@ const AGG_FUNCTION_LABELS: Record<string, string> = {
 
 // Aggregation function colors
 const AGG_FUNCTION_COLORS: Record<string, string> = {
-  SUM: '#1890ff',
-  COUNT: '#52c41a',
-  AVG: '#fa8c16',
-  MIN: '#722ed1',
-  MAX: '#eb2f96',
+  SUM: 'var(--vm-flow-info)',
+  COUNT: 'var(--vm-flow-success)',
+  AVG: 'var(--vm-flow-warning)',
+  MIN: 'var(--vm-flow-purple)',
+  MAX: 'var(--vm-flow-pink)',
 };
 
 export const SelectNode: React.FC<SelectNodeProps> = ({
@@ -271,7 +271,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         minHeight: '80px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
       }}
@@ -287,8 +287,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         minHeight={80}
         maxWidth={400}
         maxHeight={400}
-        lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#52c41a', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
+        lineStyle={{ borderColor: 'var(--vm-flow-success)', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: 'var(--vm-flow-success)', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle
@@ -322,12 +322,12 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(82, 196, 26, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-success-light)' : 'transparent',
           borderBottom: hasFields ? '1px solid #303030' : 'none',
         }}
       >
         {isUdfNode
-          ? <SettingOutlined style={{ color: '#722ed1', marginRight: 8 }} />
+          ? <SettingOutlined style={{ color: 'var(--vm-flow-purple)', marginRight: 8 }} />
           : <TableOutlined style={{ color: FLOW_COLORS.node.select.border, marginRight: 8 }} />
         }
 
@@ -389,7 +389,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            background: 'rgba(255, 77, 79, 0.1)',
+            background: 'var(--vm-flow-error-light)',
           }}
         >
           <span style={{ fontSize: 11, color: '#ff4d4f' }}>
@@ -460,7 +460,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            color: '#52c41a',
+            color: 'var(--vm-flow-success)',
             fontSize: 12,
           }}
         >
@@ -474,7 +474,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            color: '#52c41a',
+            color: 'var(--vm-flow-success)',
             fontSize: 12,
           }}
         >
@@ -489,7 +489,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            background: 'rgba(255, 77, 79, 0.1)',
+            background: 'var(--vm-flow-error-light)',
           }}
         >
           <span style={{ fontSize: 11, color: '#ff4d4f' }}>

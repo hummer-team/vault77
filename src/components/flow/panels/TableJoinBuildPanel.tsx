@@ -34,16 +34,16 @@ const T = {
   border: '#333340',
   orange: 'var(--vm-primary)',
   orangeHover: 'var(--vm-primary-hover)',
-  orangeDim: 'rgba(255, 107, 0, 0.15)',
-  orangeBorder: 'rgba(255, 107, 0, 0.4)',
+  orangeDim: 'var(--vm-primary-light)',
+  orangeBorder: 'var(--vm-primary-border)',
   textPrimary: '#e8e8f0',
   textSecondary: '#8888a0',
   textDisabled: '#55556a',
   logic: '#d4890a',
-  logicBg: 'rgba(212, 136, 6, 0.2)',
-  logicBorder: 'rgba(212, 136, 6, 0.5)',
+  logicBg: 'var(--vm-flow-warning-light)',
+  logicBorder: 'var(--vm-flow-warning-light)',
   danger: '#ff4d4f',
-  dangerDim: 'rgba(255, 77, 79, 0.12)',
+  dangerDim: 'var(--vm-flow-error-light)',
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ const JOIN_ERROR_STYLE = `
   .join-cond-error.ant-select-focused .ant-select-selector,
   .join-cond-error.ant-select-open .ant-select-selector {
     border-color: var(--vm-primary) !important;
-    box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.20) !important;
+    box-shadow: 0 0 0 2px var(--vm-primary-light) !important;
   }
 `;
 
@@ -327,7 +327,7 @@ export const TableJoinBuildPanel: React.FC = () => {
           borderBottom: `1px solid ${T.border}`,
           padding: '14px 20px',
         },
-        mask: { background: 'rgba(0,0,0,0.55)' },
+        mask: { background: 'var(--vm-surface-hover)' },
       }}
     >
       {/* ── 关系组 Header ── */}
@@ -480,7 +480,7 @@ export const TableJoinBuildPanel: React.FC = () => {
       {/* ── Validation summary (shown after confirm attempt) ── */}
       {showValidationErrors && (hasTypeErrors || hasEmptyConditions) && (
         <div style={{
-          background: 'rgba(255, 107, 0, 0.08)',
+          background: 'var(--vm-primary-light)',
           border: `1px solid ${T.orangeBorder}`,
           borderRadius: 6,
           padding: '8px 12px',
@@ -572,7 +572,7 @@ const LogicSeparator: React.FC<LogicSeparatorProps> = ({ logic, onToggle }) => (
           lineHeight: 1.4,
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(212, 136, 6, 0.35)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--vm-flow-warning-light)';
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = T.logicBg;

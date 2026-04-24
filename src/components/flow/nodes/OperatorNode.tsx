@@ -163,8 +163,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
           target: selectNodeId,
           type: 'default',
           animated: false,
-          style: { stroke: 'rgba(114, 46, 209, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' },
+          style: { stroke: 'var(--vm-flow-purple)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-purple)' },
         } as Parameters<typeof addEdge>[0]);
 
         // 2. Create End node (if not already exists) with UDF operator type
@@ -187,8 +187,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             target: endNodeId,
             type: 'default',
             animated: false,
-            style: { stroke: 'rgba(114, 46, 209, 0.65)', strokeWidth: 1.5 },
-            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(114, 46, 209, 0.65)' },
+            style: { stroke: 'var(--vm-flow-purple)', strokeWidth: 1.5 },
+            markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-purple)' },
           } as Parameters<typeof addEdge>[0]);
         } else {
           updateNode(existingEnd.id, { operatorType: OperatorType.UDF_REPLACE_COLUMN });
@@ -213,8 +213,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         target: dataSourceNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       } as Parameters<typeof addEdge>[0]);
     },
     [id, updateNode, addNode, addEdge, nodes]
@@ -232,7 +232,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         position: 'relative',
       }}
       className="operator-node"
@@ -246,8 +246,8 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         minHeight={120}
         maxWidth={350}
         maxHeight={300}
-        lineStyle={{ borderColor: '#fa8c16', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#fa8c16', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
+        lineStyle={{ borderColor: 'var(--vm-flow-warning)', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: 'var(--vm-flow-warning)', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle
@@ -266,7 +266,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, color: 'var(--vm-text-primary)', fontWeight: 500 }}>
-        <ThunderboltOutlined style={{ marginRight: 8, color: '#fa8c16' }} />
+        <ThunderboltOutlined style={{ marginRight: 8, color: 'var(--vm-flow-warning)' }} />
         <span>业务算子</span>
         <Space size={4} style={{ marginLeft: 'auto' }}>
           <Tag color="warning" style={{ fontSize: 10 }}>开始</Tag>
@@ -316,7 +316,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
             marginTop: 8,
             padding: '8px',
             textAlign: 'center',
-            background: 'rgba(255, 77, 79, 0.1)',
+            background: 'var(--vm-flow-error-light)',
             borderRadius: '4px',
           }}
         >

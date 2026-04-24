@@ -90,14 +90,14 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
         onClick={handleOpenDrawer}
         style={{
           background: '#1a1a2e',
-          border: `2px solid ${selected ? '#722ed1' : isConfigured ? '#722ed1' : '#ff4d4f'}`,
+          border: `2px solid ${selected ? 'var(--vm-flow-purple)' : isConfigured ? 'var(--vm-flow-purple)' : '#ff4d4f'}`,
           borderRadius: '8px',
           padding: '12px 16px',
           minWidth: '220px',
           minHeight: '100px',
           boxShadow: selected
-            ? '0 0 0 2px rgba(114, 46, 209, 0.4)'
-            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+            ? '0 0 0 2px var(--vm-flow-purple-border)'
+            : 'var(--vm-flow-shadow)',
           cursor: 'pointer',
           position: 'relative',
         }}
@@ -137,7 +137,7 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
             fontWeight: 500,
           }}
         >
-          <SettingOutlined style={{ marginRight: 8, color: '#722ed1' }} />
+          <SettingOutlined style={{ marginRight: 8, color: 'var(--vm-flow-purple)' }} />
           <span>选择列</span>
           <Space size={4} style={{ marginLeft: 'auto' }}>
             {selected && (

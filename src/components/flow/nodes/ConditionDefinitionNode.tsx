@@ -247,7 +247,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         maxWidth: '400px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
         pointerEvents: 'all',
@@ -300,7 +300,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-purple-bg)' : 'transparent',
           borderBottom: '1px solid #303030',
           cursor: 'pointer',
         }}
@@ -514,7 +514,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
             style={{
               marginTop: 12,
               padding: '6px 10px',
-              background: 'rgba(255, 77, 79, 0.1)',
+              background: 'var(--vm-flow-error-light)',
               borderRadius: '4px',
               fontSize: 11,
               color: '#ff4d4f',

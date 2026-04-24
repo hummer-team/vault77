@@ -1033,31 +1033,39 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             .data-analysis-table .ant-table {
               background: transparent;
             }
+            .data-analysis-table .ant-table-thead > tr > th {
+              background: var(--vm-table-header-bg) !important;
+              color: var(--vm-table-header-color) !important;
+              border-bottom: 1px solid var(--vm-primary-border) !important;
+            }
             .data-analysis-table .ant-table-tbody > tr.table-row-even > td {
-              background: rgba(9, 9, 11, 0.4);
+              background: transparent;
+              color: var(--vm-table-cell-color) !important;
             }
             .data-analysis-table .ant-table-tbody > tr.table-row-odd > td {
-              background: rgba(24, 24, 27, 0.4);
+              background: var(--vm-table-row-even-bg);
+              color: var(--vm-table-cell-color) !important;
             }
             .data-analysis-table .ant-table-tbody > tr:hover > td {
-              background: rgba(249, 115, 22, 0.2) !important;
+              background: var(--vm-table-row-hover-bg) !important;
             }
             .data-analysis-table .ant-table-cell {
-              border-bottom: 1px solid rgba(251, 146, 60, 0.15);
+              border-bottom: 1px solid var(--vm-table-cell-border);
+              color: var(--vm-table-cell-color) !important;
             }
             .data-analysis-table .ant-pagination-item {
-              background: rgba(24, 24, 27, 0.6);
-              border-color: rgba(251, 146, 60, 0.3);
-            }
-            .data-analysis-table .ant-pagination-item-active {
-              background: rgba(249, 115, 22, 0.25);
-              border-color: #F97316;
+              background: transparent;
+              border-color: var(--vm-border-subtle);
             }
             .data-analysis-table .ant-pagination-item a {
-              color: #E5E7EB;
+              color: var(--vm-text-primary);
+            }
+            .data-analysis-table .ant-pagination-item-active {
+              background: var(--vm-primary-light);
+              border-color: var(--vm-primary-border);
             }
             .data-analysis-table .ant-pagination-item-active a {
-              color: #FB923C;
+              color: var(--vm-primary);
             }
           `}</style>
           {/* Action buttons aligned with pagination */}
@@ -1068,7 +1076,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               alignItems: 'center',
               marginTop: '16px',
               paddingTop: '12px',
-              borderTop: '1px solid rgba(251, 146, 60, 0.2)',
+              borderTop: '1px solid var(--vm-border-subtle)',
             }}
           >
             {commonActions}

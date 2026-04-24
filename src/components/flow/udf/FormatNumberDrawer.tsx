@@ -142,7 +142,7 @@ export const FormatNumberDrawer: React.FC<FormatNumberDrawerProps> = ({
     <Drawer
       title={
         <Space>
-          <NumberOutlined style={{ color: '#722ed1' }} />
+          <NumberOutlined style={{ color: 'var(--vm-flow-purple)' }} />
           <span>数字精度控制配置</span>
         </Space>
       }

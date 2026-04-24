@@ -52,7 +52,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
 
   const AuthorIcon = kernel.author === 'official' ? StarOutlined : UserOutlined;
   const authorText = kernel.author === 'official' ? '官方发布' : '开发者提供';
-  const authorColor = kernel.author === 'official' ? '#faad14' : '#52c41a';
+  const authorColor = kernel.author === 'official' ? 'var(--vm-warning-color)' : 'var(--vm-success-color)';
 
   return (
     <Modal
@@ -61,7 +61,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       onCancel={onClose}
       width={760}
       style={{
-        background: 'linear-gradient(135deg, #1a1a1f 0%, #252530 100%)',
+        background: 'var(--vm-bg-base)',
       }}
       bodyStyle={{
         background: 'transparent',
@@ -76,8 +76,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
                 icon={<CheckCircleOutlined />}
                 disabled
                 style={{
-                  background: 'rgba(82,196,26,0.3)',
-                  borderColor: '#52c41a',
+                  background: 'var(--vm-success-color-light)',
+                  borderColor: 'var(--vm-success-color)',
                 }}
               >
                 已应用
@@ -136,7 +136,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Tag style={{ background: 'var(--vm-primary-light)', borderColor: 'var(--vm-primary)', color: 'var(--vm-primary)' }}>
             {kernel.industry}
           </Tag>
-          <Tag color="blue" style={{ background: 'rgba(24,144,255,0.15)' }}>
+          <Tag color="blue" style={{ background: 'var(--vm-primary-light)' }}>
             {kernel.category}
           </Tag>
           <Tag style={{ background: 'var(--vm-surface-inset)' }}>
@@ -156,8 +156,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Card
             size="small"
             style={{
-              background: 'rgba(255,77,79,0.1)',
-              borderColor: 'rgba(255,77,79,0.3)',
+              background: 'var(--vm-error-color-lighter)',
+              borderColor: 'var(--vm-error-color-light)',
               textAlign: 'center',
             }}
             bodyStyle={{ padding: '6px' }}
@@ -165,7 +165,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             <Statistic
               title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>热度</span>}
               value={kernel.likes}
-              prefix={<LikeOutlined style={{ color: '#ff4d4f' }} />}
+              prefix={<LikeOutlined style={{ color: 'var(--vm-error-color)' }} />}
               valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 14 }}
             />
           </Card>
@@ -174,8 +174,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Card
             size="small"
             style={{
-              background: 'rgba(250,173,20,0.1)',
-              borderColor: 'rgba(250,173,20,0.3)',
+              background: 'var(--vm-warning-color-lighter)',
+              borderColor: 'var(--vm-warning-color-light)',
               textAlign: 'center',
             }}
             bodyStyle={{ padding: '6px' }}
@@ -183,7 +183,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             <Statistic
               title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>积分</span>}
               value={kernel.credits}
-              prefix={<ThunderboltOutlined style={{ color: '#faad14' }} />}
+              prefix={<ThunderboltOutlined style={{ color: 'var(--vm-warning-color)' }} />}
               valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 14 }}
             />
           </Card>
@@ -192,8 +192,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Card
             size="small"
             style={{
-              background: 'rgba(82,196,26,0.1)',
-              borderColor: 'rgba(82,196,26,0.3)',
+              background: 'var(--vm-success-color-lighter)',
+              borderColor: 'var(--vm-success-color-light)',
               textAlign: 'center',
             }}
             bodyStyle={{ padding: '6px' }}
@@ -201,7 +201,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             <Statistic
               title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>数据量</span>}
               value={kernel.dataVolume}
-              prefix={<DatabaseOutlined style={{ color: '#52c41a' }} />}
+              prefix={<DatabaseOutlined style={{ color: 'var(--vm-success-color)' }} />}
               valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
             />
           </Card>
@@ -210,8 +210,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Card
             size="small"
             style={{
-              background: 'rgba(24,144,255,0.1)',
-              borderColor: 'rgba(24,144,255,0.3)',
+              background: 'var(--vm-primary-light)',
+              borderColor: 'var(--vm-primary-border)',
               textAlign: 'center',
             }}
             bodyStyle={{ padding: '6px' }}
@@ -219,7 +219,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             <Statistic
               title={<span style={{ color: 'var(--vm-text-secondary)', fontSize: 11 }}>预估耗时</span>}
               value={kernel.estimatedTime}
-              prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
+              prefix={<ClockCircleOutlined style={{ color: 'var(--vm-primary)' }} />}
               valueStyle={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
             />
           </Card>
@@ -254,7 +254,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Card
             size="small"
             style={{
-              background: 'rgba(0,0,0,0.2)',
+              background: 'var(--vm-surface-hover)',
               borderColor: 'var(--vm-surface-inset)',
             }}
             bodyStyle={{ padding: '12px' }}
@@ -270,7 +270,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
                 <Descriptions.Item label="输入字段">
                   <Space wrap>
                     {kernel.metadata.inputFields.map((field) => (
-                      <Tag key={field} style={{ background: 'rgba(24,144,255,0.15)' }}>
+                      <Tag key={field} style={{ background: 'var(--vm-primary-light)' }}>
                         {field}
                       </Tag>
                     ))}
@@ -289,7 +289,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
                 <Descriptions.Item label="输出字段">
                   <Space wrap>
                     {kernel.metadata.outputFields.map((field) => (
-                      <Tag key={field} style={{ background: 'rgba(82,196,26,0.15)' }}>
+                      <Tag key={field} style={{ background: 'var(--vm-success-color-lighter)' }}>
                         {field}
                       </Tag>
                     ))}

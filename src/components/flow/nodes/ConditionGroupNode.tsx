@@ -33,13 +33,13 @@ interface ConditionGroupNodeProps {
 const LOGIC_TYPE_COLORS: Record<RelationType, { bg: string; border: string; text: string }> = {
   AND: {
     bg: '#1a2e15',
-    border: '#52c41a',
-    text: '#52c41a',
+    border: 'var(--vm-flow-success)',
+    text: 'var(--vm-flow-success)',
   },
   OR: {
     bg: '#2e1a0f',
-    border: '#fa8c16',
-    text: '#fa8c16',
+    border: 'var(--vm-flow-warning)',
+    text: 'var(--vm-flow-warning)',
   },
   CUSTOM: {
     bg: '#261a40',
@@ -200,8 +200,8 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         target: id,
         type: 'deletable',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed' as const, width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed' as const, width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       });
       setPendingConnectionSource(null);
       setSelectedEdgeId(newEdgeId); // Auto-highlight the newly created edge
@@ -234,7 +234,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
         maxWidth: '300px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         opacity: isDisabledByCustomMode ? 0.5 : 1, // Visual feedback when disabled
         pointerEvents: isDisabledByCustomMode ? 'none' : 'auto', // Disable interaction when disabled
@@ -280,7 +280,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
             inset: 0,
             borderRadius: 8,
             border: '2px dashed #7c3aed',
-            background: 'rgba(124, 58, 237, 0.08)',
+            background: 'var(--vm-flow-purple-bg)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -293,7 +293,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           <span style={{
             fontSize: 11,
             color: '#a78bfa',
-            background: 'rgba(20,10,40,0.85)',
+            background: 'var(--vm-flow-processing-bg)',
             padding: '3px 10px',
             borderRadius: 4,
             backdropFilter: 'blur(4px)',
@@ -373,7 +373,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           style={{
             padding: '12px',
             borderBottom: '1px solid #303030',
-            background: 'rgba(0, 0, 0, 0.2)',
+            background: 'var(--vm-surface-lighter)',
           }}
         >
           <div style={{ marginBottom: 8, fontSize: 12, color: '#8c8c8c' }}>Relation Type</div>

@@ -35,11 +35,11 @@ const AGG_FUNCTION_LABELS: Record<string, string> = {
 
 // Aggregation function colors
 const AGG_FUNCTION_COLORS: Record<string, string> = {
-  SUM: '#1890ff',
-  COUNT: '#52c41a',
-  AVG: '#fa8c16',
-  MIN: '#722ed1',
-  MAX: '#eb2f96',
+  SUM: 'var(--vm-flow-info)',
+  COUNT: 'var(--vm-flow-success)',
+  AVG: 'var(--vm-flow-warning)',
+  MIN: 'var(--vm-flow-purple)',
+  MAX: 'var(--vm-flow-pink)',
 };
 
 export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
@@ -81,7 +81,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         maxWidth: '320px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
       }}
@@ -122,7 +122,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(82, 196, 26, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-success-light)' : 'transparent',
           borderBottom: hasFields ? '1px solid #303030' : 'none',
         }}
       >
@@ -238,7 +238,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         <div
           style={{
             padding: '8px 12px',
-            background: 'rgba(82, 196, 26, 0.1)',
+            background: 'var(--vm-flow-success-light)',
           }}
         >
           <div
@@ -248,8 +248,8 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
               marginBottom: 6,
             }}
           >
-            <GroupOutlined style={{ marginRight: 6, color: '#52c41a', fontSize: 12 }} />
-            <span style={{ fontSize: 11, color: '#52c41a', fontWeight: 500 }}>
+            <GroupOutlined style={{ marginRight: 6, color: 'var(--vm-flow-success)', fontSize: 12 }} />
+            <span style={{ fontSize: 11, color: 'var(--vm-flow-success)', fontWeight: 500 }}>
               GROUP BY
             </span>
           </div>
@@ -269,7 +269,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            background: 'rgba(255, 77, 79, 0.1)',
+            background: 'var(--vm-flow-error-light)',
           }}
         >
           <span style={{ fontSize: 11, color: '#ff4d4f' }}>
@@ -283,11 +283,11 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         <div
           style={{
             padding: '8px 12px',
-            background: 'rgba(250, 140, 22, 0.1)',
+            background: 'var(--vm-flow-warning-light)',
             borderTop: '1px solid #303030',
           }}
         >
-          <span style={{ fontSize: 11, color: '#fa8c16' }}>
+          <span style={{ fontSize: 11, color: 'var(--vm-flow-warning)' }}>
             ⚠️ 使用聚合函数建议配置 GROUP BY
           </span>
         </div>

@@ -151,7 +151,7 @@ export const FormatDateDrawer: React.FC<FormatDateDrawerProps> = ({
     <Drawer
       title={
         <Space>
-          <CalendarOutlined style={{ color: '#722ed1' }} />
+          <CalendarOutlined style={{ color: 'var(--vm-flow-purple)' }} />
           <span>日期时间格式化配置</span>
         </Space>
       }

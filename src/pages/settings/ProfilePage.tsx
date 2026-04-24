@@ -813,7 +813,7 @@ const ProfilePage: React.FC = () => {
             <div
               className="profile-llm-table-scroller"
               style={{
-                background: 'rgba(24, 24, 28, 0.98)',
+                background: 'transparent',
                 borderRadius: 8,
                 border: '1px solid var(--vm-border-subtle)',
                 /* Auto height based on content, max height for large lists */
@@ -829,14 +829,14 @@ const ProfilePage: React.FC = () => {
                 scroll={{ x: 800 }}
                 pagination={false}
                 size="small"
-                style={{ background: 'rgba(24, 24, 28, 0.98)' }}
+                style={{ background: 'transparent' }}
                 components={{
                   table: (props: React.HTMLAttributes<HTMLTableElement>) => (
                     <table
                       {...props}
                       style={{
                         ...(props.style ?? {}),
-                        background: 'rgba(24, 24, 28, 0.98)',
+                        background: 'transparent',
                       }}
                     />
                   ),

@@ -156,8 +156,9 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
       backgroundColor: ec.chartBg,
       tooltip: {
         trigger: 'item',
-        borderColor: '#777',
-        textStyle: { color: 'var(--vm-text-primary)' },
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderMid,
+        textStyle: { color: ec.textPrimary },
         formatter: (params: any) => {
           const cluster = clusters[params.seriesIndex];  // Changed from dataIndex to seriesIndex
           const lines = availableDimensions.map((dim) => {

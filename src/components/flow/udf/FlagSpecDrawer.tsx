@@ -108,7 +108,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     <Drawer
       title={
         <Space>
-          <TagsOutlined style={{ color: '#722ed1' }} />
+          <TagsOutlined style={{ color: 'var(--vm-flow-purple)' }} />
           <span>数据标记配置</span>
         </Space>
       }

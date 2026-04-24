@@ -25,8 +25,8 @@ const OVERLAY_STYLE: React.CSSProperties = {
   bottom: '100%',
   right: 0,
   marginBottom: 6,
-  background: 'rgba(20, 20, 24, 0.97)',
-  border: '1px solid rgba(255, 107, 0, 0.45)',
+  background: 'var(--vm-flow-node-bg)',
+  border: '1px solid var(--vm-primary-border)',
   borderRadius: 6,
   padding: '4px',
   display: 'flex',
@@ -34,7 +34,7 @@ const OVERLAY_STYLE: React.CSSProperties = {
   gap: 2,
   whiteSpace: 'nowrap',
   backdropFilter: 'blur(8px)',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+  boxShadow: 'var(--vm-flow-shadow-lg)',
   zIndex: 100,
 };
 
@@ -214,8 +214,8 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
           justifyContent: 'center',
           cursor: 'pointer',
           boxShadow: buttonHovered
-            ? '0 0 10px rgba(255, 107, 0, 0.7)'
-            : '0 2px 6px rgba(255, 107, 0, 0.4)',
+            ? '0 0 10px var(--vm-primary-glow)'
+            : '0 2px 6px var(--vm-primary-border)',
           transform: buttonHovered ? 'scale(1.15)' : 'scale(1)',
           transition: 'all 0.15s ease',
         }}
@@ -236,7 +236,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
             style={MENU_BUTTON_BASE}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background =
-                'rgba(255, 107, 0, 0.15)';
+                'var(--vm-primary-light)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
@@ -255,14 +255,14 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 style={MENU_BUTTON_BASE}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(82, 196, 26, 0.1)';
+                    'var(--vm-flow-success-light)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                 }}
                 onClick={onSelectCreate}
               >
-                <TableOutlined style={{ fontSize: 10, color: '#52c41a' }} />
+                <TableOutlined style={{ fontSize: 10, color: 'var(--vm-flow-success)' }} />
                 <span>选择列</span>
               </button>
             </>
@@ -276,14 +276,14 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 style={MENU_BUTTON_BASE}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(24, 144, 255, 0.1)';
+                    'var(--vm-flow-info-light)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                 }}
                 onClick={onJoinCreate}
               >
-                <ApartmentOutlined style={{ fontSize: 10, color: '#1890ff' }} />
+                <ApartmentOutlined style={{ fontSize: 10, color: 'var(--vm-flow-info)' }} />
                 <span>表关联</span>
               </button>
             </>
@@ -306,7 +306,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 onMouseEnter={(e) => {
                   if (bindActionDisabled) return;
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(124, 58, 237, 0.12)';
+                    'var(--vm-flow-purple-bg)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
@@ -330,7 +330,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 style={MENU_BUTTON_BASE}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(124, 58, 237, 0.12)';
+                    'var(--vm-flow-purple-bg)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
@@ -350,14 +350,14 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                 style={MENU_BUTTON_BASE}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(82, 196, 26, 0.1)';
+                    'var(--vm-flow-success-light)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                 }}
                 onClick={onDirectExecute}
               >
-                <PlayCircleOutlined style={{ fontSize: 10, color: '#52c41a' }} />
+                <PlayCircleOutlined style={{ fontSize: 10, color: 'var(--vm-flow-success)' }} />
                 <span>直接执行</span>
               </button>
             </>

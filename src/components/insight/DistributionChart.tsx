@@ -38,13 +38,13 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
+  const ec = useEChartsColors();
+  
   // Detect theme mode (dark vs light)
   const isDarkTheme = () => {
     const borderSubtle = ec.borderSubtle;
     return borderSubtle.includes('255'); // white-based rgba = dark theme
   };
-
-  const ec = useEChartsColors();
 
   // Initialize and update chart
   useEffect(() => {

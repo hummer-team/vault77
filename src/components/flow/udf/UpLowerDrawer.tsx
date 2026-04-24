@@ -86,7 +86,7 @@ export const UpLowerDrawer: React.FC<UpLowerDrawerProps> = ({
     <Drawer
       title={
         <Space>
-          <FontColorsOutlined style={{ color: '#722ed1' }} />
+          <FontColorsOutlined style={{ color: 'var(--vm-flow-purple)' }} />
           <span>大小写转换配置</span>
         </Space>
       }

@@ -98,7 +98,7 @@ const Section: React.FC<{
       background: TOKEN.bgSection,
       borderRadius: TOKEN.radiusLg,
       border: `1px solid ${TOKEN.borderSubtle}`,
-      borderLeft: `3px solid rgba(255, 107, 0, 0.35)`,
+      borderLeft: `3px solid var(--vm-primary-border)`,
     }}
   >
     <div
@@ -361,9 +361,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
 
   const addBtnStyle: React.CSSProperties = {
     width: '100%',
-    borderColor: 'rgba(255, 107, 0, 0.2)',
+    borderColor: 'var(--vm-primary-light)',
     color: TOKEN.textSecondary,
-    background: 'rgba(255, 107, 0, 0.03)',
+    background: 'var(--vm-primary-light)',
     height: 30,
     fontSize: 12,
     borderRadius: TOKEN.radius,
@@ -380,8 +380,8 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
               width: 30,
               height: 30,
               borderRadius: 7,
-              background: 'rgba(255, 107, 0, 0.12)',
-              border: '1px solid rgba(255, 107, 0, 0.3)',
+              background: 'var(--vm-primary-light)',
+              border: '1px solid var(--vm-primary-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -407,9 +407,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       styles={{
         header: {
           background: TOKEN.bgHeader,
-          borderBottom: '1px solid rgba(68, 64, 60, 0.5)',
+          borderBottom: '1px solid var(--vm-border-subtle)',
           padding: '13px 20px',
-          boxShadow: 'inset 0 -1px 0 rgba(255, 107, 0, 0.06)',
+          boxShadow: 'inset 0 -1px 0 var(--vm-primary-light)',
         },
         body: {
           background: TOKEN.bgBase,
@@ -417,14 +417,14 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           overflowX: 'hidden',
         },
         mask: {
-          background: 'rgba(0, 0, 0, 0.6)',
+          background: 'var(--vm-bg-header)',
           backdropFilter: 'blur(3px)',
         },
       }}
       drawerStyle={{
         background: TOKEN.bgBase,
-        borderLeft: '1px solid rgba(68, 64, 60, 0.55)',
-        boxShadow: '-6px 0 32px rgba(0, 0, 0, 0.6), -1px 0 0 rgba(255, 107, 0, 0.07)',
+        borderLeft: '1px solid var(--vm-border-mid)',
+        boxShadow: 'var(--vm-flow-shadow-drawer)',
       }}
     >
       {/* ── Section 1: 选择统计列 ──────────────────────────────────────────── */}
@@ -830,9 +830,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           style={{
             marginBottom: 14,
             padding: '8px 12px',
-            background: 'rgba(255, 77, 79, 0.08)',
+            background: 'var(--vm-flow-error-light)',
             borderRadius: TOKEN.radius,
-            border: '1px solid rgba(255, 77, 79, 0.25)',
+            border: '1px solid var(--vm-flow-error-light)',
           }}
         >
           {errors.map((err) => (

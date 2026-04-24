@@ -29,10 +29,10 @@ interface JoinNodeProps {
 
 // Join type colors
 const JOIN_TYPE_COLORS: Record<JoinType, string> = {
-  INNER: '#52c41a',
-  LEFT: '#1890ff',
-  RIGHT: '#fa8c16',
-  CROSS: '#722ed1',
+  INNER: 'var(--vm-flow-success)',
+  LEFT: 'var(--vm-flow-info)',
+  RIGHT: 'var(--vm-flow-warning)',
+  CROSS: 'var(--vm-flow-purple)',
 };
 
 // Join type icons
@@ -92,7 +92,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         minHeight: '100px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
       }}
@@ -143,7 +143,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(250, 140, 22, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-warning-light)' : 'transparent',
           borderBottom: '1px solid #303030',
         }}
       >
@@ -256,7 +256,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         <div
           style={{
             padding: '8px 12px',
-            background: 'rgba(0, 0, 0, 0.2)',
+            background: 'var(--vm-surface-lighter)',
           }}
         >
           <div
@@ -288,7 +288,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         <div
           style={{
             padding: '8px 12px',
-            background: 'rgba(255, 77, 79, 0.1)',
+            background: 'var(--vm-flow-error-light)',
           }}
         >
           <span style={{ fontSize: 11, color: '#ff4d4f' }}>

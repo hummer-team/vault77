@@ -101,8 +101,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
     const startX = 50;
     const startY = 300;
 
-    const edgeStyle = { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 };
-    const markerEnd = { type: 'arrowclosed' as const, width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' };
+    const edgeStyle = { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 };
+    const markerEnd = { type: 'arrowclosed' as const, width: 12, height: 12, color: 'var(--vm-flow-edge)' };
 
     // DataSourceNode — second node in the chain
     const dataSourceNodeId = 'datasource_init';
@@ -285,8 +285,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         target: connection.target,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       };
       addEdgeToStore(newEdge);
     },
@@ -362,18 +362,18 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <TableJoinBuildPanel />
         <MiniMap
           nodeStrokeColor={(n) => {
-            if (n.type === 'dataSource') return '#52c41a';
-            if (n.type === 'operator') return '#fa8c16';
+            if (n.type === 'dataSource') return 'var(--vm-flow-success)';
+            if (n.type === 'operator') return 'var(--vm-flow-warning)';
             if (n.type === 'end') return '#ff4d4f';
             return '#434343';
           }}
           nodeColor={(n) => {
-            if (n.type === 'dataSource') return '#52c41a';
-            if (n.type === 'operator') return '#fa8c16';
+            if (n.type === 'dataSource') return 'var(--vm-flow-success)';
+            if (n.type === 'operator') return 'var(--vm-flow-warning)';
             if (n.type === 'end') return '#ff4d4f';
             return TOKEN.flowNodeBg;
           }}
-          maskColor="rgba(0, 0, 0, 0.5)"
+          maskColor="var(--vm-flow-shadow-lg)"
           style={{
             backgroundColor: TOKEN.flowCanvasBg,
             border: '1px solid #434343',

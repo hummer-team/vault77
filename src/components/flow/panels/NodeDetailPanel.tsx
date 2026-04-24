@@ -101,26 +101,26 @@ export const NodeDetailPanel: React.FC = () => {
       onClose={handleClose}
       mask={true}
       maskStyle={{
-        background: 'rgba(0, 0, 0, 0.3)',
+        background: 'var(--vm-flow-shadow)',
         backdropFilter: 'blur(2px)',
       }}
       style={{
         background: 'transparent',
       }}
       headerStyle={{
-        background: 'rgba(28, 25, 23, 0.98)',
-        borderBottom: '1px solid rgba(68, 64, 60, 0.6)',
+        background: 'var(--vm-flow-node-bg)',
+        borderBottom: '1px solid var(--vm-border-mid)',
         color: 'var(--vm-text-primary)',
         padding: '16px 20px',
       }}
       bodyStyle={{
         padding: '20px',
-        background: 'rgba(28, 25, 23, 0.98)',
+        background: 'var(--vm-flow-node-bg)',
       }}
       drawerStyle={{
-        background: 'rgba(28, 25, 23, 0.98)',
-        borderLeft: '1px solid rgba(68, 64, 60, 0.6)',
-        boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.4), -1px 0 0 rgba(255, 107, 0, 0.1)',
+        background: 'var(--vm-flow-node-bg)',
+        borderLeft: '1px solid var(--vm-border-mid)',
+        boxShadow: 'var(--vm-flow-shadow-panel)',
       }}
       closeIcon={
         <span style={{ color: 'var(--vm-text-secondary)', fontSize: '16px' }}>✕</span>

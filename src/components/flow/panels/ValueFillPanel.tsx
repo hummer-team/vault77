@@ -272,7 +272,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
           padding: '16px',
         },
         mask: {
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'var(--vm-bg-dark)',
         },
       }}
       closeIcon={<CloseOutlined style={{ color: '#8c8c8c' }} />}
@@ -282,8 +282,8 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
           {previewCount !== null && (
             <div style={{
               padding: '6px 12px',
-              background: 'rgba(255, 107, 0, 0.08)',
-              border: '1px solid rgba(255, 107, 0, 0.3)',
+              background: 'var(--vm-primary-light)',
+              border: '1px solid var(--vm-primary-border)',
               borderRadius: 6,
               textAlign: 'center',
             }}>
@@ -295,8 +295,8 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
           {previewFailed && (
             <div style={{
               padding: '6px 12px',
-              background: 'rgba(255, 77, 79, 0.08)',
-              border: '1px solid rgba(255, 77, 79, 0.3)',
+              background: 'var(--vm-flow-error-light)',
+              border: '1px solid var(--vm-flow-error-light)',
               borderRadius: 6,
               textAlign: 'center',
               color: '#ff4d4f',
@@ -366,7 +366,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
               >
                 {/* Group header */}
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, gap: 8 }}>
-                  <FilterOutlined style={{ color: '#722ed1', fontSize: 13 }} />
+                  <FilterOutlined style={{ color: 'var(--vm-flow-purple)', fontSize: 13 }} />
                   <Tag color="purple" style={{ fontWeight: 600, margin: 0 }}>{refId}</Tag>
                   <Text style={{ color: '#595959', fontSize: 11 }}>
                     {items[0]?.tableName}
@@ -386,7 +386,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                             style={{
                               fontSize: 11,
                               padding: '0 6px',
-                              background: 'rgba(114,46,209,0.15)',
+                              background: 'var(--vm-flow-purple-bg)',
                               border: '1px solid #531dab',
                               color: '#b37feb',
                             }}

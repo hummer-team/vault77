@@ -371,7 +371,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           marginBottom: 5,
           padding: '8px 10px',
           background: isInvalid
-            ? 'rgba(255, 107, 0, 0.06)'
+            ? 'var(--vm-primary-light)'
             : isHovered
             ? TOKEN.bgRowHover
             : TOKEN.bgRow,
@@ -384,7 +384,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               : TOKEN.borderSubtle
           }`,
           transition: 'background 0.18s ease, border-color 0.18s ease',
-          boxShadow: isInvalid ? `0 0 0 1px rgba(255,107,0,0.25)` : undefined,
+          boxShadow: isInvalid ? `0 0 0 1px var(--vm-primary-light)` : undefined,
         }}
       >
         {/* Row number badge */}
@@ -643,8 +643,8 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               width: 30,
               height: 30,
               borderRadius: 7,
-              background: 'rgba(255, 107, 0, 0.12)',
-              border: '1px solid rgba(255, 107, 0, 0.3)',
+              background: 'var(--vm-primary-light)',
+              border: '1px solid var(--vm-primary-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -676,9 +676,9 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
       styles={{
         header: {
           background: TOKEN.bgHeader,
-          borderBottom: `1px solid rgba(68, 64, 60, 0.5)`,
+          borderBottom: `1px solid var(--vm-border-subtle)`,
           padding: '13px 20px',
-          boxShadow: `inset 0 -1px 0 rgba(255, 107, 0, 0.06)`,
+          boxShadow: `inset 0 -1px 0 var(--vm-primary-light)`,
         },
         body: {
           background: TOKEN.bgBase,
@@ -686,14 +686,14 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           overflowX: 'hidden',
         },
         mask: {
-          background: 'rgba(0, 0, 0, 0.6)',
+          background: 'var(--vm-bg-header)',
           backdropFilter: 'blur(3px)',
         },
       }}
       drawerStyle={{
         background: TOKEN.bgBase,
-        borderLeft: `1px solid rgba(68, 64, 60, 0.55)`,
-        boxShadow: `-6px 0 32px rgba(0, 0, 0, 0.6), -1px 0 0 rgba(255, 107, 0, 0.07)`,
+        borderLeft: `1px solid var(--vm-border-mid)`,
+        boxShadow: `var(--vm-flow-shadow-drawer)`,
       }}
     >
 
@@ -738,7 +738,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               background: 'var(--vm-surface-lighter)',
               borderRadius: TOKEN.radius,
               border: `1px solid ${TOKEN.borderSubtle}`,
-              borderLeft: `3px solid rgba(255, 107, 0, 0.4)`,
+              borderLeft: `3px solid var(--vm-primary-border)`,
             }}
           >
             <div />
@@ -764,9 +764,9 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             style={{
               marginTop: 8,
               width: '100%',
-              borderColor: 'rgba(255, 107, 0, 0.2)',
+              borderColor: 'var(--vm-primary-light)',
               color: TOKEN.textSecondary,
-              background: 'rgba(255, 107, 0, 0.03)',
+              background: 'var(--vm-primary-light)',
               height: 32,
               fontSize: 12,
               borderRadius: TOKEN.radius,
@@ -774,17 +774,17 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.borderColor =
-                'rgba(255, 107, 0, 0.5)';
+                'var(--vm-primary-glow)';
               (e.currentTarget as HTMLButtonElement).style.color = TOKEN.primary;
               (e.currentTarget as HTMLButtonElement).style.background =
-                'rgba(255, 107, 0, 0.07)';
+                'var(--vm-primary-light)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.borderColor =
-                'rgba(255, 107, 0, 0.2)';
+                'var(--vm-primary-light)';
               (e.currentTarget as HTMLButtonElement).style.color = TOKEN.textSecondary;
               (e.currentTarget as HTMLButtonElement).style.background =
-                'rgba(255, 107, 0, 0.03)';
+                'var(--vm-primary-light)';
             }}
           >
             添加规则行

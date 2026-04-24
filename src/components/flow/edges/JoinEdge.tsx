@@ -22,10 +22,10 @@ import { TOKEN } from '../../../theme';
 
 // Join type stroke colours
 const JOIN_TYPE_COLORS: Record<JoinType, string> = {
-  INNER: '#52c41a',
-  LEFT: '#1890ff',
-  RIGHT: '#fa8c16',
-  CROSS: '#722ed1',
+  INNER: 'var(--vm-flow-success)',
+  LEFT: 'var(--vm-flow-info)',
+  RIGHT: 'var(--vm-flow-warning)',
+  CROSS: 'var(--vm-flow-purple)',
 };
 
 export const JoinEdge: React.FC<EdgeProps> = ({
@@ -83,7 +83,7 @@ export const JoinEdge: React.FC<EdgeProps> = ({
       <BaseEdge
         path={edgePath}
         style={{
-          stroke: selected ? '#fa8c16' : isConfigured ? color : '#595959',
+          stroke: selected ? 'var(--vm-flow-warning)' : isConfigured ? color : '#595959',
           strokeWidth: selected ? 2.5 : 1.5,
           strokeDasharray: isConfigured ? undefined : '5,4',
         }}

@@ -178,6 +178,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
     };
 
     const option: EChartsOption = {
+      backgroundColor: ec.chartBg,
       title: {
         text: data.columnName,
         textStyle: {
@@ -257,7 +258,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
           type: 'bar',
           data: data.values.map(v => v.count),
           itemStyle: {
-            color: '#5470c6',
+            color: ec.primary,
           },
           emphasis: {
             itemStyle: {

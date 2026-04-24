@@ -25,15 +25,15 @@ const { Option } = Select;
 // ── Design tokens aligned with system theme ──────────────────────────────────
 const T = {
   accent: '#10B981',          // Emerald — select node brand color
-  accentDim: 'rgba(16, 185, 129, 0.12)',
-  accentBorder: 'rgba(16, 185, 129, 0.35)',
+  accentDim: 'var(--vm-flow-success-light)',
+  accentBorder: 'var(--vm-flow-success-light)',
   surface: 'var(--vm-surface-lighter)',
   surfaceHover: 'var(--vm-surface-light)',
   border: 'var(--vm-surface-inset)',
   textPrimary: '#e5e7eb',
   textMuted: '#6b7280',
   danger: '#ef4444',
-  dangerDim: 'rgba(239, 68, 68, 0.10)',
+  dangerDim: 'var(--vm-flow-error-light)',
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -439,8 +439,8 @@ const SelectAggNodeForm: React.FC<{
                 closable
                 onClose={() => removeGroupByField(fieldKey)}
                 style={{
-                  background: 'rgba(167, 139, 250, 0.12)',
-                  borderColor: 'rgba(167, 139, 250, 0.4)',
+                  background: 'var(--vm-flow-purple-bg)',
+                  borderColor: 'var(--vm-flow-purple-border)',
                   color: '#a78bfa',
                   cursor: 'default',
                 }}

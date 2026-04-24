@@ -273,7 +273,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
           : hasErrors
           ? `0 0 0 2px ${FLOW_COLORS.edge.error}`
-          : `0 2px 8px rgba(0, 0, 0, 0.3)`,
+          : `var(--vm-flow-shadow)`,
         position: 'relative',
       }}
       className="end-node"
@@ -349,7 +349,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       <div
         style={{
           padding: '8px 12px',
-          background: hasErrors ? 'rgba(255, 77, 79, 0.1)' : 'rgba(82, 196, 26, 0.1)',
+          background: hasErrors ? 'var(--vm-flow-error-light)' : 'var(--vm-flow-success-light)',
           borderRadius: '4px',
           marginBottom: 12,
         }}
@@ -389,7 +389,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
               </Popover>
             )
             : (
-              <span style={{ color: '#52c41a', fontSize: 12 }}>流程配置正确，可以执行</span>
+              <span style={{ color: 'var(--vm-flow-success)', fontSize: 12 }}>流程配置正确，可以执行</span>
             )}
         </div>
       </div>

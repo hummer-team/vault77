@@ -41,11 +41,11 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        background: 'rgba(28, 25, 23, 0.95)',
-        border: '1px solid rgba(68, 64, 60, 0.6)',
+        background: 'var(--vm-flow-node-bg)',
+        border: '1px solid var(--vm-border-mid)',
         borderRadius: '10px',
         padding: '8px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 107, 0, 0.1)',
+        boxShadow: 'var(--vm-flow-shadow-control)',
         zIndex: 10,
         backdropFilter: 'blur(12px)',
       }}
@@ -70,7 +70,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
+            e.currentTarget.style.background = 'var(--vm-primary-light)';
             e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
@@ -99,7 +99,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             padding: '0 4px',
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = 'rgba(255, 107, 0, 0.15)';
+            (e.currentTarget as HTMLDivElement).style.background = 'var(--vm-primary-light)';
             (e.currentTarget as HTMLDivElement).style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
@@ -130,7 +130,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
+            e.currentTarget.style.background = 'var(--vm-primary-light)';
             e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
@@ -140,7 +140,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
         />
       </Tooltip>
 
-      <div style={{ height: '1px', background: 'rgba(68, 64, 60, 0.5)', margin: '2px 4px' }} />
+      <div style={{ height: '1px', background: 'var(--vm-border-subtle)', margin: '2px 4px' }} />
 
       <Tooltip title="适应屏幕" placement="right">
         <Button
@@ -161,7 +161,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
+            e.currentTarget.style.background = 'var(--vm-primary-light)';
             e.currentTarget.style.color = 'var(--vm-primary)';
           }}
           onMouseLeave={(e) => {
@@ -171,7 +171,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
         />
       </Tooltip>
 
-      <div style={{ height: '1px', background: 'rgba(68, 64, 60, 0.5)', margin: '2px 4px' }} />
+      <div style={{ height: '1px', background: 'var(--vm-border-subtle)', margin: '2px 4px' }} />
 
       <Tooltip title={isLocked ? '解锁画布' : '锁定画布'} placement="right">
         <Button
@@ -199,7 +199,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({ className }) => 
           }}
           onMouseEnter={(e) => {
             if (!isLocked) {
-              e.currentTarget.style.background = 'rgba(255, 107, 0, 0.15)';
+              e.currentTarget.style.background = 'var(--vm-primary-light)';
               e.currentTarget.style.color = 'var(--vm-primary)';
             }
           }}

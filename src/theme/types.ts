@@ -24,6 +24,15 @@ export interface ThemeCssVarMap {
   '--vm-text-muted': string;
   '--vm-text-error': string;
   '--vm-text-danger': string;
+  '--vm-success-color': string;
+  '--vm-success-color-light': string;
+  '--vm-success-color-lighter': string;
+  '--vm-warning-color': string;
+  '--vm-warning-color-light': string;
+  '--vm-warning-color-lighter': string;
+  '--vm-error-color': string;
+  '--vm-error-color-light': string;
+  '--vm-error-color-lighter': string;
   '--vm-layout-bg': string;
   '--vm-grid-dot-color': string;
   '--vm-sider-bg': string;
@@ -35,6 +44,34 @@ export interface ThemeCssVarMap {
   '--vm-table-cell-border': string;
   '--vm-table-row-hover-bg': string;
   '--vm-table-row-even-bg': string;
+  
+  // Flow semantic colors
+  '--vm-flow-info': string;
+  '--vm-flow-info-light': string;
+  '--vm-flow-success': string;
+  '--vm-flow-success-light': string;
+  '--vm-flow-warning': string;
+  '--vm-flow-warning-light': string;
+  '--vm-flow-error': string;
+  '--vm-flow-error-light': string;
+  '--vm-flow-processing': string;
+  '--vm-flow-processing-light': string;
+  '--vm-flow-processing-bg': string;
+  '--vm-flow-processing-border': string;
+  '--vm-flow-purple': string;
+  '--vm-flow-purple-light': string;
+  '--vm-flow-purple-bg': string;
+  '--vm-flow-purple-border': string;
+  '--vm-flow-pink': string;
+  '--vm-flow-pink-light': string;
+  '--vm-flow-edge': string;
+  '--vm-flow-edge-selected': string;
+  '--vm-flow-shadow': string;
+  '--vm-flow-shadow-lg': string;
+  '--vm-flow-shadow-panel': string;
+  '--vm-flow-shadow-node-unselected': string;
+  '--vm-flow-shadow-control': string;
+  '--vm-flow-shadow-drawer': string;
 }
 
 export interface AntdTokenConfig {

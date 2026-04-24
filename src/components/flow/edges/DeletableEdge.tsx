@@ -53,7 +53,7 @@ export const DeletableEdge: React.FC<EdgeProps> = ({
       <BaseEdge
         path={edgePath}
         style={{
-          stroke: selected ? '#fa8c16' : 'rgba(110, 110, 110, 0.65)',
+          stroke: selected ? 'var(--vm-flow-warning)' : 'var(--vm-flow-edge)',
           strokeWidth: selected ? 2 : 1.5,
           strokeDasharray: '5,4',
         }}

@@ -22,19 +22,19 @@ const OVERLAY_CARD_STYLE: React.CSSProperties = {
   bottom: 'calc(100% + 10px)',
   left: '50%',
   transform: 'translateX(-50%)',
-  background: 'rgba(22, 20, 18, 0.97)',
-  border: '1px solid rgba(255, 107, 0, 0.55)',
+  background: 'var(--vm-flow-node-bg)',
+  border: '1px solid var(--vm-primary-border)',
   borderRadius: 8,
   minWidth: 112,
   overflow: 'hidden',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+  boxShadow: 'var(--vm-flow-shadow-lg)',
   backdropFilter: 'blur(8px)',
   zIndex: 1000,
 };
 
 const OVERLAY_DIVIDER_STYLE: React.CSSProperties = {
   height: 1,
-  background: 'rgba(255, 107, 0, 0.2)',
+  background: 'var(--vm-primary-border)',
 };
 
 const OVERLAY_BTN_BASE: React.CSSProperties = {
@@ -69,7 +69,7 @@ const MergeActionButton: React.FC<MergeActionButtonProps> = ({ icon, label, onCl
     <button
       style={{
         ...OVERLAY_BTN_BASE,
-        background: hovered ? 'rgba(255, 107, 0, 0.18)' : 'transparent',
+        background: hovered ? 'var(--vm-primary-light)' : 'transparent',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -116,7 +116,7 @@ const MergeOverlay: React.FC<MergeOverlayProps> = ({
       <>
         <div style={OVERLAY_DIVIDER_STYLE} />
         <MergeActionButton
-          icon={<PlayCircleOutlined style={{ fontSize: 11, color: '#52c41a' }} />}
+          icon={<PlayCircleOutlined style={{ fontSize: 11, color: 'var(--vm-flow-success)' }} />}
           label="直接执行"
           onClick={onDirectExecute}
         />
@@ -210,8 +210,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         target: conditionDefNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
 
@@ -245,8 +245,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           target: nextMergeNodeId,
           type: 'default',
           animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+          style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
         };
         addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
       } else {
@@ -258,8 +258,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           target: existingNextMerge.id,
           type: 'default',
           animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+          style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
         };
         addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
       }
@@ -304,8 +304,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         target: relationNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
 
@@ -345,8 +345,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         target: endMergeNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       };
       addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
     },
@@ -367,8 +367,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           target: existingEnd.id,
           type: 'default',
           animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+          style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
         };
         addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
         return;
@@ -397,8 +397,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         target: endNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       };
       addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
     },
@@ -477,8 +477,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               target: selectNodeId,
               type: 'default',
               animated: false,
-              style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+              style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
             };
             console.log('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
@@ -509,8 +509,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               target: operatorNodeId,
               type: 'default',
               animated: false,
-              style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+              style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+              markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
             };
             console.log('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
@@ -534,9 +534,9 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     <div
       style={{
         background: selected
-          ? 'rgba(255, 107, 0, 0.25)'
-          : 'rgba(28, 25, 23, 0.98)',
-        border: `2px solid ${selected ? 'var(--vm-primary)' : 'rgba(255, 107, 0, 0.6)'}`,
+          ? 'var(--vm-primary-light)'
+          : 'var(--vm-flow-node-bg)',
+        border: `2px solid ${selected ? 'var(--vm-primary)' : 'var(--vm-primary-border)'}`,
         borderRadius: '50%',
         width: '48px',
         height: '48px',
@@ -545,8 +545,8 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: selected
-          ? '0 0 20px rgba(255, 107, 0, 0.5)'
-          : '0 4px 15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 107, 0, 0.2)',
+          ? '0 0 20px var(--vm-primary-glow)'
+          : 'var(--vm-flow-shadow-node-unselected)',
         cursor: 'grab',
         transition: 'all 0.2s ease',
         position: 'relative',

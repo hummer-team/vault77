@@ -26,8 +26,8 @@ interface ConditionNodeProps {
 
 // Logic type colors
 const LOGIC_TYPE_COLORS: Record<LogicType, string> = {
-  AND: '#52c41a',
-  OR: '#fa8c16',
+  AND: 'var(--vm-flow-success)',
+  OR: 'var(--vm-flow-warning)',
 };
 
 // Logic type labels
@@ -139,8 +139,8 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         target: endNodeId,
         type: 'default',
         animated: false,
-        style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+        style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
       } as unknown as Parameters<typeof addEdge>[0]);
     }
   }, [isComplete, hasConnectedEndNode, id, nodes, addNode, addEdge]);
@@ -155,7 +155,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         overflow: 'visible',
         position: 'relative',
       }}
@@ -206,7 +206,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
           display: 'flex',
           alignItems: 'center',
           padding: '10px 12px',
-          background: selected ? 'rgba(24, 144, 255, 0.1)' : 'transparent',
+          background: selected ? 'var(--vm-flow-info-light)' : 'transparent',
           borderBottom: '1px solid #303030',
         }}
       >
@@ -317,7 +317,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
           <div
             style={{
               padding: '6px 10px',
-              background: 'rgba(255, 77, 79, 0.1)',
+              background: 'var(--vm-flow-error-light)',
               borderRadius: '4px',
               fontSize: 11,
               color: '#ff4d4f',

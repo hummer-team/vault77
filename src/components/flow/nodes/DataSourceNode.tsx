@@ -131,8 +131,8 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
           target: tableNodeId,
           type: 'default',
           animated: false,
-          style: { stroke: 'rgba(110, 110, 110, 0.65)', strokeWidth: 1.5 },
-          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(110, 110, 110, 0.65)' },
+          style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
+          markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
         } as unknown as Parameters<typeof addEdge>[0]);
       }
     },
@@ -150,7 +150,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
         minHeight: '120px',
         boxShadow: selected
           ? `0 0 0 2px ${FLOW_COLORS.edge.selected}`
-          : '0 2px 8px rgba(0, 0, 0, 0.3)',
+          : 'var(--vm-flow-shadow)',
         position: 'relative',
       }}
       className="datasource-node"
@@ -161,8 +161,8 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
         minHeight={120}
         maxWidth={400}
         maxHeight={400}
-        lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#52c41a', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
+        lineStyle={{ borderColor: 'var(--vm-flow-success)', borderWidth: 2 }}
+        handleStyle={{ backgroundColor: 'var(--vm-flow-success)', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle — receives edge from OperatorNode */}
       <Handle
@@ -199,7 +199,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
           fontWeight: 500,
         }}
       >
-        <DatabaseOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+        <DatabaseOutlined style={{ marginRight: 8, color: 'var(--vm-flow-success)' }} />
         <span>选择数据源</span>
         <Tag color="success" style={{ marginLeft: 'auto', fontSize: 10 }}>
           数据源

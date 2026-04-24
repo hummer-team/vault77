@@ -67,7 +67,7 @@ const Section: React.FC<{
       background: TOKEN.bgSection,
       borderRadius: TOKEN.radiusLg,
       border: `1px solid ${TOKEN.borderSubtle}`,
-      borderLeft: `3px solid rgba(255, 107, 0, 0.35)`,
+      borderLeft: `3px solid var(--vm-primary-border)`,
     }}
   >
     <div
@@ -238,8 +238,8 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
                 width: 30,
                 height: 30,
                 borderRadius: 7,
-                background: 'rgba(255, 107, 0, 0.12)',
-                border: '1px solid rgba(255, 107, 0, 0.3)',
+                background: 'var(--vm-primary-light)',
+                border: '1px solid var(--vm-primary-light)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -265,9 +265,9 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
         styles={{
           header: {
             background: TOKEN.bgHeader,
-            borderBottom: '1px solid rgba(68, 64, 60, 0.5)',
+            borderBottom: '1px solid var(--vm-border-subtle)',
             padding: '13px 20px',
-            boxShadow: 'inset 0 -1px 0 rgba(255, 107, 0, 0.06)',
+            boxShadow: 'inset 0 -1px 0 var(--vm-primary-light)',
           },
           body: {
             background: TOKEN.bgBase,
@@ -275,14 +275,14 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
             overflowY: 'auto',
           },
           mask: {
-            background: 'rgba(0, 0, 0, 0.6)',
+            background: 'var(--vm-bg-header)',
             backdropFilter: 'blur(3px)',
           },
         }}
         drawerStyle={{
           background: TOKEN.bgBase,
-          borderLeft: '1px solid rgba(68, 64, 60, 0.55)',
-          boxShadow: '-6px 0 32px rgba(0, 0, 0, 0.6), -1px 0 0 rgba(255, 107, 0, 0.07)',
+          borderLeft: '1px solid var(--vm-border-mid)',
+          boxShadow: 'var(--vm-flow-shadow-drawer)',
         }}
       >
         {/* ── 1. 字段映射 ──────────────────────────────────────────────── */}

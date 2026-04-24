@@ -165,7 +165,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         },
         emphasis: {
           itemStyle: {
-            borderColor: 'var(--vm-text-primary)',
+            borderColor: ec.textPrimary,
             borderWidth: 2,
             opacity: 1,
           },
@@ -181,8 +181,8 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       tooltip: {
         trigger: 'item',
         backgroundColor: ec.tooltipBg,
-        borderColor: '#777',
-        textStyle: { color: 'var(--vm-text-primary)' },
+        borderColor: ec.borderMid,
+        textStyle: { color: ec.textPrimary },
         z: 99999,  // Ensure tooltip is on top of all other elements
         appendToBody: true,  // Append to body to avoid z-index stacking issues
         formatter: (params: any) => {

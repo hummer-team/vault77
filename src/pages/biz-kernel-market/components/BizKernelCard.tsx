@@ -35,7 +35,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
 }) => {
   // Author icon: star for official, user for developer
   const AuthorIcon = kernel.author === 'official' ? StarOutlined : UserOutlined;
-  const authorColor = kernel.author === 'official' ? '#faad14' : '#52c41a';
+  const authorColor = kernel.author === 'official' ? 'var(--vm-warning-color)' : 'var(--vm-success-color)';
 
   return (
     <Card
@@ -65,7 +65,7 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
         <Tag style={{ background: 'var(--vm-primary-light)', borderColor: 'var(--vm-primary)', color: 'var(--vm-primary)' }}>
           {kernel.industry}
         </Tag>
-        <Tag color="blue" style={{ background: 'rgba(24,144,255,0.15)' }}>
+        <Tag color="blue" style={{ background: 'var(--vm-primary-light)' }}>
           {kernel.category}
         </Tag>
       </Space>
@@ -104,19 +104,19 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
       >
         <Tooltip title="热度">
           <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
-            <LikeOutlined style={{ color: '#ff4d4f' }} />
+            <LikeOutlined style={{ color: 'var(--vm-error-color)' }} />
             <Text style={{ color: 'inherit' }}>{kernel.likes}</Text>
           </Space>
         </Tooltip>
         <Tooltip title="积分消耗">
           <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
-            <ThunderboltOutlined style={{ color: '#faad14' }} />
+            <ThunderboltOutlined style={{ color: 'var(--vm-warning-color)' }} />
             <Text style={{ color: 'inherit' }}>{kernel.credits}</Text>
           </Space>
         </Tooltip>
         <Tooltip title="数据量">
           <Space size={4} style={{ color: 'var(--vm-text-secondary)' }}>
-            <DatabaseOutlined style={{ color: '#52c41a' }} />
+            <DatabaseOutlined style={{ color: 'var(--vm-success-color)' }} />
             <Text style={{ color: 'inherit' }}>{kernel.dataVolume}</Text>
           </Space>
         </Tooltip>
@@ -132,8 +132,8 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
               disabled
               style={{
                 flex: 1,
-                background: 'rgba(82,196,26,0.3)',
-                borderColor: '#52c41a',
+                background: 'var(--vm-success-color-light)',
+                borderColor: 'var(--vm-success-color)',
               }}
             >
               已应用
