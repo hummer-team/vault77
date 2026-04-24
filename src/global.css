@@ -448,3 +448,24 @@ body {
 .start-node-select-dropdown .ant-select-item-option-selected {
   background: var(--vm-primary-border) !important;
 }
+
+/* ============================================
+   Modal Styles - Ensure borderRadius consistency
+   ============================================ */
+.ant-modal-content {
+  border-radius: 12px !important;
+}
+
+.ant-modal-header {
+  border-radius: 12px 12px 0 0 !important;
+  border-bottom: 1px solid var(--vm-border-subtle) !important;
+}
+
+.ant-modal-body {
+  border-radius: 0 !important;
+}
+
+.ant-modal-footer {
+  border-radius: 0 0 12px 12px !important;
+  border-top: 1px solid var(--vm-border-subtle) !important;
+}
