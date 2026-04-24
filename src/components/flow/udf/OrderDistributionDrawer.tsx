@@ -123,7 +123,7 @@ const addBtnStyle: React.CSSProperties = {
   height: 28,
   borderColor: TOKEN.borderMid,
   color: TOKEN.textSecondary,
-  background: 'rgba(255,255,255,0.02)',
+  background: 'var(--vm-surface-lighter)',
   fontSize: 12,
   borderRadius: TOKEN.radius,
 };
@@ -474,7 +474,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
               gridTemplateColumns: '80px 80px 1fr 28px',
               gap: 6,
               padding: '3px 6px',
-              background: 'rgba(255,255,255,0.025)',
+              background: 'var(--vm-surface-lighter)',
               borderRadius: TOKEN.radius,
             }}
           >
@@ -516,7 +516,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
                 style={{
                   width: '100%',
                   fontSize: 12,
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--vm-surface-light)',
                   border: `1px solid ${TOKEN.borderMid}`,
                   borderRadius: TOKEN.radius,
                 }}
@@ -529,7 +529,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
                 style={{
                   width: '100%',
                   fontSize: 12,
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--vm-surface-light)',
                   border: `1px solid ${TOKEN.borderMid}`,
                   borderRadius: TOKEN.radius,
                 }}
@@ -541,7 +541,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
                 size="small"
                 style={{
                   fontSize: 12,
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--vm-surface-light)',
                   border: `1px solid ${TOKEN.borderMid}`,
                   borderRadius: TOKEN.radius,
                   color: TOKEN.textPrimary,
@@ -815,7 +815,7 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>数据分析</span>
-              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
+              <span style={{ color: 'var(--vm-text-muted)', fontSize: 14 }}>/</span>
               <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>订单分布分析</span>
             </div>
           </div>
@@ -825,7 +825,7 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
         open={open}
         onClose={onCancel}
         closable
-        closeIcon={<CloseOutlined style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }} />}
+        closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-muted)', fontSize: 13 }} />}
         style={{ background: 'transparent' }}
         styles={{
           header: {
@@ -922,9 +922,9 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
               onClick={onCancel}
               style={{
                 minWidth: 72,
-                borderColor: 'rgba(255,255,255,0.12)',
+                borderColor: 'var(--vm-border-mid)',
                 color: TOKEN.textSecondary,
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--vm-surface-light)',
                 transition: 'border-color 0.18s ease, color 0.18s ease',
               }}
               onMouseEnter={(e) => {
@@ -932,7 +932,7 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
                 e.currentTarget.style.color = TOKEN.primary;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                e.currentTarget.style.borderColor = 'var(--vm-border-mid)';
                 e.currentTarget.style.color = TOKEN.textSecondary;
               }}
             >

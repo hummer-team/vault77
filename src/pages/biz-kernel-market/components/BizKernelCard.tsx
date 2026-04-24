@@ -142,8 +142,8 @@ const BizKernelCard: React.FC<BizKernelCardProps> = ({
               onClick={onCancel}
               style={{
                 flex: 1,
-                background: 'rgba(255,255,255,0.08)',
-                borderColor: 'rgba(255,255,255,0.15)',
+                background: 'var(--vm-surface-inset)',
+                borderColor: 'var(--vm-text-muted)',
               }}
             >
               取消

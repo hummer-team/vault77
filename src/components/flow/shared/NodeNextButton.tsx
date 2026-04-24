@@ -40,7 +40,7 @@ const OVERLAY_STYLE: React.CSSProperties = {
 
 const DIVIDER_STYLE: React.CSSProperties = {
   height: 1,
-  background: 'rgba(255,255,255,0.08)',
+  background: 'var(--vm-surface-inset)',
   margin: '2px 0',
 };
 
@@ -52,7 +52,7 @@ const MENU_BUTTON_BASE: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
   borderRadius: 4,
-  color: 'rgba(255,255,255,0.85)',
+  color: 'var(--vm-text-primary)',
   fontSize: 12,
   cursor: 'pointer',
   width: '100%',
@@ -208,7 +208,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
           height: 18,
           borderRadius: '50%',
           background: buttonHovered ? 'var(--vm-primary-hover)' : 'var(--vm-primary)',
-          border: '2px solid rgba(255,255,255,0.25)',
+          border: '2px solid var(--vm-text-muted)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -316,7 +316,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
                   onBindRelation(e);
                 }}
               >
-                <LinkOutlined style={{ fontSize: 10, color: bindActionDisabled ? 'rgba(255,255,255,0.3)' : '#7c3aed' }} />
+                <LinkOutlined style={{ fontSize: 10, color: bindActionDisabled ? 'var(--vm-text-muted)' : '#7c3aed' }} />
                 <span>绑定关系</span>
               </button>
             </>

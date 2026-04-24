@@ -392,7 +392,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>数据分析</span>
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
+            <span style={{ color: 'var(--vm-text-muted)', fontSize: 14 }}>/</span>
             <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>基础统计分析</span>
           </div>
         </div>
@@ -402,7 +402,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       open={open}
       onClose={onCancel}
       closable
-      closeIcon={<CloseOutlined style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }} />}
+      closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-muted)', fontSize: 13 }} />}
       style={{ background: 'transparent' }}
       styles={{
         header: {
@@ -460,7 +460,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                 gridTemplateColumns: '1fr 110px auto 1fr',
                 gap: 6,
                 padding: '4px 6px',
-                background: 'rgba(255,255,255,0.025)',
+                background: 'var(--vm-surface-lighter)',
                 borderRadius: TOKEN.radius,
               }}
             >
@@ -545,7 +545,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                   style={{
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    background: 'rgba(255,255,255,0.04)',
+                    background: 'var(--vm-surface-light)',
                     border: `1px solid ${field.alias.trim() ? TOKEN.borderMid : TOKEN.textError}`,
                     color: TOKEN.textPrimary,
                     borderRadius: TOKEN.radius,
@@ -687,7 +687,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     width: '100%',
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    background: 'rgba(255,255,255,0.04)',
+                    background: 'var(--vm-surface-light)',
                     border: `1px solid ${TOKEN.borderMid}`,
                     borderRadius: TOKEN.radius,
                   }}
@@ -865,9 +865,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
             onClick={onCancel}
             style={{
               minWidth: 72,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: 'var(--vm-border-mid)',
               color: TOKEN.textSecondary,
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--vm-surface-light)',
               transition: 'border-color 0.18s ease, color 0.18s ease',
             }}
             onMouseEnter={(e) => {
@@ -875,7 +875,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
               e.currentTarget.style.color = TOKEN.primary;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.borderColor = 'var(--vm-border-mid)';
               e.currentTarget.style.color = TOKEN.textSecondary;
             }}
           >

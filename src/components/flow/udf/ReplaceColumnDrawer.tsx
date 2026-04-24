@@ -394,7 +394,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             height: 20,
             borderRadius: '50%',
             background: 'var(--vm-surface-lighter)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid var(--vm-border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -657,7 +657,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           {/* Breadcrumb: plain text, no borders */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>数据清洗</span>
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>/</span>
+            <span style={{ color: 'var(--vm-text-muted)', fontSize: 14 }}>/</span>
             <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--vm-text-primary)' }}>替换特定列值</span>
           </div>
         </div>
@@ -669,7 +669,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
       closable
       closeIcon={
         <CloseOutlined
-          style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}
+          style={{ color: 'var(--vm-text-muted)', fontSize: 13 }}
         />
       }
       style={{ background: 'transparent' }}
@@ -735,7 +735,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               gap: '5px',
               marginBottom: 8,
               padding: '7px 10px',
-              background: 'rgba(255,255,255,0.025)',
+              background: 'var(--vm-surface-lighter)',
               borderRadius: TOKEN.radius,
               border: `1px solid ${TOKEN.borderSubtle}`,
               borderLeft: `3px solid rgba(255, 107, 0, 0.4)`,
@@ -910,9 +910,9 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
             onClick={onClose}
             style={{
               minWidth: 72,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: 'var(--vm-border-mid)',
               color: TOKEN.textSecondary,
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--vm-surface-light)',
               transition: 'border-color 0.18s ease, color 0.18s ease',
             }}
             onMouseEnter={(e) => {
@@ -920,7 +920,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               e.currentTarget.style.color = TOKEN.primary;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.borderColor = 'var(--vm-border-mid)';
               e.currentTarget.style.color = TOKEN.textSecondary;
             }}
           >

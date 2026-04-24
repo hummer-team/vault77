@@ -1230,13 +1230,13 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             {uiState === 'initializing' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Spin size="small" />
-                <span style={{ color: 'rgba(255,255,255,0.85)' }}>Vaultmind 引擎初始化中...</span>
+                <span style={{ color: 'var(--vm-text-primary)' }}>Vaultmind 引擎初始化中...</span>
               </div>
             )}
             {uiState === 'parsing' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Spin size="small" />
-                <span style={{ color: 'rgba(255,255,255,0.85)' }}>{getLoadingTip()}</span>
+                <span style={{ color: 'var(--vm-text-primary)' }}>{getLoadingTip()}</span>
               </div>
             )}
           </div>
@@ -1377,7 +1377,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             <span style={{
               fontWeight: 700,
               fontSize: '16px',
-              background: 'linear-gradient(90deg, #FFFFFF 0%, rgba(255,255,255,0.85) 100%)',
+              background: 'linear-gradient(90deg, #FFFFFF 0%, var(--vm-text-primary) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               letterSpacing: '0.5px',

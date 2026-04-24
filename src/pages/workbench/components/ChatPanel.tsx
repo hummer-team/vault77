@@ -405,7 +405,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       content: (
                         <div>
                           <p>确定要删除 <strong>{group.fileName}</strong> 吗？</p>
-                          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '12px', marginTop: '8px' }}>
+                          <p style={{ color: 'var(--vm-text-secondary)', fontSize: '12px', marginTop: '8px' }}>
                             此操作将同步清理关联的分析流，删除后无法恢复。
                           </p>
                         </div>
@@ -473,7 +473,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             >
               <Space>
                 <Spin size="small" />
-                <Typography.Text style={{ color: 'rgba(255,255,255,0.85)' }}>Vaultmind 引擎初始化中...</Typography.Text>
+                <Typography.Text style={{ color: 'var(--vm-text-primary)' }}>Vaultmind 引擎初始化中...</Typography.Text>
               </Space>
             </div>
           )}
@@ -624,7 +624,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   type="text"
                   icon={<ClearOutlined />}
                   onClick={clearAllErrors}
-                  style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}
+                  style={{ color: 'var(--vm-text-secondary)', fontSize: 12 }}
                 >
                   清除全部
                 </Button>
@@ -643,7 +643,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     }}
                   >
                     <WarningFilled style={{ color: '#fa8c16', fontSize: 13, marginTop: 2, flexShrink: 0 }} />
-                    <Typography.Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, flex: 1, wordBreak: 'break-word' }}>
+                    <Typography.Text style={{ color: 'var(--vm-text-primary)', fontSize: 12, flex: 1, wordBreak: 'break-word' }}>
                       {msg}
                     </Typography.Text>
                     <Button
@@ -651,7 +651,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       size="small"
                       icon={<CloseOutlined />}
                       onClick={() => dismissError(idx)}
-                      style={{ color: 'rgba(255,255,255,0.35)', padding: 0, height: 'auto', flexShrink: 0 }}
+                      style={{ color: 'var(--vm-text-muted)', padding: 0, height: 'auto', flexShrink: 0 }}
                     />
                   </div>
                 ))}

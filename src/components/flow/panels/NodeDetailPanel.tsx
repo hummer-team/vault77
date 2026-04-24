@@ -332,7 +332,7 @@ const ConditionGroupNodeForm: React.FC<{
                   alignItems: 'center',
                   padding: '8px 12px',
                   marginBottom: 8,
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'var(--vm-surface-hover)',
                   borderRadius: 4,
                 }}
               >

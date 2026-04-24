@@ -66,7 +66,7 @@ const FeedbackDrawer: React.FC<FeedbackDrawerProps> = ({ open, onClose }) => {
         </Form.Item>
         <Form.Item label="附件 (可选)">
           <Form.Item name="dragger" valuePropName="fileList" getValueFromEvent={(e) => Array.isArray(e) ? e : e?.fileList} noStyle>
-            <Upload.Dragger name="files" action="/upload.do" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <Upload.Dragger name="files" action="/upload.do" style={{ background: 'var(--vm-surface-hover)' }}>
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
               </p>

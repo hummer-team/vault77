@@ -82,7 +82,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentKey, onMenuClick
              <Title 
                level={4} 
                style={{ 
-                 color: 'white', 
+                 color: 'var(--vm-text-primary)', 
                  margin: 0,
                  opacity: collapsed ? 0 : 1,
                  width: collapsed ? 0 : 'auto',

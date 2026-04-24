@@ -85,8 +85,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
               <Button
                 onClick={onCancel}
                 style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  borderColor: 'rgba(255,255,255,0.15)',
+                  background: 'var(--vm-surface-inset)',
+                  borderColor: 'var(--vm-text-muted)',
                 }}
               >
                 取消应用
@@ -107,8 +107,8 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Button
             onClick={onClose}
             style={{
-              background: 'rgba(255,255,255,0.08)',
-              borderColor: 'rgba(255,255,255,0.15)',
+              background: 'var(--vm-surface-inset)',
+              borderColor: 'var(--vm-text-muted)',
             }}
           >
             关闭
@@ -139,7 +139,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
           <Tag color="blue" style={{ background: 'rgba(24,144,255,0.15)' }}>
             {kernel.category}
           </Tag>
-          <Tag style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <Tag style={{ background: 'var(--vm-surface-inset)' }}>
             v{kernel.version}
           </Tag>
         </Space>
@@ -226,7 +226,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
         </Col>
       </Row>
 
-      <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+      <Divider style={{ borderColor: 'var(--vm-surface-inset)', margin: '8px 0' }} />
 
       {/* Description */}
       <Title level={5} style={{ color: 'var(--vm-text-primary)', marginBottom: 6 }}>解决痛点</Title>
@@ -246,7 +246,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
       {/* Metadata */}
       {kernel.metadata && (
         <>
-          <Divider style={{ borderColor: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+          <Divider style={{ borderColor: 'var(--vm-surface-inset)', margin: '12px 0' }} />
           <Title level={5} style={{ color: 'var(--vm-text-primary)', marginBottom: 8 }}>
             <CodeOutlined style={{ marginRight: 8 }} />
             配置需求
@@ -255,7 +255,7 @@ const BizKernelDetailModal: React.FC<BizKernelDetailModalProps> = ({
             size="small"
             style={{
               background: 'rgba(0,0,0,0.2)',
-              borderColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'var(--vm-surface-inset)',
             }}
             bodyStyle={{ padding: '12px' }}
           >
