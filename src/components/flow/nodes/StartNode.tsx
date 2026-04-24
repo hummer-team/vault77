@@ -156,7 +156,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         maxWidth={400}
         maxHeight={400}
         lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#52c41a', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#52c41a', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Output handle */}
       <Handle
@@ -177,7 +177,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           display: 'flex',
           alignItems: 'center',
           marginBottom: 12,
-          color: '#fff',
+          color: 'var(--vm-text-primary)',
           fontWeight: 500,
         }}
       >
@@ -197,7 +197,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
           onChange={handleTableSelect}
           style={{ width: '100%' }}
           options={tables}
-          dropdownStyle={{ background: '#1f1f1f', border: '1px solid #434343' }}
+          dropdownStyle={{ background: 'var(--vm-bg-dark)', border: '1px solid #434343' }}
           popupClassName="start-node-select-dropdown nodrag"
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
           getPopupContainer={() => document.body}

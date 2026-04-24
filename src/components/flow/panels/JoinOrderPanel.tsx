@@ -101,10 +101,10 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
       onClose={onClose}
       mask={false}
       style={{
-        background: '#141414',
+        background: 'var(--vm-bg-dark)',
       }}
       headerStyle={{
-        background: '#1f1f1f',
+        background: 'var(--vm-bg-dark)',
         borderBottom: '1px solid #303030',
         color: '#fff',
       }}
@@ -144,7 +144,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                 style={{
                   padding: '12px',
                   marginBottom: '8px',
-                  background: '#1f1f1f',
+                  background: 'var(--vm-bg-dark)',
                   border: '1px solid #303030',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -210,7 +210,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                           e.stopPropagation();
                           moveUp(index);
                         }}
-                        style={{ color: index === 0 ? '#434343' : '#8c8c8c' }}
+                        style={{ color: index === 0 ? 'var(--vm-border-mid)' : '#8c8c8c' }}
                       />
                       <Button
                         type="text"
@@ -224,7 +224,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                         style={{
                           color:
                             index === joinNodes.length - 1
-                              ? '#434343'
+                              ? 'var(--vm-border-mid)'
                               : '#8c8c8c',
                         }}
                       />

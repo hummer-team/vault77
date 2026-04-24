@@ -109,7 +109,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         maxWidth={350}
         maxHeight={300}
         lineStyle={{ borderColor: '#F97316', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#F97316', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#F97316', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Left handle (from source table) */}
       <Handle
@@ -154,7 +154,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
             height: 22,
             borderRadius: '50%',
             background: JOIN_TYPE_COLORS[data.joinType],
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontSize: 12,
             fontWeight: 'bold',
             display: 'flex',
@@ -183,7 +183,7 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontWeight: 500,
             fontSize: 13,
           }}

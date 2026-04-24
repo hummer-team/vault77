@@ -16,6 +16,10 @@ export interface EChartsColors {
   tooltipBg: string;
   /** Primary brand color */
   primary: string;
+  /** Border color for axis lines (thicker) */
+  borderLine: string;
+  /** Very subtle grid lines */
+  gridLine: string;
 }
 
 /**
@@ -25,6 +29,26 @@ export interface EChartsColors {
 export const useEChartsColors = (): EChartsColors => {
   const { currentTheme } = useTheme();
   const v = currentTheme.cssVars;
+  
+  // Helper function to compute lighter version of borderSubtle for grid lines
+  const computeGridLine = (): string => {
+    const borderSubtle = v['--vm-border-subtle'];
+    // If it's a dark theme (white-based rgba), use the white color
+    if (borderSubtle.includes('255')) {
+      return 'rgba(255, 255, 255, 0.1)';
+    }
+    // Light theme (dark-based rgba), use a lighter gray
+    return 'rgba(150, 150, 150, 0.1)';
+  };
+  
+  const computeBorderLine = (): string => {
+    const borderSubtle = v['--vm-border-subtle'];
+    if (borderSubtle.includes('255')) {
+      return 'rgba(255, 255, 255, 0.2)';
+    }
+    return 'rgba(150, 150, 150, 0.2)';
+  };
+
   return {
     textPrimary: v['--vm-text-primary'],
     textSecondary: v['--vm-text-secondary'],
@@ -33,5 +57,7 @@ export const useEChartsColors = (): EChartsColors => {
     borderMid: v['--vm-border-mid'],
     tooltipBg: v['--vm-bg-card'],
     primary: v['--vm-primary'],
+    borderLine: computeBorderLine(),
+    gridLine: computeGridLine(),
   };
 };

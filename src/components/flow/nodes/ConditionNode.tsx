@@ -172,7 +172,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({
         maxWidth={320}
         maxHeight={350}
         lineStyle={{ borderColor: '#3B82F6', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#3B82F6', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#3B82F6', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle

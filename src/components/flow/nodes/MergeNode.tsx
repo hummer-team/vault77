@@ -45,7 +45,7 @@ const OVERLAY_BTN_BASE: React.CSSProperties = {
   padding: '7px 12px',
   background: 'transparent',
   border: 'none',
-  color: 'rgba(255, 255, 255, 0.88)',
+  color: 'var(--vm-text-primary)',
   fontSize: 11,
   fontWeight: 500,
   cursor: 'pointer',

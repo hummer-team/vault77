@@ -247,7 +247,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         maxWidth={350}
         maxHeight={300}
         lineStyle={{ borderColor: '#fa8c16', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#fa8c16', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#fa8c16', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle
@@ -265,7 +265,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
       />
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, color: '#fff', fontWeight: 500 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, color: 'var(--vm-text-primary)', fontWeight: 500 }}>
         <ThunderboltOutlined style={{ marginRight: 8, color: '#fa8c16' }} />
         <span>业务算子</span>
         <Space size={4} style={{ marginLeft: 'auto' }}>
@@ -291,7 +291,7 @@ export const OperatorNode: React.FC<OperatorNodeProps> = ({ id, data, selected }
         onChange={handleKernelChange}
         style={{ width: '100%' }}
         className="nodrag"
-        dropdownStyle={{ background: '#1f1f1f', border: '1px solid #434343' }}
+        dropdownStyle={{ background: 'var(--vm-bg-dark)', border: '1px solid #434343' }}
         popupClassName="operator-select-dropdown nodrag"
         getPopupContainer={() => document.body}
       >

@@ -133,7 +133,7 @@ export const SelectAggNode: React.FC<SelectAggNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontWeight: 500,
             fontSize: 13,
           }}

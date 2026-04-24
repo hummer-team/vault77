@@ -268,7 +268,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
           borderBottom: '1px solid #303030',
         },
         body: {
-          background: '#141414',
+          background: 'var(--vm-bg-dark)',
           padding: '16px',
         },
         mask: {
@@ -394,7 +394,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                             {operatorLabel}
                           </Tag>
                           <Tooltip title={`占位符：${p.placeholder} · 类型：${p.fieldType}`}>
-                            <Text style={{ color: '#434343', fontSize: 11, fontFamily: 'monospace' }}>
+                            <Text style={{ color: 'var(--vm-border-mid)', fontSize: 11, fontFamily: 'monospace' }}>
                               {p.placeholder}
                             </Text>
                           </Tooltip>

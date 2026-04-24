@@ -159,7 +159,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         },
         emphasis: {
           itemStyle: {
-            borderColor: '#fff',
+            borderColor: 'var(--vm-text-primary)',
             borderWidth: 2,
             opacity: 1,
           },
@@ -176,7 +176,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         trigger: 'item',
         backgroundColor: ec.tooltipBg,
         borderColor: '#777',
-        textStyle: { color: '#fff' },
+        textStyle: { color: 'var(--vm-text-primary)' },
         z: 99999,  // Ensure tooltip is on top of all other elements
         appendToBody: true,  // Append to body to avoid z-index stacking issues
         formatter: (params: any) => {
@@ -242,9 +242,9 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
           fontSize: 12,
         },
         inverse: xAxis === 'recency', // Lower recency is better
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
+        axisLine: { lineStyle: { color: ec.borderLine } },
         axisLabel: { color: ec.textSecondary },
-        splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
+        splitLine: { lineStyle: { color: ec.gridLine } },
       },
       yAxis: {
         type: 'value',
@@ -255,7 +255,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
           color: ec.textPrimary,
           fontSize: 12,
         },
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
+        axisLine: { lineStyle: { color: ec.borderLine } },
         axisLabel: { 
           color: ec.textSecondary,
           formatter: (value: number) => {
@@ -275,7 +275,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
             }
           },
         },
-        splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
+        splitLine: { lineStyle: { color: ec.gridLine } },
       },
       series,
       legend: {

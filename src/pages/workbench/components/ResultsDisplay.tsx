@@ -98,7 +98,7 @@ const formatDurationSeconds = (ms?: number): string | null => {
 const LIST_STYLE: React.CSSProperties = {
   margin: '6px 0 0 0',
   paddingLeft: 20,
-  color: '#d9d9d9',
+  color: 'var(--vm-text-secondary)',
   fontSize: 13,
   lineHeight: '1.8',
 };
@@ -420,7 +420,7 @@ const ThinkingSteps: React.FC<{
             {steps.thought && (
               <Space align="start">
                 <Avatar src="/icons/icon-128.png" size={24} />
-                <Typography.Text style={{ color: '#d9d9d9' }}>{steps.thought}</Typography.Text>
+                <Typography.Text style={{ color: 'var(--vm-text-secondary)' }}>{steps.thought}</Typography.Text>
               </Space>
             )}
 
@@ -582,7 +582,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   };
 
   const renderContent = () => {
-    const iconStyle = { fontSize: '16px', color: '#9CA3AF', transition: 'all 0.2s' };
+    const iconStyle = { fontSize: '16px', color: 'var(--vm-text-muted)', transition: 'all 0.2s' };
     const commonActions = (
       <div style={{ padding: '2px 0' }}>
         <Space size="small">
@@ -590,7 +590,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             <Button
               type="text"
               icon={voted === 'up'
-                ? <LikeFilled style={{ ...iconStyle, color: '#FB923C' }} />
+                ? <LikeFilled style={{ ...iconStyle, color: 'var(--vm-primary)' }} />
                 : <LikeOutlined style={iconStyle} />
               }
               onClick={handleUpvoteClick}
@@ -631,7 +631,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             <Tooltip title="删除">
               <Button
                 type="text"
-                icon={<DeleteOutlined style={{ ...iconStyle, color: '#EF4444' }} />}
+                icon={<DeleteOutlined style={{ ...iconStyle, color: 'var(--vm-text-error)' }} />}
                 danger
                 className="hover:bg-red-500/15"
               />
@@ -664,10 +664,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 fontFamily: 'Fira Code, monospace',
                 fontSize: '14px',
                 lineHeight: '1.6',
-                color: '#F3F4F6',
+                color: 'var(--vm-bg-section)',
               }}>
                 <span style={{ 
-                  color: '#FB923C',
+                  color: 'var(--vm-primary)',
                   fontWeight: 600,
                   letterSpacing: '0.5px',
                 }}>Query:</span>{' '}
@@ -685,7 +685,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                   style={{
                     padding: 0,
                     height: 'auto',
-                    color: '#FB923C',
+                    color: 'var(--vm-primary)',
                     fontSize: '12px',
                     alignSelf: 'flex-start',
                   }}
@@ -712,7 +712,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                   onEditQuery(query);
                 }}
                 style={{
-                  color: '#9CA3AF',
+                  color: 'var(--vm-text-muted)',
                   transition: 'all 0.2s',
                 }}
                 className="hover:text-orange hover:bg-orange-500/10"
@@ -728,7 +728,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                   onCopyQuery(query);
                 }}
                 style={{
-                  color: '#9CA3AF',
+                  color: 'var(--vm-text-muted)',
                   transition: 'all 0.2s',
                 }}
                 className="hover:text-orange hover:bg-orange-500/10"
@@ -802,14 +802,14 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         <Card
           title={renderCardTitle()}
           style={{ 
-            background: 'linear-gradient(135deg, #18181B 0%, #09090B 100%)',
+            background: 'linear-gradient(135deg, var(--vm-bg-dark) 0%, var(--vm-bg-card) 100%)',
             border: '1px solid rgba(251, 146, 60, 0.25)',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
           }}
           headStyle={{
             borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
-            background: 'rgba(24, 24, 27, 0.5)',
+            background: 'var(--vm-bg-section)',
           }}
         >
           {/* 附件展示区域放在 Query 下方 */}
@@ -825,7 +825,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       const cardProps = {
         title: renderCardTitle(),
         style: { 
-          background: 'linear-gradient(135deg, #18181B 0%, #09090B 100%)',
+          background: 'linear-gradient(135deg, var(--vm-bg-dark) 0%, var(--vm-bg-card) 100%)',
           border: '1px solid rgba(251, 146, 60, 0.25)',
           borderRadius: '8px',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 146, 60, 0.1)',
@@ -836,7 +836,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         },
         headStyle: {
           borderBottom: '1px solid rgba(251, 146, 60, 0.2)',
-          background: 'rgba(24, 24, 27, 0.5)',
+          background: 'var(--vm-bg-section)',
         },
       };
 
@@ -882,7 +882,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                   fontFamily: 'Fira Code, monospace',
                   background: 'rgba(249, 115, 22, 0.15)',
                   border: '1px solid rgba(251, 146, 60, 0.4)',
-                  color: '#FB923C',
+                  color: 'var(--vm-primary)',
                 }}
               >
                 {queryDurationLabel}
@@ -982,7 +982,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           onHeaderCell: () => ({
             style: {
               background: 'rgba(24, 24, 27, 0.9)',
-              color: '#FB923C',
+              color: 'var(--vm-primary)',
               fontWeight: 600,
               fontFamily: 'Fira Sans, sans-serif',
               fontSize: '13px',
@@ -993,7 +993,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             style: {
               fontFamily: 'Fira Code, monospace',
               fontSize: '12px',
-              color: '#F3F4F6',
+              color: 'var(--vm-bg-section)',
             },
           }),
         };

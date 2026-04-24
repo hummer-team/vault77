@@ -133,7 +133,7 @@ const UdfConfigNode: React.FC<UdfConfigNodeProps> = ({ id, data, selected }) => 
             display: 'flex',
             alignItems: 'center',
             marginBottom: 10,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontWeight: 500,
           }}
         >

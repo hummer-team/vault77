@@ -158,7 +158,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
         maxWidth={400}
         maxHeight={500}
         lineStyle={{ borderColor: 'var(--vm-primary)', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: 'var(--vm-primary)', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: 'var(--vm-primary)', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle
@@ -200,7 +200,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontWeight: 500,
             overflow: 'hidden',
             textOverflow: 'ellipsis',

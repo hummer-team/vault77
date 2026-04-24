@@ -162,7 +162,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
         maxWidth={400}
         maxHeight={400}
         lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#52c41a', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#52c41a', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle — receives edge from OperatorNode */}
       <Handle

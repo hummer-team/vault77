@@ -136,7 +136,7 @@ const InitialWelcomeView: React.FC = () => (
       </Typography.Title>
       <Typography.Text style={{ 
         fontSize: 12, 
-        color: 'rgba(255, 255, 255, 0.45)', 
+        color: 'var(--vm-text-muted)', 
         fontWeight: 600,
         letterSpacing: '0.3em',
         textTransform: 'uppercase',

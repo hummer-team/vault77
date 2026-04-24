@@ -288,7 +288,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         maxWidth={400}
         maxHeight={400}
         lineStyle={{ borderColor: '#52c41a', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#52c41a', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#52c41a', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle
@@ -334,7 +334,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         <span
           style={{
             flex: 1,
-            color: '#fff',
+            color: 'var(--vm-text-primary)',
             fontWeight: 500,
             fontSize: 13,
           }}

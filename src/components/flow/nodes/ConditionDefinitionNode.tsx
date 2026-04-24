@@ -264,7 +264,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         maxWidth={450}
         maxHeight={500}
         lineStyle={{ borderColor: colors.border, borderWidth: 2 }}
-        handleStyle={{ backgroundColor: colors.border, borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: colors.border, borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
 
       {/* Input handle */}

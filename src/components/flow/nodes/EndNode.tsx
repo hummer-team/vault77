@@ -287,7 +287,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         maxWidth={350}
         maxHeight={400}
         lineStyle={{ borderColor: '#CA8A04', borderWidth: 2 }}
-        handleStyle={{ backgroundColor: '#CA8A04', borderColor: '#fff', width: 10, height: 10 }}
+        handleStyle={{ backgroundColor: '#CA8A04', borderColor: 'var(--vm-border-mid)', width: 10, height: 10 }}
       />
       {/* Input handle */}
       <Handle

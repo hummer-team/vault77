@@ -129,7 +129,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       style={{
         width: '100%',
         height,
-        background: 'rgba(255, 255, 255, 0.04)',
+        background: ec.gridLine,
         borderRadius: '4px',
       }}
     />
@@ -235,7 +235,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
         },
         splitLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.1)',
+            color: ec.gridLine,
           },
         },
       },
@@ -280,7 +280,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       style={{
         width: '100%',
         height,
-        background: 'rgba(255, 255, 255, 0.04)',
+        background: ec.gridLine,
         borderRadius: '4px',
       }}
     />

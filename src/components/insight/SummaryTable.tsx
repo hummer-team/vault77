@@ -40,7 +40,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
       key: 'name',
       ellipsis: true,
       render: (name: string) => (
-        <strong style={{ color: 'rgba(255, 255, 255, 0.85)' }}>{name}</strong>
+        <strong style={{ color: 'var(--vm-text-primary)' }}>{name}</strong>
       ),
     },
     {
@@ -71,7 +71,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(Number(min))}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -84,7 +84,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(Number(max))}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -97,7 +97,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(mean)}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -110,7 +110,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(p50)}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -123,7 +123,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(p80)}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -136,7 +136,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(p99)}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
     {
@@ -149,7 +149,7 @@ export const SummaryTable: React.FC<SummaryTableProps> = ({ columns, loading = f
         record.type === 'numeric' ? (
           <span>{formatNumber(stddev)}</span>
         ) : (
-          <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>N/A</span>
+          <span style={{ color: 'var(--vm-text-muted)' }}>N/A</span>
         ),
     },
   ];
