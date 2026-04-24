@@ -9,6 +9,7 @@ import * as echarts from 'echarts';
 import type { CustomerClusterRecord, ClusterMetadata } from '../../types/clustering.types';
 import { TOP_N_PER_CLUSTER } from '../../constants/clustering.constants';
 import { CustomerContextMenu } from './CustomerContextMenu';
+import { useEChartsColors } from '../../theme';
 
 export interface ClusteringScatterChartProps {
   data: CustomerClusterRecord[];
@@ -36,6 +37,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const lastDataLengthRef = useRef(0);  // Track data length to detect real changes
+  const ec = useEChartsColors();
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -172,7 +174,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: ec.tooltipBg,
         borderColor: '#777',
         textStyle: { color: '#fff' },
         z: 99999,  // Ensure tooltip is on top of all other elements
@@ -236,12 +238,12 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         nameLocation: 'middle',
         nameGap: 30,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
         inverse: xAxis === 'recency', // Lower recency is better
         axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
-        axisLabel: { color: 'rgba(255, 255, 255, 0.65)' },
+        axisLabel: { color: ec.textSecondary },
         splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } },
       },
       yAxis: {
@@ -250,12 +252,12 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
         axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.2)' } },
         axisLabel: { 
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           formatter: (value: number) => {
             // Format large numbers with K/M/B suffix for monetary
             if (yAxis === 'monetary') {
@@ -280,7 +282,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         data: clusters.map(c => c.label || `Cluster ${c.clusterId}`),
         bottom: '5%',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         type: 'scroll',
       },
@@ -474,7 +476,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        color: 'rgba(255, 255, 255, 0.45)',
+        color: ec.textMuted,
       }}>
         No data to display
       </div>

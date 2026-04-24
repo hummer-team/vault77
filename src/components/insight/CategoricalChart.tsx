@@ -8,6 +8,7 @@ import * as echarts from 'echarts';
 import type { ECharts, EChartsOption } from 'echarts';
 import { Empty, Row, Col } from 'antd';
 import type { CategoricalResult } from '../../types/insight.types';
+import { useEChartsColors } from '../../theme';
 
 interface CategoricalChartProps {
   statusColumns: CategoricalResult[];
@@ -22,6 +23,7 @@ interface CategoricalChartProps {
 const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data, height }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
+  const ec = useEChartsColors();
 
   useEffect(() => {
     if (!chartRef.current || !data.values.length) {
@@ -47,7 +49,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       title: {
         text: data.columnName,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 14,
           fontWeight: 'normal',
         },
@@ -56,10 +58,10 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       },
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderSubtle,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         // Show full label in tooltip (even if truncated in legend)
         formatter: '{b}: {c} ({d}%)',
@@ -69,7 +71,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
         right: 10,
         top: 'middle',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
         },
         // Truncate long legend labels
         formatter: (name: string) => truncateLabel(name, 10),
@@ -94,7 +96,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
             },
           },
           label: {
-            color: 'rgba(255, 255, 255, 0.65)',
+            color: ec.textSecondary,
             // Truncate labels in pie chart segments
             formatter: (params: any) => truncateLabel(params.name, 10),
           },
@@ -138,6 +140,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
  * Render a single bar chart for category column
  */
 const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data, height }) => {
+  const ec = useEChartsColors();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
 
@@ -165,7 +168,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       title: {
         text: data.columnName,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 14,
           fontWeight: 'normal',
         },
@@ -174,10 +177,10 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderSubtle,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         axisPointer: {
           type: 'shadow',
@@ -202,7 +205,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
         type: 'category',
         data: data.values.map(v => v.value),
         axisLabel: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           rotate: 45,
           interval: 0,
           // Truncate long x-axis labels
@@ -210,14 +213,14 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
       },
       yAxis: {
         type: 'value',
         axisLabel: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           formatter: (value: number) => {
             if (value >= 1000) {
               return `${(value / 1000).toFixed(1)}k`;
@@ -227,7 +230,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
         splitLine: {
@@ -292,6 +295,7 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
   categoryColumns,
   height = 350,
 }) => {
+  const ec = useEChartsColors();
   const hasData = statusColumns.length > 0 || categoryColumns.length > 0;
 
   if (!hasData) {
@@ -312,7 +316,7 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
         {statusColumns.map(col => (
           <Col key={`status-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
             <div style={{ marginBottom: 8 }}>
-              <h4 style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, margin: 0 }}>
+              <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
                 Status Distribution
               </h4>
             </div>
@@ -324,7 +328,7 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
         {categoryColumns.map(col => (
           <Col key={`category-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
             <div style={{ marginBottom: 8 }}>
-              <h4 style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 12, margin: 0 }}>
+              <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
                 Category Distribution (Top 20)
               </h4>
             </div>

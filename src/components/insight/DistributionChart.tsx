@@ -8,6 +8,7 @@ import * as echarts from 'echarts';
 import type { ECharts, EChartsOption } from 'echarts';
 import { Empty } from 'antd';
 import type { MultiLineChartData } from '../../types/insight.types';
+import { useEChartsColors } from '../../theme';
 
 interface DistributionChartProps {
   data: MultiLineChartData;
@@ -37,6 +38,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ECharts | null>(null);
+  const ec = useEChartsColors();
 
   // Initialize and update chart
   useEffect(() => {
@@ -75,7 +77,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
       title: {
         text: 'Distribution Overview',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 16,
           fontWeight: 'normal',
         },
@@ -84,15 +86,15 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
       },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: ec.tooltipBg,
+        borderColor: ec.borderSubtle,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         axisPointer: {
           type: 'cross',
           label: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backgroundColor: ec.tooltipBg,
           },
         },
       },
@@ -100,7 +102,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
         data: data.series.map(s => s.columnName),
         top: 40,
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
         },
         type: 'scroll',
       },
@@ -116,23 +118,23 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
         data: data.xAxis.map(x => x.toFixed(2)),
         boundaryGap: false,
         axisLabel: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           rotate: 45,
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
         name: 'Value Range',
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
         },
       },
       yAxis: {
         type: 'value',
         axisLabel: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
           formatter: (value: number) => {
             if (value >= 1000) {
               return `${(value / 1000).toFixed(1)}k`;
@@ -142,7 +144,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
         splitLine: {
@@ -152,7 +154,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
         },
         name: 'Count',
         nameTextStyle: {
-          color: 'rgba(255, 255, 255, 0.65)',
+          color: ec.textSecondary,
         },
       },
       series,
@@ -170,7 +172,7 @@ export const DistributionChart: React.FC<DistributionChartProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [data, loading]);
+  }, [data, loading, ec]);
 
   // Cleanup on unmount
   useEffect(() => {

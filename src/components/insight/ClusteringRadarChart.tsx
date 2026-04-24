@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { ClusterMetadata } from '../../types/clustering.types';
 import { RADAR_DIMENSIONS } from '../../constants/clustering.constants';
+import { useEChartsColors } from '../../theme';
 
 export interface ClusteringRadarChartProps {
   clusters: ClusterMetadata[];
@@ -21,6 +22,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const ec = useEChartsColors();
 
   // Determine available dimensions based on data
   const availableDimensions = useMemo(() => {
@@ -188,7 +190,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         data: clusters.map(c => c.label || `Cluster ${c.clusterId}`),
         bottom: '5%',
         textStyle: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
         },
         type: 'scroll',
       },
@@ -197,7 +199,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         center: ['50%', '50%'],
         radius: '60%',
         axisName: {
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: ec.textPrimary,
           fontSize: 12,
         },
         splitArea: {
@@ -210,12 +212,12 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
         splitLine: {
           lineStyle: {
-            color: 'rgba(255, 255, 255, 0.2)',
+            color: ec.borderSubtle,
           },
         },
       },
@@ -245,7 +247,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [clusters, availableDimensions, dimensionMaxValues, selectedCluster]);
+  }, [clusters, availableDimensions, dimensionMaxValues, selectedCluster, ec]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -264,7 +266,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        color: 'rgba(255, 255, 255, 0.45)',
+        color: ec.textMuted,
       }}>
         No data to display
       </div>
