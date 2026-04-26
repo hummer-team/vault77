@@ -136,8 +136,9 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       style={{
         width: '100%',
         height,
-        background: ec.gridLine,
+        background: ec.chartBg,
         borderRadius: '4px',
+        padding: '16px',
       }}
     />
   );
@@ -294,8 +295,9 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       style={{
         width: '100%',
         height,
-        background: ec.gridLine,
+        background: ec.chartBg,
         borderRadius: '4px',
+        padding: '16px',
       }}
     />
   );
@@ -329,24 +331,36 @@ export const CategoricalChart: React.FC<CategoricalChartProps> = ({
         {/* Status columns (pie charts) */}
         {statusColumns.map(col => (
           <Col key={`status-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
-            <div style={{ marginBottom: 8 }}>
-              <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
-                Status Distribution
-              </h4>
+            <div style={{
+              background: 'var(--vm-bg-card)',
+              borderRadius: '8px',
+              padding: '12px',
+            }}>
+              <div style={{ marginBottom: 8 }}>
+                <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
+                  Status Distribution
+                </h4>
+              </div>
+              <PieChart data={col} height={height} />
             </div>
-            <PieChart data={col} height={height} />
           </Col>
         ))}
 
         {/* Category columns (bar charts) */}
         {categoryColumns.map(col => (
           <Col key={`category-${col.columnName}`} xs={24} sm={12} md={12} lg={12} xl={12}>
-            <div style={{ marginBottom: 8 }}>
-              <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
-                Category Distribution (Top 20)
-              </h4>
+            <div style={{
+              background: 'var(--vm-bg-card)',
+              borderRadius: '8px',
+              padding: '12px',
+            }}>
+              <div style={{ marginBottom: 8 }}>
+                <h4 style={{ color: ec.textSecondary, fontSize: 12, margin: 0 }}>
+                  Category Distribution (Top 20)
+                </h4>
+              </div>
+              <BarChart data={col} height={height} />
             </div>
-            <BarChart data={col} height={height} />
           </Col>
         ))}
       </Row>

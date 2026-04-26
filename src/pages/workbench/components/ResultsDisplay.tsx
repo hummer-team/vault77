@@ -667,13 +667,14 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 color: 'var(--vm-bg-section)',
               }}>
                 <span style={{ 
-                  color: 'var(--vm-primary)',
+                  color: 'var(--vm-text-primary)',
                   fontWeight: 600,
                   letterSpacing: '0.5px',
                 }}>Query:</span>{' '}
                 <span style={{ 
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
+                  color: 'var(--vm-text-primary)'
                 }}>{displayQuery}</span>
               </div>
               {shouldTruncate && (
