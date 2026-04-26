@@ -187,8 +187,22 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                    )::BIGINT
                                 ),
                                 idx ->
-                                    'WHEN "' || replace(col_k, '"', '""') || '" ' || trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) ||
-                                    ' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
+                                    CASE
+                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('>=', '<=', '<>')
+                                        THEN 'WHEN "' || replace(col_k, '"', '""') || '" ' || substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) || ' ''' ||
+                                             replace(substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 4), '''', '''''') ||
+                                             ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
+                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('!=')
+                                        THEN 'WHEN "' || replace(col_k, '"', '""') || '" != ''' ||
+                                             replace(substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 3), '''', '''''') ||
+                                             ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
+                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 1) IN ('=', '>', '<')
+                                        THEN 'WHEN "' || replace(col_k, '"', '""') || '" ' || substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 1) || ' ''' ||
+                                             replace(substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 2), '''', '''''') ||
+                                             ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
+                                        ELSE 'WHEN "' || replace(col_k, '"', '""') || '" = ''' || replace(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), '''', '''''') ||
+                                             ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
+                                    END
                             ),
                             ' '
                         ) ||
