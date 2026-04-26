@@ -36,10 +36,12 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       return;
     }
 
-    // Initialize chart
-    if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
+    // Reinitialize chart on theme change
+    const currentTheme = isDarkTheme() ? 'dark' : null;
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.dispose();
     }
+    chartInstanceRef.current = echarts.init(chartRef.current, currentTheme);
 
     const chart = chartInstanceRef.current;
 
@@ -119,7 +121,7 @@ const PieChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [data, height]);
+  }, [data, height, ec, isDarkTheme]);
 
   useEffect(() => {
     return () => {
@@ -163,10 +165,12 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
       return;
     }
 
-    // Initialize chart
-    if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
+    // Reinitialize chart on theme change
+    const currentTheme = isDarkTheme() ? 'dark' : null;
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.dispose();
     }
+    chartInstanceRef.current = echarts.init(chartRef.current, currentTheme);
 
     const chart = chartInstanceRef.current;
 
@@ -278,7 +282,7 @@ const BarChart: React.FC<{ data: CategoricalResult; height: number }> = ({ data,
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [data, height]);
+  }, [data, height, ec, isDarkTheme]);
 
   useEffect(() => {
     return () => {
