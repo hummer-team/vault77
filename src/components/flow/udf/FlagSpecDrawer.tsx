@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Drawer, Button, Select, Space, Input, Typography, Tag, Divider } from 'antd';
+import { Drawer, Button, Select, Space, Input, Typography, Tag, Divider, Tooltip } from 'antd';
 import { TagsOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType } from '../../../services/flow/types';
@@ -99,22 +99,42 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   // Requires: operator followed by value (e.g., "= 金卡", ">= 100", "IN (值1,值2)")
   const validateCondition = (expr: string): string | null => {
     if (!expr || !expr.trim()) return '条件值必须填写（如：= 金卡 或 >= 100）';
+    
     // Check for basic SQL injection patterns
     if (expr.includes(';') || expr.includes('--') || expr.includes('/*')) {
       return '条件包含非法字符';
     }
+    
     // Check for unmatched parentheses
     if ((expr.match(/\(/g) || []).length !== (expr.match(/\)/g) || []).length) {
       return '括号不匹配';
     }
-    // Require: operator (=, <, >, <=, >=, <>, !=, IN) followed by value
-    // Pattern: operator + optional space + value
+    
     const trimmed = expr.trim();
-    const opPattern = /^(=|<>|!=|<=|>=|<|>|IN|in)\s*(.+)$/;
-    const match = trimmed.match(opPattern);
-    if (!match || !match[2] || !match[2].trim()) {
-      return '必须包含操作符（如：=、>=、<>、IN）';
+    
+    // Support:
+    // 1. Simple: "= value", ">= 100", "IN (val1, val2)"
+    // 2. IS NULL / IS NOT NULL
+    // 3. Complex: "IS NOT NULL AND col != ''"
+    
+    // Check for valid operator presence (case-insensitive, works with CJK)
+    // For multi-word operators, check in order of length (longest first)
+    const hasValidOp = ['IS NOT', 'IS', '<=', '>=', '<>', '!=', 'IN', '=', '<', '>'].some((op) => {
+      const regex = new RegExp(`(^|\\s|\\(|\\)|AND|OR|and|or)${op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|AND|OR|and|or|\\(|\\)|[^\\w])`, 'i');
+      return regex.test(trimmed);
+    });
+    
+    if (!hasValidOp) {
+      return '必须包含有效的操作符（=、>=、<=、<>、!=、IN、IS、IS NOT 等）';
     }
+    
+    // Check for invalid operator patterns (anything that looks like an operator but isn't)
+    const invalidChars = trimmed.match(/[`~@#$%^&*\-+/\\|?]/g);
+    if (invalidChars && !trimmed.includes('(') && !trimmed.includes(')')) {
+      // Allow some chars in complex expressions with parentheses
+      return '操作符包含非法字符';
+    }
+    
     return null;
   };
 
@@ -131,7 +151,35 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     }
   };
 
+  // Check if any entry is incomplete (missing col or cases) or has validation errors
+  const hasIncompleteEntry = useMemo(() => {
+    return entries.some((e) => {
+      // Missing required fields
+      if (!e.col || e.cases.length === 0) return true;
+      // Missing case data or has validation errors in conditions
+      if (e.cases.some((c) => !c[0] || !c[1])) return true;
+      // Has any validation error
+      if (e.errors && Object.keys(e.errors).length > 0) return true;
+      return false;
+    });
+  }, [entries]);
+
+  // Get columns already selected in other entries (for filtering)
+  const getAvailableColumnsForEntry = (entryIdx: number): string[] => {
+    const selectedCols = new Set<string>();
+    entries.forEach((e, i) => {
+      if (i !== entryIdx && e.col) {
+        selectedCols.add(e.col);
+      }
+    });
+    // Return all columns except those already selected
+    return allColumns.filter((col) => !selectedCols.has(col));
+  };
+
   const handleConfirm = () => {
+    if (hasIncompleteEntry) {
+      return; // Button is disabled, this shouldn't happen
+    }
     const flagsConfig: FlagSpecConfig['flagsConfig'] = {};
     for (const e of entries) {
       if (!e.col) continue;
@@ -159,13 +207,15 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
       footer={
         <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
           <Button onClick={onClose}>取消</Button>
-          <Button
-            type="primary"
-            onClick={handleConfirm}
-            disabled={entries.every((e) => !e.col)}
-          >
-            确认
-          </Button>
+          <Tooltip title={hasIncompleteEntry ? '请先完整填写当前标记规则' : ''}>
+            <Button
+              type="primary"
+              onClick={handleConfirm}
+              disabled={entries.length === 0 || hasIncompleteEntry}
+            >
+              确认
+            </Button>
+          </Tooltip>
         </Space>
       }
     >
@@ -193,7 +243,14 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
                 placeholder="选择列"
                 value={entry.col || undefined}
                 onChange={(val) => updateEntry(entryIdx, { col: val })}
-                options={allColumns.map((c) => ({ label: c, value: c }))}
+                options={getAvailableColumnsForEntry(entryIdx).map((c) => ({
+                  label: c,
+                  value: c,
+                }))}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+                }
               />
             </div>
 
@@ -260,14 +317,17 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
           </div>
         ))}
 
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          style={{ width: '100%' }}
-          onClick={addEntry}
-        >
-          添加标记规则
-        </Button>
+        <Tooltip title={hasIncompleteEntry ? '请先完整填写当前标记规则' : ''}>
+          <Button
+            type="dashed"
+            icon={<PlusOutlined />}
+            style={{ width: '100%' }}
+            onClick={addEntry}
+            disabled={hasIncompleteEntry}
+          >
+            添加标记规则
+          </Button>
+        </Tooltip>
 
         <OutputColumnsSelector
           columns={allColumns}
