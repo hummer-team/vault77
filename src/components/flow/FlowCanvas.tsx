@@ -21,7 +21,6 @@ import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
-import { CanvasToolbar } from './controls/CanvasToolbar';
 import { NodeDetailPanel } from './panels/NodeDetailPanel';
 import { TableJoinBuildPanel } from './panels/TableJoinBuildPanel';
 import { MergeNode } from './nodes/MergeNode';
@@ -38,6 +37,7 @@ import { EndNode } from './nodes/EndNode';
 import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { DeletableEdge } from './edges/DeletableEdge';
+import { StepNavigationBar } from './panels/StepNavigationBar';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
 import { FlowNodeType } from '../../services/flow/types';
 import type { FlowEdge, JoinEdgeData, TableNodeData } from '../../services/flow/types';
@@ -356,8 +356,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#8c8c8c" gap={16} size={1} />
+        <StepNavigationBar />
         <CustomControls />
-        <CanvasToolbar />
         <NodeDetailPanel />
         <TableJoinBuildPanel />
         <MiniMap

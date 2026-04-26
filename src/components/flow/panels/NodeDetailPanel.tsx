@@ -101,24 +101,24 @@ export const NodeDetailPanel: React.FC = () => {
       onClose={handleClose}
       mask={true}
       maskStyle={{
-        background: 'var(--vm-flow-shadow)',
+        background: 'rgba(0, 0, 0, 0.15)',
         backdropFilter: 'blur(2px)',
       }}
       style={{
         background: 'transparent',
       }}
       headerStyle={{
-        background: 'var(--vm-flow-node-bg)',
+        background: 'var(--vm-bg-card)',
         borderBottom: '1px solid var(--vm-border-mid)',
         color: 'var(--vm-text-primary)',
         padding: '16px 20px',
       }}
       bodyStyle={{
         padding: '20px',
-        background: 'var(--vm-flow-node-bg)',
+        background: 'var(--vm-bg-card)',
       }}
       drawerStyle={{
-        background: 'var(--vm-flow-node-bg)',
+        background: 'var(--vm-bg-card)',
         borderLeft: '1px solid var(--vm-border-mid)',
         boxShadow: 'var(--vm-flow-shadow-panel)',
       }}

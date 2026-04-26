@@ -210,25 +210,21 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
-  // Derive column names from the first upstream joined table for BasicStatsDrawer
-  const basicStatsColumns = useMemo(() => {
+  // Derive columns (with full field info) from the first upstream joined table
+  const allFields = useMemo(() => {
     const tableName = joinedTables[0];
     if (!tableName) return [];
     const tableNode = storeNodes.find(
       (n) => n.type === FlowNodeType.TABLE && (n.data as TableNodeData).tableName === tableName
     );
-    return (tableNode?.data as TableNodeData | undefined)?.fields?.map((f) => f.name) ?? [];
+    return (tableNode?.data as TableNodeData | undefined)?.fields ?? [];
   }, [joinedTables, storeNodes]);
 
-  // Derive column names for OrderDistributionDrawer (same pattern as basicStatsColumns)
-  const orderDistColumns = useMemo(() => {
-    const tableName = joinedTables[0];
-    if (!tableName) return [];
-    const tableNode = storeNodes.find(
-      (n) => n.type === FlowNodeType.TABLE && (n.data as TableNodeData).tableName === tableName
-    );
-    return (tableNode?.data as TableNodeData | undefined)?.fields?.map((f) => f.name) ?? [];
-  }, [joinedTables, storeNodes]);
+  // Extract column names for drawers that only need names
+  const columnNames = useMemo(() => allFields.map(f => f.name), [allFields]);
+
+  // Use full field objects for OrderDistributionDrawer (needs type filtering)
+  const orderDistColumns = allFields;
 
   // UDF nodes are configured when any relevant config key has been filled
   const isUdfConfigured = isUdfNode && (() => {
@@ -564,7 +560,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             <BasicStatsDrawer
               open={udfDrawerOpen}
               tableName={joinedTables[0] ?? ''}
-              columns={basicStatsColumns}
+              columns={columnNames}
               initialConfig={data.basicStatsConfig}
               onConfirm={handleBasicStatsConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
@@ -584,7 +580,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           return (
             <RepurchaseCycleDrawer
               open={udfDrawerOpen}
-              columns={orderDistColumns}
+              columns={columnNames}
               initialConfig={data.repurchaseCycleConfig}
               onConfirm={handleRepurchaseCycleConfirm}
               onCancel={() => setUdfDrawerOpen(false)}

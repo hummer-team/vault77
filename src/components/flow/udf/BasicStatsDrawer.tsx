@@ -404,6 +404,10 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       closable
       closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-muted)', fontSize: 13 }} />}
       style={{ background: 'transparent' }}
+      maskStyle={{
+        background: 'rgba(0, 0, 0, 0.15)',
+        backdropFilter: 'blur(2px)',
+      }}
       styles={{
         header: {
           background: TOKEN.bgHeader,
@@ -415,10 +419,6 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           background: TOKEN.bgBase,
           padding: '22px 26px 28px',
           overflowX: 'hidden',
-        },
-        mask: {
-          background: 'var(--vm-bg-header)',
-          backdropFilter: 'blur(3px)',
         },
       }}
       drawerStyle={{

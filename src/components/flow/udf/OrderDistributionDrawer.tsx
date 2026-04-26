@@ -4,7 +4,7 @@
  * Supports three sub-types: time_dist | amount_dist | geo_dist
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Drawer,
   Button,
@@ -38,11 +38,14 @@ import type {
   TimeGranularity,
   ComparisonType,
 } from '../../../services/flow/types';
+import { FieldType } from '../../../services/flow/types';
 import dayjs, { type Dayjs } from 'dayjs';
 import { TOKEN } from '../../../theme';
+import { ColumnInferService } from '../../../services/insight/columnInferService';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
+const columnInferService = ColumnInferService.getInstance();
 
 // ============================================================================
 // Props
@@ -50,8 +53,8 @@ const { RangePicker } = DatePicker;
 
 export interface OrderDistributionDrawerProps {
   open: boolean;
-  /** All available columns from the upstream table */
-  columns: string[];
+  /** All available columns from the upstream table (with type information) */
+  columns: Array<{ name: string; type: any }>;
   /** Pre-existing config to restore when reopening */
   initialConfig?: OrderDistributionConfig;
   onConfirm: (config: OrderDistributionConfig) => void;
@@ -249,7 +252,7 @@ const ComparisonSection: React.FC<ComparisonSectionProps> = ({
 // ============================================================================
 
 interface TimeDistFormProps {
-  columns: string[];
+  columns: Array<{ name: string; type: any }>;
   state: Partial<TimeDistConfig>;
   onChange: (patch: Partial<TimeDistConfig>) => void;
 }
@@ -282,9 +285,40 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
     onChange(patch);
   };
 
-  const colOptions = columns.map((c) => (
-    <Select.Option key={c} value={c}>
-      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c}</span>
+  // Filter columns by type: only DATE, TIMESTAMP, TIME
+  const timeColumns = useMemo(() => 
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.DATE,
+      FieldType.TIMESTAMP,
+      FieldType.TIME
+    ]),
+    [columns]
+  );
+
+  // Filter columns by type: exclude string and time types
+  const amountColumns = useMemo(() => 
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.INTEGER,
+      FieldType.BIGINT,
+      FieldType.SMALLINT,
+      FieldType.TINYINT,
+      FieldType.DECIMAL,
+      FieldType.NUMERIC,
+      FieldType.REAL,
+      FieldType.DOUBLE,
+    ]),
+    [columns]
+  );
+
+  const timeColOptions = timeColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
+    </Select.Option>
+  ));
+
+  const amountColOptions = amountColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
     </Select.Option>
   ));
 
@@ -301,7 +335,7 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {timeColOptions}
         </Select>
       </Section>
 
@@ -316,7 +350,7 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {amountColOptions}
         </Select>
       </Section>
 
@@ -368,7 +402,7 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
 // ============================================================================
 
 interface AmountDistFormProps {
-  columns: string[];
+  columns: Array<{ name: string; type: any }>;
   state: Partial<AmountDistConfig>;
   onChange: (patch: Partial<AmountDistConfig>) => void;
 }
@@ -415,9 +449,39 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
     onChange(patch);
   };
 
-  const colOptions = columns.map((c) => (
-    <Select.Option key={c} value={c}>
-      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c}</span>
+  // Filter columns: amount columns (numeric types) and time columns
+  const amountColumns = useMemo(() =>
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.INTEGER,
+      FieldType.BIGINT,
+      FieldType.SMALLINT,
+      FieldType.TINYINT,
+      FieldType.DECIMAL,
+      FieldType.NUMERIC,
+      FieldType.REAL,
+      FieldType.DOUBLE,
+    ]),
+    [columns]
+  );
+
+  const timeColumns = useMemo(() =>
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.DATE,
+      FieldType.TIMESTAMP,
+      FieldType.TIME
+    ]),
+    [columns]
+  );
+
+  const amountColOptions = amountColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
+    </Select.Option>
+  ));
+
+  const timeColOptions = timeColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
     </Select.Option>
   ));
 
@@ -434,7 +498,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {amountColOptions}
         </Select>
       </Section>
 
@@ -449,7 +513,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {timeColOptions}
         </Select>
       </Section>
 
@@ -586,7 +650,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
 // ============================================================================
 
 interface GeoDistFormProps {
-  columns: string[];
+  columns: Array<{ name: string; type: any }>;
   state: Partial<GeoDistConfig>;
   onChange: (patch: Partial<GeoDistConfig>) => void;
 }
@@ -618,9 +682,51 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
     onChange(patch);
   };
 
-  const colOptions = columns.map((c) => (
-    <Select.Option key={c} value={c}>
-      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c}</span>
+  // Filter columns: all columns for geo (no type restriction, semantic matching only)
+  // Amount columns and time columns with type restriction
+  const geoColumns = useMemo(() =>
+    columnInferService.filterColumnsBySemanticPattern(columns, ['geography']),
+    [columns]
+  );
+
+  const amountColumns = useMemo(() =>
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.INTEGER,
+      FieldType.BIGINT,
+      FieldType.SMALLINT,
+      FieldType.TINYINT,
+      FieldType.DECIMAL,
+      FieldType.NUMERIC,
+      FieldType.REAL,
+      FieldType.DOUBLE,
+    ]),
+    [columns]
+  );
+
+  const timeColumns = useMemo(() =>
+    columnInferService.filterColumnsByType(columns, [
+      FieldType.DATE,
+      FieldType.TIMESTAMP,
+      FieldType.TIME
+    ]),
+    [columns]
+  );
+
+  const geoColOptions = geoColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
+    </Select.Option>
+  ));
+
+  const amountColOptions = amountColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
+    </Select.Option>
+  ));
+
+  const timeColOptions = timeColumns.map((c) => (
+    <Select.Option key={c.name} value={c.name}>
+      <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c.name}</span>
     </Select.Option>
   ));
 
@@ -637,7 +743,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {geoColOptions}
         </Select>
       </Section>
 
@@ -652,7 +758,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {amountColOptions}
         </Select>
       </Section>
 
@@ -667,7 +773,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           className="nodrag"
           popupClassName="nodrag"
         >
-          {colOptions}
+          {timeColOptions}
         </Select>
       </Section>
 
@@ -827,6 +933,10 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
         closable
         closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-muted)', fontSize: 13 }} />}
         style={{ background: 'transparent' }}
+        maskStyle={{
+          background: 'rgba(0, 0, 0, 0.15)',
+          backdropFilter: 'blur(2px)',
+        }}
         styles={{
           header: {
             background: TOKEN.bgHeader,
@@ -838,10 +948,6 @@ export const OrderDistributionDrawer: React.FC<OrderDistributionDrawerProps> = (
             background: TOKEN.bgBase,
             padding: '22px 26px 28px',
             overflowX: 'hidden',
-          },
-          mask: {
-            background: 'var(--vm-bg-header)',
-            backdropFilter: 'blur(3px)',
           },
         }}
         drawerStyle={{

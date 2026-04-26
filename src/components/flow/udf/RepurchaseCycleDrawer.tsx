@@ -262,6 +262,10 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
         closable
         closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-muted)', fontSize: 13 }} />}
         style={{ background: 'transparent' }}
+        maskStyle={{
+          background: 'rgba(0, 0, 0, 0.15)',
+          backdropFilter: 'blur(2px)',
+        }}
         styles={{
           header: {
             background: TOKEN.bgHeader,
@@ -273,10 +277,6 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
             background: TOKEN.bgBase,
             padding: '16px 16px',
             overflowY: 'auto',
-          },
-          mask: {
-            background: 'var(--vm-bg-header)',
-            backdropFilter: 'blur(3px)',
           },
         }}
         drawerStyle={{

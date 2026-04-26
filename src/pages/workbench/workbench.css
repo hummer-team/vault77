@@ -10,6 +10,32 @@
   user-select: none !important;
 }
 
+/* Flow Canvas Modal - Full height adaptation */
+.ant-modal-wrap {
+  .ant-modal {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-modal-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .ant-modal-header {
+    flex-shrink: 0;
+    padding: 16px 24px;
+  }
+
+  .ant-modal-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 /* Responsive layout: stacks vertically on narrow screens */
 @media (max-width: 1024px) {
   .workbench-container {

@@ -6,7 +6,8 @@ import {
   StarOutlined,
   BulbOutlined,
   SafetyOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import FlowCanvas from '../../components/flow/FlowCanvas';
 import ChatPanel from './components/ChatPanel';
@@ -1357,103 +1358,52 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
     {/* Flow Modal - Analysis Flow Canvas */}
     <Modal
-      title={
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px',
-          flexWrap: 'wrap',
-          padding: '4px 0',
-          justifyContent: "center"
-        }}>
-          {/* Title with accent line */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '4px',
-              height: '24px',
-              background: 'linear-gradient(180deg, var(--vm-primary) 0%, var(--vm-primary-hover) 100%)',
-              borderRadius: '2px',
-            }} />
-            <span style={{
-              fontWeight: 700,
-              fontSize: '16px',
-              background: 'linear-gradient(90deg, #FFFFFF 0%, var(--vm-text-primary) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '0.5px',
-            }}>分析流</span>
-          </div>
-
-          {/* Steps with connector lines */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0',
-            fontSize: '12px',
-            fontWeight: 500,
-          }}>
-            {[
-              { num: 1, text: '选择数据源', icon: '📊' },
-              { num: 2, text: '创建关系', icon: '🔗' },
-              { num: 3, text: '选择算子', icon: '⚙️' },
-              { num: 4, text: '选择列', icon: '☰' },
-              { num: 5, text: '构建条件', icon: '🔍' },
-              { num: 6, text: '执行', icon: '▶' },
-            ].map((step, index) => (
-              <React.Fragment key={step.num}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'transparent',
-                  border: '1px solid transparent',
-                  transition: 'all 0.2s ease',
-                }}>
-                  {/* Step number with glow effect */}
-                  <div style={{
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--vm-primary) 0%, var(--vm-primary-hover) 100%)',
-                    border: 'none',
-                    color: 'var(--vm-text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 0 12px var(--vm-primary-glow)',
-                  }}>{step.num}</div>
-                  <span style={{
-                    color: 'var(--vm-text-primary)',
-                    whiteSpace: 'nowrap',
-                  }}>{step.text}</span>
-                </div>
-                {/* Connector arrow */}
-                {index < 5 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 4px',
-                    color: 'var(--vm-surface-lighter)',
-                  }}>→</div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      }
+      title={null}
       open={showFlowModal}
       onCancel={() => setShowFlowModal(false)}
       footer={null}
       width="90vw"
       style={{ top: 20 }}
       bodyStyle={{
-        height: '90vh',
+        height: 'calc(100vh - 60px)',
         padding: 0,
         background: TOKEN.bgSection,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
       }}
+      closeIcon={
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            zIndex: 11,
+            width: '40px',
+            height: '40px',
+            borderRadius: '8px',
+            background: 'var(--vm-flow-node-bg)',
+            border: '1px solid var(--vm-border-mid)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: 'var(--vm-flow-shadow-control)',
+            backdropFilter: 'blur(12px)',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--vm-flow-error-light)';
+            e.currentTarget.style.color = '#ff4d4f';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--vm-flow-node-bg)';
+            e.currentTarget.style.color = TOKEN.textSecondary;
+          }}
+        >
+          <CloseOutlined style={{ fontSize: '16px', color: TOKEN.textSecondary }} />
+        </div>
+      }
     >
       <DuckDBProvider executeQuery={executeQuery} isDBReady={isDBReady} refreshKey={showFlowModal ? Date.now() : 0}>
         <FlowCanvas

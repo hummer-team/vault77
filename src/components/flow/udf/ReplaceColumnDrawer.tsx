@@ -673,6 +673,10 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
         />
       }
       style={{ background: 'transparent' }}
+      maskStyle={{
+        background: 'rgba(0, 0, 0, 0.15)',
+        backdropFilter: 'blur(2px)',
+      }}
       styles={{
         header: {
           background: TOKEN.bgHeader,
@@ -684,10 +688,6 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           background: TOKEN.bgBase,
           padding: '22px 26px 28px',
           overflowX: 'hidden',
-        },
-        mask: {
-          background: 'var(--vm-bg-header)',
-          backdropFilter: 'blur(3px)',
         },
       }}
       drawerStyle={{

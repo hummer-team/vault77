@@ -30,6 +30,10 @@ const COLUMN_PATTERNS: Record<string, RegExp[]> = {
     /(^|_)(category|class|group|segment|tag|label|type|dept|department|region|area|location|level|grade|rank|tier|source|channel|origin|platform|brand|model|version)($|_)/i,
     /分类|类别|组别|标签|类型|部门|区域|地区|位置|等级|级别|层级|来源|渠道|平台|途径|品牌|型号|版本/,
   ],
+  geography: [
+    /(^|_)(region|city|area|province|country|location|state|district|county|zone|place|address|locality)($|_)/i,
+    /地址|城市|地点|省|区|县|地域|位置/,
+  ],
   id: [
     /_id$|^id$|uuid|guid|key|code|number$|^user.*id$|^member.*id$|^customer.*id$/i,
     /编号|代码$|用户ID|会员ID|客户ID/,
@@ -359,5 +363,78 @@ export class ColumnInferService {
       // Within same semantic type priority, sort by cardinality (higher = more important)
       return b.cardinality - a.cardinality;
     });
+  }
+
+  /**
+   * Filter columns by data type (FieldType from flow/types.ts)
+   * Supports multiple data types in the whitelist
+   * @param fields - Array of Field objects with type information
+   * @param allowedTypes - Array of allowed FieldType values
+   * @returns Filtered fields that match the allowed types
+   */
+  public filterColumnsByType(
+    fields: Array<{ name: string; type: any }>,
+    allowedTypes: string[]
+  ): Array<{ name: string; type: any }> {
+    return fields.filter(field => allowedTypes.includes(field.type));
+  }
+
+  /**
+   * Filter columns by semantic pattern matching
+   * @param fields - Array of Field objects
+   * @param semanticTypes - Array of semantic type keys (e.g., ['time', 'amount', 'geography'])
+   * @returns Filtered fields matching the semantic patterns
+   */
+  public filterColumnsBySemanticPattern(
+    fields: Array<{ name: string; type: any }>,
+    semanticTypes: string[]
+  ): Array<{ name: string; type: any }> {
+    return fields.filter(field => {
+      for (const semantic of semanticTypes) {
+        const patterns = COLUMN_PATTERNS[semantic as keyof typeof COLUMN_PATTERNS];
+        if (!patterns) continue;
+        
+        for (const pattern of patterns) {
+          if (pattern.test(field.name)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+  }
+
+  /**
+   * Combine type filtering and semantic pattern filtering
+   * @param fields - Array of Field objects with type information
+   * @param allowedTypes - Array of allowed FieldType values (e.g., ['DATE', 'TIMESTAMP', 'TIME'])
+   * @param semanticPatterns - Optional semantic type patterns to additionally match
+   * @returns Filtered fields matching both type and optional semantic patterns
+   */
+  public getFilteredColumns(
+    fields: Array<{ name: string; type: any }>,
+    allowedTypes: string[],
+    semanticPatterns?: string[]
+  ): Array<{ name: string; type: any }> {
+    let filtered = this.filterColumnsByType(fields, allowedTypes);
+    
+    if (semanticPatterns && semanticPatterns.length > 0) {
+      // Further filter by semantic patterns if provided
+      filtered = filtered.filter(field => {
+        for (const semantic of semanticPatterns) {
+          const patterns = COLUMN_PATTERNS[semantic as keyof typeof COLUMN_PATTERNS];
+          if (!patterns) continue;
+          
+          for (const pattern of patterns) {
+            if (pattern.test(field.name)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
+    return filtered;
   }
 }
