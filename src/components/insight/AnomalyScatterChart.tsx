@@ -177,7 +177,7 @@ export const AnomalyScatterChart: React.FC<AnomalyScatterChartProps> = ({
         chartInstance.off('click');
       }
     };
-  }, [displayData, xAxisFeature, yAxisLabel, onPointClick, ec]);
+  }, [displayData, xAxisFeature, yAxisLabel, onPointClick, ec, isDarkTheme]);
 
   // Cleanup on unmount
   useEffect(() => {

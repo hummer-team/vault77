@@ -113,10 +113,12 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
 
     console.log('[ClusteringScatterChart] Initializing chart...');
 
-    // Initialize chart only if not exists
-    if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current, isDarkTheme() ? 'dark' : null);
+    // Reinitialize chart on theme change
+    const currentTheme = isDarkTheme() ? 'dark' : null;
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.dispose();
     }
+    chartInstanceRef.current = echarts.init(chartRef.current, currentTheme);
     
     const chartInstance = chartInstanceRef.current;
 
@@ -462,8 +464,9 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
         chartDom.removeEventListener('contextmenu', handleContextMenu);
       }
     };
-  }, [displayData, stableClusters, xAxis, yAxis, sizeBy, onClusterClick]);
+  }, [displayData, stableClusters, xAxis, yAxis, sizeBy, onClusterClick, ec, isDarkTheme]);
   // Use stableClusters instead of clusters to prevent unnecessary re-renders
+  // Added ec and isDarkTheme to ensure legend colors update on theme change
 
   // Cleanup on unmount
   useEffect(() => {
