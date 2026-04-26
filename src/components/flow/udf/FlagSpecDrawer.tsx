@@ -74,7 +74,11 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     setEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
 
   const addCase = (idx: number) =>
-    updateEntry(idx, { cases: [...entries[idx].cases, ['', '']] as [string, string][] });
+    setEntries((prev) =>
+      prev.map((e, i) =>
+        i === idx ? { ...e, cases: [...e.cases, ['', '']] as [string, string][] } : e
+      )
+    );
 
   const removeCase = (entryIdx: number, caseIdx: number) =>
     updateEntry(entryIdx, {
@@ -92,7 +96,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   };
 
   // Validate condition expression on blur
-  // Requires: operator followed by value (e.g., "= 金卡", ">= 100")
+  // Requires: operator followed by value (e.g., "= 金卡", ">= 100", "IN (值1,值2)")
   const validateCondition = (expr: string): string | null => {
     if (!expr || !expr.trim()) return '条件值必须填写（如：= 金卡 或 >= 100）';
     // Check for basic SQL injection patterns
@@ -103,13 +107,13 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     if ((expr.match(/\(/g) || []).length !== (expr.match(/\)/g) || []).length) {
       return '括号不匹配';
     }
-    // Require: operator (=, <, >, <=, >=, <>, !=) followed by value
+    // Require: operator (=, <, >, <=, >=, <>, !=, IN) followed by value
     // Pattern: operator + optional space + value
     const trimmed = expr.trim();
-    const opPattern = /^(=|<>|!=|<=|>=|<|>)\s*(.+)$/;
+    const opPattern = /^(=|<>|!=|<=|>=|<|>|IN|in)\s*(.+)$/;
     const match = trimmed.match(opPattern);
     if (!match || !match[2] || !match[2].trim()) {
-      return '必须包含操作符和值（如：= 金卡、>= 100、<> 其他）';
+      return '必须包含操作符（如：=、>=、<>、IN）';
     }
     return null;
   };

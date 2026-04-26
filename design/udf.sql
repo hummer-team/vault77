@@ -188,7 +188,7 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                 ),
                                 idx ->
                                     CASE
-                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('>=', '<=', '<>')
+                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('>=', '<=', '<>', 'IN')
                                         THEN 'WHEN "' || replace(col_k, '"', '""') || '" ' || substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) || ' ''' ||
                                              replace(substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 4), '''', '''''') ||
                                              ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
