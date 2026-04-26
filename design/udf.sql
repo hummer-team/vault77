@@ -188,18 +188,14 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                 ),
                                 idx ->
                                     CASE
-                                        -- Check if expression starts with operator
-                                        WHEN trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) LIKE '<%' ESCAPE '\\' OR
-                                             trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) LIKE '>%' ESCAPE '\\' OR
-                                             trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) LIKE '=%' ESCAPE '\\' OR
-                                             trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) LIKE '!%' ESCAPE '\\'
+                                        -- Check if expression starts with operator (>=, <=, <>, !=, =, >, <)
+                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('>=', '<=', '<>', '!=')
+                                          OR substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 1) IN ('=', '>', '<')
                                         THEN 'WHEN "' || replace(col_k, '"', '""') || '" ' || trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) ||
                                              ' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
                                         ELSE 'WHEN "' || replace(col_k, '"', '""') || '" = ''' ||  replace(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), '''', '''''') ||
                                              ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
                                     END
-                            ),
-                            ' '
                         ) ||
                         CASE
                             WHEN json_extract_string(flags_config::JSON, '$."' || col_k || '"."else"') IS NOT NULL
