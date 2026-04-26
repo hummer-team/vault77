@@ -93,7 +93,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
 
   // Validate condition expression on blur
   const validateCondition = (expr: string): string | null => {
-    if (!expr.trim()) return '条件不能为空';
+    if (!expr || !expr.trim()) return '条件值必须填写（如：金卡 或 >= 100）';
     // Check for basic SQL injection patterns
     if (expr.includes(';') || expr.includes('--') || expr.includes('/*')) {
       return '条件包含非法字符';
@@ -186,24 +186,27 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
 
             <Divider style={{ margin: '10px 0' }}>条件规则</Divider>
             {entry.cases.map((c, caseIdx) => {
-              const hasError = entry.errors?.[caseIdx];
+              const conditionError = entry.errors?.[caseIdx];
+              const markError = !c[1] ? '标记值必须填写' : null;
+              const hasError = conditionError || markError;
               return (
                 <div key={caseIdx}>
                   <div style={{ display: 'flex', gap: 8, marginBottom: hasError ? 2 : 8, alignItems: 'center' }}>
                     <Tag style={{ minWidth: 40 }}>当</Tag>
                     <Input
-                      placeholder="满足条件（如：>= 100）"
+                      placeholder="满足条件（如：金卡 或 >= 100）"
                       value={c[0]}
                       onChange={(e) => updateCaseField(entryIdx, caseIdx, 0, e.target.value)}
                       onBlur={(e) => handleConditionBlur(entryIdx, caseIdx, e.target.value)}
-                      status={hasError ? 'error' : ''}
+                      status={conditionError ? 'error' : ''}
                       style={{ flex: 1 }}
                     />
                     <Tag style={{ minWidth: 40 }}>标为</Tag>
                     <Input
-                      placeholder="标记值（如：高价）"
+                      placeholder="标记值（如：高级会员）"
                       value={c[1]}
                       onChange={(e) => updateCaseField(entryIdx, caseIdx, 1, e.target.value)}
+                      status={markError ? 'error' : ''}
                       style={{ flex: 1 }}
                     />
                     <Button
@@ -216,7 +219,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
                   </div>
                   {hasError && (
                     <div style={{ color: 'var(--vm-color-error)', fontSize: 12, marginLeft: 48, marginBottom: 8 }}>
-                      {entry.errors?.[caseIdx]}
+                      {conditionError || markError}
                     </div>
                   )}
                 </div>

@@ -195,7 +195,7 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                         ),
                                         '''', ''''''
                                     ) ||
-                                    ' THEN ''' ||
+                                    ''' THEN ''' ||
                                    '''' || replace(
                                        json_extract_string(
                                            flags_config::JSON,
