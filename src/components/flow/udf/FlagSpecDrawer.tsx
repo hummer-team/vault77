@@ -92,6 +92,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   };
 
   // Validate condition expression on blur
+  // Accepts: simple values (金卡), comparison operators (>=100, =金卡), or operators with values
   const validateCondition = (expr: string): string | null => {
     if (!expr || !expr.trim()) return '条件值必须填写（如：金卡 或 >= 100）';
     // Check for basic SQL injection patterns
@@ -101,6 +102,14 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     // Check for unmatched parentheses
     if ((expr.match(/\(/g) || []).length !== (expr.match(/\)/g) || []).length) {
       return '括号不匹配';
+    }
+    // Accept: simple values (金卡), operators with values (>=100, =金卡, <50, etc.)
+    // Pattern: optional operator followed by value
+    const trimmed = expr.trim();
+    const opPattern = /^(=|<>|!=|<=|>=|<|>)?(.+)$/;
+    const match = trimmed.match(opPattern);
+    if (!match || !match[2] || !match[2].trim()) {
+      return '表达式格式不正确（如：金卡 或 >= 100）';
     }
     return null;
   };
@@ -122,8 +131,19 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     const flagsConfig: FlagSpecConfig['flagsConfig'] = {};
     for (const e of entries) {
       if (!e.col) continue;
+      // Process each case: auto-add '=' if no operator present
+      const processedCases: [string, string][] = e.cases.map(([cond, mark]) => {
+        let processedCond = cond.trim();
+        // Check if condition starts with an operator
+        const opMatch = processedCond.match(/^(>=|<=|<>|!=|=|<|>)(.*)$/);
+        if (!opMatch) {
+          // No operator at start, add '='
+          processedCond = '= ' + processedCond;
+        }
+        return [processedCond, mark];
+      });
       flagsConfig[e.col] = {
-        cases: e.cases,
+        cases: processedCases,
         ...(e.elseValue ? { else: e.elseValue } : {}),
       };
     }
