@@ -187,15 +187,8 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                    )::BIGINT
                                 ),
                                 idx ->
-                                    CASE
-                                        -- Check if expression starts with operator (>=, <=, <>, !=, =, >, <)
-                                        WHEN substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 2) IN ('>=', '<=', '<>', '!=')
-                                          OR substr(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), 1, 1) IN ('=', '>', '<')
-                                        THEN 'WHEN "' || replace(col_k, '"', '""') || '" ' || trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) ||
-                                             ' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
-                                        ELSE 'WHEN "' || replace(col_k, '"', '""') || '" = ''' ||  replace(trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')), '''', '''''') ||
-                                             ''' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
-                                    END
+                                    'WHEN "' || replace(col_k, '"', '""') || '" ' || trim(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]')) ||
+                                    ' THEN ''' || replace(json_extract_string(flags_config::JSON, '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'), '''', '''''') || ''''
                         ) ||
                         CASE
                             WHEN json_extract_string(flags_config::JSON, '$."' || col_k || '"."else"') IS NOT NULL
@@ -203,7 +196,7 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
                                     json_extract_string(flags_config::JSON, '$."' || col_k || '"."else"'),
                                     '''', ''''''
                                  ) || ''''
-                            ELSE ' ELSE NULL'
+                            ELSE ' ELSE ' || col_k
                         END ||
                         ' END AS "' || replace(col_k, '"', '""') || '"'
                 ),

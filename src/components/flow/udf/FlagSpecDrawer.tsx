@@ -92,9 +92,9 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   };
 
   // Validate condition expression on blur
-  // Accepts: simple values (金卡), comparison operators (>=100, =金卡), or operators with values
+  // Requires: operator followed by value (e.g., "= 金卡", ">= 100")
   const validateCondition = (expr: string): string | null => {
-    if (!expr || !expr.trim()) return '条件值必须填写（如：金卡 或 >= 100）';
+    if (!expr || !expr.trim()) return '条件值必须填写（如：= 金卡 或 >= 100）';
     // Check for basic SQL injection patterns
     if (expr.includes(';') || expr.includes('--') || expr.includes('/*')) {
       return '条件包含非法字符';
@@ -103,13 +103,13 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     if ((expr.match(/\(/g) || []).length !== (expr.match(/\)/g) || []).length) {
       return '括号不匹配';
     }
-    // Accept: simple values (金卡), operators with values (>=100, =金卡, <50, etc.)
-    // Pattern: optional operator followed by value
+    // Require: operator (=, <, >, <=, >=, <>, !=) followed by value
+    // Pattern: operator + optional space + value
     const trimmed = expr.trim();
-    const opPattern = /^(=|<>|!=|<=|>=|<|>)?(.+)$/;
+    const opPattern = /^(=|<>|!=|<=|>=|<|>)\s*(.+)$/;
     const match = trimmed.match(opPattern);
     if (!match || !match[2] || !match[2].trim()) {
-      return '表达式格式不正确（如：金卡 或 >= 100）';
+      return '必须包含操作符和值（如：= 金卡、>= 100、<> 其他）';
     }
     return null;
   };
@@ -131,19 +131,8 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     const flagsConfig: FlagSpecConfig['flagsConfig'] = {};
     for (const e of entries) {
       if (!e.col) continue;
-      // Process each case: auto-add '=' if no operator present
-      const processedCases: [string, string][] = e.cases.map(([cond, mark]) => {
-        let processedCond = cond.trim();
-        // Check if condition starts with an operator
-        const opMatch = processedCond.match(/^(>=|<=|<>|!=|=|<|>)(.*)$/);
-        if (!opMatch) {
-          // No operator at start, add '='
-          processedCond = '= ' + processedCond;
-        }
-        return [processedCond, mark];
-      });
       flagsConfig[e.col] = {
-        cases: processedCases,
+        cases: e.cases,
         ...(e.elseValue ? { else: e.elseValue } : {}),
       };
     }
