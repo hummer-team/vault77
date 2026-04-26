@@ -169,66 +169,63 @@ CREATE OR REPLACE MACRO udf_flag_spec_column(
        tbl,
        flags_config,
        condition := ''
-    ) AS TABLE
-    SELECT * FROM query(
-        'SELECT * ' ||
-        CASE WHEN len(json_keys(flags_config::JSON)) > 0 THEN
-            'REPLACE (' ||
-            array_to_string(
-                list_transform(
-                    json_keys(flags_config::JSON),
-                    col_k ->
-                        'CASE ' ||
-                        array_to_string(
-                            list_transform(
-                                range(
+   ) AS TABLE
+   SELECT * FROM query(
+       'SELECT * ' ||
+       CASE WHEN len(json_keys(flags_config::JSON)) > 0 THEN
+           'REPLACE (' ||
+           array_to_string(
+               list_transform(
+                   json_keys(flags_config::JSON),
+                   col_k ->
+                       'CASE ' ||
+                       array_to_string(
+                           list_transform(
+                               range(
                                    json_array_length(
-                                       json_extract(flags_config::JSON, '$."' || col_k || '".cases')
-                                   )::BIGINT
-                                ),
-                                idx ->
-                                    'WHEN "' || replace(col_k, '"', '""') || '" = ''' ||
-                                   replace(
-                                        json_extract_string(
-                                            flags_config::JSON,
-                                            '$."' || col_k || '".cases[' || idx::VARCHAR || '][0]'
-                                        ),
-                                        '''', ''''''
-                                    ) ||
-                                    ''' THEN ''' ||
+                                       json_extract(flags_config::JSON, '$.' || col_k || '.cases')
+                                   )::BIGINT  -- ← 修复：UBIGINT → BIGINT
+                               ),
+                               idx ->
+                                   'WHEN ("' || replace(col_k, '"', '""') || '" ' ||
+                                   json_extract_string(
+                                       flags_config::JSON,
+                                       '$.' || col_k || '.cases[' || idx::VARCHAR || '][0]'
+                                   ) ||
+                                   ') THEN ' ||
                                    '''' || replace(
                                        json_extract_string(
                                            flags_config::JSON,
-                                           '$."' || col_k || '".cases[' || idx::VARCHAR || '][1]'
+                                           '$.' || col_k || '.cases[' || idx::VARCHAR || '][1]'
                                        ),
                                        '''', ''''''
                                    ) || ''''
-                            ),
-                            ' '
-                        ) ||
-                        CASE
-                            WHEN json_extract_string(flags_config::JSON, '$."' || col_k || '"."else"') IS NOT NULL
-                            THEN ' ELSE ''' || replace(
-                                    json_extract_string(flags_config::JSON, '$."' || col_k || '"."else"'),
-                                    '''', ''''''
-                                 ) || ''''
-                            ELSE ' ELSE NULL'
-                        END ||
-                        ' END AS "' || replace(col_k, '"', '""') || '"'
-                ),
-                ', '
-            ) || ')'
-        ELSE '' END ||
-        -- Support both a plain table name and a sub-query string.
-        -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
-        -- A plain table name is double-quoted to handle special characters.
-        ' FROM ' ||
-        CASE WHEN left(trim(tbl), 1) = '('
-            THEN tbl || ' AS __src'
-            ELSE '"' || replace(tbl, '"', '""') || '"'
-        END ||
-        CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
-    );
+                           ),
+                           ' '
+                       ) ||
+                       CASE
+                           WHEN json_extract_string(flags_config::JSON, '$.' || col_k || '.else') IS NOT NULL
+                           THEN ' ELSE ''' || replace(
+                                   json_extract_string(flags_config::JSON, '$.' || col_k || '.else'),
+                                   '''', ''''''
+                                ) || ''''
+                           ELSE ' ELSE NULL'
+                       END ||
+                       ' END AS "' || replace(col_k, '"', '""') || '"'
+               ),
+               ', '
+           ) || ')'
+       ELSE '' END ||
+       -- Support both a plain table name and a sub-query string.
+       -- A sub-query is detected by a leading '(' character (used as-is with alias __src).
+       -- A plain table name is double-quoted to handle special characters.
+       ' FROM ' ||
+       CASE WHEN left(trim(tbl), 1) = '('
+           THEN tbl || ' AS __src'
+           ELSE '"' || replace(tbl, '"', '""') || '"'
+       END ||
+       CASE WHEN condition <> '' THEN ' WHERE ' || condition ELSE '' END
+   );
 
 
 CREATE OR REPLACE MACRO ts_parse(val, src_fmt) AS (

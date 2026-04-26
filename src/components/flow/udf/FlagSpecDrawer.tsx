@@ -22,7 +22,7 @@ export interface FlagSpecDrawerProps {
   joinedTables?: string[];
 }
 
-type ColFlagEntry = { col: string; cases: [string, string][]; elseValue?: string };
+type ColFlagEntry = { col: string; cases: [string, string][]; elseValue?: string; errors?: Record<number, string> };
 
 export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   open,
@@ -91,6 +91,33 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     updateEntry(entryIdx, { cases: updated });
   };
 
+  // Validate condition expression on blur
+  const validateCondition = (expr: string): string | null => {
+    if (!expr.trim()) return '条件不能为空';
+    // Check for basic SQL injection patterns
+    if (expr.includes(';') || expr.includes('--') || expr.includes('/*')) {
+      return '条件包含非法字符';
+    }
+    // Check for unmatched parentheses
+    if ((expr.match(/\(/g) || []).length !== (expr.match(/\)/g) || []).length) {
+      return '括号不匹配';
+    }
+    return null;
+  };
+
+  const handleConditionBlur = (entryIdx: number, caseIdx: number, value: string) => {
+    const error = validateCondition(value);
+    if (error) {
+      const errors = entries[entryIdx].errors ?? {};
+      errors[caseIdx] = error;
+      updateEntry(entryIdx, { errors });
+    } else {
+      const errors = { ...entries[entryIdx].errors };
+      delete errors[caseIdx];
+      updateEntry(entryIdx, { errors });
+    }
+  };
+
   const handleConfirm = () => {
     const flagsConfig: FlagSpecConfig['flagsConfig'] = {};
     for (const e of entries) {
@@ -133,7 +160,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
         {entries.map((entry, entryIdx) => (
           <div
             key={entryIdx}
-            style={{ border: '1px solid #303030', borderRadius: 6, padding: 12 }}
+            style={{ border: '2px solid var(--vm-primary)', borderRadius: 6, padding: 12 }}
           >
             <Space style={{ width: '100%', justifyContent: 'space-between' }}>
               <Text strong>标记规则 #{entryIdx + 1}</Text>
@@ -158,31 +185,43 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
             </div>
 
             <Divider style={{ margin: '10px 0' }}>条件规则</Divider>
-            {entry.cases.map((c, caseIdx) => (
-              <div key={caseIdx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                <Tag style={{ minWidth: 40 }}>当</Tag>
-                <Input
-                  placeholder="满足条件（如：>= 100）"
-                  value={c[0]}
-                  onChange={(e) => updateCaseField(entryIdx, caseIdx, 0, e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <Tag style={{ minWidth: 40 }}>标为</Tag>
-                <Input
-                  placeholder="标记值（如：高价）"
-                  value={c[1]}
-                  onChange={(e) => updateCaseField(entryIdx, caseIdx, 1, e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  size="small"
-                  onClick={() => removeCase(entryIdx, caseIdx)}
-                />
-              </div>
-            ))}
+            {entry.cases.map((c, caseIdx) => {
+              const hasError = entry.errors?.[caseIdx];
+              return (
+                <div key={caseIdx}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: hasError ? 2 : 8, alignItems: 'center' }}>
+                    <Tag style={{ minWidth: 40 }}>当</Tag>
+                    <Input
+                      placeholder="满足条件（如：>= 100）"
+                      value={c[0]}
+                      onChange={(e) => updateCaseField(entryIdx, caseIdx, 0, e.target.value)}
+                      onBlur={(e) => handleConditionBlur(entryIdx, caseIdx, e.target.value)}
+                      status={hasError ? 'error' : ''}
+                      style={{ flex: 1 }}
+                    />
+                    <Tag style={{ minWidth: 40 }}>标为</Tag>
+                    <Input
+                      placeholder="标记值（如：高价）"
+                      value={c[1]}
+                      onChange={(e) => updateCaseField(entryIdx, caseIdx, 1, e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      size="small"
+                      onClick={() => removeCase(entryIdx, caseIdx)}
+                    />
+                  </div>
+                  {hasError && (
+                    <div style={{ color: 'var(--vm-color-error)', fontSize: 12, marginLeft: 48, marginBottom: 8 }}>
+                      {entry.errors?.[caseIdx]}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <Button
               type="dashed"
               size="small"
