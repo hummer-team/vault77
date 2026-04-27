@@ -467,3 +467,24 @@ body {
 .ant-modal-footer {
   border-top: 1px solid var(--vm-border-subtle) !important;
 }
+
+/* ============================================
+   BasicStats Drawer Table Styles
+   Header background color adapted to current theme
+   ============================================ */
+.basic-stats-table .ant-table-thead > tr > th {
+  background-color: var(--vm-table-header-bg) !important;
+  color: var(--vm-text-primary) !important;
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--vm-border-subtle) !important;
+}
+
+.basic-stats-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--vm-border-subtle) !important;
+}
+
+.basic-stats-table .ant-table-cell {
+  padding: 8px 12px !important;
+  color: var(--vm-text-primary) !important;
+}

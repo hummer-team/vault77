@@ -31,7 +31,10 @@ import type {
   AggFunction,
   HavingFilter,
   SortConfig,
+  TableNodeData,
 } from '../../../services/flow/types';
+import { FlowNodeType } from '../../../services/flow/types';
+import { useFlowStore } from '../../../stores/flowStore';
 import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
@@ -64,9 +67,16 @@ const OPERATOR_OPTIONS = [
   { label: '<=', value: '<=' as const },
 ];
 
+const TIME_TYPES = ['DATE', 'TIMESTAMP', 'DATETIME', 'TIMESTAMPTZ', 'TIMESTAMPNTZ'];
+
 // ============================================================================
 // Helpers
 // ============================================================================
+
+function isTimeType(columnType?: string): boolean {
+  if (!columnType) return false;
+  return TIME_TYPES.some((t) => columnType.toUpperCase().includes(t));
+}
 
 function defaultAlias(func: AggFunction, col: string): string {
   return `${func.toLowerCase()}_${col}`;
@@ -144,6 +154,25 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const nodes = useFlowStore((state) => state.nodes);
+
+  // ── Get column type information ─────────────────────────────────────────────
+  const columnTypeMap = useMemo(() => {
+    const typeMap: Record<string, string | undefined> = {};
+    for (const node of nodes) {
+      if (node.type === FlowNodeType.TABLE) {
+        const data = node.data as TableNodeData;
+        if (data.tableName === tableName) {
+          for (const field of data.fields ?? []) {
+            typeMap[field.name] = field.type;
+          }
+          break;
+        }
+      }
+    }
+    return typeMap;
+  }, [nodes, tableName]);
+
   // ── Stat columns & agg fields ───────────────────────────────────────────────
   const [selectedStatCols, setSelectedStatCols] = useState<string[]>([]);
   const [aggFields, setAggFields] = useState<AggFieldConfig[]>([]);
@@ -151,6 +180,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
   // ── Group-by ────────────────────────────────────────────────────────────────
   const [groupByEnabled, setGroupByEnabled] = useState(false);
   const [groupByColumns, setGroupByColumns] = useState<string[]>([]);
+  const [groupByGranularities, setGroupByGranularities] = useState<Record<string, 'year' | 'quarter' | 'month' | 'week' | 'day'>>({});
+  const [columnPrecision, setColumnPrecision] = useState<Record<string, number>>({});
+  const [columnPrecisionStrategy, setColumnPrecisionStrategy] = useState<Record<string, 'ROUND' | 'TRUNCATE'>>({});
 
   // ── Having filters ──────────────────────────────────────────────────────────
   const [havingFilters, setHavingFilters] = useState<HavingFilter[]>([]);
@@ -173,6 +205,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       setAggFields(initialConfig.aggFields);
       setGroupByEnabled(initialConfig.groupByColumns.length > 0);
       setGroupByColumns(initialConfig.groupByColumns);
+      setGroupByGranularities(initialConfig.groupByGranularities ?? {});
+      setColumnPrecision(initialConfig.columnPrecision ?? {});
+      setColumnPrecisionStrategy(initialConfig.columnPrecisionStrategy ?? {});
       setHavingFilters(initialConfig.havingFilters);
       setSortEnabled(initialConfig.sortConfigs.length > 0);
       setSortConfigs(initialConfig.sortConfigs);
@@ -181,6 +216,8 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       setAggFields([]);
       setGroupByEnabled(false);
       setGroupByColumns([]);
+      setGroupByGranularities({});
+      setColumnPrecision({});
       setHavingFilters([]);
       setSortEnabled(false);
       setSortConfigs([]);
@@ -316,6 +353,26 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       errs.push('统计列别名不能为空');
     }
 
+    // Validate granularities for time-type groupBy columns
+    if (groupByEnabled) {
+      for (const col of groupByColumns) {
+        const colType = columnTypeMap[col];
+        if (isTimeType(colType) && !groupByGranularities[col]) {
+          errs.push(`分组列 "${col}" 是时间类型，必须选择粒度`);
+        }
+      }
+    }
+
+    // Validate precision for numeric aggregation columns
+    for (const field of aggFields) {
+      // SUM, AVG, MAX, MIN always require precision to be set
+      if (['SUM', 'AVG', 'MAX', 'MIN'].includes(field.func)) {
+        if (columnPrecision[field.column] === undefined) {
+          errs.push(`聚合列 "${field.column}"(${field.func}) 必须设置精度值`);
+        }
+      }
+    }
+
     const invalidValue = havingFilters.some((f) => !isFinite(f.value));
     if (invalidValue) {
       errs.push('结果过滤的值必须为有效数字');
@@ -341,6 +398,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       tableName,
       aggFields,
       groupByColumns: groupByEnabled ? groupByColumns : [],
+      groupByGranularities: groupByEnabled ? groupByGranularities : {},
+      columnPrecision,
+      columnPrecisionStrategy,
       havingFilters,
       sortConfigs: sortEnabled ? sortConfigs : [],
     });
@@ -349,10 +409,14 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
     havingFilters,
     groupByEnabled,
     groupByColumns,
+    groupByGranularities,
+    columnPrecision,
+    columnPrecisionStrategy,
     sortEnabled,
     sortConfigs,
     tableName,
     onConfirm,
+    columnTypeMap,
   ]);
 
   // ============================================================================
@@ -427,7 +491,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
         boxShadow: 'var(--vm-flow-shadow-drawer)',
       }}
     >
-      {/* ── Section 1: 选择统计列 ──────────────────────────────────────────── */}
+      {/* ── Section 1: Select Statistical Columns ──────────────────────────────────────────── */}
       <Section icon={<BarChartOutlined />} title="选择统计列" required>
         <Select
           mode="multiple"
@@ -457,14 +521,14 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 110px auto 1fr',
+                gridTemplateColumns: '80px 80px auto 1fr 60px 120px',
                 gap: 6,
                 padding: '4px 6px',
                 background: 'var(--vm-surface-lighter)',
                 borderRadius: TOKEN.radius,
               }}
             >
-              {(['列名', '聚合函数', '去重', '结果别名'] as const).map((label) => (
+              {(['列名', '统计函数', '去重', '别名', '精度', '策略'] as const).map((label) => (
                 <Text
                   key={label}
                   style={{
@@ -485,7 +549,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                 key={field.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 110px auto 1fr',
+                  gridTemplateColumns: '80px 80px auto 1fr 60px 120px',
                   gap: 6,
                   alignItems: 'center',
                   padding: '4px 6px',
@@ -551,13 +615,55 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     borderRadius: TOKEN.radius,
                   }}
                 />
+
+                {/* Precision (for SUM, AVG, MAX, MIN) */}
+                {['SUM', 'AVG', 'MAX', 'MIN'].includes(field.func) ? (
+                  <InputNumber
+                    value={columnPrecision[field.column] ?? 4}
+                    onChange={(val) => {
+                      const finalVal = val === null || val === undefined ? 4 : val;
+                      setColumnPrecision((prev) => ({
+                        ...prev,
+                        [field.column]: finalVal,
+                      }));
+                    }}
+                    min={0}
+                    max={10}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
+                ) : (
+                  <span style={{ fontSize: 10, color: TOKEN.textMuted }}>-</span>
+                )}
+
+                {/* Precision Strategy (for SUM, AVG, MAX, MIN) */}
+                {['SUM', 'AVG', 'MAX', 'MIN'].includes(field.func) ? (
+                  <Select
+                    value={columnPrecisionStrategy[field.column] ?? 'ROUND'}
+                    onChange={(val) =>
+                      setColumnPrecisionStrategy((prev) => ({
+                        ...prev,
+                        [field.column]: val,
+                      }))
+                    }
+                    style={{ width: '100%' }}
+                    size="small"
+                    options={[
+                      { label: '四舍五入 (ROUND)', value: 'ROUND' },
+                      { label: '截断 (TRUNCATE)', value: 'TRUNCATE' },
+                    ]}
+                  />
+                ) : (
+                  <span style={{ fontSize: 10, color: TOKEN.textMuted }}>-</span>
+                )}
               </div>
             ))}
           </div>
         )}
       </Section>
 
-      {/* ── Section 2: 分组显示 ────────────────────────────────────────────── */}
+
+      {/* ── Section 2: Group Display ────────────────────────────────────────────── */}
       <Section
         icon={<GroupOutlined />}
         title="分组显示"
@@ -572,49 +678,183 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       >
         {groupByEnabled ? (
           <>
-            <Select
-              mode="multiple"
-              placeholder={
-                <span style={{ color: TOKEN.textMuted, fontSize: 12 }}>选择分组列</span>
-              }
-              value={groupByColumns}
-              onChange={setGroupByColumns}
-              style={selectStyle}
-              size="small"
-              getPopupContainer={() => document.body}
-              className="nodrag"
-              popupClassName="nodrag"
-              notFoundContent={
-                <span style={{ fontSize: 11, color: TOKEN.textMuted }}>
-                  {selectedStatCols.length === columns.length
-                    ? '所有列已作为统计列'
-                    : '无可用列'}
-                </span>
-              }
-            >
-              {groupByAvailableCols.map((col) => (
-                <Select.Option key={col} value={col}>
-                  <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
-                </Select.Option>
-              ))}
-            </Select>
-            <Text
-              style={{
-                display: 'block',
-                marginTop: 6,
-                fontSize: 11,
-                color: TOKEN.textMuted,
+            {/* Group-by Configuration Table */}
+            {groupByColumns.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                {/* Table Header */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 140px 140px auto',
+                    gap: 6,
+                    padding: '4px 6px',
+                    background: 'var(--vm-surface-lighter)',
+                    borderRadius: TOKEN.radius,
+                    marginBottom: 6,
+                  }}
+                >
+                  {(['列名', '类型', '分组粒度', ''] as const).map((label) => (
+                    <Text
+                      key={label}
+                      style={{
+                        fontSize: 10,
+                        color: TOKEN.textSecondary,
+                        fontWeight: 600,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  ))}
+                </div>
+
+                {/* Table Rows */}
+                {groupByColumns.map((col) => {
+                  const colType = columnTypeMap[col];
+                  const isTimeCol = isTimeType(colType);
+
+                  return (
+                    <div
+                      key={col}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 140px 140px auto',
+                        gap: 6,
+                        alignItems: 'center',
+                        padding: '4px 6px',
+                        background: TOKEN.bgRow,
+                        borderRadius: TOKEN.radius,
+                        border: `1px solid ${TOKEN.borderSubtle}`,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {/* Column name dropdown */}
+                      <Select
+                        value={col}
+                        onChange={(val) => {
+                          setGroupByColumns((prev) =>
+                            prev.map((c) => (c === col ? val : c))
+                          );
+                        }}
+                        style={{ width: '100%' }}
+                        size="small"
+                        getPopupContainer={() => document.body}
+                        className="nodrag"
+                        popupClassName="nodrag"
+                      >
+                        {groupByAvailableCols.map((c) => (
+                          <Select.Option key={c} value={c}>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{c}</span>
+                          </Select.Option>
+                        ))}
+                      </Select>
+
+                      {/* Type (read-only) */}
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: TOKEN.textSecondary,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {colType ?? 'unknown'}
+                      </Text>
+
+                      {/* Granularity dropdown (disabled for non-time columns) */}
+                      {isTimeCol ? (
+                        <Select
+                          value={groupByGranularities[col] ?? 'month'}
+                          onChange={(val) =>
+                            setGroupByGranularities((prev) => ({
+                              ...prev,
+                              [col]: val,
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                          size="small"
+                          getPopupContainer={() => document.body}
+                          className="nodrag"
+                          popupClassName="nodrag"
+                          options={[
+                            { label: 'Year', value: 'year' },
+                            { label: 'Quarter', value: 'quarter' },
+                            { label: 'Month', value: 'month' },
+                            { label: 'Week', value: 'week' },
+                            { label: 'Day', value: 'day' },
+                          ]}
+                        />
+                      ) : (
+                        <Select
+                          disabled
+                          value={undefined}
+                          style={{
+                            width: '100%',
+                            color: TOKEN.textMuted,
+                            opacity: 0.5,
+                          }}
+                          size="small"
+                          placeholder="-"
+                        />
+                      )}
+
+                      {/* Delete button */}
+                      <Button
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={() =>
+                          setGroupByColumns((prev) => prev.filter((c) => c !== col))
+                        }
+                        style={{ color: TOKEN.textError }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Add Group Button */}
+            <Button
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                // Add first available column that's not already in groupByColumns
+                const availableCol = groupByAvailableCols.find(
+                  (c) => !groupByColumns.includes(c)
+                );
+                if (availableCol) {
+                  setGroupByColumns((prev) => [...prev, availableCol]);
+                }
               }}
+              disabled={groupByAvailableCols.length === 0}
+              style={{ width: '100%' }}
             >
-              分组列将自动包含在结果中
-            </Text>
+              添加分组
+            </Button>
+
+            {groupByColumns.length > 0 && (
+              <Text
+                style={{
+                  display: 'block',
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: TOKEN.textMuted,
+                }}
+              >
+                分组列将自动包含在结果中
+              </Text>
+            )}
           </>
         ) : (
           <Text style={{ fontSize: 11, color: TOKEN.textMuted }}>开启后可按指定列分组统计</Text>
         )}
       </Section>
 
-      {/* ── Section 3: 结果过滤 ─────────────────────────────────────────────── */}
+      {/* ── Section 3: Result Filtering ─────────────────────────────────────────────── */}
       <Section icon={<FilterOutlined />} title="结果过滤">
         {havingFilters.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
@@ -716,7 +956,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
         </Button>
       </Section>
 
-      {/* ── Section 4: 排序显示 ─────────────────────────────────────────────── */}
+      {/* ── Section 4: Sort Display ─────────────────────────────────────────────── */}
       <Section
         icon={<SortAscendingOutlined />}
         title="排序显示"

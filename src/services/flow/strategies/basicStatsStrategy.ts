@@ -22,6 +22,12 @@ export class BasicStatsStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
+  private isTimeType(colType?: string): boolean {
+    if (!colType) return false;
+    const timeTypes = ['DATE', 'TIMESTAMP', 'DATETIME', 'TIMESTAMPTZ', 'TIMESTAMPNTZ'];
+    return timeTypes.some((t) => colType.toUpperCase().includes(t));
+  }
+
   buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
     const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
     const config = (selectNode?.data as { basicStatsConfig?: BasicStatsConfig } | undefined)
@@ -34,21 +40,98 @@ export class BasicStatsStrategy extends BaseStrategy {
       return `SELECT *\nFROM "${tableName}"`;
     }
 
+    // Get field type info from TABLE node
+    const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
+    const tableData = tableNode?.data as { fields?: { name: string; type?: string }[] } | undefined;
+    const fieldTypeMap: Record<string, string | undefined> = {};
+    if (tableData?.fields) {
+      for (const field of tableData.fields) {
+        fieldTypeMap[field.name] = field.type;
+      }
+    }
+
     const parts: string[] = [];
 
-    // SELECT clause: group cols first, then agg expressions
+    // Helper: map granularity to strftime format string
+    const getFormatString = (granularity: string): string | null => {
+      switch (granularity) {
+        case 'year':
+          return '%Y';
+        case 'quarter':
+          // DuckDB quarter: use CONCAT with (MONTH()-1)/3+1
+          return null; // special case handled below
+        case 'month':
+          return '%Y-%m';
+        case 'week':
+          return '%Y-W%02d'; // strftime %W for week number
+        case 'day':
+          return '%Y-%m-%d';
+        default:
+          return '%Y-%m-%d';
+      }
+    };
+
+    // Helper: build SELECT expression for a column (with time truncation + formatting if applicable)
+    const getColumnExpr = (colName: string): string => {
+      const colType = fieldTypeMap[colName];
+      if (this.isTimeType(colType) && config.groupByGranularities?.[colName]) {
+        const granularity = config.groupByGranularities[colName];
+        const baseTrunc = `date_trunc('${granularity}', "${colName}"::TIMESTAMP)`;
+
+        // Special handling for quarter
+        if (granularity === 'quarter') {
+          return `CONCAT(strftime(${baseTrunc}, '%Y'), '-Q', CAST(((MONTH(${baseTrunc})-1)/3)+1 AS VARCHAR))`;
+        }
+
+        const format = getFormatString(granularity);
+        if (format) {
+          return `strftime(${baseTrunc}, '${format}')`;
+        }
+      }
+      return `"${colName}"`;
+    };
+
+    // Helper: build aggregation expression (with precision if applicable)
+    const getAggExpr = (f: typeof config.aggFields[0]): string => {
+      const aggExpr = `${f.func}(${f.distinct ? 'DISTINCT ' : ''}"${f.column}")`;
+      
+      // Apply precision for numeric result columns
+      if (config.columnPrecision?.[f.column] !== undefined && ['SUM', 'AVG', 'MAX', 'MIN'].includes(f.func)) {
+        const precision = config.columnPrecision[f.column];
+        const strategy = config.columnPrecisionStrategy?.[f.column] ?? 'ROUND';
+        
+        if (strategy === 'TRUNCATE') {
+          // DuckDB TRUNCATE: truncate_num(value, digits)
+          return `truncate_num(${aggExpr}, ${precision})`;
+        } else {
+          // ROUND is default
+          return `ROUND(${aggExpr}, ${precision})`;
+        }
+      }
+      
+      return aggExpr;
+    };
+
+    // SELECT clause: group cols first (with time truncation), then agg expressions
     const selectCols: string[] = [
-      ...config.groupByColumns.map((c) => `"${c}"`),
-      ...config.aggFields.map((f) => `${f.func}(${f.distinct ? 'DISTINCT ' : ''}"${f.column}") AS "${f.alias}"`),
+      ...config.groupByColumns.map((c) => {
+        const expr = getColumnExpr(c);
+        return `${expr} AS "${c}"`;
+      }),
+      ...config.aggFields.map((f) => {
+        const expr = getAggExpr(f);
+        return `${expr} AS "${f.alias}"`;
+      }),
     ];
     parts.push(`SELECT ${selectCols.join(', ')}`);
 
     // FROM
     parts.push(`FROM "${config.tableName}"`);
 
-    // GROUP BY
+    // GROUP BY: use the same expressions as in SELECT (positional or full expressions)
     if (config.groupByColumns.length > 0) {
-      parts.push(`GROUP BY ${config.groupByColumns.map((c) => `"${c}"`).join(', ')}`);
+      const groupByCols = config.groupByColumns.map((c) => getColumnExpr(c));
+      parts.push(`GROUP BY ${groupByCols.join(', ')}`);
     }
 
     // HAVING (result filter)
@@ -62,9 +145,17 @@ export class BasicStatsStrategy extends BaseStrategy {
       }
     }
 
-    // ORDER BY
+    // ORDER BY: map column names to their expressions
     if (config.sortConfigs.length > 0) {
-      const orderCols = config.sortConfigs.map((s) => `"${s.column}" ${s.direction}`);
+      const orderCols = config.sortConfigs.map((s) => {
+        // Check if the sort column is a groupBy column
+        if (config.groupByColumns.includes(s.column)) {
+          const expr = getColumnExpr(s.column);
+          return `${expr} ${s.direction}`;
+        }
+        // Otherwise, it's an alias from aggFields
+        return `"${s.column}" ${s.direction}`;
+      });
       parts.push(`ORDER BY ${orderCols.join(', ')}`);
     }
 

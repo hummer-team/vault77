@@ -303,6 +303,18 @@ export interface BasicStatsConfig {
   aggFields: AggFieldConfig[];
   /** Columns to GROUP BY; chosen from data source excluding stat columns */
   groupByColumns: string[];
+  /** Time granularity config for GROUP BY columns (only for time-type columns) */
+  groupByGranularities?: {
+    [columnName: string]: 'year' | 'quarter' | 'month' | 'week' | 'day';
+  };
+  /** Precision config for numeric aggregation results (SUM/AVG/MAX/MIN only) */
+  columnPrecision?: {
+    [columnName: string]: number;
+  };
+  /** Precision strategy (ROUND, TRUNCATE, etc.) for numeric aggregation columns */
+  columnPrecisionStrategy?: {
+    [columnName: string]: 'ROUND' | 'TRUNCATE';
+  };
   /** Result filters (HAVING equivalent) */
   havingFilters: HavingFilter[];
   /** ORDER BY entries */
