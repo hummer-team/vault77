@@ -406,12 +406,14 @@ export abstract class BaseStrategy implements FlowStrategy {
         .filter(Boolean);
 
       if (nodeConditions.length > 0) {
-        // Always use AND to join conditions within the same node (per ConditionDefinitionNodeData.logicType = AND)
-        const nodeConditionsSql = nodeConditions.join(' AND ');
+        // Use node's own logicType to join conditions within the same node
+        const nodeLogicType = nodeData.logicType || LogicType.AND;
+        const nodeConditionsSql = nodeConditions.join(` ${nodeLogicType} `);
         conditions.push(`(${nodeConditionsSql})`);
       }
     }
 
+    // Use inter-node logicType to join between different nodes
     return conditions.join(` ${logicType} `);
   }
 
