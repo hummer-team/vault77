@@ -12,7 +12,7 @@ import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource } from '../../../services/flow/types';
 import type { MergeNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
-import { generateConditionGroupRefId, generateConditionDefinitionDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
 // Style constants (outside component to avoid recreating on every render)
@@ -180,7 +180,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   const createConditionDefinitionNode = useCallback(
     (mergeX: number, mergeY: number) => {
       const refId = generateConditionGroupRefId(nodes);
-      const groupDisplayName = generateConditionDefinitionDisplayName(refId);
+      const groupDisplayName = generateConditionGroupDefinitionDisplayName(refId);
       const conditionDefNodeId = `cond_def_${Date.now()}`;
       const conditionDefNode = {
         id: conditionDefNodeId,

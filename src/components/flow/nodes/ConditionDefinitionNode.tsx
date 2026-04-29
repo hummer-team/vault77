@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionDefinitionDisplayName } from '../../../services/flow/flowService';
+import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
 import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
 import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
@@ -64,7 +64,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   // Auto-generate groupDisplayName if missing (for backward compatibility with old nodes)
   React.useEffect(() => {
     if (!data.groupDisplayName && data.refId) {
-      const generatedGroupDisplayName = generateConditionDefinitionDisplayName(data.refId);
+      const generatedGroupDisplayName = generateConditionGroupDefinitionDisplayName(data.refId);
       updateNode(id, { groupDisplayName: generatedGroupDisplayName } as Partial<ConditionDefinitionNodeData>);
     }
   }, [data.refId, data.groupDisplayName, id, updateNode]);

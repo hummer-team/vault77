@@ -18,7 +18,7 @@ import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../
 import { FLOW_COLORS, CUSTOM_EXPRESSION_CONSTANTS } from '../../../services/flow/constants';
 import { FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
-import { generateConditionGroupDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRelationDisplayName } from '../../../services/flow/flowService';
 import { TOKEN } from '../../../theme';
 
 interface ConditionGroupNodeProps {
@@ -76,7 +76,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   // Auto-generate relationDisplayName if missing (for backward compatibility with old nodes)
   React.useEffect(() => {
     if (!data.relationDisplayName) {
-      const generatedRelationDisplayName = generateConditionGroupDisplayName(nodes);
+      const generatedRelationDisplayName = generateConditionGroupRelationDisplayName(nodes);
       updateNode(id, { relationDisplayName: generatedRelationDisplayName } as Partial<ConditionGroupNodeData>);
     }
   }, [data.relationDisplayName, id, nodes, updateNode]);

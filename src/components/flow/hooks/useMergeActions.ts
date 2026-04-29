@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
 import type { ConditionDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
-import { generateConditionGroupRefId, generateConditionGroupDisplayName, generateConditionDefinitionDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName, generateConditionGroupRelationDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
 // Shared edge factory
@@ -181,7 +181,7 @@ export function useMergeActions(
   const createConditionDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
     const refId = generateConditionGroupRefId(nodes);
-    const groupDisplayName = generateConditionDefinitionDisplayName(refId);
+    const groupDisplayName = generateConditionGroupDefinitionDisplayName(refId);
     const nodeId = `cond_def_${Date.now()}`;
     
     // Create ConditionDefinitionNode (条件组) only — no auto-create of relation node
@@ -219,7 +219,7 @@ export function useMergeActions(
     // Always create a brand-new ConditionGroupNode (条件组关系) — never reuse an existing one.
     // Only the triggering CG node is wired here; other CG nodes connect manually.
     const groupNodeId = `relation_${Date.now()}`;
-    const relationDisplayName = generateConditionGroupDisplayName(nodes);
+    const relationDisplayName = generateConditionGroupRelationDisplayName(nodes);
     addNode({
       id: groupNodeId,
       type: FlowNodeType.CONDITION_GROUP,

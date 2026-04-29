@@ -215,29 +215,29 @@ export function generatePlaceholderName(refId: string, conditionIndex: number): 
 }
 
 /**
- * Generate display name for ConditionDefinitionNode
- * Maps GC_1 -> "条件值_1", GC_2 -> "条件值_2", etc.
+ * Generate display name for ConditionDefinitionNode (条件组)
+ * Maps GC_1 -> "条件组_1", GC_2 -> "条件组_2", etc.
  * @param refId Internal refId (e.g., GC_1)
- * @returns User-friendly display name (e.g., "条件值_1")
+ * @returns User-friendly display name (e.g., "条件组_1")
  */
-export function generateConditionDefinitionDisplayName(refId: string): string {
+export function generateConditionGroupDefinitionDisplayName(refId: string): string {
   // Extract number from refId (e.g., "GC_1" -> "1", "CG1" -> "1")
   const match = refId.match(/\d+/);
   if (!match) return refId; // Fallback if no number found
   const num = match[0];
-  return `条件值_${num}`;
+  return `条件组_${num}`;
 }
 
 /**
- * Generate display name for ConditionGroupNode
- * Maps counter 1 -> "条件组_1", 2 -> "条件组_2", etc.
- * @param nodes Current flow nodes to count existing ConditionGroupNodes
- * @returns User-friendly display name (e.g., "条件组_1")
+ * Generate display name for ConditionGroupRelationNode (条件组关系)
+ * Maps counter 1 -> "条件组关系_1", 2 -> "条件组关系_2", etc.
+ * @param nodes Current flow nodes to count existing ConditionGroupRelationNodes
+ * @returns User-friendly display name (e.g., "条件组关系_1")
  */
-export function generateConditionGroupDisplayName(nodes: FlowNode[]): string {
-  // Count existing ConditionGroupNodes
-  const conditionGroupCount = nodes.filter((n) => n.type === 'conditionGroup').length;
-  return `条件组_${conditionGroupCount + 1}`;
+export function generateConditionGroupRelationDisplayName(nodes: FlowNode[]): string {
+  // Count existing ConditionGroupRelationNodes (currently CONDITION_GROUP type)
+  const conditionGroupRelationCount = nodes.filter((n) => n.type === 'conditionGroup').length;
+  return `条件组关系_${conditionGroupRelationCount + 1}`;
 }
 
 /**
