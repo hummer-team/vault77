@@ -35,7 +35,7 @@ interface PlaceholderInfo {
   fieldType: FieldType;
   tableName: string;
   refId: string;
-  displayName?: string; // User-friendly display name, e.g., "条件值_1"
+  valueDisplayName?: string; // User-friendly display name, e.g., "条件值_1"
 }
 
 // Get input component based on field type
@@ -138,7 +138,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
             fieldType: condition.valueType,
             tableName: data.tableName,
             refId: data.refId,
-            displayName: data.displayName,
+            valueDisplayName: data.valueDisplayName,
           });
         });
       }
@@ -369,7 +369,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                 {/* Group header */}
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, gap: 8 }}>
                   <FilterOutlined style={{ color: 'var(--vm-flow-purple)', fontSize: 13 }} />
-                  <Tag color="purple" style={{ fontWeight: 600, margin: 0 }}>{items[0]?.displayName || refId}</Tag>
+                  <Tag color="purple" style={{ fontWeight: 600, margin: 0 }}>{items[0]?.valueDisplayName || refId}</Tag>
                   <Text style={{ color: 'var(--vm-text-helper)', fontSize: 11 }}>
                     {items[0]?.tableName}
                   </Text>

@@ -73,13 +73,13 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
-  // Auto-generate displayName if missing (for backward compatibility with old nodes)
+  // Auto-generate groupDisplayName if missing (for backward compatibility with old nodes)
   React.useEffect(() => {
-    if (!data.displayName) {
-      const generatedDisplayName = generateConditionGroupDisplayName(nodes);
-      updateNode(id, { displayName: generatedDisplayName } as Partial<ConditionGroupNodeData>);
+    if (!data.groupDisplayName) {
+      const generatedGroupDisplayName = generateConditionGroupDisplayName(nodes);
+      updateNode(id, { groupDisplayName: generatedGroupDisplayName } as Partial<ConditionGroupNodeData>);
     }
-  }, [data.displayName, id, nodes, updateNode]);
+  }, [data.groupDisplayName, id, nodes, updateNode]);
 
   // Get current relation type (default to data.logicType for backward compatibility)
   const relationType: RelationType = data.relationType || data.logicType;
@@ -351,7 +351,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
               fontSize: 13,
             }}
           >
-            {data.displayName || '条件组'}
+            {data.groupDisplayName || '条件组'}
           </span>
           <span
             style={{

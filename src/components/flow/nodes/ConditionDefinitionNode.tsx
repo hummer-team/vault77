@@ -61,13 +61,13 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
   const [contentExpanded, setContentExpanded] = useState(true); // Content section expanded by default
 
-  // Auto-generate displayName if missing (for backward compatibility with old nodes)
+  // Auto-generate valueDisplayName if missing (for backward compatibility with old nodes)
   React.useEffect(() => {
-    if (!data.displayName && data.refId) {
-      const generatedDisplayName = generateConditionDefinitionDisplayName(data.refId);
-      updateNode(id, { displayName: generatedDisplayName } as Partial<ConditionDefinitionNodeData>);
+    if (!data.valueDisplayName && data.refId) {
+      const generatedValueDisplayName = generateConditionDefinitionDisplayName(data.refId);
+      updateNode(id, { valueDisplayName: generatedValueDisplayName } as Partial<ConditionDefinitionNodeData>);
     }
-  }, [data.refId, data.displayName, id, updateNode]);
+  }, [data.refId, data.valueDisplayName, id, updateNode]);
 
   // Load available tables: prefer canvas-wide joined tables; fallback to DuckDB query
   React.useEffect(() => {
@@ -342,7 +342,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
                 setIsEditingName(true);
               }}
             >
-              {data.displayName || data.refId}
+              {data.valueDisplayName || data.refId}
             </span>
           </Tooltip>
         )}

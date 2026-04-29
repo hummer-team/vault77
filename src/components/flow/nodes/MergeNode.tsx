@@ -180,7 +180,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   const createConditionDefinitionNode = useCallback(
     (mergeX: number, mergeY: number) => {
       const refId = generateConditionGroupRefId(nodes);
-      const displayName = generateConditionDefinitionDisplayName(refId);
+      const valueDisplayName = generateConditionDefinitionDisplayName(refId);
       const conditionDefNodeId = `cond_def_${Date.now()}`;
       const conditionDefNode = {
         id: conditionDefNodeId,
@@ -188,7 +188,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         position: { x: mergeX + 180, y: mergeY },
         data: {
           refId,
-          displayName,
+          valueDisplayName,
           tableName: '',
           logicType: LogicType.AND,
           conditions: [
