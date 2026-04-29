@@ -29,22 +29,22 @@ interface ConditionGroupNodeProps {
 // Extended relation type for AND/OR/CUSTOM
  type RelationType = 'AND' | 'OR' | 'CUSTOM';
 
-// Logic type colors - opaque backgrounds
+// Logic type colors - use CSS variables for theme adaptation
 const LOGIC_TYPE_COLORS: Record<RelationType, { bg: string; border: string; text: string }> = {
   AND: {
-    bg: '#1a2e15',
+    bg: 'var(--vm-flow-and-bg)',
     border: 'var(--vm-flow-success)',
     text: 'var(--vm-flow-success)',
   },
   OR: {
-    bg: '#2e1a0f',
+    bg: 'var(--vm-flow-or-bg)',
     border: 'var(--vm-flow-warning)',
     text: 'var(--vm-flow-warning)',
   },
   CUSTOM: {
-    bg: '#261a40',
-    border: '#8B5CF6',
-    text: '#A78BFA',
+    bg: 'var(--vm-flow-custom-bg)',
+    border: 'var(--vm-flow-purple)',
+    text: 'var(--vm-flow-purple)',
   },
 };
 

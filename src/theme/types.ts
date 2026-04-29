@@ -72,6 +72,11 @@ export interface ThemeCssVarMap {
   '--vm-flow-shadow-node-unselected': string;
   '--vm-flow-shadow-control': string;
   '--vm-flow-shadow-drawer': string;
+  
+  // Condition Group node background colors
+  '--vm-flow-and-bg': string;
+  '--vm-flow-or-bg': string;
+  '--vm-flow-custom-bg': string;
 }
 
 export interface AntdTokenConfig {

@@ -73,6 +73,10 @@ export const cyanDarkTheme: ThemeDef = {
     '--vm-flow-shadow-control': '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 210, 255, 0.1)',
     '--vm-flow-shadow-drawer': '-6px 0 32px rgba(0, 0, 0, 0.6), -1px 0 0 rgba(0, 210, 255, 0.07)',
     
+    '--vm-flow-and-bg': 'rgba(26, 46, 21, 0.7)',
+    '--vm-flow-or-bg': 'rgba(46, 26, 15, 0.7)',
+    '--vm-flow-custom-bg': 'rgba(38, 26, 64, 0.7)',
+    
     '--vm-layout-bg': 'radial-gradient(ellipse at top, #1A1D23, #0B0E14)',
     '--vm-grid-dot-color': 'rgba(0, 210, 255, 0.03)',
     '--vm-sider-bg': '#050A14',

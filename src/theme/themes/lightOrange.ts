@@ -83,6 +83,10 @@ export const lightOrangeTheme: ThemeDef = {
     '--vm-flow-shadow-control': '0 4px 20px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 140, 0, 0.1)',
     '--vm-flow-shadow-drawer': '-6px 0 32px rgba(0, 0, 0, 0.15), -1px 0 0 rgba(255, 140, 0, 0.07)',
 
+    '--vm-flow-and-bg': 'rgba(230, 245, 220, 0.6)',
+    '--vm-flow-or-bg': 'rgba(255, 240, 225, 0.6)',
+    '--vm-flow-custom-bg': 'rgba(240, 230, 250, 0.6)',
+
     // Layout
     '--vm-layout-bg': '#F9FAFB',
     '--vm-grid-dot-color': 'rgba(255, 140, 0, 0.04)',
