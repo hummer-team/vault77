@@ -4,7 +4,7 @@
  * Shows JOIN type, conditions, and order number
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip } from 'antd';
 import {
@@ -14,17 +14,21 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import type { JoinNodeData, JoinType } from '../../../services/flow/types';
+import type { Attachment } from '../../../types/workbench.types';
 import { FlowNodeType } from '../../../services/flow/types';
 import {
   FLOW_COLORS,
   JOIN_TYPE_LABELS,
 } from '../../../services/flow/constants';
+import { getTableDisplayNameMap, getTableDisplayName, truncateDisplayName } from '../../../services/flow/tableNameMapping';
 import { NodeNextButton } from '../shared/NodeNextButton';
 
 interface JoinNodeProps {
   id: string;
   data: JoinNodeData;
   selected?: boolean;
+  /** File attachments for friendly name mapping */
+  attachments?: Attachment[];
 }
 
 // Join type colors
@@ -47,11 +51,19 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
   id,
   data,
   selected,
+  attachments = [],
 }) => {
   const removeNode = useFlowStore((state) => state.removeNode);
   const setSelectedNode = useFlowStore((state) => state.setSelectedNode);
 
   const [isHovering, setIsHovering] = useState(false);
+  
+  // Compute display name mapping from attachments
+  const tableDisplayNameMap = useMemo(
+    () => getTableDisplayNameMap(attachments),
+    [attachments]
+  );
+
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
 
@@ -225,29 +237,33 @@ export const JoinNode: React.FC<JoinNodeProps> = ({
             marginBottom: 4,
           }}
         >
-          <Tag
-            color="default"
-            style={{
-              fontSize: 11,
-              maxWidth: 100,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {data.leftTable}
-          </Tag>
+          <Tooltip title={data.leftTable}>
+            <Tag
+              color="default"
+              style={{
+                fontSize: 11,
+                maxWidth: 100,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {truncateDisplayName(getTableDisplayName(data.leftTable, tableDisplayNameMap), 20)}
+            </Tag>
+          </Tooltip>
           <LinkOutlined style={{ color: 'var(--vm-text-helper)', fontSize: 12 }} />
-          <Tag
-            color="default"
-            style={{
-              fontSize: 11,
-              maxWidth: 100,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {data.rightTable}
-          </Tag>
+          <Tooltip title={data.rightTable}>
+            <Tag
+              color="default"
+              style={{
+                fontSize: 11,
+                maxWidth: 100,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {truncateDisplayName(getTableDisplayName(data.rightTable, tableDisplayNameMap), 20)}
+            </Tag>
+          </Tooltip>
         </div>
       </div>
 

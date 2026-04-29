@@ -45,6 +45,15 @@ export interface ThemeCssVarMap {
   '--vm-table-row-hover-bg': string;
   '--vm-table-row-even-bg': string;
   
+  // TableJoinBuildPanel colors
+  '--vm-table-join-bg': string;
+  '--vm-table-join-surface': string;
+  '--vm-table-join-surface-raised': string;
+  '--vm-table-join-border': string;
+  '--vm-table-join-text-primary': string;
+  '--vm-table-join-text-secondary': string;
+  '--vm-table-join-text-disabled': string;
+
   // Flow semantic colors
   '--vm-flow-info': string;
   '--vm-flow-info-light': string;

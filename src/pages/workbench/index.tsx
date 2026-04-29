@@ -1411,6 +1411,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           defaultKernelName={pendingKernelTemplate ?? undefined}
           onKernelChange={(name) => setPendingKernelTemplate(name)}
           allowedTableNames={allowedTableNames}
+          attachments={attachments}
         />
       </DuckDBProvider>
     </Modal>

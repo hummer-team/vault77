@@ -6,15 +6,17 @@
  *             ConditionGroupDefinitionNode → ConditionGroupRelationNode → EndNode
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
-import { Select, Tag, Spin } from 'antd';
+import { Select, Tag, Spin, Tooltip } from 'antd';
 import { DatabaseOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { getAvailableTables, getTableSchema } from '../../../services/flow/flowService';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
+import { getTableDisplayNameMap, getTableDisplayName, truncateDisplayName } from '../../../services/flow/tableNameMapping';
 import type { DataSourceNodeData } from '../../../services/flow/types';
+import type { Attachment } from '../../../types/workbench.types';
 import { FlowNodeType } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
 
@@ -25,17 +27,25 @@ interface DataSourceNodeProps {
   /** When provided, only these table names will appear in the dropdown.
    *  Pass `undefined` for "no filter" (show all), pass `[]` for "show none". */
   allowedTableNames?: string[];
+  /** File attachments for friendly name mapping */
+  attachments?: Attachment[];
 }
 
-export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, selected, allowedTableNames }) => {
+export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, selected, allowedTableNames, attachments = [] }) => {
   const updateNode = useFlowStore((state) => state.updateNode);
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
   const nodes = useFlowStore((state) => state.nodes);
   const { executeQuery, isDBReady, refreshKey } = useDuckDBContext();
 
-  const [tables, setTables] = useState<{ value: string; label: string }[]>([]);
+  const [tables, setTables] = useState<{ value: string; label: string; fullName?: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Compute display name mapping from attachments
+  const tableDisplayNameMap = useMemo(
+    () => getTableDisplayNameMap(attachments),
+    [attachments]
+  );
 
   // Load available tables when DB is ready or when refreshKey changes (modal reopened)
   useEffect(() => {
@@ -59,10 +69,16 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
             ? tableNames
             : tableNames.filter((n) => allowedTableNames.includes(n));
 
-        const tableOptions = visible.map((name) => ({
-          value: name,
-          label: name,
-        }));
+        const tableOptions = visible.map((name) => {
+          const displayName = getTableDisplayName(name, tableDisplayNameMap);
+          const truncated = truncateDisplayName(displayName, 20);
+          
+          return {
+            value: name,
+            label: truncated,
+            fullName: displayName,
+          };
+        });
         console.log('[DataSourceNode] Setting table options:', tableOptions);
         setTables(tableOptions);
       } catch (error) {
@@ -73,7 +89,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
     };
 
     loadTables();
-  }, [isDBReady, executeQuery, refreshKey, allowedTableNames]);
+  }, [isDBReady, executeQuery, refreshKey, allowedTableNames, tableDisplayNameMap]);
 
   // Debug: log tables state changes
   useEffect(() => {
@@ -219,6 +235,13 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
           popupClassName="datasource-node-select-dropdown nodrag"
           notFoundContent={loading ? '加载中...' : '暂无数据表'}
           getPopupContainer={() => document.body}
+          optionRender={(option: any) => {
+            const opt = option.data as { value: string; label: string; fullName?: string };
+            if (!opt.fullName || opt.label === opt.fullName) {
+              return opt.label;
+            }
+            return <Tooltip title={opt.fullName}>{opt.label}</Tooltip>;
+          }}
           className="nodrag"
           maxTagCount={1}
           maxTagPlaceholder={(omitted) => `+${omitted.length}`}

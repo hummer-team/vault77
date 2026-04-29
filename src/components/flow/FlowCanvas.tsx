@@ -47,6 +47,7 @@ import {
   SelectNodePanelType,
 } from '../../services/flow/bizKernelsBuilderStrategies';
 import { TOKEN } from '../../theme';
+import { FlowAttachmentsProvider } from './contexts/FlowAttachmentsContext';
 
 // Register edge types
 const edgeTypes = {
@@ -55,6 +56,7 @@ const edgeTypes = {
 };
 
 import type { FlowSummary } from '../../services/flow/flowSummary';
+import type { Attachment } from '../../types/workbench.types';
 
 interface FlowCanvasProps {
   className?: string;
@@ -65,6 +67,8 @@ interface FlowCanvasProps {
   onKernelChange?: (kernelName: string) => void;
   /** Tables to show in DataSourceNode dropdown (filtered by selected attachments) */
   allowedTableNames?: string[];
+  /** File attachments for friendly name mapping */
+  attachments?: Attachment[];
 }
 
 const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
@@ -72,6 +76,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   onSqlValidated,
   defaultKernelName,
   allowedTableNames,
+  attachments = [],
 }) => {
   const setDefaultKernelName = useFlowStore((state) => state.setDefaultKernelName);
   const resetFlow = useFlowStore((state) => state.resetFlow);
@@ -143,7 +148,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   const nodeTypesWithCallback = useMemo(
     () => ({
       dataSource: ((props: any) => (
-        <DataSourceNode {...props} allowedTableNames={allowedTableNames} />
+        <DataSourceNode {...props} allowedTableNames={allowedTableNames} attachments={attachments} />
       )) as unknown as NodeTypes[string],
       table: TableNode as unknown as NodeTypes[string],
       merge: MergeNode as unknown as NodeTypes[string],
@@ -159,7 +164,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       end: ((props: any) => <EndNode {...props} onSqlValidated={onSqlValidated} />) as unknown as NodeTypes[string],
       udfConfig: UdfConfigNode as unknown as NodeTypes[string],
     }),
-    [onSqlValidated, allowedTableNames]
+    [onSqlValidated, allowedTableNames, attachments]
   );
 
   // Local state for React Flow
@@ -387,7 +392,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
 export const FlowCanvas: React.FC<FlowCanvasProps> = (props) => {
   return (
     <ReactFlowProvider>
-      <FlowCanvasInner {...props} />
+      <FlowAttachmentsProvider attachments={props.attachments || []}>
+        <FlowCanvasInner {...props} />
+      </FlowAttachmentsProvider>
     </ReactFlowProvider>
   );
 };

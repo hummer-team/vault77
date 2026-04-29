@@ -88,6 +88,15 @@ export const orangeDarkTheme: ThemeDef = {
     '--vm-table-cell-border': 'rgba(255, 255, 255, 0.06)',
     '--vm-table-row-hover-bg': 'rgba(255, 255, 255, 0.03)',
     '--vm-table-row-even-bg': 'rgba(255, 255, 255, 0.02)',
+
+    // TableJoinBuildPanel (Orange Dark theme)
+    '--vm-table-join-bg': '#141418',
+    '--vm-table-join-surface': '#1e1e24',
+    '--vm-table-join-surface-raised': '#26262e',
+    '--vm-table-join-border': 'rgba(255, 255, 255, 0.08)',
+    '--vm-table-join-text-primary': 'rgba(255, 255, 255, 0.92)',
+    '--vm-table-join-text-secondary': 'rgba(136, 136, 160, 0.75)',
+    '--vm-table-join-text-disabled': 'rgba(85, 85, 106, 0.6)',
   },
   antdTokens: {
     colorPrimary: '#FF6B00',

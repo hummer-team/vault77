@@ -98,6 +98,15 @@ export const lightOrangeTheme: ThemeDef = {
     '--vm-table-cell-border': 'rgba(0, 0, 0, 0.06)',
     '--vm-table-row-hover-bg': 'rgba(255, 140, 0, 0.04)',
     '--vm-table-row-even-bg': 'rgba(0, 0, 0, 0.015)',
+
+    // TableJoinBuildPanel (Light theme - dark backgrounds for visibility)
+    '--vm-table-join-bg': '#FFFFFF',
+    '--vm-table-join-surface': '#F9FAFB',
+    '--vm-table-join-surface-raised': '#F0F2F5',
+    '--vm-table-join-border': 'rgba(0, 0, 0, 0.08)',
+    '--vm-table-join-text-primary': 'rgba(15, 23, 42, 0.88)',
+    '--vm-table-join-text-secondary': 'rgba(71, 85, 105, 0.75)',
+    '--vm-table-join-text-disabled': 'rgba(107, 114, 128, 0.6)',
   },
   antdTokens: {
     colorPrimary: '#FF8C00',

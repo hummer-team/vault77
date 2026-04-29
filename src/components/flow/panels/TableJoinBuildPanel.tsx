@@ -9,12 +9,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Input, Select, Typography } from 'antd';
+import { Button, Drawer, Input, Select, Typography, Tooltip } from 'antd';
 import { ArrowDownOutlined, MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
+import { useFlowAttachments } from '../contexts/FlowAttachmentsContext';
 import { getTableSchema } from '../../../services/flow/flowService';
+import { getTableDisplayNameMap, getTableDisplayName, truncateDisplayName } from '../../../services/flow/tableNameMapping';
 import type {
   JoinEdgeData,
   JoinConditionRow,
@@ -28,21 +30,21 @@ const { Text } = Typography;
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 
 const T = {
-  bg: '#141418',
-  surface: '#1e1e24',
-  surfaceRaised: '#26262e',
-  border: '#333340',
+  bg: 'var(--vm-table-join-bg)',
+  surface: 'var(--vm-table-join-surface)',
+  surfaceRaised: 'var(--vm-table-join-surface-raised)',
+  border: 'var(--vm-table-join-border)',
   orange: 'var(--vm-primary)',
   orangeHover: 'var(--vm-primary-hover)',
   orangeDim: 'var(--vm-primary-light)',
   orangeBorder: 'var(--vm-primary-border)',
-  textPrimary: '#e8e8f0',
-  textSecondary: '#8888a0',
-  textDisabled: '#55556a',
-  logic: '#d4890a',
+  textPrimary: 'var(--vm-table-join-text-primary)',
+  textSecondary: 'var(--vm-table-join-text-secondary)',
+  textDisabled: 'var(--vm-table-join-text-disabled)',
+  logic: 'var(--vm-primary)',
   logicBg: 'var(--vm-flow-warning-light)',
   logicBorder: 'var(--vm-flow-warning-light)',
-  danger: '#ff4d4f',
+  danger: 'var(--vm-color-error)',
   dangerDim: 'var(--vm-flow-error-light)',
 };
 
@@ -122,8 +124,8 @@ const DEFAULT_CONDITION = (): JoinConditionRow => ({
 
 /** Build a plain-language description of the join (business/Excel oriented) */
 function buildAutoDescription(
-  sourceTable: string,
-  targetTable: string,
+  sourceTableDisplayName: string,
+  targetTableDisplayName: string,
   joinType: JoinType,
   conditions: JoinConditionRow[]
 ): string {
@@ -131,7 +133,7 @@ function buildAutoDescription(
   const filledConditions = conditions.filter((c) => c.leftField && c.rightField);
 
   if (!filledConditions.length) {
-    return `将「${sourceTable}」与「${targetTable}」进行数据合并。${typeDesc}。`;
+    return `将「${sourceTableDisplayName}」与「${targetTableDisplayName}」进行数据合并。${typeDesc}。`;
   }
 
   const condParts = filledConditions
@@ -139,7 +141,7 @@ function buildAutoDescription(
       const logic = i > 0 && c.logic
         ? `，${c.logic === 'AND' ? '并且' : '或者'}`
         : '';
-      return `${logic}「${sourceTable}」的 ${c.leftField} ${c.operator}「${targetTable}」的 ${c.rightField}`;
+      return `${logic}「${sourceTableDisplayName}」的 ${c.leftField} ${c.operator}「${targetTableDisplayName}」的 ${c.rightField}`;
     })
     .join('');
 
@@ -155,6 +157,13 @@ export const TableJoinBuildPanel: React.FC = () => {
   const joinPanelEdgeId = useFlowStore((state) => state.joinPanelEdgeId);
   const closeJoinPanel = useFlowStore((state) => state.closeJoinPanel);
   const updateEdge = useFlowStore((state) => state.updateEdge);
+
+  // Get attachments from context for table name mapping
+  const attachments = useFlowAttachments();
+  const tableDisplayNameMap = useMemo(
+    () => getTableDisplayNameMap(attachments),
+    [attachments]
+  );
 
   // DuckDB for on-demand field loading
   const { executeQuery } = useDuckDBContext();
@@ -173,6 +182,16 @@ export const TableJoinBuildPanel: React.FC = () => {
   const sourceTableName = existingData?.sourceTableName ?? '';
   const targetTableName = existingData?.targetTableName ?? '';
   const order = existingData?.order ?? 1;
+
+  // Compute display names from technical table names
+  const sourceTableDisplayName = useMemo(
+    () => getTableDisplayName(sourceTableName, tableDisplayNameMap),
+    [sourceTableName, tableDisplayNameMap]
+  );
+  const targetTableDisplayName = useMemo(
+    () => getTableDisplayName(targetTableName, tableDisplayNameMap),
+    [targetTableName, tableDisplayNameMap]
+  );
 
   // ── Local form state ──
   const [joinType, setJoinType] = useState<JoinType>(JoinType.INNER);
@@ -240,8 +259,8 @@ export const TableJoinBuildPanel: React.FC = () => {
 
   // Auto-generated description
   const autoDescription = useMemo(
-    () => buildAutoDescription(sourceTableName, targetTableName, joinType, conditions),
-    [sourceTableName, targetTableName, joinType, conditions]
+    () => buildAutoDescription(sourceTableDisplayName, targetTableDisplayName, joinType, conditions),
+    [sourceTableDisplayName, targetTableDisplayName, joinType, conditions]
   );
 
   // Disable confirm when any condition row has a type mismatch
@@ -357,9 +376,13 @@ export const TableJoinBuildPanel: React.FC = () => {
           关系组{order}
         </span>
         <span style={{ color: T.textPrimary, fontSize: 13, fontWeight: 500 }}>
-          {sourceTableName}
+          <Tooltip title={sourceTableName}>
+            {truncateDisplayName(getTableDisplayName(sourceTableName, tableDisplayNameMap), 20)}
+          </Tooltip>
           <span style={{ color: T.textSecondary, margin: '0 6px' }}>→</span>
-          {targetTableName}
+          <Tooltip title={targetTableName}>
+            {truncateDisplayName(getTableDisplayName(targetTableName, tableDisplayNameMap), 20)}
+          </Tooltip>
         </span>
       </div>
 
@@ -376,11 +399,13 @@ export const TableJoinBuildPanel: React.FC = () => {
       >
         {/* Source table */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <Input
-            value={sourceTableName}
-            disabled
-            style={{ flex: 1, background: T.surfaceRaised, color: T.textPrimary, borderColor: T.border }}
-          />
+          <Tooltip title={sourceTableName}>
+            <Input
+              value={truncateDisplayName(getTableDisplayName(sourceTableName, tableDisplayNameMap), 30)}
+              disabled
+              style={{ flex: 1, background: T.surfaceRaised, color: T.textPrimary, borderColor: T.border }}
+            />
+          </Tooltip>
           <span style={{
             background: T.orangeDim, border: `1px solid ${T.orangeBorder}`,
             color: T.orange, borderRadius: 4, padding: '2px 8px',
@@ -406,11 +431,13 @@ export const TableJoinBuildPanel: React.FC = () => {
         </div>
 
         {/* Target table */}
-        <Input
-          value={targetTableName}
-          disabled
-          style={{ background: T.surfaceRaised, color: T.textPrimary, borderColor: T.border }}
-        />
+        <Tooltip title={targetTableName}>
+          <Input
+            value={truncateDisplayName(getTableDisplayName(targetTableName, tableDisplayNameMap), 30)}
+            disabled
+            style={{ background: T.surfaceRaised, color: T.textPrimary, borderColor: T.border }}
+          />
+        </Tooltip>
       </div>
 
       {/* ── 关系说明 (auto-generated, read-only) ── */}
@@ -442,11 +469,11 @@ export const TableJoinBuildPanel: React.FC = () => {
         padding: '0 0 4px 36px',
       }}>
         <span style={{ color: T.textSecondary, fontSize: 10, textAlign: 'center' }}>
-          {sourceTableName || '主表'} · 字段
+          {sourceTableDisplayName || '主表'} · 字段
         </span>
         <span style={{ color: T.textSecondary, fontSize: 10, textAlign: 'center' }}>关系</span>
         <span style={{ color: T.textSecondary, fontSize: 10, textAlign: 'center' }}>
-          {targetTableName || '关联表'} · 字段
+          {targetTableDisplayName || '关联表'} · 字段
         </span>
         <span />
       </div>

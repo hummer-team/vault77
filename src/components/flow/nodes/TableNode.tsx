@@ -4,7 +4,7 @@
  * Supports virtual scroll for large field lists (>50 fields)
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Tooltip, Space, Spin } from 'antd';
 import {
@@ -25,6 +25,8 @@ import {
   PERFORMANCE,
 } from '../../../services/flow/constants';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { useFlowAttachments } from '../contexts/FlowAttachmentsContext';
+import { getTableDisplayNameMap, getTableDisplayName, truncateDisplayName } from '../../../services/flow/tableNameMapping';
 
 interface TableNodeProps {
   id: string;
@@ -86,6 +88,24 @@ export const TableNode: React.FC<TableNodeProps> = ({
   const removeNode = useFlowStore((state) => state.removeNode);
   const { executeQuery } = useDuckDBContext();
   const [loading, setLoading] = useState(false);
+  const attachments = useFlowAttachments();
+
+  // Compute display name mapping
+  const tableDisplayNameMap = useMemo(
+    () => getTableDisplayNameMap(attachments),
+    [attachments]
+  );
+
+  // Get display name and truncate if needed
+  const displayTableName = useMemo(() => {
+    const mappedName = getTableDisplayName(data.tableName, tableDisplayNameMap);
+    return truncateDisplayName(mappedName, 20);
+  }, [data.tableName, tableDisplayNameMap]);
+
+  // Get full name for tooltip
+  const fullTableName = useMemo(() => {
+    return getTableDisplayName(data.tableName, tableDisplayNameMap);
+  }, [data.tableName, tableDisplayNameMap]);
 
   // Toggle expand and load fields
   const handleExpand = useCallback(async () => {
@@ -197,18 +217,20 @@ export const TableNode: React.FC<TableNodeProps> = ({
         }}
       >
         <TableOutlined style={{ marginRight: 8, color: 'var(--vm-flow-info)' }} />
-        <span
-          style={{
-            flex: 1,
-            color: 'var(--vm-text-primary)',
-            fontWeight: 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {data.tableName}
-        </span>
+        <Tooltip title={fullTableName}>
+          <span
+            style={{
+              flex: 1,
+              color: 'var(--vm-text-primary)',
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {displayTableName}
+          </span>
+        </Tooltip>
         <Space>
           <Spin spinning={loading} size="small">
             <Button
