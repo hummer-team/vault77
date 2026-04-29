@@ -334,16 +334,25 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
         <FilterOutlined style={{ color: colors.text, marginRight: 8 }} />
 
-        <span
-          style={{
-            flex: 1,
-            color: TOKEN.textPrimary,
-            fontWeight: 500,
-            fontSize: 13,
-          }}
-        >
-          {LOGIC_TYPE_LABELS[relationType]}
-        </span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span
+            style={{
+              color: TOKEN.textPrimary,
+              fontWeight: 600,
+              fontSize: 13,
+            }}
+          >
+            {data.displayName || '条件组'}
+          </span>
+          <span
+            style={{
+              color: 'var(--vm-text-helper)',
+              fontSize: 11,
+            }}
+          >
+            {LOGIC_TYPE_LABELS[relationType]}
+          </span>
+        </div>
 
         {/* Actions - delete button always visible */}
         <Space size={4}>

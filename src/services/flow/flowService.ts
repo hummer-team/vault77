@@ -215,6 +215,32 @@ export function generatePlaceholderName(refId: string, conditionIndex: number): 
 }
 
 /**
+ * Generate display name for ConditionDefinitionNode
+ * Maps GC_1 -> "条件值_1", GC_2 -> "条件值_2", etc.
+ * @param refId Internal refId (e.g., GC_1)
+ * @returns User-friendly display name (e.g., "条件值_1")
+ */
+export function generateConditionDefinitionDisplayName(refId: string): string {
+  // Extract number from refId (e.g., "GC_1" -> "1", "CG1" -> "1")
+  const match = refId.match(/\d+/);
+  if (!match) return refId; // Fallback if no number found
+  const num = match[0];
+  return `条件值_${num}`;
+}
+
+/**
+ * Generate display name for ConditionGroupNode
+ * Maps counter 1 -> "条件组_1", 2 -> "条件组_2", etc.
+ * @param nodes Current flow nodes to count existing ConditionGroupNodes
+ * @returns User-friendly display name (e.g., "条件组_1")
+ */
+export function generateConditionGroupDisplayName(nodes: FlowNode[]): string {
+  // Count existing ConditionGroupNodes
+  const conditionGroupCount = nodes.filter((n) => n.type === 'conditionGroup').length;
+  return `条件组_${conditionGroupCount + 1}`;
+}
+
+/**
  * Validate refId format (Q18: max 5 chars, alphanumeric only)
  * @param refId RefId to validate
  * @returns Validation result

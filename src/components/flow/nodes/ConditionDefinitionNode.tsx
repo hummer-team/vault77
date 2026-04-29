@@ -320,7 +320,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <Tooltip title="Click to edit (max 5 chars, alphanumeric)">
+          <Tooltip title={`Internal ID: ${data.refId} (Click to edit refId)`}>
             <span
               style={{
                 flex: 1,
@@ -334,7 +334,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
                 setIsEditingName(true);
               }}
             >
-              {data.refId}
+              {data.displayName || data.refId}
             </span>
           </Tooltip>
         )}

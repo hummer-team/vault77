@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
 import type { ConditionDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
-import { generateConditionGroupRefId } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
 // Shared edge factory
@@ -215,11 +215,12 @@ export function useMergeActions(
     // Always create a brand-new ConditionGroupNode — never reuse an existing one.
     // Only the triggering CG node is wired here; other CG nodes connect manually.
     const groupNodeId = `relation_${Date.now()}`;
+    const displayName = generateConditionGroupDisplayName(nodes);
     addNode({
       id: groupNodeId,
       type: FlowNodeType.CONDITION_GROUP,
       position: { x: x + X_OFFSET, y },
-      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''] },
+      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''], displayName },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
   }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
