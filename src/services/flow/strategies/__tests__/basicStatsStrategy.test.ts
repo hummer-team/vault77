@@ -3,8 +3,10 @@ import { BasicStatsStrategy } from '../basicStatsStrategy';
 import {
   FlowNodeType,
   OperatorType,
+  LogicType,
   type FlowNode,
   type BasicStatsConfig,
+  type ConditionNodeData,
 } from '../../types';
 
 describe('BasicStatsStrategy', () => {
@@ -28,6 +30,19 @@ describe('BasicStatsStrategy', () => {
       tableName: 'orders',
       basicStatsConfig: config,
     },
+  });
+
+  const createConditionNode = (field: string, operator: string, value: unknown): FlowNode => ({
+    id: 'condition-1',
+    type: FlowNodeType.CONDITION,
+    position: { x: 300, y: 0 },
+    data: {
+      tableName: 'orders',
+      field,
+      operator,
+      value,
+      logicType: LogicType.AND,
+    } as ConditionNodeData,
   });
 
   it('should generate SQL with time granularity (date_trunc)', () => {
@@ -235,5 +250,38 @@ describe('BasicStatsStrategy', () => {
 
     expect(sql).toContain('truncate_num(SUM("amount"), 2)');
     expect(sql).not.toContain('ROUND');
+  });
+
+  it('should include WHERE clause from condition nodes', () => {
+    const nodes: FlowNode[] = [
+      createTableNode([
+        { name: 'category', type: 'VARCHAR' },
+        { name: 'amount', type: 'DECIMAL' },
+        { name: 'status', type: 'VARCHAR' },
+      ]),
+      createSelectNode({
+        tableName: 'orders',
+        aggFields: [
+          { id: '1', column: 'amount', func: 'SUM', alias: 'total_amount', distinct: false },
+        ],
+        groupByColumns: ['category'],
+        havingFilters: [],
+        sortConfigs: [],
+      }),
+      createConditionNode('status', '=', 'completed'),
+    ];
+
+    const sql = strategy.buildSql(nodes, []);
+
+    expect(sql).toContain('WHERE');
+    expect(sql).toContain('"orders"."status"');
+    expect(sql).toContain("'completed'");
+    // Verify WHERE clause is after FROM and before GROUP BY
+    const lines = sql.split('\n');
+    const fromIndex = lines.findIndex((l) => l.includes('FROM'));
+    const whereIndex = lines.findIndex((l) => l.includes('WHERE'));
+    const groupByIndex = lines.findIndex((l) => l.includes('GROUP BY'));
+    expect(fromIndex).toBeLessThan(whereIndex);
+    expect(whereIndex).toBeLessThan(groupByIndex);
   });
 });

@@ -128,6 +128,12 @@ export class BasicStatsStrategy extends BaseStrategy {
     // FROM
     parts.push(`FROM "${config.tableName}"`);
 
+    // WHERE: conditions from ConditionDefinitionNode
+    const whereClause = this.buildWhereClause(nodes);
+    if (whereClause) {
+      parts.push(whereClause);
+    }
+
     // GROUP BY: use the same expressions as in SELECT (positional or full expressions)
     if (config.groupByColumns.length > 0) {
       const groupByCols = config.groupByColumns.map((c) => getColumnExpr(c));

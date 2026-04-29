@@ -24,9 +24,12 @@ function buildRefDateExpr(tableName: string, config: RepurchaseCycleConfig): str
 }
 
 /** Build the shared base CTEs used by both detail and summary modes */
-function buildBaseCtes(tableName: string, config: RepurchaseCycleConfig): string {
+function buildBaseCtes(tableName: string, config: RepurchaseCycleConfig, additionalWhere?: string): string {
   const { userIdCol, categoryCol, orderTimeCol, thresholds } = config;
   const refDateExpr = buildRefDateExpr(tableName, config);
+
+  // Build the WHERE clause for the first CTE
+  const whereClause = additionalWhere ? `WHERE ${additionalWhere.replace(/^WHERE\s+/i, '')}` : '';
 
   return [
     `WITH order_lags AS (`,
@@ -39,6 +42,7 @@ function buildBaseCtes(tableName: string, config: RepurchaseCycleConfig): string
     `      ORDER BY ts_parse("${orderTimeCol}", 'auto')`,
     `    ) AS prev_ts`,
     `  FROM "${tableName}"`,
+    ...(whereClause ? [whereClause] : []),
     `),`,
     `user_cat_stats AS (`,
     `  SELECT`,
@@ -86,8 +90,8 @@ function buildBaseCtes(tableName: string, config: RepurchaseCycleConfig): string
  * @param tableName - DuckDB table name
  * @param config    - RepurchaseCycleConfig
  */
-export function buildRepurchaseDetailSql(tableName: string, config: RepurchaseCycleConfig): string {
-  const baseCtes = buildBaseCtes(tableName, config);
+export function buildRepurchaseDetailSql(tableName: string, config: RepurchaseCycleConfig, additionalWhere?: string): string {
+  const baseCtes = buildBaseCtes(tableName, config, additionalWhere);
 
   let whereClause = '';
   if (config.detailRiskFilter.length > 0) {
@@ -119,8 +123,8 @@ export function buildRepurchaseDetailSql(tableName: string, config: RepurchaseCy
  * @param tableName - DuckDB table name
  * @param config    - RepurchaseCycleConfig
  */
-export function buildRepurchaseSummarySql(tableName: string, config: RepurchaseCycleConfig): string {
-  const baseCtes = buildBaseCtes(tableName, config);
+export function buildRepurchaseSummarySql(tableName: string, config: RepurchaseCycleConfig, additionalWhere?: string): string {
+  const baseCtes = buildBaseCtes(tableName, config, additionalWhere);
   const filteredWhere = config.summaryValidOnly ? `  WHERE order_count >= 2` : '';
 
   const selectBlock = [
@@ -182,10 +186,13 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
       return `SELECT *\nFROM "${tableName}"`;
     }
 
+    // Get WHERE clause from condition nodes
+    const additionalWhere = this.buildWhereClause(nodes);
+
     const sql =
       config.outputMode === 'summary'
-        ? buildRepurchaseSummarySql(tableName, config)
-        : buildRepurchaseDetailSql(tableName, config);
+        ? buildRepurchaseSummarySql(tableName, config, additionalWhere)
+        : buildRepurchaseDetailSql(tableName, config, additionalWhere);
 
     console.log(`[${this.name}.buildSql] outputMode=${config.outputMode} sql=\n${sql}`);
     return sql;

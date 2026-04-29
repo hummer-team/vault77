@@ -116,8 +116,12 @@ function cmpIntervalShift(comparisonType: ComparisonType, granularity?: TimeGran
  * @param tableName - DuckDB table name (unquoted)
  * @param config    - TimeDistConfig from SelectNode
  */
-export function buildTimeDistSql(tableName: string, config: TimeDistConfig): string {
+export function buildTimeDistSql(tableName: string, config: TimeDistConfig, additionalWhere?: string): string {
   const { orderTimeColumn: tc, orderAmountColumn: ac, granularity, currentStart, currentEnd } = config;
+
+  // Combine time range filter with any additional where conditions
+  const dateFilter = `"${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`;
+  const whereCondition = additionalWhere ? `${dateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : dateFilter;
 
   if (!config.enableComparison) {
     return [
@@ -127,7 +131,7 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
       `  SUM("${ac}") AS total_amount,`,
       `  ROUND(AVG("${ac}"), 2) AS avg_amount`,
       `FROM "${tableName}"`,
-      `WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+      `WHERE ${whereCondition}`,
       `GROUP BY 1`,
       `ORDER BY 1`,
     ].join('\n');
@@ -145,6 +149,8 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
   }
 
   const shift = cmpIntervalShift(compType, granularity);
+  const cmpDateFilter = `"${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`;
+  const cmpWhereCondition = additionalWhere ? `${cmpDateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : cmpDateFilter;
 
   return [
     `WITH current_period AS (`,
@@ -154,7 +160,7 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
     `    SUM("${ac}") AS total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+    `  WHERE ${whereCondition}`,
     `  GROUP BY 1`,
     `),`,
     `cmp_period AS (`,
@@ -164,7 +170,7 @@ export function buildTimeDistSql(tableName: string, config: TimeDistConfig): str
     `    SUM("${ac}") AS cmp_total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS cmp_avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`,
+    `  WHERE ${cmpWhereCondition}`,
     `  GROUP BY 1`,
     `)`,
     `SELECT`,
@@ -214,9 +220,13 @@ function buildBucketCaseExpr(amtCol: string, buckets: AmountDistConfig['buckets'
  * @param tableName - DuckDB table name (unquoted)
  * @param config    - AmountDistConfig from SelectNode
  */
-export function buildAmountDistSql(tableName: string, config: AmountDistConfig): string {
+export function buildAmountDistSql(tableName: string, config: AmountDistConfig, additionalWhere?: string): string {
   const { orderAmountColumn: ac, orderTimeColumn: tc, buckets, currentStart, currentEnd } = config;
   const caseExpr = buildBucketCaseExpr(ac, buckets);
+
+  // Combine time range filter with any additional where conditions
+  const dateFilter = `"${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`;
+  const whereCondition = additionalWhere ? `${dateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : dateFilter;
 
   if (!config.enableComparison) {
     return [
@@ -226,7 +236,7 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
       `  SUM("${ac}") AS total_amount,`,
       `  ROUND(AVG("${ac}"), 2) AS avg_amount`,
       `FROM "${tableName}"`,
-      `WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+      `WHERE ${whereCondition}`,
       `GROUP BY 1`,
       `ORDER BY MIN("${ac}")`,
     ].join('\n');
@@ -243,6 +253,9 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
     ({ cmpStart, cmpEnd } = computeComparisonDates(currentStart, currentEnd, compType));
   }
 
+  const cmpDateFilter = `"${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`;
+  const cmpWhereCondition = additionalWhere ? `${cmpDateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : cmpDateFilter;
+
   return [
     `WITH current_period AS (`,
     `  SELECT`,
@@ -251,7 +264,7 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
     `    SUM("${ac}") AS total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+    `  WHERE ${whereCondition}`,
     `  GROUP BY 1`,
     `),`,
     `cmp_period AS (`,
@@ -261,7 +274,7 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
     `    SUM("${ac}") AS cmp_total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS cmp_avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`,
+    `  WHERE ${cmpWhereCondition}`,
     `  GROUP BY 1`,
     `)`,
     `SELECT`,
@@ -290,8 +303,12 @@ export function buildAmountDistSql(tableName: string, config: AmountDistConfig):
  * @param tableName - DuckDB table name (unquoted)
  * @param config    - GeoDistConfig from SelectNode
  */
-export function buildGeoDistSql(tableName: string, config: GeoDistConfig): string {
+export function buildGeoDistSql(tableName: string, config: GeoDistConfig, additionalWhere?: string): string {
   const { geoColumn: gc, orderAmountColumn: ac, orderTimeColumn: tc, currentStart, currentEnd } = config;
+
+  // Combine time range filter with any additional where conditions
+  const dateFilter = `"${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`;
+  const whereCondition = additionalWhere ? `${dateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : dateFilter;
 
   if (!config.enableComparison) {
     return [
@@ -301,7 +318,7 @@ export function buildGeoDistSql(tableName: string, config: GeoDistConfig): strin
       `  SUM("${ac}") AS total_amount,`,
       `  ROUND(AVG("${ac}"), 2) AS avg_amount`,
       `FROM "${tableName}"`,
-      `WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+      `WHERE ${whereCondition}`,
       `GROUP BY 1`,
       `ORDER BY order_count DESC`,
     ].join('\n');
@@ -318,6 +335,9 @@ export function buildGeoDistSql(tableName: string, config: GeoDistConfig): strin
     ({ cmpStart, cmpEnd } = computeComparisonDates(currentStart, currentEnd, compType));
   }
 
+  const cmpDateFilter = `"${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`;
+  const cmpWhereCondition = additionalWhere ? `${cmpDateFilter} AND (${additionalWhere.replace(/^WHERE\s+/i, '')})` : cmpDateFilter;
+
   return [
     `WITH current_period AS (`,
     `  SELECT`,
@@ -326,7 +346,7 @@ export function buildGeoDistSql(tableName: string, config: GeoDistConfig): strin
     `    SUM("${ac}") AS total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${currentStart}'::TIMESTAMP AND '${currentEnd}'::TIMESTAMP`,
+    `  WHERE ${whereCondition}`,
     `  GROUP BY 1`,
     `),`,
     `cmp_period AS (`,
@@ -336,7 +356,7 @@ export function buildGeoDistSql(tableName: string, config: GeoDistConfig): strin
     `    SUM("${ac}") AS cmp_total_amount,`,
     `    ROUND(AVG("${ac}"), 2) AS cmp_avg_amount`,
     `  FROM "${tableName}"`,
-    `  WHERE "${tc}"::TIMESTAMP BETWEEN '${cmpStart}'::TIMESTAMP AND '${cmpEnd}'::TIMESTAMP`,
+    `  WHERE ${cmpWhereCondition}`,
     `  GROUP BY 1`,
     `)`,
     `SELECT`,
@@ -380,6 +400,9 @@ export class OrderDistributionStrategy extends BaseStrategy {
       return `SELECT *\nFROM "${tableName}"`;
     }
 
+    // Get WHERE clause from condition nodes
+    const additionalWhere = this.buildWhereClause(nodes);
+
     let sql: string;
     switch (config.subType) {
       case 'time_dist':
@@ -387,7 +410,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
           console.warn(`[${this.name}.buildSql] timeDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildTimeDistSql(tableName, config.timeDist);
+        sql = buildTimeDistSql(tableName, config.timeDist, additionalWhere);
         break;
 
       case 'amount_dist':
@@ -395,7 +418,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
           console.warn(`[${this.name}.buildSql] amountDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildAmountDistSql(tableName, config.amountDist);
+        sql = buildAmountDistSql(tableName, config.amountDist, additionalWhere);
         break;
 
       case 'geo_dist':
@@ -403,7 +426,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
           console.warn(`[${this.name}.buildSql] geoDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildGeoDistSql(tableName, config.geoDist);
+        sql = buildGeoDistSql(tableName, config.geoDist, additionalWhere);
         break;
 
       default: {
