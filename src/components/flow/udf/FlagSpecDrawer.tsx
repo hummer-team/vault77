@@ -65,7 +65,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
   }, [open, initialConfig, initialOutputColumns]);
 
   const addEntry = () =>
-    setEntries((prev) => [...prev, { col: '', cases: [['', '']] as [string, string][] }]);
+    setEntries((prev) => [...prev, { col: '', cases: [['', '']] as [string, string][], elseValue: '' }]);
 
   const removeEntry = (idx: number) =>
     setEntries((prev) => prev.filter((_, i) => i !== idx));
@@ -113,14 +113,15 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
     const trimmed = expr.trim();
     
     // Support:
-    // 1. Simple: "= value", ">= 100", "IN (val1, val2)"
+    // 1. Simple: "= value", ">= 100", "IN (val1, val2)", "=3455"
     // 2. IS NULL / IS NOT NULL
     // 3. Complex: "IS NOT NULL AND col != ''"
     
     // Check for valid operator presence (case-insensitive, works with CJK)
     // For multi-word operators, check in order of length (longest first)
     const hasValidOp = ['IS NOT', 'IS', '<=', '>=', '<>', '!=', 'IN', '=', '<', '>'].some((op) => {
-      const regex = new RegExp(`(^|\\s|\\(|\\)|AND|OR|and|or)${op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|AND|OR|and|or|\\(|\\)|[^\\w])`, 'i');
+      // Allow operator at start (^), after whitespace/parentheses/AND/OR, or within expression
+      const regex = new RegExp(`(^|\\s|\\(|\\)|AND|OR|and|or)${op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$|AND|OR|and|or|\\(|\\)|[^\\w]|[a-zA-Z0-9])|^${op.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|[a-zA-Z0-9])`, 'i');
       return regex.test(trimmed);
     });
     
@@ -264,7 +265,7 @@ export const FlagSpecDrawer: React.FC<FlagSpecDrawerProps> = ({
                   <div style={{ display: 'flex', gap: 8, marginBottom: hasError ? 2 : 8, alignItems: 'center' }}>
                     <Tag style={{ minWidth: 40 }}>当</Tag>
                     <Input
-                      placeholder="满足条件（如：金卡 或 >= 100）"
+                      placeholder="满足条件"
                       value={c[0]}
                       onChange={(e) => updateCaseField(entryIdx, caseIdx, 0, e.target.value)}
                       onBlur={(e) => handleConditionBlur(entryIdx, caseIdx, e.target.value)}

@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
+import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionGroupDefinitionDisplayName, generateConditionValueDisplayName } from '../../../services/flow/flowService';
 import type { ConditionGroupDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
 import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
@@ -175,11 +175,13 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
 
   // Add new condition line
   const handleAddCondition = useCallback(() => {
+    // Convert refId prefix from GC to CV for condition values (e.g., GC1 -> CV1)
+    const cvRefId = data.refId.replace(/^GC/, PLACEHOLDER_CONSTANTS.CONDITION_VALUE_PREFIX);
     const newCondition: ConditionItem = {
       id: generateConditionId(),
       field: '',
       operator: '=',
-      placeholder: generatePlaceholderName(data.refId, data.conditions.length),
+      placeholder: generatePlaceholderName(cvRefId, data.conditions.length),
       valueType: 'VARCHAR' as FieldType,
     };
     updateNode(id, {
@@ -193,11 +195,13 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
       if (data.conditions.length <= 1) {
         return; // Keep at least one condition
       }
+      // Convert refId prefix from GC to CV for condition values (e.g., GC1 -> CV1)
+      const cvRefId = data.refId.replace(/^GC/, PLACEHOLDER_CONSTANTS.CONDITION_VALUE_PREFIX);
       const updatedConditions = data.conditions
         .filter((c) => c.id !== conditionId)
         .map((c, index) => ({
           ...c,
-          placeholder: generatePlaceholderName(data.refId, index),
+          placeholder: generatePlaceholderName(cvRefId, index),
         }));
       updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
     },
@@ -482,7 +486,7 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
                 textAlign: 'center',
               }}
             >
-              {condition.placeholder}
+              {generateConditionValueDisplayName(condition.placeholder)}
             </Tag>
 
             {/* Remove button */}

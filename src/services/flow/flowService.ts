@@ -185,7 +185,7 @@ export async function getTableRowCount(
  * @returns Unique refId (max 5 chars, alphanumeric)
  */
 export function generateConditionGroupRefId(nodes: FlowNode[]): string {
-  const prefix = PLACEHOLDER_CONSTANTS.DEFAULT_PREFIX;
+  const prefix = PLACEHOLDER_CONSTANTS.CONDITION_GROUP_PREFIX;
   const existingIds = new Set(
     nodes
       .filter((n) => n.type === 'conditionGroupDefinition')
@@ -226,6 +226,20 @@ export function generateConditionGroupDefinitionDisplayName(refId: string): stri
   if (!match) return refId; // Fallback if no number found
   const num = match[0];
   return `条件组_${num}`;
+}
+
+/**
+ * Generate display name for condition value within a group (条件值)
+ * Maps placeholder "CV1_1" -> "条件值_1", "CV1_2" -> "条件值_2", etc.
+ * @param placeholder Placeholder name (e.g., CV1_1)
+ * @returns User-friendly display name (e.g., "条件值_1")
+ */
+export function generateConditionValueDisplayName(placeholder: string): string {
+  // Extract condition number from placeholder (e.g., "CV1_1" -> "1", "CV1_2" -> "2")
+  const match = placeholder.match(/_(\d+)$/);
+  if (!match) return placeholder; // Fallback if format not matched
+  const conditionNum = match[1];
+  return `条件值_${conditionNum}`;
 }
 
 /**

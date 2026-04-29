@@ -12,7 +12,8 @@ import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource } from '../../../services/flow/types';
 import type { MergeNodeData, ConditionGroupDefinitionNodeData } from '../../../services/flow/types';
-import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName, generatePlaceholderName } from '../../../services/flow/flowService';
+import { PLACEHOLDER_CONSTANTS } from '../../../services/flow/constants';
 
 // ---------------------------------------------------------------------------
 // Style constants (outside component to avoid recreating on every render)
@@ -196,7 +197,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               id: `cond_${Date.now()}`,
               field: '',
               operator: '=',
-              placeholder: `${refId}_1`,
+              placeholder: generatePlaceholderName(refId.replace(/^GC/, PLACEHOLDER_CONSTANTS.CONDITION_VALUE_PREFIX), 0),
               valueType: 'VARCHAR',
             },
           ],

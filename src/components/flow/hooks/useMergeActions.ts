@@ -10,7 +10,8 @@ import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
 import type { ConditionGroupDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
-import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName, generateConditionGroupRelationDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName, generateConditionGroupRelationDisplayName, generatePlaceholderName } from '../../../services/flow/flowService';
+import { PLACEHOLDER_CONSTANTS } from '../../../services/flow/constants';
 
 // ---------------------------------------------------------------------------
 // Shared edge factory
@@ -199,7 +200,7 @@ export function useMergeActions(
             id: `cond_${Date.now()}`,
             field: '',
             operator: '=',
-            placeholder: `${refId}_1`,
+            placeholder: generatePlaceholderName(refId.replace(/^GC/, PLACEHOLDER_CONSTANTS.CONDITION_VALUE_PREFIX), 0),
             valueType: 'VARCHAR',
           },
         ],

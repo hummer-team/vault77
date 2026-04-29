@@ -134,7 +134,7 @@ CREATE OR REPLACE MACRO udf_up_lower_str(
                    k ->
                        CASE round_mode
                            WHEN 'truncate' THEN
-                               'TRUNCATE("' || replace(k, '"', '""') || '", ' ||
+                               'TRUNC("' || replace(k, '"', '""') || '", ' ||
                                json_extract(cols_config::JSON, '$."' || k || '"')::VARCHAR || ')'
                            WHEN 'ceil' THEN
                                'CEIL("' || replace(k, '"', '""') ||

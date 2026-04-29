@@ -351,13 +351,21 @@ export const JOIN_TYPE_LABELS: Record<string, string> = {
 
 /**
  * Placeholder naming rules:
+ * 
+ * Condition Group (ConditionGroupDefinitionNode):
  * - Prefix: GC (Condition Group)
  * - Group number: auto-incrementing (1, 2, 3...)
+ * - Format: GC{group} (e.g., GC1, GC2) → DisplayName: "条件组_1", "条件组_2"
+ *
+ * Condition Value (condition within ConditionGroupDefinitionNode):
+ * - Prefix: CV (Condition Value)
+ * - Group number: matches parent group (1, 2, 3...)
  * - Condition number: auto-incrementing within group (1, 2, 3...)
- * - Format: GC{group}_{condition} (e.g., GC1_1, GC1_2, GC2_1)
+ * - Format: CV{group}_{condition} (e.g., CV1_1, CV1_2, CV2_1) → DisplayName: "条件值_1", "条件值_2"
  */
 export const PLACEHOLDER_CONSTANTS = {
-  DEFAULT_PREFIX: 'GC',
+  CONDITION_GROUP_PREFIX: 'GC',
+  CONDITION_VALUE_PREFIX: 'CV',
   MAX_REF_ID_LENGTH: 5, // Q18: 5 character limit for node name
   ALLOWED_REF_ID_PATTERN: /^[a-zA-Z0-9]+$/, // Q18: alphanumeric only
   SEPARATOR: '_',
