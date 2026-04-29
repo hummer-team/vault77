@@ -150,8 +150,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       operator: OperatorNode as unknown as NodeTypes[string],
       // join: JoinNode — removed; join config is now stored on edges (JoinEdge)
       condition: ConditionNode as unknown as NodeTypes[string],
-      conditionGroup: ConditionGroupRelationNode as unknown as NodeTypes[string],
-      conditionDefinition: ((props: any) => (
+      conditionGroupRelation: ConditionGroupRelationNode as unknown as NodeTypes[string],
+      conditionGroupDefinition: ((props: any) => (
         <ConditionGroupDefinitionNode {...props} allowedTableNames={allowedTableNames} />
       )) as unknown as NodeTypes[string],
       select: SelectNode as unknown as NodeTypes[string],
