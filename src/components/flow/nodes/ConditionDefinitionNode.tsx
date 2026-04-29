@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique } from '../../../services/flow/flowService';
+import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionDefinitionDisplayName } from '../../../services/flow/flowService';
 import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
 import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
@@ -60,6 +60,14 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
   const [contentExpanded, setContentExpanded] = useState(true); // Content section expanded by default
+
+  // Auto-generate displayName if missing (for backward compatibility with old nodes)
+  React.useEffect(() => {
+    if (!data.displayName && data.refId) {
+      const generatedDisplayName = generateConditionDefinitionDisplayName(data.refId);
+      updateNode(id, { displayName: generatedDisplayName } as Partial<ConditionDefinitionNodeData>);
+    }
+  }, [data.refId, data.displayName, id, updateNode]);
 
   // Load available tables: prefer canvas-wide joined tables; fallback to DuckDB query
   React.useEffect(() => {

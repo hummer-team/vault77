@@ -18,6 +18,7 @@ import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../
 import { FLOW_COLORS, CUSTOM_EXPRESSION_CONSTANTS } from '../../../services/flow/constants';
 import { FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
+import { generateConditionGroupDisplayName } from '../../../services/flow/flowService';
 import { TOKEN } from '../../../theme';
 
 interface ConditionGroupNodeProps {
@@ -71,6 +72,14 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   const [isHovering, setIsHovering] = useState(false);
   const handleMouseEnter = useCallback(() => setIsHovering(true), []);
   const handleMouseLeave = useCallback(() => setIsHovering(false), []);
+
+  // Auto-generate displayName if missing (for backward compatibility with old nodes)
+  React.useEffect(() => {
+    if (!data.displayName) {
+      const generatedDisplayName = generateConditionGroupDisplayName(nodes);
+      updateNode(id, { displayName: generatedDisplayName } as Partial<ConditionGroupNodeData>);
+    }
+  }, [data.displayName, id, nodes, updateNode]);
 
   // Get current relation type (default to data.logicType for backward compatibility)
   const relationType: RelationType = data.relationType || data.logicType;
