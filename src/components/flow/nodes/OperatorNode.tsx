@@ -4,7 +4,7 @@
  * Allows user to select business operator from applied kernels.
  *
  * Node order: OperatorNode → DataSourceNode → TableNode → SelectNode →
- *             ConditionDefinitionNode → ConditionGroupNode → EndNode
+ *             ConditionGroupDefinitionNode → ConditionGroupRelationNode → EndNode
  */
 
 import React, { useCallback, useEffect, useState } from 'react';

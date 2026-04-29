@@ -8,7 +8,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Drawer, Form, Input, DatePicker, Button, Space, Tag, Tooltip, Alert, Typography } from 'antd';
 import { PlayCircleOutlined, CloseOutlined, FilterOutlined, EyeOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { ConditionDefinitionNodeData, ConditionItem, FieldType } from '../../../services/flow/types';
+import type { ConditionGroupDefinitionNodeData, ConditionItem, FieldType } from '../../../services/flow/types';
 import { FIELD_TYPE_ICONS, SQL_OPERATORS } from '../../../services/flow/constants';
 import dayjs from 'dayjs';
 
@@ -127,8 +127,8 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   const placeholders = useMemo<PlaceholderInfo[]>(() => {
     const result: PlaceholderInfo[] = [];
     nodes.forEach((node) => {
-      if (node.type === 'conditionDefinition') {
-        const data = node.data as ConditionDefinitionNodeData;
+      if (node.type === 'conditionGroupDefinition') {
+        const data = node.data as ConditionGroupDefinitionNodeData;
         data.conditions.forEach((condition: ConditionItem) => {
           if (NO_VALUE_OPERATORS.has(condition.operator)) return;
           result.push({

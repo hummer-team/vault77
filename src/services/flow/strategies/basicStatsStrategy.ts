@@ -128,7 +128,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     // FROM
     parts.push(`FROM "${config.tableName}"`);
 
-    // WHERE: conditions from ConditionDefinitionNode with placeholders
+    // WHERE: conditions from ConditionGroupDefinitionNode with placeholders
     let whereClause = '';
     if (placeholderValues) {
       whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);

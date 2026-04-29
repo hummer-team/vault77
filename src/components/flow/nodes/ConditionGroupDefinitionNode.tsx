@@ -19,16 +19,16 @@ import {
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
-import type { ConditionDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
+import type { ConditionGroupDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
 import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useCanvasJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { TOKEN } from '../../../theme';
 
-interface ConditionDefinitionNodeProps {
+interface ConditionGroupDefinitionNodeProps {
   id: string;
-  data: ConditionDefinitionNodeData;
+  data: ConditionGroupDefinitionNodeData;
   selected?: boolean;
   allowedTableNames?: string[];
 }
@@ -36,7 +36,7 @@ interface ConditionDefinitionNodeProps {
 // Generate unique condition ID
 const generateConditionId = () => `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = ({
+export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNodeProps> = ({
   id,
   data,
   selected,
@@ -65,7 +65,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   React.useEffect(() => {
     if (!data.groupDisplayName && data.refId) {
       const generatedGroupDisplayName = generateConditionGroupDefinitionDisplayName(data.refId);
-      updateNode(id, { groupDisplayName: generatedGroupDisplayName } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { groupDisplayName: generatedGroupDisplayName } as Partial<ConditionGroupDefinitionNodeData>);
     }
   }, [data.refId, data.groupDisplayName, id, updateNode]);
 
@@ -88,7 +88,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
           : tables.filter((n) => allowedTableNames.includes(n));
         setAvailableTables(filtered);
       } catch (error) {
-        console.error('[ConditionDefinitionNode] Failed to load tables:', error);
+        console.error('[ConditionGroupDefinitionNode] Failed to load tables:', error);
       } finally {
         setIsLoadingTables(false);
       }
@@ -111,7 +111,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         const schema = await getTableSchema(data.tableName, executeQuery);
         setTableFields(schema.fields);
       } catch (error) {
-        console.error('[ConditionDefinitionNode] Failed to load fields:', error);
+        console.error('[ConditionGroupDefinitionNode] Failed to load fields:', error);
       } finally {
         setIsLoadingFields(false);
       }
@@ -131,7 +131,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   // Handle logic type change
   const handleLogicTypeChange = useCallback(
     (newLogicType: LogicType) => {
-      updateNode(id, { logicType: newLogicType } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { logicType: newLogicType } as Partial<ConditionGroupDefinitionNodeData>);
     },
     [id, updateNode]
   );
@@ -145,7 +145,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
   // Handle table change
   const handleTableChange = useCallback(
     (tableName: string) => {
-      updateNode(id, { tableName, conditions: [] } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { tableName, conditions: [] } as Partial<ConditionGroupDefinitionNodeData>);
     },
     [id, updateNode]
   );
@@ -167,7 +167,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
       }
 
       setNameError(null);
-      updateNode(id, { refId: newName } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { refId: newName } as Partial<ConditionGroupDefinitionNodeData>);
       setIsEditingName(false);
     },
     [id, updateNode, nodes]
@@ -184,7 +184,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
     };
     updateNode(id, {
       conditions: [...data.conditions, newCondition],
-    } as Partial<ConditionDefinitionNodeData>);
+    } as Partial<ConditionGroupDefinitionNodeData>);
   }, [id, data.refId, data.conditions, updateNode]);
 
   // Remove condition line
@@ -199,7 +199,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
           ...c,
           placeholder: generatePlaceholderName(data.refId, index),
         }));
-      updateNode(id, { conditions: updatedConditions } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
     },
     [id, data.conditions, data.refId, updateNode]
   );
@@ -218,7 +218,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
           ? { ...c, field, valueType: newType, operator: newOperator }
           : c
       );
-      updateNode(id, { conditions: updatedConditions } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
     },
     [id, data.conditions, tableFields, updateNode]
   );
@@ -229,7 +229,7 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
       const updatedConditions = data.conditions.map((c) =>
         c.id === conditionId ? { ...c, operator } : c
       );
-      updateNode(id, { conditions: updatedConditions } as Partial<ConditionDefinitionNodeData>);
+      updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
     },
     [id, data.conditions, updateNode]
   );
@@ -533,9 +533,9 @@ export const ConditionDefinitionNode: React.FC<ConditionDefinitionNodeProps> = (
         )}
         </div>
       )}
-      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_DEFINITION} visible={isHovering} />
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_GROUP_DEFINITION} visible={isHovering} />
     </div>
   );
 };
 
-export default ConditionDefinitionNode;
+export default ConditionGroupDefinitionNode;

@@ -17,8 +17,8 @@ import {
   type ConditionNodeData,
   type SelectNodeData,
   type SelectAggNodeData,
-  type ConditionDefinitionNodeData,
-  type ConditionGroupNodeData,
+  type ConditionGroupDefinitionNodeData,
+  type ConditionGroupRelationNodeData,
   type ConditionItem,
 } from './types';
 import { VALIDATION_MESSAGES } from './constants';
@@ -338,11 +338,11 @@ export abstract class BaseStrategy implements FlowStrategy {
     placeholderValues: Record<string, unknown>
   ): string {
     // Get condition definition nodes
-    const conditionDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+    const conditionDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION);
     if (conditionDefNodes.length === 0) return '';
 
     // Get condition group nodes (relation nodes)
-    const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+    const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_RELATION);
 
     // If no relation nodes, combine all condition definitions with AND
     if (conditionGroupNodes.length === 0) {
@@ -356,7 +356,7 @@ export abstract class BaseStrategy implements FlowStrategy {
 
     // Use the first condition group node to determine logic
     const groupNode = conditionGroupNodes[0];
-    const groupData = groupNode.data as ConditionGroupNodeData;
+    const groupData = groupNode.data as ConditionGroupRelationNodeData;
 
     // Handle custom expression (Q9: string replacement approach)
     if (groupData.relationType === 'CUSTOM' && groupData.customExpression) {
@@ -371,7 +371,7 @@ export abstract class BaseStrategy implements FlowStrategy {
     // Handle AND/OR mode
     const selectedConditionIds = groupData.conditionIds || [];
     const selectedNodes = conditionDefNodes.filter((n) => {
-      const nodeData = n.data as ConditionDefinitionNodeData;
+      const nodeData = n.data as ConditionGroupDefinitionNodeData;
       return selectedConditionIds.includes(nodeData.refId);
     });
 
@@ -398,7 +398,7 @@ export abstract class BaseStrategy implements FlowStrategy {
     const conditions: string[] = [];
 
     for (const node of nodes) {
-      const nodeData = node.data as ConditionDefinitionNodeData;
+      const nodeData = node.data as ConditionGroupDefinitionNodeData;
       if (!nodeData.tableName) continue;
 
       const nodeConditions = nodeData.conditions
@@ -510,7 +510,7 @@ export abstract class BaseStrategy implements FlowStrategy {
 
     // Replace each condition definition ref with its SQL
     for (const node of conditionDefNodes) {
-      const nodeData = node.data as ConditionDefinitionNodeData;
+      const nodeData = node.data as ConditionGroupDefinitionNodeData;
       const refId = nodeData.refId;
 
       // Build SQL for this condition group

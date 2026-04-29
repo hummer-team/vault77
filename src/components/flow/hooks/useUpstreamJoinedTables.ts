@@ -10,7 +10,7 @@
  *
  * - `useCanvasJoinedTables()` — returns all tables connected via at least one
  *   configured join edge on the entire canvas. Use this for nodes that may NOT
- *   have direct upstream connections to table nodes (e.g. ConditionDefinitionNode).
+ *   have direct upstream connections to table nodes (e.g. ConditionGroupDefinitionNode).
  *
  * Both hooks are backed by `flowService` utilities and recalculate automatically
  * when the flow store's nodes/edges change (no manual cache invalidation needed).
@@ -40,7 +40,7 @@ export function useUpstreamJoinedTables(nodeId: string): string[] {
 
 /**
  * Returns ALL tables connected via configured join edges anywhere on the canvas.
- * Does not require a specific starting node — use for ConditionDefinitionNode
+ * Does not require a specific starting node — use for ConditionGroupDefinitionNode
  * and any other node that isn't directly connected upstream to table nodes.
  */
 export function useCanvasJoinedTables(): string[] {

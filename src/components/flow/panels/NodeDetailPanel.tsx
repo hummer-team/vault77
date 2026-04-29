@@ -12,7 +12,7 @@ import type {
   FlowNode,
   TableNodeData,
   ConditionNodeData,
-  ConditionGroupNodeData,
+  ConditionGroupRelationNodeData,
   EndNodeData,
 } from '../../../services/flow/types';
 import { getOperatorsByFieldType } from '../../../services/flow/constants';
@@ -43,8 +43,8 @@ export const NodeDetailPanel: React.FC = () => {
         return null;
       case 'condition':
         return <ConditionNodeForm node={node} onUpdate={updateNode} />;
-      case 'conditionGroup':
-        return <ConditionGroupNodeForm node={node} onUpdate={updateNode} />;
+      case 'conditionGroupRelation':
+        return <ConditionGroupRelationNodeForm node={node} onUpdate={updateNode} />;
       case 'select':
         return <SelectNodeForm node={node} onUpdate={updateNode} />;
       case 'selectAgg':
@@ -70,7 +70,7 @@ export const NodeDetailPanel: React.FC = () => {
         return 'JOIN 节点';
       case 'condition':
         return '条件节点';
-      case 'conditionGroup':
+      case 'conditionGroupRelation':
         return '条件组节点';
       case 'select':
         return '选择查询字段';
@@ -268,11 +268,11 @@ const ConditionNodeForm: React.FC<{
 };
 
 // Condition Group Node Form
-const ConditionGroupNodeForm: React.FC<{
+const ConditionGroupRelationNodeForm: React.FC<{
   node: FlowNode;
   onUpdate: (id: string, data: Partial<Record<string, unknown>>) => void;
 }> = ({ node, onUpdate }) => {
-  const data = node.data as ConditionGroupNodeData;
+  const data = node.data as ConditionGroupRelationNodeData;
   const nodes = useFlowStore((state) => state.nodes);
 
   // Get available condition nodes not in any group

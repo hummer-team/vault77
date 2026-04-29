@@ -1,7 +1,7 @@
 /**
  * DeletableEdge
  * A simple directed edge with a delete button that appears on hover or when selected.
- * Used for auto-wired connections (e.g., ConditionDefinitionNode → ConditionGroupNode)
+ * Used for auto-wired connections (e.g., ConditionGroupDefinitionNode → ConditionGroupRelationNode)
  * that the user may want to remove individually.
  */
 

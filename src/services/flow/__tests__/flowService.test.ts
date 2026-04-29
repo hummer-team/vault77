@@ -24,7 +24,7 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
@@ -37,13 +37,13 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
         {
           id: 'cg2',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG2', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
@@ -56,13 +56,13 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
         {
           id: 'cg3',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG3', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
@@ -147,7 +147,7 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
@@ -160,7 +160,7 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
@@ -173,7 +173,7 @@ describe('Flow Service', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },

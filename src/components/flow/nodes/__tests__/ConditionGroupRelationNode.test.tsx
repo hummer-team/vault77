@@ -5,9 +5,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ConditionGroupNode } from '../ConditionGroupNode';
+import { ConditionGroupRelationNode } from '../ConditionGroupRelationNode';
 import * as flowStore from '../../../../stores/flowStore';
-import type { ConditionGroupNodeData, FlowNode } from '../../../../services/flow/types';
+import type { ConditionGroupRelationNodeData, FlowNode } from '../../../../services/flow/types';
 import { LogicType, FlowNodeType } from '../../../../services/flow/types';
 
 // Mock the flow store
@@ -15,11 +15,11 @@ vi.mock('../../../../stores/flowStore', () => ({
   useFlowStore: vi.fn(),
 }));
 
-describe('ConditionGroupNode', () => {
+describe('ConditionGroupRelationNode', () => {
   const mockRemoveNode = vi.fn();
   const mockSetSelectedNode = vi.fn();
 
-  const mockData: ConditionGroupNodeData = {
+  const mockData: ConditionGroupRelationNodeData = {
     logicType: LogicType.AND,
     conditionIds: ['cond-1', 'cond-2'],
   };
@@ -71,7 +71,7 @@ describe('ConditionGroupNode', () => {
 
   it('should render condition group with AND logic type', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={false}
@@ -83,9 +83,9 @@ describe('ConditionGroupNode', () => {
   });
 
   it('should render condition group with OR logic type', () => {
-    const orData: ConditionGroupNodeData = { ...mockData, logicType: LogicType.OR };
+    const orData: ConditionGroupRelationNodeData = { ...mockData, logicType: LogicType.OR };
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={orData}
         selected={false}
@@ -98,7 +98,7 @@ describe('ConditionGroupNode', () => {
 
   it('should display child conditions count', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={false}
@@ -110,7 +110,7 @@ describe('ConditionGroupNode', () => {
 
   it('should render child condition summaries', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={false}
@@ -122,9 +122,9 @@ describe('ConditionGroupNode', () => {
   });
 
   it('should show empty state when no conditions', () => {
-    const emptyData: ConditionGroupNodeData = { ...mockData, conditionIds: [] };
+    const emptyData: ConditionGroupRelationNodeData = { ...mockData, conditionIds: [] };
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={emptyData}
         selected={false}
@@ -136,7 +136,7 @@ describe('ConditionGroupNode', () => {
 
   it('should call setSelectedNode when clicked', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={false}
@@ -151,7 +151,7 @@ describe('ConditionGroupNode', () => {
 
   it('should show delete button when selected', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={true}
@@ -164,7 +164,7 @@ describe('ConditionGroupNode', () => {
 
   it('should call removeNode when delete button is clicked', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={true}
@@ -179,7 +179,7 @@ describe('ConditionGroupNode', () => {
 
   it('should toggle expand/collapse when expand button is clicked', () => {
     render(
-      <ConditionGroupNode
+      <ConditionGroupRelationNode
         id="group-1"
         data={mockData}
         selected={false}

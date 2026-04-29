@@ -17,8 +17,8 @@ import {
   type SelectNodeData,
   type SelectAggNodeData,
   type EndNodeData,
-  type ConditionGroupNodeData,
-  type ConditionDefinitionNodeData,
+  type ConditionGroupRelationNodeData,
+  type ConditionGroupDefinitionNodeData,
 } from './types';
 import { VALIDATION_MESSAGES } from './constants';
 
@@ -617,10 +617,10 @@ export function checkNodeReferences(
   const targetNode = nodes.find((n) => n.id === nodeId);
   if (!targetNode) return referencingNodes;
 
-  // Check ConditionGroupNode references (via conditionIds)
-  const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+  // Check ConditionGroupRelationNode references (via conditionIds)
+  const conditionGroupNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_RELATION);
   for (const groupNode of conditionGroupNodes) {
-    const groupData = groupNode.data as ConditionGroupNodeData;
+    const groupData = groupNode.data as ConditionGroupRelationNodeData;
     if (groupData.conditionIds?.includes(nodeId)) {
       referencingNodes.push({
         nodeId: groupNode.id,
@@ -630,12 +630,12 @@ export function checkNodeReferences(
   }
 
   // Check custom expression references (for condition definition nodes)
-  if (targetNode.type === FlowNodeType.CONDITION_DEFINITION) {
-    const targetRefId = (targetNode.data as ConditionDefinitionNodeData).refId;
+  if (targetNode.type === FlowNodeType.CONDITION_GROUP_DEFINITION) {
+    const targetRefId = (targetNode.data as ConditionGroupDefinitionNodeData).refId;
 
     for (const node of nodes) {
-      if (node.type === FlowNodeType.CONDITION_GROUP) {
-        const groupData = node.data as ConditionGroupNodeData;
+      if (node.type === FlowNodeType.CONDITION_GROUP_RELATION) {
+        const groupData = node.data as ConditionGroupRelationNodeData;
         if (groupData.customExpression) {
           // Check if expression contains the refId (simple string check)
           const expression = groupData.customExpression;

@@ -170,7 +170,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
 
   /**
    * Sets this node as the pending connection source so the user can click
-   * on a ConditionGroupNode to complete the "bind relation" edge.
+   * on a ConditionGroupRelationNode to complete the "bind relation" edge.
    */
   const onBindRelation = useCallback(
     (e: React.MouseEvent) => {
@@ -290,7 +290,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
           )}
 
           {/* Bind relation — CONDITION_DEFINITION type only.
-              Disabled when no ConditionGroupNode exists on the canvas.
+              Disabled when no ConditionGroupRelationNode exists on the canvas.
               Clicking closes the menu; the user then manually drags the
               source handle to the desired relation node. */}
           {showBindAction && (
@@ -322,7 +322,7 @@ export const NodeNextButton: React.FC<NodeNextButtonProps> = ({
             </>
           )}
 
-          {/* Execute or Save — fast path for sole ConditionDefinitionNode (no CG nodes yet) */}
+          {/* Execute or Save — fast path for sole ConditionGroupDefinitionNode (no CG nodes yet) */}
           {showExecuteSave && (
             <>
               <div style={DIVIDER_STYLE} />

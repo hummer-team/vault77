@@ -3,7 +3,7 @@
  * Second node in the analysis flow — allows selecting data sources (tables).
  *
  * Node order: OperatorNode → DataSourceNode → TableNode → SelectNode →
- *             ConditionDefinitionNode → ConditionGroupNode → EndNode
+ *             ConditionGroupDefinitionNode → ConditionGroupRelationNode → EndNode
  */
 
 import React, { useCallback, useEffect, useState } from 'react';

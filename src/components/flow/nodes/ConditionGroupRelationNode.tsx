@@ -14,16 +14,16 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { ConditionGroupNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
+import type { ConditionGroupRelationNodeData, ConditionGroupDefinitionNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, CUSTOM_EXPRESSION_CONSTANTS } from '../../../services/flow/constants';
 import { FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { generateConditionGroupRelationDisplayName } from '../../../services/flow/flowService';
 import { TOKEN } from '../../../theme';
 
-interface ConditionGroupNodeProps {
+interface ConditionGroupRelationNodeProps {
   id: string;
-  data: ConditionGroupNodeData;
+  data: ConditionGroupRelationNodeData;
   selected?: boolean;
 }
 
@@ -56,7 +56,7 @@ const LOGIC_TYPE_LABELS: Record<RelationType, string> = {
   CUSTOM: '自定义表达式',
 };
 
-export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
+export const ConditionGroupRelationNode: React.FC<ConditionGroupRelationNodeProps> = ({
   id,
   data,
   selected,
@@ -77,7 +77,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   React.useEffect(() => {
     if (!data.relationDisplayName) {
       const generatedRelationDisplayName = generateConditionGroupRelationDisplayName(nodes);
-      updateNode(id, { relationDisplayName: generatedRelationDisplayName } as Partial<ConditionGroupNodeData>);
+      updateNode(id, { relationDisplayName: generatedRelationDisplayName } as Partial<ConditionGroupRelationNodeData>);
     }
   }, [data.relationDisplayName, id, nodes, updateNode]);
 
@@ -87,8 +87,8 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   // Check if ANY condition group node in the flow has CUSTOM mode enabled
   const hasCustomModeEnabled = useMemo(() => {
     return nodes.some((n) => {
-      if (n.type !== 'conditionGroup' || n.id === id) return false;
-      const nodeData = n.data as ConditionGroupNodeData;
+      if (n.type !== 'conditionGroupRelation' || n.id === id) return false;
+      const nodeData = n.data as ConditionGroupRelationNodeData;
       return nodeData.relationType === 'CUSTOM';
     });
   }, [nodes, id]);
@@ -98,13 +98,13 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
   // Get all available condition definition nodes (CG1, CG2, etc.)
   const availableConditionDefs = useMemo(() => {
-    return nodes.filter((n) => n.type === 'conditionDefinition');
+    return nodes.filter((n) => n.type === 'conditionGroupDefinition');
   }, [nodes]);
 
   // Get selected condition definition nodes by refId
   const selectedConditionDefs = useMemo(() => {
     return nodes.filter((n) => {
-      const refId = (n.data as ConditionDefinitionNodeData).refId;
+      const refId = (n.data as ConditionGroupDefinitionNodeData).refId;
       return (data.conditionIds || []).includes(refId);
     });
   }, [nodes, data.conditionIds]);
@@ -125,7 +125,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
 
     // Check if all refs are valid condition definition nodes
     const validRefs = availableConditionDefs.map((n) =>
-      (n.data as ConditionDefinitionNodeData).refId
+      (n.data as ConditionGroupDefinitionNodeData).refId
     );
 
     for (const ref of refs) {
@@ -155,7 +155,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           savedConditionIds: data.conditionIds || [], // Backup current selection
           savedLogicType: data.logicType, // Backup current logic type
           conditionIds: [], // Clear selection in CUSTOM mode
-        } as Partial<ConditionGroupNodeData>);
+        } as Partial<ConditionGroupRelationNodeData>);
       } else {
         // Restore saved state when switching back from CUSTOM
         const restoredConditionIds = data.savedConditionIds || [];
@@ -166,7 +166,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           conditionIds: restoredConditionIds, // Restore previous selection
           savedConditionIds: undefined, // Clear backup
           savedLogicType: undefined, // Clear backup
-        } as Partial<ConditionGroupNodeData>);
+        } as Partial<ConditionGroupRelationNodeData>);
       }
     },
     [id, updateNode, data.conditionIds, data.logicType, data.savedConditionIds, data.savedLogicType]
@@ -175,7 +175,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   // Handle custom expression change
   const handleExpressionChange = useCallback(
     (expression: string) => {
-      updateNode(id, { customExpression: expression } as Partial<ConditionGroupNodeData>);
+      updateNode(id, { customExpression: expression } as Partial<ConditionGroupRelationNodeData>);
     },
     [id, updateNode]
   );
@@ -183,7 +183,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
   // Handle condition definition selection
   const handleConditionDefSelect = useCallback(
     (selectedIds: string[]) => {
-      updateNode(id, { conditionIds: selectedIds } as Partial<ConditionGroupNodeData>);
+      updateNode(id, { conditionIds: selectedIds } as Partial<ConditionGroupRelationNodeData>);
     },
     [id, updateNode]
   );
@@ -438,7 +438,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
               )}
               <div style={{ marginTop: 4, fontSize: 11, color: 'var(--vm-text-helper)' }}>
                 Available: {availableConditionDefs.map((n) =>
-                  (n.data as ConditionDefinitionNodeData).refId
+                  (n.data as ConditionGroupDefinitionNodeData).refId
                 ).join(', ')}
               </div>
             </div>
@@ -462,11 +462,11 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
                 optionRender={(option) => {
                   // Find the node by refId
                   const node = availableConditionDefs.find(
-                    (n) => (n.data as ConditionDefinitionNodeData).refId === option.value
+                    (n) => (n.data as ConditionGroupDefinitionNodeData).refId === option.value
                   );
                   if (!node) return option.label;
                   
-                  const nodeData = node.data as ConditionDefinitionNodeData;
+                  const nodeData = node.data as ConditionGroupDefinitionNodeData;
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>
@@ -479,7 +479,7 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
                   );
                 }}
                 options={availableConditionDefs.map((n) => {
-                  const refId = (n.data as ConditionDefinitionNodeData).refId;
+                  const refId = (n.data as ConditionGroupDefinitionNodeData).refId;
                   return {
                     value: refId,
                     label: refId,
@@ -507,9 +507,9 @@ export const ConditionGroupNode: React.FC<ConditionGroupNodeProps> = ({
           Select condition groups above
         </div>
       )}
-      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_GROUP} visible={isHovering} />
+      <NodeNextButton nodeId={id} nodeType={FlowNodeType.CONDITION_GROUP_RELATION} visible={isHovering} />
     </div>
   );
 };
 
-export default ConditionGroupNode;
+export default ConditionGroupRelationNode;

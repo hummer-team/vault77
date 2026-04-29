@@ -188,7 +188,7 @@ export function generateConditionGroupRefId(nodes: FlowNode[]): string {
   const prefix = PLACEHOLDER_CONSTANTS.DEFAULT_PREFIX;
   const existingIds = new Set(
     nodes
-      .filter((n) => n.type === 'conditionDefinition')
+      .filter((n) => n.type === 'conditionGroupDefinition')
       .map((n) => (n.data as { refId?: string }).refId)
       .filter(Boolean)
   );
@@ -215,7 +215,7 @@ export function generatePlaceholderName(refId: string, conditionIndex: number): 
 }
 
 /**
- * Generate display name for ConditionDefinitionNode (条件组)
+ * Generate display name for ConditionGroupDefinitionNode (条件组)
  * Maps GC_1 -> "条件组_1", GC_2 -> "条件组_2", etc.
  * @param refId Internal refId (e.g., GC_1)
  * @returns User-friendly display name (e.g., "条件组_1")
@@ -235,8 +235,8 @@ export function generateConditionGroupDefinitionDisplayName(refId: string): stri
  * @returns User-friendly display name (e.g., "条件组关系_1")
  */
 export function generateConditionGroupRelationDisplayName(nodes: FlowNode[]): string {
-  // Count existing ConditionGroupRelationNodes (currently CONDITION_GROUP type)
-  const conditionGroupRelationCount = nodes.filter((n) => n.type === 'conditionGroup').length;
+  // Count existing ConditionGroupRelationNodes (currently CONDITION_GROUP_RELATION type)
+  const conditionGroupRelationCount = nodes.filter((n) => n.type === 'conditionGroupRelation').length;
   return `条件组关系_${conditionGroupRelationCount + 1}`;
 }
 
@@ -277,7 +277,7 @@ export function isRefIdUnique(
 ): boolean {
   return !nodes.some(
     (n) =>
-      n.type === 'conditionDefinition' &&
+      n.type === 'conditionGroupDefinition' &&
       n.id !== excludeNodeId &&
       (n.data as { refId?: string }).refId === refId
   );
@@ -375,7 +375,7 @@ export function getUpstreamConfiguredJoinedTables(
  * Unlike `getUpstreamConfiguredJoinedTables`, this function does NOT require a
  * specific starting node — it scans the entire edge list for configured join
  * edges and returns all connected table names. Use this for nodes (e.g.,
- * ConditionDefinitionNode) that may not have direct upstream edges to table nodes.
+ * ConditionGroupDefinitionNode) that may not have direct upstream edges to table nodes.
  *
  * @param edges  Full edge list from the flow store.
  * @returns      List of table names in the joined cluster; empty if no configured joins.

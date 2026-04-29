@@ -9,7 +9,7 @@
 import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
-import type { ConditionDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
+import type { ConditionGroupDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
 import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName, generateConditionGroupRelationDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
@@ -59,20 +59,20 @@ export interface MergeActionsResult {
   showBindAction: boolean;
   /**
    * Whether the "绑定关系" button should be disabled —
-   * true when no ConditionGroupNode exists on the canvas yet.
+   * true when no ConditionGroupRelationNode exists on the canvas yet.
    */
   bindActionDisabled: boolean;
   /**
-   * Whether to render the "执行OR保存" shortcut on ConditionDefinitionNode.
-   * Only true when exactly 1 ConditionDefinitionNode exists and no
-   * ConditionGroupNode has been created yet — a fast-path to EndNode.
+   * Whether to render the "执行OR保存" shortcut on ConditionGroupDefinitionNode.
+   * Only true when exactly 1 ConditionGroupDefinitionNode exists and no
+   * ConditionGroupRelationNode has been created yet — a fast-path to EndNode.
    */
   showExecuteSave: boolean;
   /** Create the contextually-appropriate next node */
   handleCreateNextNode: () => void;
   /** Bypass conditions and connect straight to EndNode */
   handleDirectExecute: () => void;
-  /** Fast-path: connect the sole ConditionDefinitionNode directly to EndNode */
+  /** Fast-path: connect the sole ConditionGroupDefinitionNode directly to EndNode */
   handleExecuteSave: () => void;
   /** Create a SelectNode from this join node (JOIN type only) */
   handleCreateSelectNode: () => void;
@@ -104,9 +104,9 @@ export function useMergeActions(
       case FlowNodeType.SELECT:
       case FlowNodeType.SELECT_AGG:
         return '定义条件';
-      case FlowNodeType.CONDITION_DEFINITION:
+      case FlowNodeType.CONDITION_GROUP_DEFINITION:
         return '新建关系';
-      case FlowNodeType.CONDITION_GROUP:
+      case FlowNodeType.CONDITION_GROUP_RELATION:
       case FlowNodeType.CONDITION:
         return '执行OR保存';
       default:
@@ -119,22 +119,22 @@ export function useMergeActions(
       sourceNodeType === FlowNodeType.TABLE ||
       sourceNodeType === FlowNodeType.JOIN ||
       sourceNodeType === FlowNodeType.OPERATOR ||
-      sourceNodeType === FlowNodeType.CONDITION_GROUP ||
-      sourceNodeType === FlowNodeType.CONDITION_DEFINITION // must build full condition flow first
+      sourceNodeType === FlowNodeType.CONDITION_GROUP_RELATION ||
+      sourceNodeType === FlowNodeType.CONDITION_GROUP_DEFINITION // must build full condition flow first
     ) return false;
-    // Disable "直接执行" on SELECT when any ConditionDefinitionNode exists on the canvas
+    // Disable "直接执行" on SELECT when any ConditionGroupDefinitionNode exists on the canvas
     if (sourceNodeType === FlowNodeType.SELECT) {
-      return !nodes.some((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+      return !nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION);
     }
     return true;
   }, [sourceNodeType, nodes]);
 
-  // "执行OR保存" fast-path: only for ConditionDefinitionNode when it is the sole CD node
-  // and no ConditionGroupNode has been created yet.
+  // "执行OR保存" fast-path: only for ConditionGroupDefinitionNode when it is the sole CD node
+  // and no ConditionGroupRelationNode has been created yet.
   const showExecuteSave = useMemo((): boolean => {
-    if (sourceNodeType !== FlowNodeType.CONDITION_DEFINITION) return false;
-    const cdCount = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION).length;
-    const hasCG = nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP);
+    if (sourceNodeType !== FlowNodeType.CONDITION_GROUP_DEFINITION) return false;
+    const cdCount = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION).length;
+    const hasCG = nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP_RELATION);
     return cdCount === 1 && !hasCG;
   }, [sourceNodeType, nodes]);
 
@@ -153,15 +153,15 @@ export function useMergeActions(
   }, [sourceNodeType, nodes, sourceNodeId]);
 
   // Show "绑定关系" hint for CONDITION_DEFINITION nodes so the user can
-  // manually drag a connection to an existing ConditionGroupNode.
+  // manually drag a connection to an existing ConditionGroupRelationNode.
   const showBindAction = useMemo(
-    () => sourceNodeType === FlowNodeType.CONDITION_DEFINITION,
+    () => sourceNodeType === FlowNodeType.CONDITION_GROUP_DEFINITION,
     [sourceNodeType]
   );
 
-  // Disable "绑定关系" when no ConditionGroupNode exists on the canvas yet.
+  // Disable "绑定关系" when no ConditionGroupRelationNode exists on the canvas yet.
   const bindActionDisabled = useMemo(
-    () => !nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP),
+    () => !nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP_RELATION),
     [nodes]
   );
 
@@ -178,16 +178,16 @@ export function useMergeActions(
   // Node creators
   // -------------------------------------------------------------------------
 
-  const createConditionDefinitionNode = useCallback(() => {
+  const createConditionGroupDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
     const refId = generateConditionGroupRefId(nodes);
     const groupDisplayName = generateConditionGroupDefinitionDisplayName(refId);
     const nodeId = `cond_def_${Date.now()}`;
     
-    // Create ConditionDefinitionNode (条件组) only — no auto-create of relation node
+    // Create ConditionGroupDefinitionNode (条件组) only — no auto-create of relation node
     addNode({
       id: nodeId,
-      type: FlowNodeType.CONDITION_DEFINITION,
+      type: FlowNodeType.CONDITION_GROUP_DEFINITION,
       position: { x: x + X_OFFSET, y },
       data: {
         refId,
@@ -216,23 +216,23 @@ export function useMergeActions(
 
   const createRelationNode = useCallback(() => {
     const { x, y } = getSourcePosition();
-    // Always create a brand-new ConditionGroupNode (条件组关系) — never reuse an existing one.
+    // Always create a brand-new ConditionGroupRelationNode (条件组关系) — never reuse an existing one.
     // Only the triggering CG node is wired here; other CG nodes connect manually.
     const groupNodeId = `relation_${Date.now()}`;
     const relationDisplayName = generateConditionGroupRelationDisplayName(nodes);
     addNode({
       id: groupNodeId,
-      type: FlowNodeType.CONDITION_GROUP,
+      type: FlowNodeType.CONDITION_GROUP_RELATION,
       position: { x: x + X_OFFSET, y },
-      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''], relationDisplayName },
+      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionGroupDefinitionNodeData)?.refId ?? ''], relationDisplayName },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
   }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
 
   const createEndNode = useCallback(
     (triggerSource: EndNodeTriggerSource = EndNodeTriggerSource.CONDITION) => {
-      // Collect all ConditionGroupNodes on the canvas — all should connect to EndNode
-      const allCGNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP);
+      // Collect all ConditionGroupRelationNodes on the canvas — all should connect to EndNode
+      const allCGNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_RELATION);
 
       const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
       if (existingEnd) {
@@ -373,12 +373,12 @@ export function useMergeActions(
         break;
       case FlowNodeType.SELECT:
       case FlowNodeType.SELECT_AGG:
-        createConditionDefinitionNode();
+        createConditionGroupDefinitionNode();
         break;
-      case FlowNodeType.CONDITION_DEFINITION:
+      case FlowNodeType.CONDITION_GROUP_DEFINITION:
         createRelationNode();
         break;
-      case FlowNodeType.CONDITION_GROUP:
+      case FlowNodeType.CONDITION_GROUP_RELATION:
       case FlowNodeType.CONDITION:
         createEndNode(EndNodeTriggerSource.CONDITION);
         break;
@@ -389,7 +389,7 @@ export function useMergeActions(
     sourceNodeType,
     createDataSourceNode,
     createSelectNodeFromJoin,
-    createConditionDefinitionNode,
+    createConditionGroupDefinitionNode,
     createRelationNode,
     createEndNode,
   ]);

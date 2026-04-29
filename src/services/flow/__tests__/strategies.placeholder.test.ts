@@ -15,7 +15,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -44,7 +44,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -73,7 +73,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -98,7 +98,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -123,7 +123,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -136,7 +136,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'cg2',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG2',
@@ -149,7 +149,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'rel1',
-          type: FlowNodeType.CONDITION_GROUP,
+          type: FlowNodeType.CONDITION_GROUP_RELATION,
           position: { x: 0, y: 0 },
           data: {
             relationType: 'AND',
@@ -173,7 +173,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -186,7 +186,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'cg2',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG2',
@@ -199,7 +199,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'rel1',
-          type: FlowNodeType.CONDITION_GROUP,
+          type: FlowNodeType.CONDITION_GROUP_RELATION,
           position: { x: 0, y: 0 },
           data: {
             relationType: 'CUSTOM',
@@ -224,7 +224,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -237,7 +237,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'cg2',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG2',
@@ -250,7 +250,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
         },
         {
           id: 'rel1',
-          type: FlowNodeType.CONDITION_GROUP,
+          type: FlowNodeType.CONDITION_GROUP_RELATION,
           position: { x: 0, y: 0 },
           data: {
             relationType: 'CUSTOM',
@@ -273,7 +273,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -299,7 +299,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',
@@ -325,7 +325,7 @@ describe('AssociationStrategy - Placeholder Support', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
-          type: FlowNodeType.CONDITION_DEFINITION,
+          type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
             refId: 'CG1',

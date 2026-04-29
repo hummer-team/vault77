@@ -11,7 +11,7 @@ import {
   type TableNodeData,
   type SelectNodeData,
   type SelectField,
-  type ConditionDefinitionNodeData,
+  type ConditionGroupDefinitionNodeData,
   type UdfConfigNodeData,
   type OperatorNodeData,
   type JoinEdgeData,
@@ -177,9 +177,9 @@ export function buildFlowSummary(nodes: FlowNode[], edges: FlowEdge[]): FlowSumm
       : selectData.fields.map(formatField);
 
   // Conditions
-  const conditionNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_DEFINITION);
+  const conditionNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION);
   const conditions: FlowSummaryConditionGroup[] = conditionNodes.map((n) => {
-    const cd = n.data as ConditionDefinitionNodeData;
+    const cd = n.data as ConditionGroupDefinitionNodeData;
     return {
       refId: cd.refId,
       tableName: cd.tableName,

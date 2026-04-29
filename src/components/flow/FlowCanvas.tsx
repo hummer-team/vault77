@@ -29,8 +29,8 @@ import { DataSourceNode } from './nodes/DataSourceNode';
 import { TableNode } from './nodes/TableNode';
 // import { JoinNode } from './nodes/JoinNode'; // JoinNode removed from canvas — join config is on edges
 import { ConditionNode } from './nodes/ConditionNode';
-import { ConditionGroupNode } from './nodes/ConditionGroupNode';
-import { ConditionDefinitionNode } from './nodes/ConditionDefinitionNode';
+import { ConditionGroupRelationNode } from './nodes/ConditionGroupRelationNode';
+import { ConditionGroupDefinitionNode } from './nodes/ConditionGroupDefinitionNode';
 import { SelectNode } from './nodes/SelectNode';
 import { SelectAggNode } from './nodes/SelectAggNode';
 import { EndNode } from './nodes/EndNode';
@@ -150,9 +150,9 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       operator: OperatorNode as unknown as NodeTypes[string],
       // join: JoinNode — removed; join config is now stored on edges (JoinEdge)
       condition: ConditionNode as unknown as NodeTypes[string],
-      conditionGroup: ConditionGroupNode as unknown as NodeTypes[string],
+      conditionGroup: ConditionGroupRelationNode as unknown as NodeTypes[string],
       conditionDefinition: ((props: any) => (
-        <ConditionDefinitionNode {...props} allowedTableNames={allowedTableNames} />
+        <ConditionGroupDefinitionNode {...props} allowedTableNames={allowedTableNames} />
       )) as unknown as NodeTypes[string],
       select: SelectNode as unknown as NodeTypes[string],
       selectAgg: SelectAggNode as unknown as NodeTypes[string],
@@ -214,8 +214,8 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         node.type === 'merge' ||
         node.type === 'operator' ||
         node.type === 'end' ||
-        node.type === 'conditionDefinition' ||
-        node.type === 'conditionGroup' ||
+        node.type === 'conditionGroupDefinition' ||
+        node.type === 'conditionGroupRelation' ||
         node.type === 'udfConfig'
       ) {
         return;

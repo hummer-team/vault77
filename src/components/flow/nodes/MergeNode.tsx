@@ -11,7 +11,7 @@ import { Handle, Position } from '@xyflow/react';
 import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource } from '../../../services/flow/types';
-import type { MergeNodeData, ConditionDefinitionNodeData } from '../../../services/flow/types';
+import type { MergeNodeData, ConditionGroupDefinitionNodeData } from '../../../services/flow/types';
 import { generateConditionGroupRefId, generateConditionGroupDefinitionDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
@@ -166,9 +166,9 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       case FlowNodeType.SELECT:
       case FlowNodeType.SELECT_AGG:
         return '定义条件';
-      case FlowNodeType.CONDITION_DEFINITION:
+      case FlowNodeType.CONDITION_GROUP_DEFINITION:
         return '绑定关系';
-      case FlowNodeType.CONDITION_GROUP:
+      case FlowNodeType.CONDITION_GROUP_RELATION:
       case FlowNodeType.CONDITION:
         return '执行OR保存';
       default:
@@ -177,14 +177,14 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   }, [upstreamNodeType, data.label]);
 
   // Create condition definition node (CG1, CG2, etc.)
-  const createConditionDefinitionNode = useCallback(
+  const createConditionGroupDefinitionNode = useCallback(
     (mergeX: number, mergeY: number) => {
       const refId = generateConditionGroupRefId(nodes);
       const groupDisplayName = generateConditionGroupDefinitionDisplayName(refId);
       const conditionDefNodeId = `cond_def_${Date.now()}`;
       const conditionDefNode = {
         id: conditionDefNodeId,
-        type: FlowNodeType.CONDITION_DEFINITION,
+        type: FlowNodeType.CONDITION_GROUP_DEFINITION,
         position: { x: mergeX + 180, y: mergeY },
         data: {
           refId,
@@ -224,7 +224,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         // Check if this merge node is connected from any CONDITION_DEFINITION node
         return edges.some(e => {
           const sourceNode = nodes.find(node => node.id === e.source);
-          return sourceNode?.type === FlowNodeType.CONDITION_DEFINITION && e.target === n.id;
+          return sourceNode?.type === FlowNodeType.CONDITION_GROUP_DEFINITION && e.target === n.id;
         });
       });
 
@@ -276,12 +276,12 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
 
       // Get all available condition definition nodes (CG1, CG2, etc.)
       const availableConditionDefs = nodes.filter(
-        (n) => n.type === FlowNodeType.CONDITION_DEFINITION
+        (n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION
       );
 
       // Auto-select all available condition definition nodes by refId
       const conditionIds = availableConditionDefs.map(
-        (n) => (n.data as ConditionDefinitionNodeData).refId
+        (n) => (n.data as ConditionGroupDefinitionNodeData).refId
       );
 
       console.log('[MergeNode] Auto-selecting conditions:', conditionIds);
@@ -289,7 +289,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       const relationNodeId = `relation_${timestamp}`;
       const relationNode = {
         id: relationNodeId,
-        type: FlowNodeType.CONDITION_GROUP,
+        type: FlowNodeType.CONDITION_GROUP_RELATION,
         position: { x: mergeX + 180, y: mergeY },
         data: {
           logicType: LogicType.AND,
@@ -314,10 +314,10 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       // Find or create the "执行OR保存" merge node
       const existingEndMerge = nodes.find((n) => {
         if (n.type !== FlowNodeType.MERGE) return false;
-        // Check if this merge node is connected from any CONDITION_GROUP node
+        // Check if this merge node is connected from any CONDITION_GROUP_RELATION node
         return edges.some(e => {
           const sourceNode = nodes.find(node => node.id === e.source);
-          return sourceNode?.type === FlowNodeType.CONDITION_GROUP && e.target === n.id;
+          return sourceNode?.type === FlowNodeType.CONDITION_GROUP_RELATION && e.target === n.id;
         });
       });
 
@@ -432,17 +432,17 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         case FlowNodeType.SELECT:
         case FlowNodeType.SELECT_AGG:
           // After select, create condition definition node
-          createConditionDefinitionNode(mergeX, mergeY);
+          createConditionGroupDefinitionNode(mergeX, mergeY);
           break;
 
-        case FlowNodeType.CONDITION_DEFINITION:
+        case FlowNodeType.CONDITION_GROUP_DEFINITION:
           // After condition definition, create a new relation node every time (support multiple)
           // Each relation node will be auto-connected to the "执行OR保存" merge node
           console.log('[MergeNode] Creating new relation node from condition definition');
           createRelationNode(mergeX, mergeY);
           break;
 
-        case FlowNodeType.CONDITION_GROUP:
+        case FlowNodeType.CONDITION_GROUP_RELATION:
         case FlowNodeType.CONDITION:
           // After condition/relation, create end node
           createEndNode(mergeX, mergeY);
@@ -526,7 +526,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       nodes,
       data.label,
       upstreamNodeType,
-      createConditionDefinitionNode,
+      createConditionGroupDefinitionNode,
       createRelationNode,
       createEndNode,
     ]

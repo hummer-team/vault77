@@ -34,7 +34,7 @@ const isConditionComplete = (
   );
 };
 
-describe('ConditionDefinitionNode Logic', () => {
+describe('ConditionGroupDefinitionNode Logic', () => {
   describe('generatePlaceholderName', () => {
     it('should generate CG1_1 for first condition', () => {
       expect(generatePlaceholderName('CG1', 0)).toBe('CG1_1');
@@ -126,7 +126,7 @@ describe('ConditionDefinitionNode Logic', () => {
   });
 });
 
-describe('ConditionDefinitionNode Placeholder Sequence', () => {
+describe('ConditionGroupDefinitionNode Placeholder Sequence', () => {
   it('should maintain sequential placeholders when removing conditions', () => {
     const conditions = [
       { id: '1', placeholder: 'CG1_1' },

@@ -16,8 +16,8 @@ export enum FlowNodeType {
   OPERATOR = 'operator', // Business operator selection node
   JOIN = 'join',
   CONDITION = 'condition',
-  CONDITION_GROUP = 'conditionGroup',
-  CONDITION_DEFINITION = 'conditionDefinition', // Condition group with placeholders (CG1, CG2, etc.)
+  CONDITION_GROUP_RELATION = 'conditionGroupRelation',
+  CONDITION_GROUP_DEFINITION = 'conditionGroupDefinition', // Condition group with placeholders (GC_1, GC_2, etc.)
   SELECT = 'select',
   SELECT_AGG = 'selectAgg',
   END = 'end',
@@ -192,7 +192,7 @@ export interface ConditionNodeData extends BaseNodeData {
   logicType: LogicType;
 }
 
-export interface ConditionGroupNodeData extends BaseNodeData {
+export interface ConditionGroupRelationNodeData extends BaseNodeData {
   logicType: LogicType;
   conditionIds: string[];
   customExpression?: string; // For CUSTOM type (Q14): e.g., "CG1 AND (CG2 OR CG3)"
@@ -220,7 +220,7 @@ export interface ConditionItem {
  * Represents a group of conditions with placeholders (GC_1, GC_2, etc.)
  * Used for deferred value filling
  */
-export interface ConditionDefinitionNodeData extends BaseNodeData {
+export interface ConditionGroupDefinitionNodeData extends BaseNodeData {
   refId: string; // Internal ID for templates, e.g., "GC_1" (was "CG1")
   groupDisplayName?: string; // User-friendly display name, e.g., "条件组_1" (template uses GC_1 placeholder)
   tableName: string;
@@ -552,8 +552,8 @@ export type FlowNodeData =
   | OperatorNodeData
   | JoinNodeData
   | ConditionNodeData
-  | ConditionGroupNodeData
-  | ConditionDefinitionNodeData
+  | ConditionGroupRelationNodeData
+  | ConditionGroupDefinitionNodeData
   | SelectNodeData
   | SelectAggNodeData
   | UdfConfigNodeData

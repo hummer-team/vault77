@@ -15,7 +15,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { EndNodeData, ConditionDefinitionNodeData, OperatorNodeData } from '../../../services/flow/types';
+import type { EndNodeData, ConditionGroupDefinitionNodeData, OperatorNodeData } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
@@ -55,8 +55,8 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const allPlaceholders = useMemo(() => {
     const placeholders: string[] = [];
     storeNodes.forEach((node) => {
-      if (node.type === 'conditionDefinition') {
-        const nodeData = node.data as ConditionDefinitionNodeData;
+      if (node.type === 'conditionGroupDefinition') {
+        const nodeData = node.data as ConditionGroupDefinitionNodeData;
         nodeData.conditions.forEach((cond) => {
           placeholders.push(cond.placeholder);
         });
