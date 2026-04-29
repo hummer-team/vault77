@@ -264,15 +264,15 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
       keyboard={true}
       styles={{
         header: {
-          background: '#1a1a1a',
-          borderBottom: '1px solid #303030',
+          background: 'var(--vm-bg-card)',
+          borderBottom: `1px solid var(--vm-border-subtle)`,
         },
         body: {
-          background: 'var(--vm-bg-dark)',
+          background: 'var(--vm-bg-base)',
           padding: '16px',
         },
         mask: {
-          background: 'var(--vm-bg-dark)',
+          background: 'rgba(0, 0, 0, 0.45)',
         },
       }}
       closeIcon={<CloseOutlined style={{ color: 'var(--vm-text-helper)' }} />}
