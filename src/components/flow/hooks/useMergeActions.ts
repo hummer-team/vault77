@@ -181,17 +181,17 @@ export function useMergeActions(
   const createConditionDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
     const refId = generateConditionGroupRefId(nodes);
-    const valueDisplayName = generateConditionDefinitionDisplayName(refId);
+    const groupDisplayName = generateConditionDefinitionDisplayName(refId);
     const nodeId = `cond_def_${Date.now()}`;
     
-    // Create ConditionDefinitionNode
+    // Create ConditionDefinitionNode (条件组) only — no auto-create of relation node
     addNode({
       id: nodeId,
       type: FlowNodeType.CONDITION_DEFINITION,
       position: { x: x + X_OFFSET, y },
       data: {
         refId,
-        valueDisplayName,
+        groupDisplayName,
         tableName: '',
         logicType: LogicType.AND,
         conditions: [
@@ -207,21 +207,6 @@ export function useMergeActions(
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
 
-    // Auto-create ConditionGroupNode next to ConditionDefinitionNode
-    const groupNodeId = `relation_${Date.now()}`;
-    const groupDisplayName = generateConditionGroupDisplayName(nodes);
-    addNode({
-      id: groupNodeId,
-      type: FlowNodeType.CONDITION_GROUP,
-      position: { x: x + X_OFFSET * 2, y },
-      data: {
-        logicType: LogicType.AND,
-        conditionIds: [refId],
-        groupDisplayName,
-      },
-    } as Parameters<typeof addNode>[0]);
-    addEdge(makeEdge(nodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
-
     // If EndNode already exists, switch it to CONDITION mode so button shows "填充值并执行"
     const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
     if (existingEnd) {
@@ -231,15 +216,15 @@ export function useMergeActions(
 
   const createRelationNode = useCallback(() => {
     const { x, y } = getSourcePosition();
-    // Always create a brand-new ConditionGroupNode — never reuse an existing one.
+    // Always create a brand-new ConditionGroupNode (条件组关系) — never reuse an existing one.
     // Only the triggering CG node is wired here; other CG nodes connect manually.
     const groupNodeId = `relation_${Date.now()}`;
-    const groupDisplayName = generateConditionGroupDisplayName(nodes);
+    const relationDisplayName = generateConditionGroupDisplayName(nodes);
     addNode({
       id: groupNodeId,
       type: FlowNodeType.CONDITION_GROUP,
       position: { x: x + X_OFFSET, y },
-      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''], groupDisplayName },
+      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionDefinitionNodeData)?.refId ?? ''], relationDisplayName },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
   }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);

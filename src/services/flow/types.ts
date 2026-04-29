@@ -199,7 +199,7 @@ export interface ConditionGroupNodeData extends BaseNodeData {
   relationType?: 'AND' | 'OR' | 'CUSTOM'; // Extended logic type for relation node
   savedConditionIds?: string[]; // Backup of conditionIds when switching to CUSTOM mode
   savedLogicType?: LogicType; // Backup of logicType when switching to CUSTOM mode
-  groupDisplayName?: string; // User-friendly display name, e.g., "条件组_1" (template uses CG_1 placeholder)
+  relationDisplayName?: string; // User-friendly display name for relation node, e.g., "关系_1" (template uses CG_1 placeholder)
 }
 
 /**
@@ -216,13 +216,13 @@ export interface ConditionItem {
 }
 
 /**
- * Condition Definition Node Data
- * Represents a condition group with placeholders (GC_1, GC_2, etc.)
+ * Condition Definition Node Data (条件组)
+ * Represents a group of conditions with placeholders (GC_1, GC_2, etc.)
  * Used for deferred value filling
  */
 export interface ConditionDefinitionNodeData extends BaseNodeData {
   refId: string; // Internal ID for templates, e.g., "GC_1" (was "CG1")
-  valueDisplayName?: string; // User-friendly display name, e.g., "条件值_1" (template uses GC_1 placeholder)
+  groupDisplayName?: string; // User-friendly display name, e.g., "条件组_1" (template uses GC_1 placeholder)
   tableName: string;
   logicType: LogicType; // User-selectable AND/OR for joining conditions within this node
   conditions: ConditionItem[];
