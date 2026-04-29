@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { useFlowStore } from '../../../stores/flowStore';
 import { FlowNodeType, LogicType, EndNodeTriggerSource, JoinType } from '../../../services/flow/types';
 import type { ConditionDefinitionNodeData, TableNodeData, JoinEdgeData, FlowEdge } from '../../../services/flow/types';
-import { generateConditionGroupRefId, generateConditionGroupDisplayName } from '../../../services/flow/flowService';
+import { generateConditionGroupRefId, generateConditionGroupDisplayName, generateConditionDefinitionDisplayName } from '../../../services/flow/flowService';
 
 // ---------------------------------------------------------------------------
 // Shared edge factory
@@ -181,13 +181,17 @@ export function useMergeActions(
   const createConditionDefinitionNode = useCallback(() => {
     const { x, y } = getSourcePosition();
     const refId = generateConditionGroupRefId(nodes);
+    const valueDisplayName = generateConditionDefinitionDisplayName(refId);
     const nodeId = `cond_def_${Date.now()}`;
+    
+    // Create ConditionDefinitionNode
     addNode({
       id: nodeId,
       type: FlowNodeType.CONDITION_DEFINITION,
       position: { x: x + X_OFFSET, y },
       data: {
         refId,
+        valueDisplayName,
         tableName: '',
         logicType: LogicType.AND,
         conditions: [
@@ -202,6 +206,21 @@ export function useMergeActions(
       },
     } as Parameters<typeof addNode>[0]);
     addEdge(makeEdge(sourceNodeId, nodeId) as Parameters<typeof addEdge>[0]);
+
+    // Auto-create ConditionGroupNode next to ConditionDefinitionNode
+    const groupNodeId = `relation_${Date.now()}`;
+    const groupDisplayName = generateConditionGroupDisplayName(nodes);
+    addNode({
+      id: groupNodeId,
+      type: FlowNodeType.CONDITION_GROUP,
+      position: { x: x + X_OFFSET * 2, y },
+      data: {
+        logicType: LogicType.AND,
+        conditionIds: [refId],
+        groupDisplayName,
+      },
+    } as Parameters<typeof addNode>[0]);
+    addEdge(makeEdge(nodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
 
     // If EndNode already exists, switch it to CONDITION mode so button shows "填充值并执行"
     const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
