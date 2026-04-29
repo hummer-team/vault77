@@ -409,11 +409,22 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       errs.push('统计列别名不能为空');
     }
 
+    // ── Auto-fill missing granularities for time columns before validation ──
+    let finalGranularities = { ...groupByGranularities };
+    if (groupByEnabled) {
+      for (const col of groupByColumns) {
+        const colType = columnTypeMap[col];
+        if (isTimeType(colType) && !finalGranularities[col]) {
+          finalGranularities[col] = 'month';
+        }
+      }
+    }
+
     // Validate granularities for time-type groupBy columns
     if (groupByEnabled) {
       for (const col of groupByColumns) {
         const colType = columnTypeMap[col];
-        if (isTimeType(colType) && !groupByGranularities[col]) {
+        if (isTimeType(colType) && !finalGranularities[col]) {
           errs.push(`分组列 "${col}" 是时间类型，必须选择粒度`);
         }
       }
@@ -450,11 +461,13 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
     }
 
     setErrors([]);
+    // Update state and pass completed granularities to onConfirm
+    setGroupByGranularities(finalGranularities);
     onConfirm({
       tableName,
       aggFields,
       groupByColumns: groupByEnabled ? groupByColumns : [],
-      groupByGranularities: groupByEnabled ? groupByGranularities : {},
+      groupByGranularities: groupByEnabled ? finalGranularities : {},
       columnPrecision,
       columnPrecisionStrategy,
       havingFilters,
