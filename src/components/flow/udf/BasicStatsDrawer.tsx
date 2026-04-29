@@ -205,9 +205,40 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       setAggFields(initialConfig.aggFields);
       setGroupByEnabled(initialConfig.groupByColumns.length > 0);
       setGroupByColumns(initialConfig.groupByColumns);
-      setGroupByGranularities(initialConfig.groupByGranularities ?? {});
-      setColumnPrecision(initialConfig.columnPrecision ?? {});
-      setColumnPrecisionStrategy(initialConfig.columnPrecisionStrategy ?? {});
+      
+      // Initialize groupByGranularities: fill missing values with defaults for time columns
+      const granularities = initialConfig.groupByGranularities ?? {};
+      const completeGranularities = { ...granularities };
+      for (const col of initialConfig.groupByColumns) {
+        if (completeGranularities[col] === undefined) {
+          const colType = columnTypeMap[col];
+          if (isTimeType(colType)) {
+            completeGranularities[col] = 'month';
+          }
+        }
+      }
+      setGroupByGranularities(completeGranularities);
+      
+      // Initialize columnPrecision: fill missing values with default
+      const precision = initialConfig.columnPrecision ?? {};
+      const completePrecision = { ...precision };
+      for (const field of initialConfig.aggFields) {
+        if (completePrecision[field.column] === undefined) {
+          completePrecision[field.column] = 4;
+        }
+      }
+      setColumnPrecision(completePrecision);
+      
+      // Initialize columnPrecisionStrategy: fill missing values with default
+      const strategy = initialConfig.columnPrecisionStrategy ?? {};
+      const completeStrategy = { ...strategy };
+      for (const field of initialConfig.aggFields) {
+        if (completeStrategy[field.column] === undefined) {
+          completeStrategy[field.column] = 'ROUND';
+        }
+      }
+      setColumnPrecisionStrategy(completeStrategy);
+      
       setHavingFilters(initialConfig.havingFilters);
       setSortEnabled(initialConfig.sortConfigs.length > 0);
       setSortConfigs(initialConfig.sortConfigs);
@@ -218,11 +249,12 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       setGroupByColumns([]);
       setGroupByGranularities({});
       setColumnPrecision({});
+      setColumnPrecisionStrategy({});
       setHavingFilters([]);
       setSortEnabled(false);
       setSortConfigs([]);
     }
-  }, [open, initialConfig]);
+  }, [open, initialConfig, columnTypeMap]);
 
   // ── Sync aggFields when selectedStatCols changes ────────────────────────────
   const handleStatColsChange = useCallback((cols: string[]) => {
@@ -621,9 +653,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     updateAggField(field.id, { distinct: e.target.checked })
                   }
                   style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                >
-                  去重
-                </Checkbox>
+                />
 
                 {/* Alias input */}
                 <Input
