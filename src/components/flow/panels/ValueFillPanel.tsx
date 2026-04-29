@@ -361,7 +361,7 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                   padding: 16,
                   background: 'var(--vm-surface-lighter)',
                   borderRadius: 8,
-                  border: '1px solid #303030',
+                  border: `1px solid var(--vm-primary-border)`,
                 }}
               >
                 {/* Group header */}
@@ -386,9 +386,9 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
                             style={{
                               fontSize: 11,
                               padding: '0 6px',
-                              background: 'var(--vm-flow-purple-bg)',
-                              border: '1px solid #531dab',
-                              color: 'var(--vm-flow-purple)',
+                              background: 'var(--vm-primary-light)',
+                              border: `1px solid var(--vm-primary-border)`,
+                              color: 'var(--vm-primary)',
                             }}
                           >
                             {operatorLabel}
