@@ -357,7 +357,7 @@ export const JOIN_TYPE_LABELS: Record<string, string> = {
  * - Format: CG{group}_{condition} (e.g., CG1_1, CG1_2, CG2_1)
  */
 export const PLACEHOLDER_CONSTANTS = {
-  DEFAULT_PREFIX: 'CG',
+  DEFAULT_PREFIX: 'GC',
   MAX_REF_ID_LENGTH: 5, // Q18: 5 character limit for node name
   ALLOWED_REF_ID_PATTERN: /^[a-zA-Z0-9]+$/, // Q18: alphanumeric only
   SEPARATOR: '_',
