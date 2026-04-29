@@ -129,12 +129,21 @@ export class BasicStatsStrategy extends BaseStrategy {
     parts.push(`FROM "${config.tableName}"`);
 
     // WHERE: conditions from ConditionDefinitionNode with placeholders
-    const whereClause = placeholderValues 
-      ? this.buildWhereClauseWithPlaceholders(nodes, placeholderValues)
-      : this.buildWhereClause(nodes);
+    let whereClause = '';
+    if (placeholderValues) {
+      whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
+      console.log(`[${this.name}.buildSql] Using buildWhereClauseWithPlaceholders: whereClause="${whereClause}"`);
+    } else {
+      whereClause = this.buildWhereClause(nodes);
+      console.log(`[${this.name}.buildSql] Using buildWhereClause: whereClause="${whereClause}"`);
+    }
     if (whereClause) {
       parts.push(whereClause);
     }
+    
+    // Debug: log all nodes
+    const nodeTypes = nodes.map(n => n.type).join(', ');
+    console.log(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
 
     // GROUP BY: use the same expressions as in SELECT (positional or full expressions)
     if (config.groupByColumns.length > 0) {
