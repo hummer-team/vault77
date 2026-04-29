@@ -241,6 +241,30 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           alias: defaultAlias('COUNT', c),
           distinct: false,
         }));
+      
+      // Initialize precision and strategy for new fields
+      const newFieldCols = newFields.map((f) => f.column);
+      if (newFieldCols.length > 0) {
+        setColumnPrecision((prev) => {
+          const updated = { ...prev };
+          newFieldCols.forEach((col) => {
+            if (updated[col] === undefined) {
+              updated[col] = 4;
+            }
+          });
+          return updated;
+        });
+        setColumnPrecisionStrategy((prev) => {
+          const updated = { ...prev };
+          newFieldCols.forEach((col) => {
+            if (updated[col] === undefined) {
+              updated[col] = 'ROUND';
+            }
+          });
+          return updated;
+        });
+      }
+      
       return [...retained, ...newFields];
     });
     // Remove group-by columns that were just selected as stat cols
@@ -537,6 +561,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     fontWeight: 600,
                     letterSpacing: '0.06em',
                     textTransform: 'uppercase',
+                    textAlign: label === '别名' ? 'left' : undefined,
                   }}
                 >
                   {label}
@@ -828,6 +853,15 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                 );
                 if (availableCol) {
                   setGroupByColumns((prev) => [...prev, availableCol]);
+                  
+                  // Initialize granularity for time columns
+                  const colType = columnTypeMap[availableCol];
+                  if (isTimeType(colType)) {
+                    setGroupByGranularities((prev) => ({
+                      ...prev,
+                      [availableCol]: 'month',
+                    }));
+                  }
                 }
               }}
               disabled={groupByAvailableCols.length === 0}
