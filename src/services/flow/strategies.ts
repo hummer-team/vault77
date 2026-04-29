@@ -406,8 +406,9 @@ export abstract class BaseStrategy implements FlowStrategy {
         .filter(Boolean);
 
       if (nodeConditions.length > 0) {
-        // Group conditions within the same node with AND
-        conditions.push(`(${nodeConditions.join(' AND ')})`);
+        // Use logicType to join conditions within the same node
+        const nodeConditionsSql = nodeConditions.join(` ${logicType} `);
+        conditions.push(`(${nodeConditionsSql})`);
       }
     }
 
