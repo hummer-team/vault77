@@ -224,13 +224,13 @@ describe('Flow Store', () => {
 
   describe('Placeholder Values', () => {
     it('should set placeholder value', () => {
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'test_value');
-      expect(useFlowStore.getState().placeholderValues['CG1_1']).toBe('test_value');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'test_value');
+      expect(useFlowStore.getState().placeholderValues['GC1_1']).toBe('test_value');
     });
 
     it('should get placeholder value', () => {
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'test_value');
-      const value = useFlowStore.getState().getPlaceholderValue('CG1_1');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'test_value');
+      const value = useFlowStore.getState().getPlaceholderValue('GC1_1');
       expect(value).toBe('test_value');
     });
 
@@ -240,22 +240,22 @@ describe('Flow Store', () => {
     });
 
     it('should get all placeholder values', () => {
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'value1');
-      useFlowStore.getState().setPlaceholderValue('CG1_2', 'value2');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'value1');
+      useFlowStore.getState().setPlaceholderValue('GC1_2', 'value2');
       const values = useFlowStore.getState().getAllPlaceholderValues();
-      expect(values).toEqual({ CG1_1: 'value1', CG1_2: 'value2' });
+      expect(values).toEqual({ GC1_1: 'value1', GC1_2: 'value2' });
     });
 
     it('should clear all placeholder values', () => {
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'value1');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'value1');
       useFlowStore.getState().clearPlaceholderValues();
       expect(useFlowStore.getState().placeholderValues).toEqual({});
     });
 
     it('should update existing placeholder value', () => {
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'old_value');
-      useFlowStore.getState().setPlaceholderValue('CG1_1', 'new_value');
-      expect(useFlowStore.getState().placeholderValues['CG1_1']).toBe('new_value');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'old_value');
+      useFlowStore.getState().setPlaceholderValue('GC1_1', 'new_value');
+      expect(useFlowStore.getState().placeholderValues['GC1_1']).toBe('new_value');
     });
   });
 });

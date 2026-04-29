@@ -36,16 +36,16 @@ const isConditionComplete = (
 
 describe('ConditionGroupDefinitionNode Logic', () => {
   describe('generatePlaceholderName', () => {
-    it('should generate CG1_1 for first condition', () => {
-      expect(generatePlaceholderName('CG1', 0)).toBe('CG1_1');
+    it('should generate GC1_1 for first condition', () => {
+      expect(generatePlaceholderName('GC1', 0)).toBe('GC1_1');
     });
 
-    it('should generate CG1_2 for second condition', () => {
-      expect(generatePlaceholderName('CG1', 1)).toBe('CG1_2');
+    it('should generate GC1_2 for second condition', () => {
+      expect(generatePlaceholderName('GC1', 1)).toBe('GC1_2');
     });
 
-    it('should generate CG2_1 for different group', () => {
-      expect(generatePlaceholderName('CG2', 0)).toBe('CG2_1');
+    it('should generate GC2_1 for different group', () => {
+      expect(generatePlaceholderName('GC2', 0)).toBe('GC2_1');
     });
 
     it('should handle custom refId', () => {
@@ -129,9 +129,9 @@ describe('ConditionGroupDefinitionNode Logic', () => {
 describe('ConditionGroupDefinitionNode Placeholder Sequence', () => {
   it('should maintain sequential placeholders when removing conditions', () => {
     const conditions = [
-      { id: '1', placeholder: 'CG1_1' },
-      { id: '2', placeholder: 'CG1_2' },
-      { id: '3', placeholder: 'CG1_3' },
+      { id: '1', placeholder: 'GC1_1' },
+      { id: '2', placeholder: 'GC1_2' },
+      { id: '3', placeholder: 'GC1_3' },
     ];
 
     // Remove middle condition
@@ -140,12 +140,12 @@ describe('ConditionGroupDefinitionNode Placeholder Sequence', () => {
     // Reassign placeholders
     const reassigned = filtered.map((c, index) => ({
       ...c,
-      placeholder: generatePlaceholderName('CG1', index),
+      placeholder: generatePlaceholderName('GC1', index),
     }));
 
     expect(reassigned).toEqual([
-      { id: '1', placeholder: 'CG1_1' },
-      { id: '3', placeholder: 'CG1_2' },
+      { id: '1', placeholder: 'GC1_1' },
+      { id: '3', placeholder: 'GC1_2' },
     ]);
   });
 });

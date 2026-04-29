@@ -180,7 +180,7 @@ export async function getTableRowCount(
 // ============================================================================
 
 /**
- * Generate a unique refId for condition definition node (e.g., CG1, CG2)
+ * Generate a unique refId for condition definition node (e.g., GC1, CG2)
  * @param nodes Current flow nodes
  * @returns Unique refId (max 5 chars, alphanumeric)
  */
@@ -206,9 +206,9 @@ export function generateConditionGroupRefId(nodes: FlowNode[]): string {
 
 /**
  * Generate placeholder name for a condition within a group
- * @param refId Group refId (e.g., CG1)
+ * @param refId Group refId (e.g., GC1)
  * @param conditionIndex Condition index within group (0-based)
- * @returns Placeholder name (e.g., CG1_1, CG1_2)
+ * @returns Placeholder name (e.g., GC1_1, CG1_2)
  */
 export function generatePlaceholderName(refId: string, conditionIndex: number): string {
   return `${refId}${PLACEHOLDER_CONSTANTS.SEPARATOR}${conditionIndex + 1}`;

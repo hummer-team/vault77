@@ -18,20 +18,20 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'age', operator: '>', placeholder: 'CG1_1', valueType: 'number' },
-              { id: 'c2', field: 'name', operator: '=', placeholder: 'CG1_2', valueType: 'string' },
+              { id: 'c1', field: 'age', operator: '>', placeholder: 'GC1_1', valueType: 'number' },
+              { id: 'c2', field: 'name', operator: '=', placeholder: 'GC1_2', valueType: 'string' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: 18,
-        CG1_2: 'John',
+        GC1_1: 18,
+        GC1_2: 'John',
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -47,20 +47,20 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'age', operator: '>', placeholder: 'CG1_1', valueType: 'number' },
-              { id: 'c2', field: 'status', operator: '=', placeholder: 'CG1_2', valueType: 'string' },
+              { id: 'c1', field: 'age', operator: '>', placeholder: 'GC1_1', valueType: 'number' },
+              { id: 'c2', field: 'status', operator: '=', placeholder: 'GC1_2', valueType: 'string' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: 25,
-        // CG1_2 is not filled
+        GC1_1: 25,
+        // GC1_2 is not filled
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -76,18 +76,18 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'role', operator: 'IN', placeholder: 'CG1_1', valueType: 'string' },
+              { id: 'c1', field: 'role', operator: 'IN', placeholder: 'GC1_1', valueType: 'string' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: ['admin', 'user', 'guest'],
+        GC1_1: ['admin', 'user', 'guest'],
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -101,18 +101,18 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'name', operator: '=', placeholder: 'CG1_1', valueType: 'string' },
+              { id: 'c1', field: 'name', operator: '=', placeholder: 'GC1_1', valueType: 'string' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: "O'Brien",
+        GC1_1: "O'Brien",
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -126,11 +126,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'age', operator: '>', placeholder: 'CG1_1', valueType: 'number' },
+              { id: 'c1', field: 'age', operator: '>', placeholder: 'GC1_1', valueType: 'number' },
             ],
           },
         },
@@ -139,11 +139,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG2',
+            refId: 'GC2',
             tableName: 'orders',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c2', field: 'amount', operator: '>', placeholder: 'CG2_1', valueType: 'number' },
+              { id: 'c2', field: 'amount', operator: '>', placeholder: 'GC2_1', valueType: 'number' },
             ],
           },
         },
@@ -160,8 +160,8 @@ describe('AssociationStrategy - Placeholder Support', () => {
       ];
 
       const placeholderValues = {
-        CG1_1: 18,
-        CG2_1: 100,
+        GC1_1: 18,
+        GC2_1: 100,
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -176,11 +176,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'status', operator: '=', placeholder: 'CG1_1', valueType: 'string' },
+              { id: 'c1', field: 'status', operator: '=', placeholder: 'GC1_1', valueType: 'string' },
             ],
           },
         },
@@ -189,11 +189,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG2',
+            refId: 'GC2',
             tableName: 'orders',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c2', field: 'amount', operator: '>', placeholder: 'CG2_1', valueType: 'number' },
+              { id: 'c2', field: 'amount', operator: '>', placeholder: 'GC2_1', valueType: 'number' },
             ],
           },
         },
@@ -203,14 +203,14 @@ describe('AssociationStrategy - Placeholder Support', () => {
           position: { x: 0, y: 0 },
           data: {
             relationType: 'CUSTOM',
-            customExpression: 'CG1 AND CG2',
+            customExpression: 'GC1 AND GC2',
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: 'active',
-        CG2_1: 500,
+        GC1_1: 'active',
+        GC2_1: 500,
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -227,11 +227,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'age', operator: '>', placeholder: 'CG1_1', valueType: 'number' },
+              { id: 'c1', field: 'age', operator: '>', placeholder: 'GC1_1', valueType: 'number' },
             ],
           },
         },
@@ -240,11 +240,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG2',
+            refId: 'GC2',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c2', field: 'vip', operator: '=', placeholder: 'CG2_1', valueType: 'boolean' },
+              { id: 'c2', field: 'vip', operator: '=', placeholder: 'GC2_1', valueType: 'boolean' },
             ],
           },
         },
@@ -254,14 +254,14 @@ describe('AssociationStrategy - Placeholder Support', () => {
           position: { x: 0, y: 0 },
           data: {
             relationType: 'CUSTOM',
-            customExpression: 'CG1 并且 CG2',
+            customExpression: 'GC1 并且 GC2',
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: 18,
-        CG2_1: true,
+        GC1_1: 18,
+        GC2_1: true,
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -276,18 +276,18 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'active', operator: '=', placeholder: 'CG1_1', valueType: 'boolean' },
+              { id: 'c1', field: 'active', operator: '=', placeholder: 'GC1_1', valueType: 'boolean' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: true,
+        GC1_1: true,
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -302,18 +302,18 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'deleted_at', operator: 'IS', placeholder: 'CG1_1', valueType: 'date' },
+              { id: 'c1', field: 'deleted_at', operator: 'IS', placeholder: 'GC1_1', valueType: 'date' },
             ],
           },
         },
       ];
 
       const placeholderValues = {
-        CG1_1: null,
+        GC1_1: null,
       };
 
       const sql = strategy.buildSql(nodes, [], placeholderValues);
@@ -328,11 +328,11 @@ describe('AssociationStrategy - Placeholder Support', () => {
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
           data: {
-            refId: 'CG1',
+            refId: 'GC1',
             tableName: 'users',
             logicType: LogicType.AND,
             conditions: [
-              { id: 'c1', field: 'age', operator: '>', placeholder: 'CG1_1', valueType: 'number' },
+              { id: 'c1', field: 'age', operator: '>', placeholder: 'GC1_1', valueType: 'number' },
             ],
           },
         },

@@ -14,42 +14,42 @@ import { FlowNodeType, type FlowNode } from '../types';
 
 describe('Flow Service', () => {
   describe('generateConditionGroupRefId', () => {
-    it('should generate first refId as CG1 when no nodes exist', () => {
+    it('should generate first refId as GC1 when no nodes exist', () => {
       const nodes: FlowNode[] = [];
       const refId = generateConditionGroupRefId(nodes);
-      expect(refId).toBe('CG1');
+      expect(refId).toBe('GC1');
     });
 
-    it('should generate CG2 when CG1 exists', () => {
+    it('should generate GC2 when GC1 exists', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
       const refId = generateConditionGroupRefId(nodes);
-      expect(refId).toBe('CG2');
+      expect(refId).toBe('GC2');
     });
 
-    it('should generate CG3 when CG1 and CG2 exist', () => {
+    it('should generate GC3 when GC1 and GC2 exist', () => {
       const nodes: FlowNode[] = [
         {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
         {
           id: 'cg2',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG2', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC2', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
       const refId = generateConditionGroupRefId(nodes);
-      expect(refId).toBe('CG3');
+      expect(refId).toBe('GC3');
     });
 
     it('should fill gaps in sequence', () => {
@@ -58,17 +58,17 @@ describe('Flow Service', () => {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
         {
           id: 'cg3',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG3', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC3', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
       const refId = generateConditionGroupRefId(nodes);
-      expect(refId).toBe('CG2');
+      expect(refId).toBe('GC2');
     });
 
     it('should ignore non-conditionDefinition nodes', () => {
@@ -81,24 +81,24 @@ describe('Flow Service', () => {
         },
       ];
       const refId = generateConditionGroupRefId(nodes);
-      expect(refId).toBe('CG1');
+      expect(refId).toBe('GC1');
     });
   });
 
   describe('generatePlaceholderName', () => {
-    it('should generate CG1_1 for first condition', () => {
-      const placeholder = generatePlaceholderName('CG1', 0);
-      expect(placeholder).toBe('CG1_1');
+    it('should generate GC1_1 for first condition', () => {
+      const placeholder = generatePlaceholderName('GC1', 0);
+      expect(placeholder).toBe('GC1_1');
     });
 
-    it('should generate CG1_2 for second condition', () => {
-      const placeholder = generatePlaceholderName('CG1', 1);
-      expect(placeholder).toBe('CG1_2');
+    it('should generate GC1_2 for second condition', () => {
+      const placeholder = generatePlaceholderName('GC1', 1);
+      expect(placeholder).toBe('GC1_2');
     });
 
-    it('should generate CG2_1 for different group', () => {
-      const placeholder = generatePlaceholderName('CG2', 0);
-      expect(placeholder).toBe('CG2_1');
+    it('should generate GC2_1 for different group', () => {
+      const placeholder = generatePlaceholderName('GC2', 0);
+      expect(placeholder).toBe('GC2_1');
     });
 
     it('should handle custom refId', () => {
@@ -109,18 +109,18 @@ describe('Flow Service', () => {
 
   describe('validateRefId', () => {
     it('should validate valid refId', () => {
-      const result = validateRefId('CG1');
+      const result = validateRefId('GC1');
       expect(result.valid).toBe(true);
       expect(result.error).toBeUndefined();
     });
 
     it('should validate 5 character refId', () => {
-      const result = validateRefId('CG123');
+      const result = validateRefId('GC123');
       expect(result.valid).toBe(true);
     });
 
     it('should reject refId longer than 5 characters', () => {
-      const result = validateRefId('CG1234');
+      const result = validateRefId('GC1234');
       expect(result.valid).toBe(false);
       expect(result.error).toContain('5');
     });
@@ -149,10 +149,10 @@ describe('Flow Service', () => {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
-      const isUnique = isRefIdUnique('CG2', nodes);
+      const isUnique = isRefIdUnique('GC2', nodes);
       expect(isUnique).toBe(true);
     });
 
@@ -162,10 +162,10 @@ describe('Flow Service', () => {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
-      const isUnique = isRefIdUnique('CG1', nodes);
+      const isUnique = isRefIdUnique('GC1', nodes);
       expect(isUnique).toBe(false);
     });
 
@@ -175,10 +175,10 @@ describe('Flow Service', () => {
           id: 'cg1',
           type: FlowNodeType.CONDITION_GROUP_DEFINITION,
           position: { x: 0, y: 0 },
-          data: { refId: 'CG1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
+          data: { refId: 'GC1', tableName: 't1', logicType: 'AND' as const, conditions: [] },
         },
       ];
-      const isUnique = isRefIdUnique('CG1', nodes, 'cg1');
+      const isUnique = isRefIdUnique('GC1', nodes, 'cg1');
       expect(isUnique).toBe(true);
     });
 
@@ -188,10 +188,10 @@ describe('Flow Service', () => {
           id: 'table1',
           type: FlowNodeType.TABLE,
           position: { x: 0, y: 0 },
-          data: { tableName: 't1', fields: [], expanded: false, alias: 'CG1' },
+          data: { tableName: 't1', fields: [], expanded: false, alias: 'GC1' },
         },
       ];
-      const isUnique = isRefIdUnique('CG1', nodes);
+      const isUnique = isRefIdUnique('GC1', nodes);
       expect(isUnique).toBe(true);
     });
   });

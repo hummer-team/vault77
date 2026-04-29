@@ -354,7 +354,7 @@ export const JOIN_TYPE_LABELS: Record<string, string> = {
  * - Prefix: CG (Condition Group)
  * - Group number: auto-incrementing (1, 2, 3...)
  * - Condition number: auto-incrementing within group (1, 2, 3...)
- * - Format: CG{group}_{condition} (e.g., CG1_1, CG1_2, CG2_1)
+ * - Format: CG{group}_{condition} (e.g., GC1_1, CG1_2, CG2_1)
  */
 export const PLACEHOLDER_CONSTANTS = {
   DEFAULT_PREFIX: 'GC',
