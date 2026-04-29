@@ -28,7 +28,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     return timeTypes.some((t) => colType.toUpperCase().includes(t));
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
+  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
     const config = (selectNode?.data as { basicStatsConfig?: BasicStatsConfig } | undefined)
       ?.basicStatsConfig;
@@ -128,8 +128,10 @@ export class BasicStatsStrategy extends BaseStrategy {
     // FROM
     parts.push(`FROM "${config.tableName}"`);
 
-    // WHERE: conditions from ConditionDefinitionNode
-    const whereClause = this.buildWhereClause(nodes);
+    // WHERE: conditions from ConditionDefinitionNode with placeholders
+    const whereClause = placeholderValues 
+      ? this.buildWhereClauseWithPlaceholders(nodes, placeholderValues)
+      : this.buildWhereClause(nodes);
     if (whereClause) {
       parts.push(whereClause);
     }

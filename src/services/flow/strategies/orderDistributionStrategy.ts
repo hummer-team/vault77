@@ -387,7 +387,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
+  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
     const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
 
@@ -400,8 +400,10 @@ export class OrderDistributionStrategy extends BaseStrategy {
       return `SELECT *\nFROM "${tableName}"`;
     }
 
-    // Get WHERE clause from condition nodes
-    const additionalWhere = this.buildWhereClause(nodes);
+    // Get WHERE clause from condition nodes (support both old CONDITION and new CONDITION_DEFINITION)
+    const additionalWhere = placeholderValues
+      ? this.buildWhereClauseWithPlaceholders(nodes, placeholderValues)
+      : this.buildWhereClause(nodes);
 
     let sql: string;
     switch (config.subType) {
