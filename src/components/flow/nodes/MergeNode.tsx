@@ -176,7 +176,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     }
   }, [upstreamNodeType, data.label]);
 
-  // Create condition definition node (CG1, CG2, etc.)
+  // Create condition definition node (GC1, GC2, etc.)
   const createConditionGroupDefinitionNode = useCallback(
     (mergeX: number, mergeY: number) => {
       const refId = generateConditionGroupRefId(nodes);
@@ -274,7 +274,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
     (mergeX: number, mergeY: number) => {
       const timestamp = Date.now();
 
-      // Get all available condition definition nodes (CG1, CG2, etc.)
+      // Get all available condition definition nodes (GC1, GC2, etc.)
       const availableConditionDefs = nodes.filter(
         (n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION
       );

@@ -96,7 +96,7 @@ export const ConditionGroupRelationNode: React.FC<ConditionGroupRelationNodeProp
   // Current node is disabled if another node is in CUSTOM mode
   const isDisabledByCustomMode = hasCustomModeEnabled && relationType !== 'CUSTOM';
 
-  // Get all available condition definition nodes (CG1, CG2, etc.)
+  // Get all available condition definition nodes (GC1, GC2, etc.)
   const availableConditionDefs = useMemo(() => {
     return nodes.filter((n) => n.type === 'conditionGroupDefinition');
   }, [nodes]);
@@ -119,7 +119,7 @@ export const ConditionGroupRelationNode: React.FC<ConditionGroupRelationNodeProp
       };
     }
 
-    // Extract all condition refs (CG1, CG2, etc.)
+    // Extract all condition refs (GC1, GC2, etc.)
     const refPattern = /[a-zA-Z0-9_]+/g;
     const refs = expression.match(refPattern) || [];
 
@@ -425,7 +425,7 @@ export const ConditionGroupRelationNode: React.FC<ConditionGroupRelationNodeProp
                 <Input.TextArea
                   value={data.customExpression || ''}
                   onChange={(e) => handleExpressionChange(e.target.value)}
-                  placeholder="Enter expression: CG1 AND (CG2 OR CG3)"
+                  placeholder="Enter expression: GC1 AND (GC2 OR GC3)"
                   rows={2}
                   status={!expressionValidation.valid ? 'error' : undefined}
                   className="nodrag"

@@ -180,7 +180,7 @@ export async function getTableRowCount(
 // ============================================================================
 
 /**
- * Generate a unique refId for condition definition node (e.g., GC1, CG2)
+ * Generate a unique refId for condition definition node (e.g., GC1, GC2)
  * @param nodes Current flow nodes
  * @returns Unique refId (max 5 chars, alphanumeric)
  */
@@ -208,7 +208,7 @@ export function generateConditionGroupRefId(nodes: FlowNode[]): string {
  * Generate placeholder name for a condition within a group
  * @param refId Group refId (e.g., GC1)
  * @param conditionIndex Condition index within group (0-based)
- * @returns Placeholder name (e.g., GC1_1, CG1_2)
+ * @returns Placeholder name (e.g., GC1_1, GC1_2)
  */
 export function generatePlaceholderName(refId: string, conditionIndex: number): string {
   return `${refId}${PLACEHOLDER_CONSTANTS.SEPARATOR}${conditionIndex + 1}`;
@@ -221,7 +221,7 @@ export function generatePlaceholderName(refId: string, conditionIndex: number): 
  * @returns User-friendly display name (e.g., "条件组_1")
  */
 export function generateConditionGroupDefinitionDisplayName(refId: string): string {
-  // Extract number from refId (e.g., "GC_1" -> "1", "CG1" -> "1")
+  // Extract number from refId (e.g., "GC1" -> "1", "GC2" -> "2")
   const match = refId.match(/\d+/);
   if (!match) return refId; // Fallback if no number found
   const num = match[0];

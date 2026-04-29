@@ -495,7 +495,7 @@ export abstract class BaseStrategy implements FlowStrategy {
 
   /**
    * Helper: Parse custom expression (Q9: string replacement)
-   * Replaces CG1, CG2, etc. with actual SQL conditions
+   * Replaces GC1, GC2, etc. with actual SQL conditions
    */
   private parseCustomExpression(
     expression: string,

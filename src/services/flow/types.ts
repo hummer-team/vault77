@@ -195,11 +195,11 @@ export interface ConditionNodeData extends BaseNodeData {
 export interface ConditionGroupRelationNodeData extends BaseNodeData {
   logicType: LogicType;
   conditionIds: string[];
-  customExpression?: string; // For CUSTOM type (Q14): e.g., "CG1 AND (CG2 OR CG3)"
+  customExpression?: string; // For CUSTOM type (Q14): e.g., "GC1 AND (GC2 OR GC3)"
   relationType?: 'AND' | 'OR' | 'CUSTOM'; // Extended logic type for relation node
   savedConditionIds?: string[]; // Backup of conditionIds when switching to CUSTOM mode
   savedLogicType?: LogicType; // Backup of logicType when switching to CUSTOM mode
-  relationDisplayName?: string; // User-friendly display name for relation node, e.g., "关系_1" (template uses CG_1 placeholder)
+  relationDisplayName?: string; // User-friendly display name for relation node, e.g., "关系_1" (template uses GC_1 placeholder)
 }
 
 /**
@@ -210,7 +210,7 @@ export interface ConditionItem {
   id: string;
   field: string;
   operator: string;
-  placeholder: string; // e.g., "CG1_1", "CG1_2"
+  placeholder: string; // e.g., "GC1_1", "GC1_2"
   valueType: FieldType;
   value?: string | number | null | string[]; // Actual value filled later
 }
@@ -221,7 +221,7 @@ export interface ConditionItem {
  * Used for deferred value filling
  */
 export interface ConditionGroupDefinitionNodeData extends BaseNodeData {
-  refId: string; // Internal ID for templates, e.g., "GC_1" (was "CG1")
+  refId: string; // Internal ID for templates, e.g., "GC1", "GC2"
   groupDisplayName?: string; // User-friendly display name, e.g., "条件组_1" (template uses GC_1 placeholder)
   tableName: string;
   logicType: LogicType; // User-selectable AND/OR for joining conditions within this node
@@ -646,7 +646,7 @@ export interface FlowState {
   edges: FlowEdge[];
 
   // Placeholder values for deferred filling (Q13: stored in flowStore)
-  placeholderValues: Record<string, unknown>; // { "CG1_1": value, "CG1_2": value }
+  placeholderValues: Record<string, unknown>; // { "GC1_1": value, "GC1_2": value }
 
   // UI state
   selectedNodeId: string | null;

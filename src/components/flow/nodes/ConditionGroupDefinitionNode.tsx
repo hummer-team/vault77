@@ -1,6 +1,6 @@
 /**
  * Condition Definition Node Component
- * Displays a condition group with multiple condition lines (CG1, CG2, etc.)
+ * Displays a condition group with multiple condition lines (GC1, GC2, etc.)
  * Each condition has a placeholder for deferred value filling
  */
 
