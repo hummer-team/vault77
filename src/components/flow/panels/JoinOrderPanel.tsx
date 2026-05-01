@@ -1,8 +1,10 @@
+/* DEPRECATED — no active importers, pending removal after smoke test
+/* DEPRECATED — no active importers, pending removal after smoke test
 /**
  * Join Order Panel Component
  * Right-side panel for controlling JOIN execution order
  * Supports drag-and-drop reordering
- */
+ *\/
 
 import React, { useCallback, useMemo } from 'react';
 import { Drawer, List, Tag, Space, Button, Empty } from 'antd';
@@ -152,7 +154,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                 onClick={() => handleJoinClick(node.id)}
               >
                 <div style={{ width: '100%' }}>
-                  {/* Header with order badge */}
+                  {/* Header with order badge *\/}
                   <div
                     style={{
                       display: 'flex',
@@ -160,7 +162,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                       marginBottom: 8,
                     }}
                   >
-                    {/* Order badge */}
+                    {/* Order badge *\/}
                     <div
                       style={{
                         width: 24,
@@ -179,7 +181,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                       {data.order}
                     </div>
 
-                    {/* Drag handle */}
+                    {/* Drag handle *\/}
                     <DragOutlined
                       style={{
                         color: 'var(--vm-text-helper)',
@@ -188,7 +190,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                       }}
                     />
 
-                    {/* Join type */}
+                    {/* Join type *\/}
                     <Tag
                       color={JOIN_TYPE_COLORS[data.joinType]}
                       style={{ margin: 0 }}
@@ -196,10 +198,10 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                       {JOIN_TYPE_LABELS[data.joinType]}
                     </Tag>
 
-                    {/* Spacer */}
+                    {/* Spacer *\/}
                     <div style={{ flex: 1 }} />
 
-                    {/* Move buttons */}
+                    {/* Move buttons *\/}
                     <Space size={4}>
                       <Button
                         type="text"
@@ -231,7 +233,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                     </Space>
                   </div>
 
-                  {/* Tables info */}
+                  {/* Tables info *\/}
                   <div
                     style={{
                       display: 'flex',
@@ -265,7 +267,7 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
                     </Tag>
                   </div>
 
-                  {/* Conditions count */}
+                  {/* Conditions count *\/}
                   <div
                     style={{
                       marginTop: 8,
@@ -289,3 +291,6 @@ export const JoinOrderPanel: React.FC<JoinOrderPanelProps> = ({
 };
 
 export default JoinOrderPanel;
+*\/
+
+*/
