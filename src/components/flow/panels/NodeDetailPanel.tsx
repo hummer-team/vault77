@@ -7,7 +7,7 @@ import React, { useCallback } from 'react';
 import { Drawer, Form, Input, Select, Tag, Space, Divider } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import { SelectNodeForm, SelectAggNodeForm } from './SelectNodeForms';
+import { SelectNodeForm, SelectAggNodeForm } from '../udf/JoinSelectColumnsDrawer';
 import type {
   FlowNode,
   TableNodeData,

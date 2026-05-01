@@ -1,6 +1,6 @@
 /**
- * Select Node Forms
- * Form components for SelectNode and SelectAggNode
+ * JoinSelectColumnsDrawer
+ * Column selection panel for join query SelectNode and SelectAggNode.
  */
 
 import React, { useCallback } from 'react';
