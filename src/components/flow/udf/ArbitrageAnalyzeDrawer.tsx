@@ -500,7 +500,7 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
                 价格套利分析
               </div>
               <div style={{ fontSize: 11, color: TOKEN.textMuted, fontWeight: 400 }}>
-                fn_ecom_arbitrage_analyze
+                电商/订单 · 风险风控
               </div>
             </div>
           </div>
@@ -583,33 +583,6 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
             options={columns}
           />
 
-          {/* Optional auto-detected fields */}
-          <div
-            style={{
-              fontSize: 11,
-              color: TOKEN.textMuted,
-              margin: '14px 0 8px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            扩展字段（可选，自动识别）
-            <Tooltip title="系统根据列名自动匹配，可手动调整。扩展字段缺失时对应规则自动禁用。">
-              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 11 }} />
-            </Tooltip>
-          </div>
-          <FieldRow label="SKU ID"   optional tooltip="商品SKU标识，用于价格基准计算和套利检测" value={skuIdCol}   onChange={setSkuIdCol}   options={columns} />
-          <FieldRow label="类目ID"   optional tooltip="商品类目，用于类目均价基准" value={categoryIdCol} onChange={setCategoryIdCol} options={columns} />
-          <FieldRow label="订单时间" optional tooltip="订单创建时间（毫秒时间戳或日期字符串）" value={orderTimeCol} onChange={setOrderTimeCol} options={columns} />
-          <FieldRow label="用户ID"   optional tooltip="用户唯一标识，用于套利行为检测" value={userIdCol}   onChange={setUserIdCol}   options={columns} />
-          <FieldRow label="设备ID"   optional tooltip="下单设备ID，用于设备聚集套利检测" value={deviceIdCol}  onChange={setDeviceIdCol}  options={columns} />
-          <FieldRow label="收货地址" optional tooltip="收货地址，用于地址聚集套利检测" value={receiverAddrCol} onChange={setReceiverAddrCol} options={columns} />
-          <FieldRow label="活动ID"   optional tooltip="关联促销活动ID，用于区分正常促销与套利" value={activityIdCol}   onChange={setActivityIdCol}   options={columns} />
-          <FieldRow label="活动类型" optional tooltip="活动类型（clearance=清仓，normal=正常）" value={activityTypeCol} onChange={setActivityTypeCol} options={columns} />
-          <FieldRow label="活动开始" optional tooltip="活动开始时间（毫秒时间戳）" value={activityStartCol} onChange={setActivityStartCol} options={columns} />
-          <FieldRow label="活动结束" optional tooltip="活动结束时间（毫秒时间戳）" value={activityEndCol}   onChange={setActivityEndCol}   options={columns} />
         </Section>
 
         {/* ── Group 2: Risk Rule Configuration ───────────────────────── */}
@@ -723,138 +696,193 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
           </div>
         </Section>
 
-        {/* ── Group 3: Arbitrage Detection ───────────────────────────── */}
+        {/* ── Group 3: Behavior Arbitrage Detection (fields + params merged) ── */}
         <Section
           icon={<ApartmentOutlined />}
-          title="套利检测配置"
+          title="行为套利检测"
           collapsible
-          defaultOpen={arbFieldsAvailable}
-          badge={arbFieldsAvailable ? undefined : '需扩展字段'}
-          disabled={!arbFieldsAvailable}
+          defaultOpen={false}
         >
-          {/* Master toggle */}
-          <div style={{ ...rowStyle, justifyContent: 'space-between', marginBottom: 14 }}>
-            <span style={{ fontSize: 12, color: TOKEN.textSecondary }}>启用套利行为检测</span>
-            <Switch
-              size="small"
-              checked={toggles.arbitrageRules}
-              onChange={setToggle('arbitrageRules')}
-            />
+          {/* Intro: clarify what this section does and what fields are needed */}
+          <div
+            style={{
+              fontSize: 11,
+              color: TOKEN.textMuted,
+              marginBottom: 12,
+              lineHeight: 1.6,
+              padding: '6px 9px',
+              background: 'var(--vm-bg-row)',
+              borderRadius: 5,
+              border: `1px solid ${TOKEN.borderSubtle}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 6,
+            }}
+          >
+            <InfoCircleOutlined style={{ marginTop: 1, flexShrink: 0 }} />
+            <span>配置以下字段后，系统可检测批量购买、地址聚集、设备多账号等套利行为</span>
           </div>
 
-          {/* Spike detection method */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: TOKEN.textMuted, marginBottom: 6, fontWeight: 500 }}>
-              历史基准计算方式
-              <Tooltip title="用于判断 1h 内同SKU订单是否异常突增的基准计算方法">
-                <InfoCircleOutlined style={{ marginLeft: 4, color: TOKEN.textMuted, fontSize: 10 }} />
-              </Tooltip>
-            </div>
-            <Radio.Group
-              size="small"
-              value={detection.hourlySpikeMethod}
-              onChange={(e) => setDetectionField('hourlySpikeMethod')(e.target.value as string)}
-              disabled={!toggles.arbitrageRules}
-            >
-              <Radio value="batch_avg">
-                <span style={{ fontSize: 12 }}>批次平均</span>
-                <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 4 }}>
-                  （全量 / 小时数，推荐）
-                </Text>
-              </Radio>
-              <Radio value="same_hour_avg" style={{ marginTop: 4 }}>
-                <span style={{ fontSize: 12 }}>同时段平均</span>
-                <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 4 }}>
-                  （相同小时历史均值）
-                </Text>
-              </Radio>
-            </Radio.Group>
-          </div>
+          {/* Extended field rows (auto-detected, optional) */}
+          <FieldRow label="SKU ID"   optional tooltip="商品SKU标识，用于价格基准计算和套利检测" value={skuIdCol}   onChange={setSkuIdCol}   options={columns} />
+          <FieldRow label="类目ID"   optional tooltip="商品类目，用于类目均价基准" value={categoryIdCol} onChange={setCategoryIdCol} options={columns} />
+          <FieldRow label="订单时间" optional tooltip="订单创建时间（毫秒时间戳或日期字符串）" value={orderTimeCol} onChange={setOrderTimeCol} options={columns} />
+          <FieldRow label="用户ID"   optional tooltip="用户唯一标识，用于套利行为检测" value={userIdCol}   onChange={setUserIdCol}   options={columns} />
+          <FieldRow label="设备ID"   optional tooltip="下单设备ID，用于设备聚集套利检测" value={deviceIdCol}  onChange={setDeviceIdCol}  options={columns} />
+          <FieldRow label="收货地址" optional tooltip="收货地址，用于地址聚集套利检测" value={receiverAddrCol} onChange={setReceiverAddrCol} options={columns} />
+          <FieldRow label="活动ID"   optional tooltip="关联促销活动ID，用于区分正常促销与套利" value={activityIdCol}   onChange={setActivityIdCol}   options={columns} />
+          <FieldRow label="活动类型" optional tooltip="活动类型（clearance=清仓，normal=正常）" value={activityTypeCol} onChange={setActivityTypeCol} options={columns} />
+          <FieldRow label="活动开始" optional tooltip="活动开始时间（毫秒时间戳）" value={activityStartCol} onChange={setActivityStartCol} options={columns} />
+          <FieldRow label="活动结束" optional tooltip="活动结束时间（毫秒时间戳）" value={activityEndCol}   onChange={setActivityEndCol}   options={columns} />
 
-          {/* Numeric parameters */}
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${TOKEN.borderSubtle}` }}>
-            <div style={{ fontSize: 11, color: TOKEN.textMuted, marginBottom: 8, fontWeight: 500 }}>
-              参数配置
-            </div>
+          {/* Detection params — grayed until the 5 key fields are configured */}
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: `1px solid ${TOKEN.borderSubtle}`,
+              opacity: arbFieldsAvailable ? 1 : 0.45,
+              pointerEvents: arbFieldsAvailable ? undefined : 'none',
+              transition: 'opacity 0.2s',
+            }}
+          >
+            {/* Inline hint when key fields are not yet filled */}
+            {!arbFieldsAvailable && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: TOKEN.textMuted,
+                  marginBottom: 10,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 5,
+                  lineHeight: 1.6,
+                }}
+              >
+                <InfoCircleOutlined style={{ marginTop: 1, flexShrink: 0 }} />
+                <span>请先配置上方 SKU ID、用户ID、设备ID、收货地址、订单时间，以启用以下检测参数</span>
+              </div>
+            )}
 
-            {/* hourlySpikeMult */}
-            <div style={thresholdRowStyle}>
-              <Tooltip title="1h内同SKU订单量超过基准 × 此倍数视为异常突增">
-                <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>突增倍数阈值</span>
-              </Tooltip>
-              <InputNumber
+            {/* Master toggle */}
+            <div style={{ ...rowStyle, justifyContent: 'space-between', marginBottom: 14 }}>
+              <span style={{ fontSize: 12, color: TOKEN.textSecondary }}>启用套利行为检测</span>
+              <Switch
                 size="small"
-                min={1} max={100} step={1}
-                value={detection.hourlySpikeMult}
-                onChange={(v) => v != null && setDetectionField('hourlySpikeMult')(v)}
-                addonAfter="倍"
-                style={{ width: 120 }}
-                disabled={!toggles.arbitrageRules}
+                checked={toggles.arbitrageRules}
+                onChange={setToggle('arbitrageRules')}
               />
             </div>
 
-            {/* purchaseLimit */}
-            <div style={thresholdRowStyle}>
-              <Tooltip title="单用户单日同SKU下单超过此次数视为可疑批量购买">
-                <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>单日购买上限</span>
-              </Tooltip>
-              <InputNumber
+            {/* Spike detection method */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: TOKEN.textMuted, marginBottom: 6, fontWeight: 500 }}>
+                历史基准计算方式
+                <Tooltip title="用于判断 1h 内同SKU订单是否异常突增的基准计算方法">
+                  <InfoCircleOutlined style={{ marginLeft: 4, color: TOKEN.textMuted, fontSize: 10 }} />
+                </Tooltip>
+              </div>
+              <Radio.Group
                 size="small"
-                min={1} max={999} step={1}
-                value={detection.purchaseLimit}
-                onChange={(v) => v != null && setDetectionField('purchaseLimit')(v)}
-                addonAfter="次"
-                style={{ width: 120 }}
+                value={detection.hourlySpikeMethod}
+                onChange={(e) => setDetectionField('hourlySpikeMethod')(e.target.value as string)}
                 disabled={!toggles.arbitrageRules}
-              />
+              >
+                <Radio value="batch_avg">
+                  <span style={{ fontSize: 12 }}>批次平均</span>
+                  <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 4 }}>
+                    （全量 / 小时数，推荐）
+                  </Text>
+                </Radio>
+                <Radio value="same_hour_avg" style={{ marginTop: 4 }}>
+                  <span style={{ fontSize: 12 }}>同时段平均</span>
+                  <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 4 }}>
+                    （相同小时历史均值）
+                  </Text>
+                </Radio>
+              </Radio.Group>
             </div>
 
-            {/* addressPrefixLength */}
-            <div style={thresholdRowStyle}>
-              <Tooltip title="收货地址前缀截取长度，用于聚类相同地址区域">
-                <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>地址前缀长度</span>
-              </Tooltip>
-              <InputNumber
-                size="small"
-                min={5} max={50} step={1}
-                value={detection.addressPrefixLength}
-                onChange={(v) => v != null && setDetectionField('addressPrefixLength')(v)}
-                addonAfter="字符"
-                style={{ width: 120 }}
-                disabled={!toggles.arbitrageRules}
-              />
-            </div>
+            {/* Numeric parameters */}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${TOKEN.borderSubtle}` }}>
+              <div style={{ fontSize: 11, color: TOKEN.textMuted, marginBottom: 8, fontWeight: 500 }}>
+                参数配置
+              </div>
 
-            {/* addressClusterThreshold */}
-            <div style={thresholdRowStyle}>
-              <Tooltip title="同地址前缀+SKU在2小时内不同用户下单数超过此值视为地址聚集">
-                <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>地址聚集阈值</span>
-              </Tooltip>
-              <InputNumber
-                size="small"
-                min={2} max={999} step={1}
-                value={detection.addressClusterThreshold}
-                onChange={(v) => v != null && setDetectionField('addressClusterThreshold')(v)}
-                addonAfter="人"
-                style={{ width: 120 }}
-                disabled={!toggles.arbitrageRules}
-              />
-            </div>
+              <div style={thresholdRowStyle}>
+                <Tooltip title="1h内同SKU订单量超过基准 × 此倍数视为异常突增">
+                  <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>突增倍数阈值</span>
+                </Tooltip>
+                <InputNumber
+                  size="small"
+                  min={1} max={100} step={1}
+                  value={detection.hourlySpikeMult}
+                  onChange={(v) => v != null && setDetectionField('hourlySpikeMult')(v)}
+                  addonAfter="倍"
+                  style={{ width: 120 }}
+                  disabled={!toggles.arbitrageRules}
+                />
+              </div>
 
-            {/* deviceAccountThreshold */}
-            <div style={thresholdRowStyle}>
-              <Tooltip title="同设备+SKU在2小时内不同账号下单数超过此值视为设备多账号套利">
-                <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>设备账号阈值</span>
-              </Tooltip>
-              <InputNumber
-                size="small"
-                min={2} max={999} step={1}
-                value={detection.deviceAccountThreshold}
-                onChange={(v) => v != null && setDetectionField('deviceAccountThreshold')(v)}
-                addonAfter="账号"
-                style={{ width: 120 }}
-                disabled={!toggles.arbitrageRules}
-              />
+              <div style={thresholdRowStyle}>
+                <Tooltip title="单用户单日同SKU下单超过此次数视为可疑批量购买">
+                  <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>单日购买上限</span>
+                </Tooltip>
+                <InputNumber
+                  size="small"
+                  min={1} max={999} step={1}
+                  value={detection.purchaseLimit}
+                  onChange={(v) => v != null && setDetectionField('purchaseLimit')(v)}
+                  addonAfter="次"
+                  style={{ width: 120 }}
+                  disabled={!toggles.arbitrageRules}
+                />
+              </div>
+
+              <div style={thresholdRowStyle}>
+                <Tooltip title="收货地址前缀截取长度，用于聚类相同地址区域">
+                  <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>地址前缀长度</span>
+                </Tooltip>
+                <InputNumber
+                  size="small"
+                  min={5} max={50} step={1}
+                  value={detection.addressPrefixLength}
+                  onChange={(v) => v != null && setDetectionField('addressPrefixLength')(v)}
+                  addonAfter="字符"
+                  style={{ width: 120 }}
+                  disabled={!toggles.arbitrageRules}
+                />
+              </div>
+
+              <div style={thresholdRowStyle}>
+                <Tooltip title="同地址前缀+SKU在2小时内不同用户下单数超过此值视为地址聚集">
+                  <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>地址聚集阈值</span>
+                </Tooltip>
+                <InputNumber
+                  size="small"
+                  min={2} max={999} step={1}
+                  value={detection.addressClusterThreshold}
+                  onChange={(v) => v != null && setDetectionField('addressClusterThreshold')(v)}
+                  addonAfter="人"
+                  style={{ width: 120 }}
+                  disabled={!toggles.arbitrageRules}
+                />
+              </div>
+
+              <div style={thresholdRowStyle}>
+                <Tooltip title="同设备+SKU在2小时内不同账号下单数超过此值视为设备多账号套利">
+                  <span style={{ ...labelStyle, cursor: 'help', width: 150 }}>设备账号阈值</span>
+                </Tooltip>
+                <InputNumber
+                  size="small"
+                  min={2} max={999} step={1}
+                  value={detection.deviceAccountThreshold}
+                  onChange={(v) => v != null && setDetectionField('deviceAccountThreshold')(v)}
+                  addonAfter="账号"
+                  style={{ width: 120 }}
+                  disabled={!toggles.arbitrageRules}
+                />
+              </div>
             </div>
           </div>
         </Section>
