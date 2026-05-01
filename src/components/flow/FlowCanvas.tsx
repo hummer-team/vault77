@@ -21,7 +21,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
-import { NodeDetailPanel } from './panels/NodeDetailPanel';
+import { NodePropertiesDrawer } from './udf/NodePropertiesDrawer';
 import { JoinRelationDrawer } from './udf/JoinRelationDrawer';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
@@ -37,7 +37,7 @@ import { EndNode } from './nodes/EndNode';
 import UdfConfigNode from './nodes/UdfConfigNode';
 import { JoinEdge } from './edges/JoinEdge';
 import { DeletableEdge } from './edges/DeletableEdge';
-import { StepNavigationBar } from './panels/StepNavigationBar';
+import { StepNavigationBar } from './shared/StepNavigationBar';
 import { FLOW_LAYOUT } from '../../services/flow/constants';
 import { FlowNodeType } from '../../services/flow/types';
 import type { FlowEdge, JoinEdgeData, TableNodeData } from '../../services/flow/types';
@@ -212,7 +212,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // These node types manage their own UI — do not open NodeDetailPanel
+      // These node types manage their own UI — do not open NodePropertiesDrawer
       if (
         node.type === 'dataSource' ||
         node.type === 'table' ||
@@ -225,7 +225,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
       ) {
         return;
       }
-      // Select nodes linked to a UDF operator manage their own drawer — skip NodeDetailPanel.
+      // Select nodes linked to a UDF operator manage their own drawer — skip NodePropertiesDrawer.
       // Use resolveSelectNodePanelType (with OperatorNode fallback) to stay consistent
       // with SelectNode's own handleClick routing.
       if (
@@ -363,7 +363,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <Background color="#8c8c8c" gap={16} size={1} />
         <StepNavigationBar />
         <CustomControls />
-        <NodeDetailPanel />
+        <NodePropertiesDrawer />
         <JoinRelationDrawer />
         <MiniMap
           nodeStrokeColor={(n) => {

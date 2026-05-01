@@ -1,6 +1,6 @@
 /**
- * Step Navigation Bar Component
- * Floating step guide bar on canvas
+ * StepNavigationBar
+ * Floating step guide bar on canvas.
  * Shows: 1.Data Source > 2.Relations > 3.Operator > 4.Columns > 5.Conditions > 6.Execute
  */
 

@@ -1,6 +1,7 @@
 /**
- * Node Detail Panel Component
- * Right-side panel for editing node details
+ * NodePropertiesDrawer
+ * Right-side drawer for editing node properties.
+ * Handles Table, Condition, ConditionGroupRelation, End and Select node types.
  */
 
 import React, { useCallback } from 'react';
@@ -20,7 +21,7 @@ import { FlowNodeType, FieldType } from '../../../services/flow/types';
 
 const { Option } = Select;
 
-export const NodeDetailPanel: React.FC = () => {
+export const NodePropertiesDrawer: React.FC = () => {
   const detailPanelOpen = useFlowStore((state) => state.detailPanelOpen);
   const setDetailPanelOpen = useFlowStore((state) => state.setDetailPanelOpen);
   const selectedNode = useFlowStore((state) =>
@@ -406,4 +407,4 @@ const EndNodeForm: React.FC<{
   );
 };
 
-export default NodeDetailPanel;
+export default NodePropertiesDrawer;
