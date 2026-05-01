@@ -33,6 +33,8 @@ export enum SelectNodePanelType {
   ORDER_DISTRIBUTION_DRAWER = 'ORDER_DISTRIBUTION_DRAWER',
   /** RepurchaseCycleDrawer — used for 复购周期分析 */
   REPURCHASE_CYCLE_DRAWER = 'REPURCHASE_CYCLE_DRAWER',
+  /** ArbitrageAnalyzeDrawer — used for 价格套利分析 */
+  ARBITRAGE_ANALYZE_DRAWER = 'ARBITRAGE_ANALYZE_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -60,6 +62,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_basic_statis:               SelectNodePanelType.BASIC_STATS_DRAWER,
   fn_ecom_order_distribution:    SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER,
   fn_ecom_repurchase_cycle:      SelectNodePanelType.REPURCHASE_CYCLE_DRAWER,
+  fn_ecom_arbitrage_analyze:     SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER,
 };
 
 // ============================================================================
@@ -129,6 +132,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.BASIC_STATS_DRAWER:
     case SelectNodePanelType.ORDER_DISTRIBUTION_DRAWER:
     case SelectNodePanelType.REPURCHASE_CYCLE_DRAWER:
+    case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

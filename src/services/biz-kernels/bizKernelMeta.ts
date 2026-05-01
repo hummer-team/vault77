@@ -259,6 +259,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 用户增长 - 复购周期
+  // done
   {
     name: 'fn_ecom_repurchase_cycle',
     displayName: '复购周期分析',

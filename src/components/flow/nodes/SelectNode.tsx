@@ -29,6 +29,7 @@ import type {
   TableNodeData,
   OrderDistributionConfig,
   RepurchaseCycleConfig,
+  ArbitrageAnalyzeConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -46,6 +47,7 @@ import FormatDateDrawer from '../udf/FormatDateDrawer';
 import { BasicStatsDrawer } from '../udf/BasicStatsDrawer';
 import { OrderDistributionDrawer } from '../udf/OrderDistributionDrawer';
 import { RepurchaseCycleDrawer } from '../udf/RepurchaseCycleDrawer';
+import { ArbitrageAnalyzeDrawer } from '../udf/ArbitrageAnalyzeDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -108,6 +110,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_data_format_date:                     OperatorType.UDF_FORMAT_DATE,
     fn_basic_statis:                              OperatorType.BASIC_STATS,
     fn_ecom_order_distribution:                   OperatorType.ORDER_DISTRIBUTION,
+    fn_ecom_repurchase_cycle:                     OperatorType.REPURCHASE_CYCLE,
+    fn_ecom_arbitrage_analyze:                    OperatorType.ARBITRAGE_ANALYZE,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -210,6 +214,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleArbitrageAnalyzeConfirm = useCallback(
+    (config: ArbitrageAnalyzeConfig) => {
+      updateNode(id, { arbitrageAnalyzeConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -247,6 +259,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.orderDistConfig?.subType);
       case SelectNodePanelType.REPURCHASE_CYCLE_DRAWER:
         return !!(data.repurchaseCycleConfig?.userIdCol);
+      case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
+        return !!(data.arbitrageAnalyzeConfig?.fieldMapping?.orderIdCol);
       default:
         return false;
     }
@@ -583,6 +597,16 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               columns={columnNames}
               initialConfig={data.repurchaseCycleConfig}
               onConfirm={handleRepurchaseCycleConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
+          return (
+            <ArbitrageAnalyzeDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.arbitrageAnalyzeConfig}
+              onConfirm={handleArbitrageAnalyzeConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

@@ -51,6 +51,7 @@ export enum OperatorType {
   BASIC_STATS = 'basic_stats',
   ORDER_DISTRIBUTION = 'order_distribution',  // Order distribution: time / amount / geo
   REPURCHASE_CYCLE = 'repurchase_cycle',  // User growth: repurchase cycle + churn risk
+  ARBITRAGE_ANALYZE = 'arbitrage_analyze',  // Risk control: price arbitrage analysis
 }
 
 export enum LogicType {
@@ -258,6 +259,8 @@ export interface SelectNodeData extends BaseNodeData {
   orderDistConfig?: OrderDistributionConfig;
   /** Config for fn_ecom_repurchase_cycle */
   repurchaseCycleConfig?: RepurchaseCycleConfig;
+  /** Config for fn_ecom_arbitrage_analyze */
+  arbitrageAnalyzeConfig?: ArbitrageAnalyzeConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -437,8 +440,97 @@ export interface RepurchaseCycleConfig {
 }
 
 // ============================================================================
-// UDF Node Data Types
+// ArbitrageAnalyze types (fn_ecom_arbitrage_analyze)
 // ============================================================================
+
+/** Manual field mapping for the 4 mandatory core fields */
+export interface ArbitrageFieldMapping {
+  /** Column mapped to order_id */
+  orderIdCol: string;
+  /** Column mapped to amount (挂牌原价) */
+  amountCol: string;
+  /** Column mapped to cost (成本) */
+  costCol: string;
+  /** Column mapped to coupon_amount (优惠券抵扣) */
+  couponAmountCol: string;
+}
+
+/** Auto-matched optional field columns (system-detected, not user-operated) */
+export interface ArbitrageAutoFieldMapping {
+  skuIdCol?: string;
+  categoryIdCol?: string;
+  orderTimeCol?: string;
+  userIdCol?: string;
+  deviceIdCol?: string;
+  receiverAddrCol?: string;
+  activityIdCol?: string;
+  activityTypeCol?: string;
+  activityStartCol?: string;
+  activityEndCol?: string;
+}
+
+/** Risk rule threshold values (all configurable, no hardcoded constants allowed) */
+export interface ArbitrageThresholds {
+  /** Gross margin rate below this = low margin (default 0.05) */
+  lowMarginRate: number;
+  /** Discount rate below this in non-promotion = extreme discount (default 0.6) */
+  extremeDiscountRate: number;
+  /** Product price deviation below -this = severe deviation (default 0.3) */
+  productDeviationRate: number;
+  /** Category price deviation below -this = severe deviation (default 0.4) */
+  categoryDeviationRate: number;
+  /** actual_payment < cost * this triggers coupon anomaly (default 0.9) */
+  couponCostRatio: number;
+  /** Non-promotion discount rate below this + coupon triggers coupon anomaly (default 0.5) */
+  couponDiscountRate: number;
+}
+
+/** Arbitrage detection configuration */
+export interface ArbitrageDetectionConfig {
+  /**
+   * Method to calculate historical baseline for hourly spike detection.
+   * - 'batch_avg': Batch-wide per-SKU average hourly order count (default, simpler)
+   * - 'same_hour_avg': Average order count for the same hour of day across all dates
+   */
+  hourlySpikeMethod: 'batch_avg' | 'same_hour_avg';
+  /** Orders in 1h exceeding baseline * this multiplier = spike (default 3) */
+  hourlySpikeMult: number;
+  /** Single user single-day same-SKU orders exceeding this = suspicious (default 5) */
+  purchaseLimit: number;
+  /** Address prefix truncation length for clustering (default 15) */
+  addressPrefixLength: number;
+  /** Different users with same address prefix ordering same SKU in 2h (default 5) */
+  addressClusterThreshold: number;
+  /** Different accounts from same device ordering same SKU in 2h (default 3) */
+  deviceAccountThreshold: number;
+}
+
+/** Per-category rule enable/disable toggles */
+export interface ArbitrageRuleToggles {
+  marginRules: boolean;
+  discountRules: boolean;
+  priceDeviationRules: boolean;
+  couponAnomalyRules: boolean;
+  arbitrageRules: boolean;
+  /** When true, clearance orders skip all margin rules (default false) */
+  clearanceMarginExempt: boolean;
+}
+
+/** Top-level config stored on SelectNode for fn_ecom_arbitrage_analyze */
+export interface ArbitrageAnalyzeConfig {
+  /** Manually mapped core fields (user-selected) */
+  fieldMapping: ArbitrageFieldMapping;
+  /** Auto-matched optional fields (system-detected) */
+  autoFieldMapping?: ArbitrageAutoFieldMapping;
+  /** Risk rule thresholds */
+  thresholds: ArbitrageThresholds;
+  /** Arbitrage detection parameters */
+  arbitrage: ArbitrageDetectionConfig;
+  /** Rule on/off toggles */
+  ruleToggles: ArbitrageRuleToggles;
+}
+
+
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.
