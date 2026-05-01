@@ -1,5 +1,5 @@
 /**
- * TableJoinBuildPanel Component
+ * JoinRelationDrawer
  * Drawer for building table join relationships.
  * Opens when a user clicks "构建关系" on a table→table join edge.
  * Stores join configuration (type, conditions, description) on the edge data.
@@ -150,7 +150,7 @@ function buildAutoDescription(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const TableJoinBuildPanel: React.FC = () => {
+export const JoinRelationDrawer: React.FC = () => {
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
   const updateNode = useFlowStore((state) => state.updateNode);
@@ -783,4 +783,4 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
   );
 };
 
-export default TableJoinBuildPanel;
+export default JoinRelationDrawer;

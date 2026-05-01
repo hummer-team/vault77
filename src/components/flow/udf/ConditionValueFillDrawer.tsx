@@ -1,5 +1,5 @@
 /**
- * Value Fill Panel Component
+ * ConditionValueFillDrawer
  * Right-side drawer for filling placeholder values before execution.
  * Groups placeholders by condition node (refId) with field-type-aware inputs.
  */
@@ -19,10 +19,10 @@ const OPERATOR_LABEL_MAP: Record<string, string> = Object.values(SQL_OPERATORS)
   .flat()
   .reduce<Record<string, string>>((acc, op) => { acc[op.value] = op.label; return acc; }, {});
 
-interface ValueFillPanelProps {
+interface ConditionValueFillDrawerProps {
   open: boolean;
   onClose: () => void;
-  /** Returns success/error so the panel can stay open and display errors on failure. */
+  /** Returns success/error so the drawer can stay open and display errors on failure. */
   onExecute: () => Promise<{ success: boolean; error?: string }>;
   /** Returns the estimated row count for the current configuration, or null on failure. */
   onPreview: () => Promise<number | null>;
@@ -105,7 +105,7 @@ const convertValue = (value: unknown, fieldType: FieldType, operator?: string): 
   }
 };
 
-export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
+export const ConditionValueFillDrawer: React.FC<ConditionValueFillDrawerProps> = ({
   open,
   onClose,
   onExecute,
@@ -420,4 +420,4 @@ export const ValueFillPanel: React.FC<ValueFillPanelProps> = ({
   );
 };
 
-export default ValueFillPanel;
+export default ConditionValueFillDrawer;

@@ -1,5 +1,5 @@
 /**
- * TableJoinBuildPanel Component Tests
+ * JoinRelationDrawer Tests
  * Tests for the drawer that builds table join relationships.
  */
 
@@ -29,7 +29,7 @@ vi.mock('uuid', () => ({
 }));
 
 // ── Import component AFTER mocks ───────────────────────────────────────────
-import { TableJoinBuildPanel } from '../TableJoinBuildPanel';
+import { JoinRelationDrawer as TableJoinBuildPanel } from '../JoinRelationDrawer';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ import '@xyflow/react/dist/style.css';
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
 import { NodeDetailPanel } from './panels/NodeDetailPanel';
-import { TableJoinBuildPanel } from './panels/TableJoinBuildPanel';
+import { JoinRelationDrawer } from './udf/JoinRelationDrawer';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
 import { DataSourceNode } from './nodes/DataSourceNode';
@@ -364,7 +364,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <StepNavigationBar />
         <CustomControls />
         <NodeDetailPanel />
-        <TableJoinBuildPanel />
+        <JoinRelationDrawer />
         <MiniMap
           nodeStrokeColor={(n) => {
             if (n.type === 'dataSource') return 'var(--vm-flow-success)';

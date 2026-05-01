@@ -20,7 +20,7 @@ import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } from '../../../services/flow/types';
-import { ValueFillPanel } from '../panels/ValueFillPanel';
+import { ConditionValueFillDrawer } from '../udf/ConditionValueFillDrawer';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import { buildFlowSummary, type FlowSummary } from '../../../services/flow/flowSummary';
 import { TOKEN } from '../../../theme';
@@ -425,9 +425,9 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         </Tooltip>
       </Space>
 
-      {/* Value Fill Panel — only shown for condition-based execution (non-UDF, non-direct) */}
+      {/* ConditionValueFillDrawer — only shown for condition-based execution (non-UDF, non-direct) */}
       {!shouldExecuteDirectly && (
-        <ValueFillPanel
+        <ConditionValueFillDrawer
           open={valueFillPanelOpen}
           onClose={handleValueFillClose}
           onExecute={handleValueFillExecute}
