@@ -21,7 +21,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '../../stores/flowStore';
 import { CustomControls } from './controls/CustomControls';
-import { NodePropertiesDrawer } from './udf/NodePropertiesDrawer';
+import { CommonNodePropertiesDrawer } from './udf/CommonNodePropertiesDrawer';
 import { JoinRelationDrawer } from './udf/JoinRelationDrawer';
 import { MergeNode } from './nodes/MergeNode';
 import { OperatorNode } from './nodes/OperatorNode';
@@ -363,7 +363,7 @@ const FlowCanvasInner: React.FC<FlowCanvasProps> = ({
         <Background color="#8c8c8c" gap={16} size={1} />
         <StepNavigationBar />
         <CustomControls />
-        <NodePropertiesDrawer />
+        <CommonNodePropertiesDrawer />
         <JoinRelationDrawer />
         <MiniMap
           nodeStrokeColor={(n) => {

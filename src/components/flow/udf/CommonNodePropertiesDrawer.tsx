@@ -1,5 +1,5 @@
 /**
- * NodePropertiesDrawer
+ * CommonNodePropertiesDrawer
  * Right-side drawer for editing node properties.
  * Handles Table, Condition, ConditionGroupRelation, End and Select node types.
  */
@@ -21,7 +21,7 @@ import { FlowNodeType, FieldType } from '../../../services/flow/types';
 
 const { Option } = Select;
 
-export const NodePropertiesDrawer: React.FC = () => {
+export const CommonNodePropertiesDrawer: React.FC = () => {
   const detailPanelOpen = useFlowStore((state) => state.detailPanelOpen);
   const setDetailPanelOpen = useFlowStore((state) => state.setDetailPanelOpen);
   const selectedNode = useFlowStore((state) =>
@@ -407,4 +407,4 @@ const EndNodeForm: React.FC<{
   );
 };
 
-export default NodePropertiesDrawer;
+export default CommonNodePropertiesDrawer;
