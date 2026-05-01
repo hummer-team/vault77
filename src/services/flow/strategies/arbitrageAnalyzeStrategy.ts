@@ -559,11 +559,13 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const arbAddrScore  = arbEnabled ? `CASE WHEN addr_cluster_users IS NOT NULL AND addr_cluster_users > ${addrThresh} THEN 30 ELSE 0 END` : '0';
     const arbDevScore   = arbEnabled ? `CASE WHEN device_cluster_accounts IS NOT NULL AND device_cluster_accounts > ${devThresh} THEN 25 ELSE 0 END` : '0';
 
-    const arbTimEvid = arbEnabled ? `CASE WHEN is_non_promotion AND hourly_sku_count > avg_hourly_orders * ${mult} THEN '1h内同SKU订单量异常突增' ELSE NULL END` : 'NULL';
-    const arbUserEvid = arbEnabled ? `CASE WHEN user_daily_sku_count > ${purchaseLimit} THEN CONCAT('用户单日同SKU下单', CAST(user_daily_sku_count AS VARCHAR), '次') ELSE NULL END` : 'NULL';
-    const arbDiscEvid = arbEnabled ? `CASE WHEN user_daily_sku_count > 3 AND actual_payment < sku_base_price_30d * 0.8 THEN '批量低价套利' ELSE NULL END` : 'NULL';
-    const arbAddrEvid = arbEnabled ? `CASE WHEN addr_cluster_users > ${addrThresh} THEN CONCAT('同地址2h内', CAST(addr_cluster_users AS VARCHAR), '用户批量下单') ELSE NULL END` : 'NULL';
-    const arbDevEvid  = arbEnabled ? `CASE WHEN device_cluster_accounts > ${devThresh} THEN CONCAT('同设备2h内', CAST(device_cluster_accounts AS VARCHAR), '账号下单') ELSE NULL END` : 'NULL';
+    // Evidence conditions mirror the same NULL guards as their score counterparts to ensure
+    // consistent behavior when optional fields are absent (NULL comparisons → no false positives).
+    const arbTimEvid = arbEnabled ? `CASE WHEN is_non_promotion AND hourly_sku_count IS NOT NULL AND avg_hourly_orders IS NOT NULL AND hourly_sku_count > avg_hourly_orders * ${mult} THEN '1h内同SKU订单量异常突增' ELSE NULL END` : 'NULL';
+    const arbUserEvid = arbEnabled ? `CASE WHEN user_daily_sku_count IS NOT NULL AND user_daily_sku_count > ${purchaseLimit} THEN CONCAT('用户单日同SKU下单', CAST(user_daily_sku_count AS VARCHAR), '次') ELSE NULL END` : 'NULL';
+    const arbDiscEvid = arbEnabled ? `CASE WHEN user_daily_sku_count IS NOT NULL AND user_daily_sku_count > 3 AND sku_base_price_30d IS NOT NULL AND actual_payment IS NOT NULL AND actual_payment < sku_base_price_30d * 0.8 THEN '批量低价套利' ELSE NULL END` : 'NULL';
+    const arbAddrEvid = arbEnabled ? `CASE WHEN addr_cluster_users IS NOT NULL AND addr_cluster_users > ${addrThresh} THEN CONCAT('同地址2h内', CAST(addr_cluster_users AS VARCHAR), '用户批量下单') ELSE NULL END` : 'NULL';
+    const arbDevEvid  = arbEnabled ? `CASE WHEN device_cluster_accounts IS NOT NULL AND device_cluster_accounts > ${devThresh} THEN CONCAT('同设备2h内', CAST(device_cluster_accounts AS VARCHAR), '账号下单') ELSE NULL END` : 'NULL';
 
     return [
       `sc AS (`,
