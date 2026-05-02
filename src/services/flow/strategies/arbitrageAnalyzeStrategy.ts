@@ -747,22 +747,94 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const rows = Array.isArray(queryResult?.data) ? queryResult.data : [];
     const schema = Array.isArray(queryResult?.schema) ? queryResult.schema : [];
 
-    const totalOrders  = rows.length;
-    const riskOrders   = rows.filter((r) => (r as Record<string, unknown>)['risk_score'] as number > 0).length;
-    const highRisk     = rows.filter((r) => ['严重', '高'].includes((r as Record<string, unknown>)['risk_level'] as string)).length;
-    const dirtyOrders  = rows.filter((r) => (r as Record<string, unknown>)['data_quality_flag'] === 'dirty').length;
+    // Step 1: Risk suggestion mapping
+    const RISK_SUGGESTIONS: Record<string, string> = {
+      '异常毛利': '排查优惠券叠加规则，核对商品定价',
+      '类目价格严重偏离': '排查渠道窜货/低价倾销，确认活动合规',
+      '低毛利': '监控后续订单，确认是否正常促销',
+      '活动定价错误': '立即核对活动规则，暂停或修正定价',
+      '价格偏离': '对比同类目均价，评估定价策略',
+    };
+
+    // Step 2: Enrich rows with suggestion field + sort by risk_level
+    const riskLevelOrder: Record<string, number> = { '严重': 0, '高': 1, '中': 2, '低': 3 };
+    
+    const enrichedRows = rows.map((row: any) => {
+      const riskTypes = Array.isArray(row.risk_type) 
+        ? row.risk_type 
+        : (typeof row.risk_type === 'string' ? JSON.parse(row.risk_type || '[]') : []);
+      
+      const suggestions = riskTypes
+        .map((t: string) => RISK_SUGGESTIONS[t])
+        .filter((s: string | undefined): s is string => !!s)
+        .slice(0, 2);
+      
+      const suggestion = suggestions.length > 0 
+        ? suggestions.join('；') 
+        : '暂无具体建议，请人工复核';
+      
+      return {
+        ...row,
+        suggestion,
+      };
+    }).sort((a: any, b: any) => {
+      const orderA = riskLevelOrder[(a.risk_level as string) || '低'] ?? 999;
+      const orderB = riskLevelOrder[(b.risk_level as string) || '低'] ?? 999;
+      return orderA - orderB;
+    });
+
+    // Step 3: Compute insights
+    const totalOrders  = enrichedRows.length;
+    const riskOrders   = enrichedRows.filter((r) => (r as Record<string, unknown>)['risk_score'] as number > 0).length;
+    const highRisk     = enrichedRows.filter((r) => ['严重', '高'].includes((r as Record<string, unknown>)['risk_level'] as string)).length;
+    const dirtyOrders  = enrichedRows.filter((r) => (r as Record<string, unknown>)['data_quality_flag'] === 'dirty').length;
+
+    // Step 4: Add 'suggestion' to schema if not present
+    const enhancedSchema = schema.some((s: any) => s.name === 'suggestion')
+      ? schema
+      : [...schema, { name: 'suggestion', type: 'STRING' }];
+
+    // Step 5: Build displayConfig for rendering
+    const displayConfig = {
+      defaultSort: { column: 'risk_score', order: 'descend' as const },
+      rowColorizer: {
+        field: 'risk_level',
+        colorMap: {
+          '严重': { bg: 'rgba(255,77,79,0.12)', badgeColor: '#ff4d4f' },
+          '高': { bg: 'rgba(250,140,22,0.12)', badgeColor: '#fa8c16' },
+          '中': { bg: 'rgba(250,219,20,0.10)', badgeColor: '#d4b106' },
+          '低': { bg: '', badgeColor: '#52c41a' },
+        },
+      },
+      columnFormatters: {
+        discount_rate: { type: 'ratio_to_fold' as const, precision: 1 },
+        margin_rate: { type: 'percent_signed' as const, precision: 1, labelNegative: '亏损' },
+        gross_margin: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        price_deviation: { type: 'percent_deviation' as const, prefix: '比类目均价' },
+        risk_type: { type: 'json_tag_badges' as const },
+        risk_level: { type: 'risk_badge' as const },
+      },
+      columnTooltips: {
+        discount_rate: '订单折扣率，实际成交价/挂牌原价，1 代表无折扣/原价',
+        risk_score: '风险评分（0-100）：≥80 分=严重，60-79 分=高，40-59 分=中，<40 分=低',
+        price_deviation: '与类目均价的偏离比例，负数表示低于均价',
+        margin_rate: '毛利率，正数表示盈利，负数表示亏损',
+        gross_margin: '毛利金额，正数表示盈利，负数表示亏损',
+      },
+    };
 
     return {
       type: OperatorType.ARBITRAGE_ANALYZE,
       sql: '',
-      data: rows as any[],
-      schema: schema as any[],
+      data: enrichedRows,
+      schema: enhancedSchema as any[],
       insights: [
         `共分析 ${totalOrders} 条订单`,
         `风险订单 ${riskOrders} 条（${((riskOrders / Math.max(totalOrders, 1)) * 100).toFixed(1)}%）`,
         `高/严重风险 ${highRisk} 条`,
         ...(dirtyOrders > 0 ? [`数据质量问题订单 ${dirtyOrders} 条（已标记 dirty，不参与评分）`] : []),
       ],
+      displayConfig,
     };
   }
 }
