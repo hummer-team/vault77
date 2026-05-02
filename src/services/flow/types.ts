@@ -700,6 +700,58 @@ export interface ValidationResult {
 // Strategy Types
 // ============================================================================
 
+/**
+ * ColumnFormatterSpec defines how to display a column value.
+ * Pure serializable specs — no functions, only data-driven rules.
+ */
+export type ColumnFormatterSpec =
+  | { type: 'ratio_to_fold'; precision?: number }
+    // 0.8904 → "8.9折" | 1.0 → "无折扣"
+  | { type: 'percent_signed'; precision?: number; labelNegative?: string }
+    // -0.538 → "-53.8%（亏损）" | 0.12 → "+12.0%"
+  | { type: 'currency_signed'; unit?: string; precision?: number }
+    // -326.86 → "-326.86元（亏损）" | 50 → "+50.00元"
+  | { type: 'percent_deviation'; prefix?: string; precision?: number }
+    // -0.7137 → "比类目均价低71.4%"
+  | { type: 'json_tag_badges'; priorityTags?: string[] }
+    // ["异常毛利","偏离"] → colored Tag bubbles
+  | { type: 'duration_days'; unit?: string }
+    // 15.3 → "15天" | 0 → "首次购买"
+  | { type: 'risk_badge' };
+    // "高" → colored Badge
+
+/**
+ * RowColorizerConfig defines background color and badge color for rows by field value.
+ */
+export interface RowColorizerConfig {
+  field: string;
+  colorMap: Record<
+    string,
+    {
+      bg: string; // e.g. 'rgba(255,77,79,0.12)' — transparent for light/dark compatibility
+      badgeColor: string; // e.g. '#ff4d4f' — Ant Design color
+    }
+  >;
+}
+
+/**
+ * OperatorDisplayConfig defines how ResultsDisplay should render operator results.
+ * Pure data-driven — no business logic, only configuration.
+ */
+export interface OperatorDisplayConfig {
+  /** Column to sort by default, in which order */
+  defaultSort?: { column: string; order: 'ascend' | 'descend' };
+
+  /** Row background coloring by field value */
+  rowColorizer?: RowColorizerConfig;
+
+  /** Column value formatters — map column name → formatter spec */
+  columnFormatters?: Record<string, ColumnFormatterSpec>;
+
+  /** Column header tooltips — map column name → tooltip text */
+  columnTooltips?: Record<string, string>;
+}
+
 export interface AnalysisResult {
   type: OperatorType;
   sql: string;
@@ -710,6 +762,7 @@ export interface AnalysisResult {
     type: 'scatter' | 'radar' | 'table';
     config: unknown;
   }[];
+  displayConfig?: OperatorDisplayConfig;
 }
 
 export interface FlowStrategy {
