@@ -20,7 +20,12 @@ export class AssociationStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
-  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const parts: string[] = [];
 
     // SELECT
@@ -36,21 +41,15 @@ export class AssociationStrategy extends BaseStrategy {
       if (legacyJoin) parts.push(legacyJoin);
     }
 
-    // WHERE — use placeholder-aware version if values provided
-    if (placeholderValues && Object.keys(placeholderValues).length > 0) {
-      const whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
-      if (whereClause) parts.push(whereClause);
-    } else {
-      const whereClause = this.buildWhereClause(nodes);
-      if (whereClause) parts.push(whereClause);
-    }
+    // WHERE — provided by BaseStrategy.buildSql template
+    if (userWhere) parts.push(userWhere);
 
     // GROUP BY
     const groupByClause = this.buildGroupByClause(nodes);
     if (groupByClause) parts.push(groupByClause);
 
     const sql = parts.join('\n');
-    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
+    console.log(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
     return sql;
   }
 

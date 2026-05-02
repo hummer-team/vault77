@@ -49,9 +49,58 @@ export abstract class BaseStrategy implements FlowStrategy {
   abstract readonly type: OperatorType;
   abstract readonly name: string;
 
-  abstract buildSql(nodes: FlowNode[], edges: FlowEdge[]): string;
   abstract getRequiredNodes(): FlowNodeType[];
   abstract postProcess(data: unknown): Promise<AnalysisResult>;
+
+  /**
+   * Sealed SQL assembly template.
+   * Step 1: compute userWhere from condition nodes (unified, handles both CONDITION
+   *         and CONDITION_GROUP_DEFINITION node types).
+   * Step 2: delegate to buildOperatorSql, passing userWhere as a ready-to-use string.
+   *
+   * Subclasses must NOT override this method — implement buildOperatorSql instead.
+   */
+  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+    const userWhere = this.buildWhereClauseUnified(nodes, placeholderValues);
+    return this.buildOperatorSql(nodes, edges, placeholderValues, userWhere);
+  }
+
+  /**
+   * Operator SQL builder hook — all strategies must implement this.
+   *
+   * @param nodes             - Canvas nodes
+   * @param edges             - Canvas edges
+   * @param placeholderValues - Filled-in placeholder values (may be undefined)
+   * @param userWhere         - Pre-computed WHERE clause string (e.g. "WHERE ...").
+   *                           Empty string '' when no conditions are defined.
+   *                           Strategies decide WHERE to inject this in their SQL
+   *                           (append to parts[] for flat SELECT; inject into first
+   *                           CTE FROM clause for CTE-based strategies).
+   */
+  protected abstract buildOperatorSql(
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string;
+
+  /**
+   * Unified WHERE clause builder.
+   * Detects which condition node type is present and dispatches accordingly:
+   *   - CONDITION_GROUP_DEFINITION nodes → buildWhereClauseWithPlaceholders (new style)
+   *   - CONDITION nodes only            → buildWhereClause (legacy style)
+   * Returns '' when no condition nodes are present.
+   */
+  protected buildWhereClauseUnified(
+    nodes: FlowNode[],
+    placeholderValues?: Record<string, unknown>
+  ): string {
+    const hasGroupDefs = nodes.some((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION);
+    if (hasGroupDefs) {
+      return this.buildWhereClauseWithPlaceholders(nodes, placeholderValues ?? {});
+    }
+    return this.buildWhereClause(nodes);
+  }
 
   validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[] {
     const nodeTypes = nodes.map((n) => n.type).join(', ');

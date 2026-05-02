@@ -20,21 +20,20 @@ export class ClusteringStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE, FlowNodeType.SELECT];
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const parts: string[] = [];
-
     parts.push(this.buildSelectClause(nodes));
     parts.push(this.buildFromClause(nodes));
-
     const joinClause = this.buildJoinClauses(nodes);
     if (joinClause) parts.push(joinClause);
-
-    const whereClause = this.buildWhereClause(nodes);
-    if (whereClause) parts.push(whereClause);
-
+    if (userWhere) parts.push(userWhere);
     const groupByClause = this.buildGroupByClause(nodes);
     if (groupByClause) parts.push(groupByClause);
-
     return parts.join('\n');
   }
 

@@ -56,9 +56,9 @@ export class UdfFormatDateStrategy extends UdfBaseStrategy {
   }
 
   // --------------------------------------------------------------------------
-  // buildSql
+  // buildUdfSql
   // --------------------------------------------------------------------------
-  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  protected buildUdfSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const udfNode = this.findUdfNode(nodes, this.udfFunctionName);
     if (!udfNode) throw new Error('UDF 配置节点未找到，无法构建 SQL');
 
@@ -90,7 +90,7 @@ export class UdfFormatDateStrategy extends UdfBaseStrategy {
     const outputColumns = (udfNode.data as UdfConfigNodeData).outputColumns ?? [];
     const selectClause = this.buildUdfSelectClause(outputColumns, columnAliasMap);
     const sql = `${selectClause}\nFROM udf_format_date_time(\n${params.join(',\n')}\n)`;
-    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
+    console.log(`[${this.name}.buildUdfSql] sql=\n${sql}`);
     return sql;
   }
 

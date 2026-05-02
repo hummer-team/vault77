@@ -387,7 +387,12 @@ export class OrderDistributionStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
     const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
 
@@ -396,49 +401,45 @@ export class OrderDistributionStrategy extends BaseStrategy {
       ?.orderDistConfig;
 
     if (!config) {
-      console.warn(`[${this.name}.buildSql] orderDistConfig missing — falling back to SELECT *`);
+      console.warn(`[${this.name}.buildOperatorSql] orderDistConfig missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
-    // Get WHERE clause from condition nodes (support both old CONDITION and new CONDITION_DEFINITION)
-    const additionalWhere = placeholderValues
-      ? this.buildWhereClauseWithPlaceholders(nodes, placeholderValues)
-      : this.buildWhereClause(nodes);
-
+    // userWhere is provided by BaseStrategy.buildSql template
     let sql: string;
     switch (config.subType) {
       case 'time_dist':
         if (!config.timeDist) {
-          console.warn(`[${this.name}.buildSql] timeDist config missing`);
+          console.warn(`[${this.name}.buildOperatorSql] timeDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildTimeDistSql(tableName, config.timeDist, additionalWhere);
+        sql = buildTimeDistSql(tableName, config.timeDist, userWhere);
         break;
 
       case 'amount_dist':
         if (!config.amountDist) {
-          console.warn(`[${this.name}.buildSql] amountDist config missing`);
+          console.warn(`[${this.name}.buildOperatorSql] amountDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildAmountDistSql(tableName, config.amountDist, additionalWhere);
+        sql = buildAmountDistSql(tableName, config.amountDist, userWhere);
         break;
 
       case 'geo_dist':
         if (!config.geoDist) {
-          console.warn(`[${this.name}.buildSql] geoDist config missing`);
+          console.warn(`[${this.name}.buildOperatorSql] geoDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
-        sql = buildGeoDistSql(tableName, config.geoDist, additionalWhere);
+        sql = buildGeoDistSql(tableName, config.geoDist, userWhere);
         break;
 
       default: {
         const _exhaustive: never = config.subType;
-        console.warn(`[${this.name}.buildSql] unknown subType: ${_exhaustive as string}`);
+        console.warn(`[${this.name}.buildOperatorSql] unknown subType: ${_exhaustive as string}`);
         return `SELECT *\nFROM "${tableName}"`;
       }
     }
 
-    console.log(`[${this.name}.buildSql] subType=${config.subType} sql=\n${sql}`);
+    console.log(`[${this.name}.buildOperatorSql] subType=${config.subType} sql=\n${sql}`);
     return sql;
   }
 

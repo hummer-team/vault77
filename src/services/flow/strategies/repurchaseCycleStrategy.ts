@@ -174,7 +174,12 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
     return [FlowNodeType.TABLE];
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
     const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
     const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
@@ -182,21 +187,17 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
       ?.repurchaseCycleConfig;
 
     if (!config) {
-      console.warn(`[${this.name}.buildSql] repurchaseCycleConfig missing — falling back to SELECT *`);
+      console.warn(`[${this.name}.buildOperatorSql] repurchaseCycleConfig missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
-    // Get WHERE clause from condition nodes (support both old CONDITION and new CONDITION_DEFINITION)
-    const additionalWhere = placeholderValues
-      ? this.buildWhereClauseWithPlaceholders(nodes, placeholderValues)
-      : this.buildWhereClause(nodes);
-
+    // userWhere is provided by BaseStrategy.buildSql template
     const sql =
       config.outputMode === 'summary'
-        ? buildRepurchaseSummarySql(tableName, config, additionalWhere)
-        : buildRepurchaseDetailSql(tableName, config, additionalWhere);
+        ? buildRepurchaseSummarySql(tableName, config, userWhere)
+        : buildRepurchaseDetailSql(tableName, config, userWhere);
 
-    console.log(`[${this.name}.buildSql] outputMode=${config.outputMode} sql=\n${sql}`);
+    console.log(`[${this.name}.buildOperatorSql] outputMode=${config.outputMode} sql=\n${sql}`);
     return sql;
   }
 

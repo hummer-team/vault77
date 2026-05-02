@@ -258,4 +258,33 @@ export abstract class UdfBaseStrategy extends BaseStrategy {
 
     return conditionSql;
   }
+
+  // ── SQL generation ───────────────────────────────────────────────────────────
+
+  /**
+   * Subclasses implement their UDF-specific SQL generation here.
+   * Corresponds to the old `buildSql` override in each concrete UDF strategy.
+   * NOTE: `userWhere` from BaseStrategy.buildSql template is intentionally NOT
+   * passed here — UDF conditions are handled internally by `buildUdfConditionSql`.
+   */
+  protected abstract buildUdfSql(
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    placeholderValues?: Record<string, unknown>
+  ): string;
+
+  /**
+   * Satisfies BaseStrategy's abstract `buildOperatorSql` requirement.
+   * UDF strategies delegate to `buildUdfSql` and ignore `userWhere` because
+   * UDF conditions (ConditionGroupDefinitionNode) are already handled inside
+   * `buildUdfConditionSql` which each `buildUdfSql` implementation calls directly.
+   */
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    placeholderValues: Record<string, unknown> | undefined,
+    _userWhere: string   // intentionally ignored — see comment above
+  ): string {
+    return this.buildUdfSql(nodes, edges, placeholderValues);
+  }
 }

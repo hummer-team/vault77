@@ -252,7 +252,7 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
 
   // ─── CTE builders ──────────────────────────────────────────────────────────
 
-  private buildDataQualityCTE(tableName: string, fm: ArbitrageFieldMapping): string {
+  private buildDataQualityCTE(tableName: string, fm: ArbitrageFieldMapping, userWhere?: string): string {
     return [
       `dq AS (`,
       `  SELECT *,`,
@@ -265,6 +265,8 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       `      ELSE 'normal'`,
       `    END AS data_quality_flag`,
       `  FROM "${tableName}"`,
+      // Inject user WHERE here (earliest filter — reduces data volume for all 12 downstream CTEs)
+      ...(userWhere ? [`  ${userWhere}`] : []),
       `)`,
     ].join('\n');
   }
@@ -682,7 +684,12 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
 
   // ─── Public interface ───────────────────────────────────────────────────────
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[]): string {
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
     const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
 
@@ -691,14 +698,15 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       ?.arbitrageAnalyzeConfig;
 
     if (!cfg || !tableName) {
-      console.warn(`[${this.name}.buildSql] config missing — falling back to SELECT *`);
+      console.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
     const { fieldMapping: fm, autoFieldMapping: auto, thresholds: t, arbitrage: arb, ruleToggles: rt } = cfg;
 
     const ctes = [
-      this.buildDataQualityCTE(tableName, fm),
+      // userWhere injected here — earliest filter, reduces computation for all 12 downstream CTEs
+      this.buildDataQualityCTE(tableName, fm, userWhere),
       this.buildBaseMetricsCTE(fm, auto),
       this.buildSkuBasePriceCTE(),
       this.buildCategoryBasePriceCTE(),
@@ -721,7 +729,7 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const colList = outputCols.map((c) => `  "${c}"`).join(',\n');
     const sql = `SELECT\n${colList}\nFROM (\n${innerSql}\n)`;
 
-    console.log(`[${this.name}.buildSql] generated SQL (${sql.length} chars), output cols: [${outputCols.join(', ')}]`);
+    console.log(`[${this.name}.buildOperatorSql] generated SQL (${sql.length} chars), output cols: [${outputCols.join(', ')}], userWhere="${userWhere}"`);
     return sql;
   }
 

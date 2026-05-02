@@ -116,7 +116,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
   }
 
   // --------------------------------------------------------------------------
-  // buildSql
+  // buildUdfSql
   // --------------------------------------------------------------------------
   /**
    * Build the UDF SQL call from the UDF_CONFIG node's replacement rules.
@@ -128,9 +128,9 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
    * Rules with conditionType 'replace_all' are routed to fill_map (unconditional overwrite).
    * All other rules are routed to swap_map (CASE WHEN matching).
    */
-  buildSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  protected buildUdfSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const nodeTypes = nodes.map((n) => n.type).join(', ');
-    console.log(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
+    console.log(`[${this.name}.buildUdfSql] nodes=[${nodeTypes}]`);
 
     const udfNode = this._findUdfConfigNode(nodes);
     if (!udfNode) {

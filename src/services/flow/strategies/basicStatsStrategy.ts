@@ -28,7 +28,12 @@ export class BasicStatsStrategy extends BaseStrategy {
     return timeTypes.some((t) => colType.toUpperCase().includes(t));
   }
 
-  buildSql(nodes: FlowNode[], _edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
+  buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
     const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
     const config = (selectNode?.data as { basicStatsConfig?: BasicStatsConfig } | undefined)
       ?.basicStatsConfig;
@@ -128,17 +133,9 @@ export class BasicStatsStrategy extends BaseStrategy {
     // FROM
     parts.push(`FROM "${config.tableName}"`);
 
-    // WHERE: conditions from ConditionGroupDefinitionNode with placeholders
-    let whereClause = '';
-    if (placeholderValues) {
-      whereClause = this.buildWhereClauseWithPlaceholders(nodes, placeholderValues);
-      console.log(`[${this.name}.buildSql] Using buildWhereClauseWithPlaceholders: whereClause="${whereClause}"`);
-    } else {
-      whereClause = this.buildWhereClause(nodes);
-      console.log(`[${this.name}.buildSql] Using buildWhereClause: whereClause="${whereClause}"`);
-    }
-    if (whereClause) {
-      parts.push(whereClause);
+    // WHERE: provided by BaseStrategy.buildSql template via userWhere
+    if (userWhere) {
+      parts.push(userWhere);
     }
     
     // Debug: log all nodes
@@ -177,7 +174,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     }
 
     const sql = parts.join('\n');
-    console.log(`[${this.name}.buildSql] sql=\n${sql}`);
+    console.log(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
     return sql;
   }
 
