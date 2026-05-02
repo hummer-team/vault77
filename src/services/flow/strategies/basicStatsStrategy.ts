@@ -179,6 +179,30 @@ export class BasicStatsStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
+    const displayConfig = {
+      columnFormatters: {
+        // Common stat columns — infer formatter from field name suffix
+        count: { type: 'duration_days' as const, unit: '个' },
+        sum: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        avg: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        min: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        max: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        stddev: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        pct: { type: 'percent_signed' as const, precision: 1 },
+        pct_value: { type: 'percent_signed' as const, precision: 1 },
+      },
+      columnTooltips: {
+        count: '该分组的记录数',
+        sum: '该分组的总和',
+        avg: '该分组的平均值',
+        min: '该分组的最小值',
+        max: '该分组的最大值',
+        stddev: '该分组的标准差',
+        pct: '该分组占总体的百分比',
+        pct_value: '百分比数值',
+      },
+    };
+
     return {
       type: this.type,
       sql: '',
@@ -186,6 +210,7 @@ export class BasicStatsStrategy extends BaseStrategy {
       schema: queryResult.schema,
       insights: ['基础统计分析执行成功'],
       visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      displayConfig,
     };
   }
 }

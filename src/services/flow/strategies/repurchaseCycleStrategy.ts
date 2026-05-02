@@ -202,6 +202,32 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
+    const displayConfig = {
+      rowColorizer: {
+        field: 'risk_level',
+        colorMap: {
+          '稳定': { bg: 'rgba(82,196,26,0.12)', badgeColor: '#52c41a' },
+          '关注': { bg: 'rgba(250,219,20,0.10)', badgeColor: '#d4b106' },
+          '预警': { bg: 'rgba(250,140,22,0.12)', badgeColor: '#fa8c16' },
+          '已流失': { bg: 'rgba(255,77,79,0.12)', badgeColor: '#ff4d4f' },
+          '新用户/单次购': { bg: '', badgeColor: '#1890ff' },
+          '数据不足': { bg: '', badgeColor: '#8B5CF6' },
+        },
+      },
+      columnFormatters: {
+        avg_cycle_days: { type: 'duration_days' as const, unit: '天' },
+        current_interval_days: { type: 'duration_days' as const, unit: '天' },
+        order_count: { type: 'duration_days' as const, unit: '次' }, // Reuse for count display
+        health_score: { type: 'percent_signed' as const, precision: 1 },
+      },
+      columnTooltips: {
+        risk_level: '复购风险等级：稳定 > 关注 > 预警 > 已流失',
+        avg_cycle_days: '平均复购周期（天），两次订单间隔的平均值',
+        current_interval_days: '距最后一次购买已过天数，用于判断流失风险',
+        order_count: '该用户/类目的订单数',
+      },
+    };
+
     return {
       type: this.type,
       sql: '',
@@ -209,6 +235,7 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
       schema: queryResult.schema as { name: string; type: string }[],
       insights: ['复购周期分析执行成功'],
       visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      displayConfig,
     };
   }
 }

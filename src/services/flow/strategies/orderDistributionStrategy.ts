@@ -444,6 +444,32 @@ export class OrderDistributionStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
+    const displayConfig = {
+      columnFormatters: {
+        // Time distribution columns
+        time_period: { type: 'duration_days' as const, unit: '' }, // Will just display as-is
+        order_count: { type: 'duration_days' as const, unit: '单' }, // Order count
+        amount_sum: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        amount_avg: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        amount_pct: { type: 'percent_signed' as const, precision: 1 },
+        
+        // Geo distribution columns
+        region: { type: 'duration_days' as const, unit: '' },
+        order_pct: { type: 'percent_signed' as const, precision: 1 },
+        revenue_pct: { type: 'percent_signed' as const, precision: 1 },
+      },
+      columnTooltips: {
+        time_period: '时间周期（日期范围或聚合粒度）',
+        order_count: '该周期内的订单数量',
+        amount_sum: '该周期内的总金额',
+        amount_avg: '该周期内的平均订单金额',
+        amount_pct: '该周期金额占总金额的百分比',
+        region: '地理区域（省份、城市等）',
+        order_pct: '该地区订单占总订单的百分比',
+        revenue_pct: '该地区收入占总收入的百分比',
+      },
+    };
+
     return {
       type: this.type,
       sql: '',
@@ -451,6 +477,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
       schema: queryResult.schema,
       insights: ['订单分布分析执行成功'],
       visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      displayConfig,
     };
   }
 }
