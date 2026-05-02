@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for bett
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
+import type { OperatorDisplayConfig, ColumnFormatterSpec } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
@@ -51,6 +52,8 @@ interface ResultsDisplayProps {
     activeTable?: string;
     // Flow builder: human-readable summary
     flowSummary?: FlowSummary;
+    // Phase 1: Display config for data-driven rendering
+    displayConfig?: OperatorDisplayConfig;
     // M10.5 Phase 3: Effective settings
     effectiveSettings?: {
       tableName: string;
@@ -93,8 +96,116 @@ const formatDurationSeconds = (ms?: number): string | null => {
 };
 
 // ============================================================================
-// FlowSummaryPanel — business-readable flow step display
+// Data formatter for ColumnFormatterSpec
 // ============================================================================
+
+/**
+ * Apply a formatter spec to a value, returning React element or string
+ */
+const applyFormatter = (value: any, spec: ColumnFormatterSpec): React.ReactNode => {
+  if (value == null || value === '' || value === undefined) {
+    return '-';
+  }
+
+  switch (spec.type) {
+    case 'ratio_to_fold': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      if (Math.abs(num - 1.0) < 0.0001) return '无折扣';
+      const precision = spec.precision ?? 1;
+      const fold = (num * 10).toFixed(precision);
+      return `${fold}折`;
+    }
+
+    case 'percent_signed': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      const precision = spec.precision ?? 1;
+      const percent = (num * 100).toFixed(precision);
+      const sign = num < 0 ? '' : '+';
+      const label = num < 0 ? (spec.labelNegative ?? '（亏损）') : '';
+      return `${sign}${percent}%${label}`;
+    }
+
+    case 'currency_signed': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      const unit = spec.unit ?? '';
+      const precision = spec.precision ?? 2;
+      const formatted = num.toFixed(precision);
+      const sign = num < 0 ? '' : '+';
+      const label = num < 0 ? '（亏损）' : '';
+      return `${sign}${formatted}${unit}${label}`;
+    }
+
+    case 'percent_deviation': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      const precision = spec.precision ?? 1;
+      const percent = Math.abs(num * 100).toFixed(precision);
+      const direction = num < 0 ? '低' : '高';
+      const prefix = spec.prefix ?? '';
+      return `${prefix}${direction}${percent}%`;
+    }
+
+    case 'json_tag_badges': {
+      let tags: string[] = [];
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          tags = Array.isArray(parsed) ? parsed : [value];
+        } catch {
+          tags = [value];
+        }
+      } else if (Array.isArray(value)) {
+        tags = value;
+      } else {
+        tags = [String(value)];
+      }
+
+      const priorityTags = spec.priorityTags ?? [];
+      // Sort: priority tags first, then others
+      const sorted = [
+        ...tags.filter(t => priorityTags.includes(t)),
+        ...tags.filter(t => !priorityTags.includes(t)),
+      ];
+
+      return (
+        <Space size="small" wrap>
+          {sorted.map((tag, idx) => (
+            <Tag key={idx} color="blue">
+              {tag}
+            </Tag>
+          ))}
+        </Space>
+      );
+    }
+
+    case 'duration_days': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      const unit = spec.unit ?? '天';
+      if (num === 0) return '首次购买';
+      return `${num.toFixed(0)}${unit}`;
+    }
+
+    case 'risk_badge': {
+      const textValue = String(value);
+      const colorMap: Record<string, string> = {
+        '严重': 'red',
+        '高': 'orange',
+        '中': 'gold',
+        '低': 'green',
+      };
+      const color = colorMap[textValue] || 'default';
+      return <Tag color={color}>{textValue}</Tag>;
+    }
+
+    default:
+      return String(value);
+  }
+};
+
 const LIST_STYLE: React.CSSProperties = {
   margin: '6px 0 0 0',
   paddingLeft: 20,
@@ -964,22 +1075,46 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       }
 
       // Construct columns using schema information
+      const displayConfig = thinkingSteps?.displayConfig;
+      const columnFormatters = displayConfig?.columnFormatters ?? {};
+      const columnTooltips = displayConfig?.columnTooltips ?? {};
+
       const tableColumns: ColumnsType<any> = safeSchema.map((col) => {
         let renderFunction;
         const typeStr = String(col.type || '').toLowerCase();
-        // Match timestamp/date/time types in a case-insensitive and flexible way
-        if (typeStr.includes('timestamp') || typeStr.includes('date') || typeStr.includes('time')) {
+        const colName = col.name;
+
+        // Check if there's a custom formatter for this column
+        const customFormatter = columnFormatters[colName];
+        if (customFormatter) {
+          renderFunction = (text: any) => applyFormatter(text, customFormatter);
+        } else if (typeStr.includes('timestamp') || typeStr.includes('date') || typeStr.includes('time')) {
+          // Default timestamp formatting
           renderFunction = (text: any) => formatTimestamp(text);
         } else if (typeStr.includes('boolean')) {
+          // Default boolean formatting
           renderFunction = (text: any) => (typeof text === 'boolean' ? (text ? 'True' : 'False') : String(text));
         }
         // Add more type-specific render functions here as needed (e.g., DECIMAL, DATE, TIME)
 
+        const headerTooltip = columnTooltips[colName];
+        const headerTitle = headerTooltip ? (
+          <Tooltip title={headerTooltip}>{colName}</Tooltip>
+        ) : (
+          colName
+        );
+
         return {
-          title: col.name,
-          dataIndex: col.name, // dataIndex should match the key in the data objects
-          key: col.name,
+          title: headerTitle,
+          dataIndex: colName,
+          key: colName,
           render: renderFunction,
+          defaultSortOrder:
+            displayConfig?.defaultSort?.column === colName
+              ? displayConfig.defaultSort.order === 'ascend'
+                ? 'ascend'
+                : 'descend'
+              : undefined,
           onHeaderCell: () => ({
             style: {
               background: 'var(--vm-bg-base)',
@@ -1006,6 +1141,33 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         key: `row-${rowIndex}`, // Add a unique key for each row
       }));
 
+      // Prepare rowClassName function with displayConfig colorizer support
+      const getRowClassName = (record: any, index: number) => {
+        const rowColorizer = displayConfig?.rowColorizer;
+        if (rowColorizer) {
+          const fieldValue = record[rowColorizer.field];
+          const colorConfig = rowColorizer.colorMap[String(fieldValue)];
+          if (colorConfig?.bg) {
+            // Return CSS class that sets background dynamically
+            return `table-row-colorized`;
+          }
+        }
+        return index % 2 === 0 ? 'table-row-even' : 'table-row-odd';
+      };
+
+      // Prepare row style function for dynamic coloring
+      const getRowStyle = (record: any) => {
+        const rowColorizer = displayConfig?.rowColorizer;
+        if (rowColorizer) {
+          const fieldValue = record[rowColorizer.field];
+          const colorConfig = rowColorizer.colorMap[String(fieldValue)];
+          if (colorConfig?.bg) {
+            return { background: colorConfig.bg };
+          }
+        }
+        return {};
+      };
+
       return (
         <Card {...cardProps}>
           {commonContent}
@@ -1026,9 +1188,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               marginTop: 16,
             }}
             className="data-analysis-table"
-            rowClassName={(_, index) => 
-              index % 2 === 0 ? 'table-row-even' : 'table-row-odd'
-            }
+            rowClassName={getRowClassName}
+            onRow={(record) => ({
+              style: getRowStyle(record),
+            })}
           />
           <style>{`
             .data-analysis-table .ant-table {
