@@ -15,7 +15,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
-import type { EndNodeData, ConditionGroupDefinitionNodeData, OperatorNodeData } from '../../../services/flow/types';
+import type { EndNodeData, ConditionGroupDefinitionNodeData, OperatorNodeData, AnalysisResult } from '../../../services/flow/types';
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
@@ -29,7 +29,11 @@ interface EndNodeProps {
   id: string;
   data: EndNodeData;
   selected?: boolean;
-  onSqlValidated?: (sql: string, flowSummary?: FlowSummary) => void;
+  onSqlValidated?: (
+    sql: string,
+    flowSummary?: FlowSummary,
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>
+  ) => void;
 }
 
 export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValidated }) => {
@@ -159,7 +163,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
         if (onSqlValidated) {
           const flowSummary = buildFlowSummary(storeNodes, edges);
-          onSqlValidated(sql, flowSummary);
+          onSqlValidated(sql, flowSummary, strategy.postProcess.bind(strategy));
         }
 
         updateNode(id, {

@@ -57,10 +57,15 @@ const edgeTypes = {
 
 import type { FlowSummary } from '../../services/flow/flowSummary';
 import type { Attachment } from '../../types/workbench.types';
+import type { AnalysisResult } from '../../services/flow/types';
 
 interface FlowCanvasProps {
   className?: string;
-  onSqlValidated?: (sql: string, flowSummary?: FlowSummary) => void;
+  onSqlValidated?: (
+    sql: string,
+    flowSummary?: FlowSummary,
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>
+  ) => void;
   /** Pre-selected kernel name from ChatPanel "/" trigger */
   defaultKernelName?: string;
   /** Called when user changes the kernel selection inside canvas */

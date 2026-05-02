@@ -34,6 +34,7 @@ import { DuckDBProvider } from '../../contexts/DuckDBContext';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService';
 import { operatorBindingService } from '../../services/flow/operatorBindingService';
 import type { FlowSummary } from '../../services/flow/flowSummary';
+import type { OperatorDisplayConfig } from '../../services/flow/types';
 import { TOKEN } from '../../theme';
 import './workbench.css';
 
@@ -59,6 +60,8 @@ interface AnalysisRecord {
     activeTable?: string;
     // Flow builder: human-readable summary
     flowSummary?: FlowSummary;
+    // Phase 1: Display config for data-driven rendering
+    displayConfig?: OperatorDisplayConfig;
     // M10.5 Phase 3: Effective settings
     effectiveSettings?: {
       tableName: string;
@@ -479,7 +482,11 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   }, [isDBReady, executeQuery, attachments, anomalyDetection.result?.metadata, appendAnalysisRecord]);
 
   // Handle Flow SQL ready - execute and display results
-  const handleFlowSqlReady = useCallback(async (sql: string, flowSummary?: FlowSummary) => {
+  const handleFlowSqlReady = useCallback(async (
+    sql: string,
+    flowSummary?: FlowSummary,
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<import('../../services/flow/types').AnalysisResult>
+  ) => {
     console.log('[Workbench] Flow SQL validated, executing query:', sql);
     
     // Close Flow Modal
@@ -511,6 +518,18 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
       console.log('[Workbench] Flow query executed, rows:', result.data.length);
 
+      // Call postProcessFn if available to enrich result with displayConfig
+      let displayConfig: OperatorDisplayConfig | undefined;
+      if (postProcessFn) {
+        try {
+          const processedResult = await postProcessFn(result);
+          displayConfig = processedResult.displayConfig;
+        } catch (processError) {
+          console.error('[Workbench] postProcess failed:', processError);
+          // Fallback: continue with raw result, no displayConfig
+        }
+      }
+
       // Create analysis record (similar to handleViewAnomalies)
       const newRecord: AnalysisRecord = {
         id: `flow-${Date.now()}`,
@@ -520,6 +539,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           params: { query: sql },
           thought: 'Built query using visual flow editor',
           flowSummary,
+          displayConfig,
         },
         data: result.data,
         schema: result.schema,
