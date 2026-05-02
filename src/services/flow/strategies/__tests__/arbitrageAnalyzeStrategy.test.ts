@@ -165,7 +165,7 @@ describe('ArbitrageAnalyzeStrategy', () => {
     const sql = strategy.buildSql(makeNodes(FULL_CONFIG), []);
     expect(sql).toContain('CAST("sku_id" AS VARCHAR) AS sku_id');
     expect(sql).toContain('CAST("category_id" AS VARCHAR) AS category_id');
-    expect(sql).toContain('CAST("order_time" AS BIGINT) AS order_time_ms');
+    expect(sql).toContain('ts_to_epoch_ms("order_time") AS order_time_ms');
   });
 
   // ── Test D: Rule toggles disable scoring ──────────────────────────────────

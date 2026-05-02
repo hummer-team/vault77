@@ -92,6 +92,16 @@ function colOrNull(col: string | undefined, castType: string = 'VARCHAR'): strin
   return col ? `CAST("${col}" AS ${castType})` : `NULL::${castType}`;
 }
 
+/**
+ * Returns a BIGINT epoch-milliseconds SQL expression for an optional time column.
+ * Delegates to the `ts_to_epoch_ms` DuckDB MACRO which handles all input types:
+ * TIMESTAMP, TIMESTAMPTZ, DATE, VARCHAR datetime strings, and numeric epochs (s or ms).
+ * When `col` is undefined, emits `NULL::BIGINT`.
+ */
+function colToEpochMs(col: string | undefined): string {
+  return col ? `ts_to_epoch_ms("${col}")` : `NULL::BIGINT`;
+}
+
 /** Score component output from each rule builder. */
 interface RuleSql {
   /** SQL expression evaluating to an integer score */
@@ -275,11 +285,11 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const a = auto ?? {};
     const skuExpr   = colOrNull(a.skuIdCol);
     const catExpr   = colOrNull(a.categoryIdCol);
-    const timeExpr  = colOrNull(a.orderTimeCol, 'BIGINT');
+    const timeExpr  = colToEpochMs(a.orderTimeCol);
     const actIdExpr = colOrNull(a.activityIdCol);
     const actTypeExpr = colOrNull(a.activityTypeCol);
-    const actStartExpr = colOrNull(a.activityStartCol, 'BIGINT');
-    const actEndExpr   = colOrNull(a.activityEndCol, 'BIGINT');
+    const actStartExpr = colToEpochMs(a.activityStartCol);
+    const actEndExpr   = colToEpochMs(a.activityEndCol);
     const userExpr   = colOrNull(a.userIdCol);
     const devExpr    = colOrNull(a.deviceIdCol);
     const addrExpr   = colOrNull(a.receiverAddrCol);

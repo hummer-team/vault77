@@ -342,3 +342,35 @@ CREATE OR REPLACE MACRO udf_format_date_time(
            / 86400.0
        AS INTEGER)
    );
+
+-- ts_to_epoch_ms: Convert any time-like column value to BIGINT epoch milliseconds.
+-- Supports the following input types automatically:
+--   TIMESTAMP / TIMESTAMPTZ  → epoch_ms() built-in
+--   DATE                     → cast to TIMESTAMP first, then epoch_ms()
+--   BIGINT / INTEGER (epoch_ms, >= 1e12) → returned as-is
+--   BIGINT / INTEGER (epoch_s,  >= 1e9)  → multiplied by 1000
+--   DOUBLE / FLOAT           → same magnitude heuristic as integer path
+--   VARCHAR datetime string  → TRY_CAST to TIMESTAMP, then epoch_ms()
+--   NULL or unrecognised     → NULL::BIGINT
+CREATE OR REPLACE MACRO ts_to_epoch_ms(val) AS (
+    CASE
+        WHEN val IS NULL THEN NULL::BIGINT
+        WHEN typeof(val) IN (
+            'BIGINT', 'INTEGER', 'HUGEINT', 'SMALLINT', 'TINYINT',
+            'UBIGINT', 'UINTEGER', 'USMALLINT', 'UTINYINT', 'DOUBLE', 'FLOAT'
+        )
+            THEN CASE
+                WHEN TRY_CAST(val AS DOUBLE) >= 1e12
+                    THEN CAST(TRY_CAST(val AS DOUBLE) AS BIGINT)
+                WHEN TRY_CAST(val AS DOUBLE) >= 1e9
+                    THEN CAST(TRY_CAST(val AS DOUBLE) * 1000.0 AS BIGINT)
+                ELSE NULL::BIGINT
+            END
+        WHEN typeof(val) = 'DATE'
+            THEN epoch_ms(CAST(val AS TIMESTAMP))
+        WHEN typeof(val) LIKE 'TIMESTAMP%'
+            THEN epoch_ms(CAST(val AS TIMESTAMP))
+        ELSE
+            epoch_ms(TRY_CAST(val AS TIMESTAMP))
+    END
+);
