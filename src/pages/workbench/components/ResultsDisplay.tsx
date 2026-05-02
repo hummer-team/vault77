@@ -1109,12 +1109,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           dataIndex: colName,
           key: colName,
           render: renderFunction,
-          defaultSortOrder:
-            displayConfig?.defaultSort?.column === colName
-              ? displayConfig.defaultSort.order === 'ascend'
-                ? 'ascend'
-                : 'descend'
-              : undefined,
           onHeaderCell: () => ({
             style: {
               background: 'var(--vm-bg-base)',
@@ -1141,38 +1135,40 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         key: `row-${rowIndex}`, // Add a unique key for each row
       }));
 
-      // Prepare rowClassName function with displayConfig colorizer support
-      const getRowClassName = (record: any, index: number) => {
-        const rowColorizer = displayConfig?.rowColorizer;
-        if (rowColorizer) {
-          const fieldValue = record[rowColorizer.field];
-          const colorConfig = rowColorizer.colorMap[String(fieldValue)];
-          if (colorConfig?.bg) {
-            // Return CSS class that sets background dynamically
-            return `table-row-colorized`;
+      // Apply default sorting if configured
+      const sortedTableDataSource = (() => {
+        const defaultSort = displayConfig?.defaultSort;
+        if (!defaultSort) return tableDataSource;
+        
+        const sorted = [...tableDataSource].sort((a, b) => {
+          const aVal = a[defaultSort.column];
+          const bVal = b[defaultSort.column];
+          
+          // Handle null/undefined values
+          if (aVal == null && bVal == null) return 0;
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
+          
+          // Numeric comparison if both are numbers
+          if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return defaultSort.order === 'ascend' ? aVal - bVal : bVal - aVal;
           }
-        }
-        return index % 2 === 0 ? 'table-row-even' : 'table-row-odd';
-      };
-
-      // Prepare row style function for dynamic coloring
-      const getRowStyle = (record: any) => {
-        const rowColorizer = displayConfig?.rowColorizer;
-        if (rowColorizer) {
-          const fieldValue = record[rowColorizer.field];
-          const colorConfig = rowColorizer.colorMap[String(fieldValue)];
-          if (colorConfig?.bg) {
-            return { background: colorConfig.bg };
-          }
-        }
-        return {};
-      };
+          
+          // String comparison
+          const aStr = String(aVal);
+          const bStr = String(bVal);
+          const cmp = aStr.localeCompare(bStr);
+          return defaultSort.order === 'ascend' ? cmp : -cmp;
+        });
+        
+        return sorted;
+      })();
 
       return (
         <Card {...cardProps}>
           {commonContent}
           <Table
-            dataSource={tableDataSource}
+            dataSource={sortedTableDataSource}
             columns={tableColumns}
             pagination={{
               defaultPageSize: 20,
@@ -1188,10 +1184,21 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               marginTop: 16,
             }}
             className="data-analysis-table"
-            rowClassName={getRowClassName}
-            onRow={(record) => ({
-              style: getRowStyle(record),
-            })}
+            rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
+            onRow={(record) => {
+              const rowColorizer = displayConfig?.rowColorizer;
+              const style: React.CSSProperties = {};
+              
+              if (rowColorizer) {
+                const fieldValue = record[rowColorizer.field];
+                const colorConfig = rowColorizer.colorMap?.[String(fieldValue)];
+                if (colorConfig?.bg) {
+                  style.background = colorConfig.bg;
+                }
+              }
+              
+              return { style };
+            }}
           />
           <style>{`
             .data-analysis-table .ant-table {
