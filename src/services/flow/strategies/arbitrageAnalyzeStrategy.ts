@@ -762,7 +762,12 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const enrichedRows = rows.map((row: any) => {
       const riskTypes = Array.isArray(row.risk_type) 
         ? row.risk_type 
-        : (typeof row.risk_type === 'string' ? JSON.parse(row.risk_type || '[]') : []);
+        : (typeof row.risk_type === 'string' 
+            ? (() => {
+                try { return JSON.parse(row.risk_type); } 
+                catch { return []; }
+              })() 
+            : []);
       
       const suggestions = riskTypes
         .map((t: string) => RISK_SUGGESTIONS[t])
