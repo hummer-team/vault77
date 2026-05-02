@@ -62,6 +62,24 @@ const MS_DAYS_7     = 604_800_000;
 const MS_DAYS_30    = 2_592_000_000;
 
 // ---------------------------------------------------------------------------
+// Output columns — from design/fn_ecom_arbitrage_analyze.md §2.5
+// Used as the default when selectedOutputColumns is not set in config.
+// ---------------------------------------------------------------------------
+const DEFAULT_OUTPUT_COLUMNS: string[] = [
+  'order_id',
+  'actual_payment',
+  'discount_rate',
+  'gross_margin',
+  'margin_rate',
+  'price_deviation',
+  'risk_score',
+  'risk_level',
+  'risk_type',
+  'arbitrage_evidence',
+  'data_quality_flag',
+];
+
+// ---------------------------------------------------------------------------
 // Module-level helper utilities
 // ---------------------------------------------------------------------------
 
@@ -695,8 +713,15 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       this.buildTotalsCTE(),
     ];
 
-    const sql = `WITH\n${ctes.join(',\n')}\n${this.buildFinalSelect()}`;
-    console.log(`[${this.name}.buildSql] generated SQL (${sql.length} chars)`);
+    // Full computation SQL (includes all intermediate columns)
+    const innerSql = `WITH\n${ctes.join(',\n')}\n${this.buildFinalSelect()}`;
+
+    // Wrap with output column filter — only expose user-selected columns
+    const outputCols = cfg.selectedOutputColumns ?? DEFAULT_OUTPUT_COLUMNS;
+    const colList = outputCols.map((c) => `  "${c}"`).join(',\n');
+    const sql = `SELECT\n${colList}\nFROM (\n${innerSql}\n)`;
+
+    console.log(`[${this.name}.buildSql] generated SQL (${sql.length} chars), output cols: [${outputCols.join(', ')}]`);
     return sql;
   }
 
