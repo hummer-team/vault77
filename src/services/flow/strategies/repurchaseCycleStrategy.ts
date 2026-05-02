@@ -202,31 +202,94 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
-    const displayConfig = {
-      rowColorizer: {
-        field: 'risk_level',
-        colorMap: {
-          '稳定': { bg: 'rgba(82,196,26,0.12)', badgeColor: '#52c41a' },
-          '关注': { bg: 'rgba(250,219,20,0.10)', badgeColor: '#d4b106' },
-          '预警': { bg: 'rgba(250,140,22,0.12)', badgeColor: '#fa8c16' },
-          '已流失': { bg: 'rgba(255,77,79,0.12)', badgeColor: '#ff4d4f' },
-          '新用户/单次购': { bg: '', badgeColor: '#1890ff' },
-          '数据不足': { bg: '', badgeColor: '#8B5CF6' },
-        },
-      },
-      columnFormatters: {
-        avg_cycle_days: { type: 'duration_days' as const, unit: '天' },
-        current_interval_days: { type: 'duration_days' as const, unit: '天' },
-        order_count: { type: 'duration_days' as const, unit: '次' }, // Reuse for count display
-        health_score: { type: 'percent_signed' as const, precision: 1 },
-      },
-      columnTooltips: {
-        risk_level: '复购风险等级：稳定 > 关注 > 预警 > 已流失',
-        avg_cycle_days: '平均复购周期（天），两次订单间隔的平均值',
-        current_interval_days: '距最后一次购买已过天数，用于判断流失风险',
-        order_count: '该用户/类目的订单数',
-      },
-    };
+    // Build displayConfig based on actual schema columns
+    // Supports both detail (user_id, category, risk_level) and summary (category, health_score) modes
+    const columnFormatters: Record<string, any> = {};
+    const columnTooltips: Record<string, string> = {};
+
+    const schemaArray = queryResult.schema as { name: string; type?: string }[];
+
+    // First, check what columns exist to determine output mode
+    const hasRiskLevel = schemaArray.some(col => col.name === 'risk_level');
+
+    for (const col of schemaArray) {
+      const colName = col.name;
+
+      // Risk level — common to both detail and summary
+      if (colName === 'risk_level') {
+        columnTooltips[colName] = '复购风险等级：稳定 > 关注 > 预警 > 已流失';
+      }
+
+      // Cycle/interval days
+      if (colName === 'avg_cycle_days') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '天' };
+        columnTooltips[colName] = '平均复购周期（天），两次订单间隔的平均值';
+      }
+      if (colName === 'current_interval_days') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '天' };
+        columnTooltips[colName] = '距最后一次购买已过天数，用于判断流失风险';
+      }
+
+      // Order/user counts
+      if (colName === 'order_count') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '次' };
+        columnTooltips[colName] = '该用户/类目的订单数';
+      }
+      if (colName === 'user_count') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '个' };
+        columnTooltips[colName] = '该分类的用户数';
+      }
+
+      // Counts by risk level (summary mode)
+      if (colName.endsWith('_count') && colName !== 'order_count' && colName !== 'user_count') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '个' };
+        columnTooltips[colName] = `风险等级为"${colName.replace('_count', '')}"的用户数`;
+      }
+
+      // Health score (summary mode)
+      if (colName === 'health_score') {
+        columnFormatters[colName] = { type: 'percent_signed' as const, precision: 1 };
+        columnTooltips[colName] = '分类健康度评分（稳定用户占比 - 流失风险占比×50%）';
+      }
+
+      // Dates
+      if (colName === 'first_order' || colName === 'last_order') {
+        columnTooltips[colName] = colName === 'first_order' ? '首次订购日期' : '最后订购日期';
+      }
+
+      // ID/category columns get tooltips
+      if (colName === 'user_id') {
+        columnTooltips[colName] = '用户唯一标识';
+      }
+      if (colName === 'category') {
+        columnTooltips[colName] = '商品分类';
+      }
+
+      // Suggested action column (if exists)
+      if (colName === 'suggested_action') {
+        columnTooltips[colName] = '针对该用户的推荐行动';
+      }
+    }
+
+    const displayConfig = Object.keys(columnFormatters).length > 0 || Object.keys(columnTooltips).length > 0
+      ? {
+          ...(hasRiskLevel && {
+            rowColorizer: {
+              field: 'risk_level',
+              colorMap: {
+                '稳定': { bg: 'rgba(82,196,26,0.12)', badgeColor: '#52c41a' },
+                '关注': { bg: 'rgba(250,219,20,0.10)', badgeColor: '#d4b106' },
+                '预警': { bg: 'rgba(250,140,22,0.12)', badgeColor: '#fa8c16' },
+                '已流失': { bg: 'rgba(255,77,79,0.12)', badgeColor: '#ff4d4f' },
+                '新用户/单次购': { bg: '', badgeColor: '#1890ff' },
+                '数据不足': { bg: '', badgeColor: '#8B5CF6' },
+              },
+            },
+          }),
+          columnFormatters: Object.keys(columnFormatters).length > 0 ? columnFormatters : undefined,
+          columnTooltips: Object.keys(columnTooltips).length > 0 ? columnTooltips : undefined,
+        }
+      : undefined;
 
     return {
       type: this.type,

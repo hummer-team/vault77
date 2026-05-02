@@ -179,29 +179,45 @@ export class BasicStatsStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
-    const displayConfig = {
-      columnFormatters: {
-        // Common stat columns — infer formatter from field name suffix
-        count: { type: 'duration_days' as const, unit: '个' },
-        sum: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        avg: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        min: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        max: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        stddev: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        pct: { type: 'percent_signed' as const, precision: 1 },
-        pct_value: { type: 'percent_signed' as const, precision: 1 },
-      },
-      columnTooltips: {
-        count: '该分组的记录数',
-        sum: '该分组的总和',
-        avg: '该分组的平均值',
-        min: '该分组的最小值',
-        max: '该分组的最大值',
-        stddev: '该分组的标准差',
-        pct: '该分组占总体的百分比',
-        pct_value: '百分比数值',
-      },
-    };
+    // Build formatters dynamically based on actual schema and aggregation column names
+    // Infer formatter type from SQL function in aggregation column alias
+    const columnFormatters: Record<string, any> = {};
+    const columnTooltips: Record<string, string> = {};
+
+    const schemaArray = queryResult.schema as { name: string; type?: string }[];
+
+    for (const col of schemaArray) {
+      const colName = col.name.toLowerCase();
+      
+      // Match numeric aggregation patterns: *_count, *_sum, *_avg, *_min, *_max, *_stddev
+      if (colName.includes('_count') || colName === 'count') {
+        columnFormatters[col.name] = { type: 'duration_days' as const, unit: '个' };
+        columnTooltips[col.name] = '该分组的记录数或计数值';
+      } else if (colName.includes('_sum') || colName === 'sum') {
+        columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[col.name] = '该分组的总和';
+      } else if (colName.includes('_avg') || colName === 'avg') {
+        columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[col.name] = '该分组的平均值';
+      } else if (colName.includes('_min') || colName === 'min') {
+        columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[col.name] = '该分组的最小值';
+      } else if (colName.includes('_max') || colName === 'max') {
+        columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[col.name] = '该分组的最大值';
+      } else if (colName.includes('_stddev') || colName === 'stddev') {
+        columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[col.name] = '该分组的标准差';
+      } else if (colName.includes('_pct') || colName.includes('_percent')) {
+        columnFormatters[col.name] = { type: 'percent_signed' as const, precision: 1 };
+        columnTooltips[col.name] = '百分比数值';
+      }
+    }
+
+    const displayConfig = columnFormatters ? {
+      columnFormatters,
+      columnTooltips,
+    } : undefined;
 
     return {
       type: this.type,

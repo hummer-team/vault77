@@ -444,31 +444,72 @@ export class OrderDistributionStrategy extends BaseStrategy {
   }
 
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
-    const displayConfig = {
-      columnFormatters: {
-        // Time distribution columns
-        time_period: { type: 'duration_days' as const, unit: '' }, // Will just display as-is
-        order_count: { type: 'duration_days' as const, unit: '单' }, // Order count
-        amount_sum: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        amount_avg: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        amount_pct: { type: 'percent_signed' as const, precision: 1 },
-        
-        // Geo distribution columns
-        region: { type: 'duration_days' as const, unit: '' },
-        order_pct: { type: 'percent_signed' as const, precision: 1 },
-        revenue_pct: { type: 'percent_signed' as const, precision: 1 },
-      },
-      columnTooltips: {
-        time_period: '时间周期（日期范围或聚合粒度）',
-        order_count: '该周期内的订单数量',
-        amount_sum: '该周期内的总金额',
-        amount_avg: '该周期内的平均订单金额',
-        amount_pct: '该周期金额占总金额的百分比',
-        region: '地理区域（省份、城市等）',
-        order_pct: '该地区订单占总订单的百分比',
-        revenue_pct: '该地区收入占总收入的百分比',
-      },
-    };
+    // Build displayConfig dynamically based on actual SQL output columns
+    // Different sub-types produce different column sets
+    const columnFormatters: Record<string, any> = {};
+    const columnTooltips: Record<string, string> = {};
+
+    const schemaArray = queryResult.schema as { name: string; type?: string }[];
+
+    for (const col of schemaArray) {
+      const colName = col.name;
+
+      // Time distribution columns
+      if (colName === 'period') {
+        columnTooltips[colName] = '时间周期';
+      }
+      // Geo distribution columns
+      else if (colName === 'region') {
+        columnTooltips[colName] = '地理区域（省份、城市等）';
+      }
+      // Amount bucket
+      else if (colName === 'amount_bucket') {
+        columnTooltips[colName] = '金额分布段';
+      }
+      // Order count columns
+      else if (colName === 'order_count') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '单' };
+        columnTooltips[colName] = '该周期/地区的订单数量';
+      }
+      else if (colName === 'cmp_order_count') {
+        columnFormatters[colName] = { type: 'duration_days' as const, unit: '单' };
+        columnTooltips[colName] = '对比周期的订单数量';
+      }
+      // Total amount columns
+      else if (colName === 'total_amount') {
+        columnFormatters[colName] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[colName] = '该周期/地区的总金额';
+      }
+      else if (colName === 'cmp_total_amount') {
+        columnFormatters[colName] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[colName] = '对比周期的总金额';
+      }
+      // Average amount columns
+      else if (colName === 'avg_amount') {
+        columnFormatters[colName] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[colName] = '该周期/地区的平均订单金额';
+      }
+      else if (colName === 'cmp_avg_amount') {
+        columnFormatters[colName] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
+        columnTooltips[colName] = '对比周期的平均订单金额';
+      }
+      // Change percentage columns
+      else if (colName === 'order_count_change_pct') {
+        columnFormatters[colName] = { type: 'percent_signed' as const, precision: 1 };
+        columnTooltips[colName] = '订单数环比/同比变化';
+      }
+      else if (colName === 'amount_change_pct') {
+        columnFormatters[colName] = { type: 'percent_signed' as const, precision: 1 };
+        columnTooltips[colName] = '金额环比/同比变化';
+      }
+    }
+
+    const displayConfig = Object.keys(columnFormatters).length > 0 || Object.keys(columnTooltips).length > 0
+      ? {
+          columnFormatters: Object.keys(columnFormatters).length > 0 ? columnFormatters : undefined,
+          columnTooltips: Object.keys(columnTooltips).length > 0 ? columnTooltips : undefined,
+        }
+      : undefined;
 
     return {
       type: this.type,
