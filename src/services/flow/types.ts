@@ -528,6 +528,11 @@ export interface ArbitrageAnalyzeConfig {
   arbitrage: ArbitrageDetectionConfig;
   /** Rule on/off toggles */
   ruleToggles: ArbitrageRuleToggles;
+  /**
+   * Output columns to include in the result. Defaults to all 11 columns
+   * defined in design/fn_ecom_arbitrage_analyze.md §2.5.
+   */
+  selectedOutputColumns?: string[];
 }
 
 

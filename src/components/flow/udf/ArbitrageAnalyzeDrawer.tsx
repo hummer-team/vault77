@@ -83,6 +83,37 @@ export const DEFAULT_ARBITRAGE_RULE_TOGGLES: ArbitrageRuleToggles = {
 };
 
 // ============================================================================
+// Output column definitions — from design/fn_ecom_arbitrage_analyze.md §2.5
+// ============================================================================
+
+interface OutputColumnDef {
+  key: string;
+  /** Short Chinese display name shown in selected tags */
+  label: string;
+  /** Business meaning shown in the dropdown */
+  desc: string;
+  /** Implementation note shown in tooltip */
+  note: string;
+}
+
+export const OUTPUT_COLUMN_DEFS: OutputColumnDef[] = [
+  { key: 'order_id',           label: '订单ID',       desc: '订单唯一标识',       note: '原值透出，用于关联追溯' },
+  { key: 'actual_payment',     label: '实际成交价',   desc: '订单实际成交价',     note: '自动计算保留6位小数' },
+  { key: 'discount_rate',      label: '折扣比例',     desc: '折扣比例 0~1',       note: '实际价/挂牌价' },
+  { key: 'gross_margin',       label: '订单毛利',     desc: '订单毛利',           note: '实际成交价-成本' },
+  { key: 'margin_rate',        label: '毛利率',       desc: '毛利率',             note: '毛利/实际成交价' },
+  { key: 'price_deviation',    label: '价格偏离度',   desc: '综合价格偏离度',     note: '合并商品/类目最严重偏离值' },
+  { key: 'risk_score',         label: '风险评分',     desc: '风险评分 0~100',     note: '超出100自动封顶为100' },
+  { key: 'risk_level',         label: '风险等级',     desc: '风险等级',           note: '严格按全局枚举：低/中/高/严重' },
+  { key: 'risk_type',          label: '风险标签',     desc: '命中风险标签集合',   note: '去重、固定顺序输出（数组）' },
+  { key: 'arbitrage_evidence', label: '套利依据',     desc: '套利判定依据',       note: '无套利则为空数组' },
+  { key: 'data_quality_flag',  label: '数据质量标记', desc: '数据质量标记',       note: 'normal=正常 / dirty=脏数据' },
+];
+
+/** All output column keys — used as default selection */
+export const DEFAULT_OUTPUT_COLUMNS: string[] = OUTPUT_COLUMN_DEFS.map((d) => d.key);
+
+// ============================================================================
 // Auto-detection: keyword patterns for optional fields
 // ============================================================================
 
@@ -97,16 +128,47 @@ function autoDetectField(columns: string[], patterns: RegExp[]): string | undefi
 
 function buildAutoMapping(columns: string[]): ArbitrageAutoFieldMapping {
   return {
-    skuIdCol:       autoDetectField(columns, [/^sku_?id$/i, /sku/i, /product_?id/i, /item_?id/i]),
-    categoryIdCol:  autoDetectField(columns, [/^cat(egory)?_?id$/i, /categor/i, /class/i]),
-    orderTimeCol:   autoDetectField(columns, [/order_?time/i, /created_?at/i, /order_?date/i, /purchase_?time/i, /pay_?time/i, /^time$/i, /timestamp/i]),
-    userIdCol:      autoDetectField(columns, [/user_?id/i, /member_?id/i, /buyer_?id/i, /customer_?id/i, /^uid$/i]),
-    deviceIdCol:    autoDetectField(columns, [/device_?id/i, /terminal_?id/i, /equipment_?id/i, /client_?id/i]),
-    receiverAddrCol:autoDetectField(columns, [/receiver_?addr/i, /shipping_?addr/i, /delivery_?addr/i, /address/i, /^addr/i]),
-    activityIdCol:  autoDetectField(columns, [/activity_?id/i, /campaign_?id/i, /promotion_?id/i, /event_?id/i]),
-    activityTypeCol:autoDetectField(columns, [/activity_?type/i, /campaign_?type/i, /promo_?type/i, /event_?type/i]),
-    activityStartCol: autoDetectField(columns, [/activity_?start/i, /promo_?start/i, /start_?time/i]),
-    activityEndCol:   autoDetectField(columns, [/activity_?end/i, /promo_?end/i, /end_?time/i]),
+    skuIdCol: autoDetectField(columns, [
+      /^sku_?id$/i, /sku/i, /product_?id/i, /item_?id/i,
+      /商品编码|商品ID|SKU编号|货品编码|商品编号/,
+    ]),
+    categoryIdCol: autoDetectField(columns, [
+      /^cat(egory)?_?id$/i, /categor/i, /class/i,
+      /类目|品类|分类|类别/,
+    ]),
+    orderTimeCol: autoDetectField(columns, [
+      /order_?time/i, /created_?at/i, /order_?date/i, /purchase_?time/i,
+      /pay_?time/i, /^time$/i, /timestamp/i,
+      /下单时间|创建时间|订单时间|交易时间|付款时间|购买时间/,
+    ]),
+    userIdCol: autoDetectField(columns, [
+      /user_?id/i, /member_?id/i, /buyer_?id/i, /customer_?id/i, /^uid$/i,
+      /用户ID|会员ID|买家ID|客户ID|用户编号/,
+    ]),
+    deviceIdCol: autoDetectField(columns, [
+      /device_?id/i, /terminal_?id/i, /equipment_?id/i, /client_?id/i,
+      /设备ID|设备编号|终端ID/,
+    ]),
+    receiverAddrCol: autoDetectField(columns, [
+      /receiver_?addr/i, /shipping_?addr/i, /delivery_?addr/i, /address/i, /^addr/i,
+      /收货地址|收件地址|配送地址|收件人地址|地址/,
+    ]),
+    activityIdCol: autoDetectField(columns, [
+      /activity_?id/i, /campaign_?id/i, /promotion_?id/i, /event_?id/i,
+      /活动ID|活动编号|促销ID/,
+    ]),
+    activityTypeCol: autoDetectField(columns, [
+      /activity_?type/i, /campaign_?type/i, /promo_?type/i, /event_?type/i,
+      /活动类型|促销类型/,
+    ]),
+    activityStartCol: autoDetectField(columns, [
+      /activity_?start/i, /promo_?start/i, /start_?time/i,
+      /活动开始|促销开始|开始时间/,
+    ]),
+    activityEndCol: autoDetectField(columns, [
+      /activity_?end/i, /promo_?end/i, /end_?time/i,
+      /活动结束|促销结束|结束时间/,
+    ]),
   };
 }
 
@@ -366,6 +428,9 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
   // Group 2: rule toggles
   const [toggles, setToggles] = useState<ArbitrageRuleToggles>({ ...DEFAULT_ARBITRAGE_RULE_TOGGLES });
 
+  // Output columns selection (defaults to all columns from §2.5)
+  const [selectedOutputColumns, setSelectedOutputColumns] = useState<string[]>([...DEFAULT_OUTPUT_COLUMNS]);
+
   // Group 3: arbitrage detection
   const [detection, setDetection] = useState<ArbitrageDetectionConfig>({ ...DEFAULT_ARBITRAGE_DETECTION });
 
@@ -398,6 +463,7 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
       setThresholds({ ...initialConfig.thresholds });
       setToggles({ ...initialConfig.ruleToggles });
       setDetection({ ...initialConfig.arbitrage });
+      setSelectedOutputColumns(initialConfig.selectedOutputColumns ?? [...DEFAULT_OUTPUT_COLUMNS]);
     } else {
       // Auto-detect optional fields from available columns
       const auto = buildAutoMapping(columns);
@@ -418,6 +484,7 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
       setThresholds({ ...DEFAULT_ARBITRAGE_THRESHOLDS });
       setToggles({ ...DEFAULT_ARBITRAGE_RULE_TOGGLES });
       setDetection({ ...DEFAULT_ARBITRAGE_DETECTION });
+      setSelectedOutputColumns([...DEFAULT_OUTPUT_COLUMNS]);
     }
   }, [open, initialConfig, columns]);
 
@@ -447,13 +514,14 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
       thresholds,
       arbitrage: detection,
       ruleToggles: toggles,
+      selectedOutputColumns,
     };
     onConfirm(config);
   }, [
     orderIdCol, amountCol, costCol, couponAmountCol,
     skuIdCol, categoryIdCol, orderTimeCol, userIdCol, deviceIdCol,
     receiverAddrCol, activityIdCol, activityTypeCol, activityStartCol, activityEndCol,
-    thresholds, detection, toggles, messageApi, onConfirm,
+    thresholds, detection, toggles, selectedOutputColumns, messageApi, onConfirm,
   ]);
 
   const setThreshold = useCallback(
@@ -582,6 +650,70 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
             onChange={setCouponAmountCol}
             options={columns}
           />
+
+          {/* Output column selector */}
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: `1px solid ${TOKEN.borderSubtle}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: TOKEN.textMuted,
+                marginBottom: 8,
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              输出列
+              <Tooltip title="选择分析结果中需要保留的列；未选中的列不会出现在输出数据中">
+                <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 11 }} />
+              </Tooltip>
+            </div>
+            <Select
+              mode="multiple"
+              value={selectedOutputColumns}
+              onChange={setSelectedOutputColumns}
+              style={{ width: '100%' }}
+              size="small"
+              optionLabelProp="label"
+              maxTagCount="responsive"
+              placeholder="选择输出列（默认全部）"
+              allowClear
+              onClear={() => setSelectedOutputColumns([...DEFAULT_OUTPUT_COLUMNS])}
+            >
+              {OUTPUT_COLUMN_DEFS.map(({ key, label, desc, note }) => (
+                <Select.Option key={key} value={key} label={key}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '1px 0' }}>
+                    <span
+                      style={{
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: 'var(--vm-primary)',
+                        flexShrink: 0,
+                        minWidth: 148,
+                      }}
+                    >
+                      {key}
+                    </span>
+                    <span style={{ fontSize: 11, color: TOKEN.textSecondary, flex: 1 }}>{desc}</span>
+                    <Tooltip title={note} placement="right">
+                      <InfoCircleOutlined
+                        style={{ fontSize: 10, color: TOKEN.textMuted, flexShrink: 0 }}
+                      />
+                    </Tooltip>
+                  </div>
+                  {/* Screen-reader label fallback */}
+                  <span style={{ display: 'none' }}>{label}</span>
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
 
         </Section>
 
