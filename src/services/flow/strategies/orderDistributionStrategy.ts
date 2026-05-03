@@ -12,6 +12,7 @@ import {
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
+  type OperatorInsightsData,
   type OrderDistributionConfig,
   type TimeDistConfig,
   type AmountDistConfig,
@@ -511,13 +512,128 @@ export class OrderDistributionStrategy extends BaseStrategy {
         }
       : undefined;
 
+    // Detect sub_type from schema column presence
+    const hasPeriod = schemaArray.some(c => c.name === 'period');
+    const hasAmountBucket = schemaArray.some(c => c.name === 'amount_bucket');
+    const hasRegion = schemaArray.some(c => c.name === 'region');
+
+    const rows = queryResult.data as Record<string, unknown>[];
+    const totalOrderCount = rows.reduce((s, r) => s + Number(r.order_count ?? 0), 0);
+
+    let insightsData: OperatorInsightsData;
+
+    if (hasPeriod) {
+      // time_dist: find peak and trough periods by order_count
+      const sorted = [...rows].sort((a, b) => Number(b.order_count ?? 0) - Number(a.order_count ?? 0));
+      const peakRow = sorted[0] ?? {};
+      const troughRow = sorted[sorted.length - 1] ?? {};
+      const peakPeriod = String(peakRow.period ?? '');
+      const peakCount = Number(peakRow.order_count ?? 0);
+      const troughPeriod = String(troughRow.period ?? '');
+      const troughCount = Number(troughRow.order_count ?? 0);
+
+      insightsData = {
+        summary: {
+          totalRecordCount: totalOrderCount,
+          totalFilterRecordCount: rows.length,
+          peakPeriod: peakPeriod || undefined,
+        },
+        insights: [{
+          id: 'time-distribution',
+          cardType: 'standard',
+          iconKey: 'order',
+          title: '时段分布洞察',
+          sortOrder: 1,
+          description: peakPeriod ? `峰值时段 ${peakPeriod}，低谷时段 ${troughPeriod}` : undefined,
+          metrics: [
+            { label: '峰值时段订单', value: peakCount, unit: '单', highlight: peakCount > 0 },
+            { label: '低谷时段订单', value: troughCount, unit: '单' },
+            { label: '分析周期数', value: rows.length, unit: '个' },
+          ],
+        }],
+      };
+    } else if (hasAmountBucket) {
+      // amount_dist: find dominant bucket by order_count
+      const sorted = [...rows].sort((a, b) => Number(b.order_count ?? 0) - Number(a.order_count ?? 0));
+      const topRow = sorted[0] ?? {};
+      const topBucket = String(topRow.amount_bucket ?? '');
+      const topCount = Number(topRow.order_count ?? 0);
+      const concentration = totalOrderCount > 0 ? topCount / totalOrderCount : 0;
+
+      insightsData = {
+        summary: {
+          totalRecordCount: totalOrderCount,
+          totalFilterRecordCount: rows.length,
+        },
+        insights: [{
+          id: 'amount-distribution',
+          cardType: 'standard',
+          iconKey: 'price',
+          title: '金额分布洞察',
+          sortOrder: 1,
+          description: topBucket ? `主力金额段：${topBucket}` : undefined,
+          metrics: [
+            { label: '主力金额段', value: topCount, unit: '单', highlight: true },
+            { label: '金额集中度', value: concentration, unit: '%' },
+            { label: '分析金额段数', value: rows.length, unit: '个' },
+          ],
+        }],
+      };
+    } else if (hasRegion) {
+      // geo_dist: find top region by order_count
+      const sorted = [...rows].sort((a, b) => Number(b.order_count ?? 0) - Number(a.order_count ?? 0));
+      const topRow = sorted[0] ?? {};
+      const topRegion = String(topRow.region ?? '');
+      const topCount = Number(topRow.order_count ?? 0);
+      const geoConcentration = totalOrderCount > 0 ? topCount / totalOrderCount : 0;
+
+      insightsData = {
+        summary: {
+          totalRecordCount: totalOrderCount,
+          totalFilterRecordCount: rows.length,
+          topRegion: topRegion || undefined,
+        },
+        insights: [{
+          id: 'geo-distribution',
+          cardType: 'standard',
+          iconKey: 'insight',
+          title: '地区分布洞察',
+          sortOrder: 1,
+          description: topRegion ? `头部地区：${topRegion}` : undefined,
+          metrics: [
+            { label: '头部地区订单', value: topCount, unit: '单', highlight: topCount > 0 },
+            { label: '地区集中度', value: geoConcentration, unit: '%' },
+            { label: '分析地区数', value: rows.length, unit: '个' },
+          ],
+        }],
+      };
+    } else {
+      // Fallback: unknown sub_type — generic overview
+      insightsData = {
+        summary: {
+          totalRecordCount: totalOrderCount,
+          totalFilterRecordCount: rows.length,
+        },
+        insights: [{
+          id: 'distribution-overview',
+          cardType: 'standard',
+          iconKey: 'insight',
+          title: '分布分析概览',
+          sortOrder: 1,
+          metrics: [
+            { label: '总订单数', value: totalOrderCount, unit: '单' },
+            { label: '分析分组数', value: rows.length, unit: '个' },
+          ],
+        }],
+      };
+    }
+
     return {
       type: this.type,
       sql: '',
-      data: queryResult.data as Record<string, unknown>[],
+      data: rows,
       schema: queryResult.schema,
-      insights: ['订单分布分析执行成功'],
-      visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      insightsData,
       displayConfig,
     };
   }

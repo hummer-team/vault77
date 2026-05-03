@@ -11,6 +11,7 @@ import {
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
+  type OperatorInsightsData,
   type BasicStatsConfig,
 } from '../types';
 
@@ -214,18 +215,38 @@ export class BasicStatsStrategy extends BaseStrategy {
       }
     }
 
+    const rows = queryResult.data as Record<string, unknown>[];
+
     const displayConfig = columnFormatters ? {
       columnFormatters,
       columnTooltips,
     } : undefined;
 
+    // Structured insights: single overview card with record/column counts
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: rows.length,
+        totalFilterRecordCount: rows.length,
+      },
+      insights: [{
+        id: 'stats-overview',
+        cardType: 'standard',
+        iconKey: 'insight',
+        title: '统计概览',
+        sortOrder: 1,
+        metrics: [
+          { label: '分析记录数', value: rows.length, unit: '条' },
+          { label: '统计列数', value: schemaArray.length, unit: '列' },
+        ],
+      }],
+    };
+
     return {
       type: this.type,
       sql: '',
-      data: queryResult.data as Record<string, unknown>[],
+      data: rows,
       schema: queryResult.schema,
-      insights: ['基础统计分析执行成功'],
-      visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      insightsData,
       displayConfig,
     };
   }

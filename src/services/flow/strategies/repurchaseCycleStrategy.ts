@@ -12,6 +12,7 @@ import {
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
+  type OperatorInsightsData,
   type RepurchaseCycleConfig,
 } from '../types';
 
@@ -291,13 +292,60 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
         }
       : undefined;
 
+    const rows = queryResult.data as Record<string, unknown>[];
+
+    // Repurchase users: users with order_count >= 2 (have actually re-ordered)
+    const repurchaseUsers = rows.filter(r => Number(r.order_count ?? 0) >= 2).length;
+    // Average repurchase cycle days across all users with avg_cycle_days data
+    const avgDays = rows.reduce((s, r) => s + Number(r.avg_cycle_days ?? 0), 0) / Math.max(rows.length, 1);
+    // At-risk users: 预警 or 已流失
+    const atRiskCount = rows.filter(r => ['预警', '已流失'].includes(r.risk_level as string)).length;
+
+    // Build structured insights for InsightsPanel
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: rows.length,
+        totalFilterRecordCount: repurchaseUsers,
+        repurchaseUserCount: repurchaseUsers,
+        avgRepurchaseDays: Math.round(avgDays),
+      },
+      insights: [
+        {
+          id: 'repurchase-health',
+          cardType: 'standard',
+          iconKey: 'rfm',
+          title: '复购健康度',
+          sortOrder: 1,
+          description: repurchaseUsers > 0
+            ? `${repurchaseUsers} 名用户有复购记录，平均 ${Math.round(avgDays)} 天复购一次`
+            : '暂无复购记录',
+          metrics: [
+            { label: '复购用户数', value: repurchaseUsers, unit: '人', highlight: repurchaseUsers > 0 },
+            { label: '平均复购周期', value: Math.round(avgDays), unit: '天' },
+            { label: '分析用户数', value: rows.length, unit: '人' },
+          ],
+        },
+        ...(atRiskCount > 0 ? [{
+          id: 'churn-risk',
+          cardType: 'standard' as const,
+          iconKey: 'warning' as const,
+          title: '流失预警',
+          sortOrder: 2,
+          description: `${atRiskCount} 名用户处于预警或流失状态，建议及时跟进`,
+          metrics: [
+            { label: '预警/流失用户', value: atRiskCount, unit: '人', highlight: true },
+            { label: '流失风险率', value: atRiskCount / Math.max(rows.length, 1), unit: '%' },
+          ],
+        }] : []),
+      ],
+    };
+
     return {
       type: this.type,
       sql: '',
-      data: queryResult.data as Record<string, unknown>[],
+      data: rows,
       schema: queryResult.schema as { name: string; type: string }[],
-      insights: ['复购周期分析执行成功'],
-      visualizations: [{ type: 'table', config: { data: queryResult.data } }],
+      insightsData,
       displayConfig,
     };
   }
