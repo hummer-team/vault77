@@ -6,6 +6,7 @@ import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
 import type { OperatorDisplayConfig, ColumnFormatterSpec, OperatorInsightsData } from '../../../services/flow/types';
+import InsightsPanel from '../../../components/insights/InsightsPanel';
 import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
@@ -657,7 +658,7 @@ const buildSafeSchema = (schema: unknown, data: unknown): Array<{ name: string; 
   return [];
 };
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments }) => {
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments, insightsData }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
   const [queryExpanded, setQueryExpanded] = useState(false);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
@@ -1065,6 +1066,15 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       // Ensure data is an array and schema is present
       const actualData = data as any[];
       if (!actualData || actualData.length === 0 || safeSchema.length === 0) {
+        // If the operator produced insights data, show it even with no table rows (no Table rendered)
+        if (insightsData) {
+          return (
+            <Card {...cardProps}>
+              {commonContent}
+              <InsightsPanel insightsData={insightsData} />
+            </Card>
+          );
+        }
         return (
           <Card {...cardProps}>
             {commonContent}
@@ -1169,6 +1179,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       return (
         <Card {...cardProps}>
           {commonContent}
+          {/* Operator insights panel rendered above the data table */}
+          {insightsData && <InsightsPanel insightsData={insightsData} />}
           <Table
             dataSource={sortedTableDataSource}
             columns={tableColumns}
