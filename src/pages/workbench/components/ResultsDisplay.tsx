@@ -5,7 +5,7 @@ import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for bett
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
-import type { OperatorDisplayConfig, ColumnFormatterSpec } from '../../../services/flow/types';
+import type { OperatorDisplayConfig, ColumnFormatterSpec, OperatorInsightsData } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
@@ -85,6 +85,8 @@ interface ResultsDisplayProps {
   onCopyQuery: (query: string) => void;
   // attachments snapshot for this record
   attachments?: Attachment[];
+  // Structured insights data — passed to InsightsPanel (rendered above the data table)
+  insightsData?: OperatorInsightsData;
 }
 
 // 将毫秒转为秒字符串，如 "耗时 1.2s"

@@ -34,7 +34,7 @@ import { DuckDBProvider } from '../../contexts/DuckDBContext';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService';
 import { operatorBindingService } from '../../services/flow/operatorBindingService';
 import type { FlowSummary } from '../../services/flow/flowSummary';
-import type { OperatorDisplayConfig } from '../../services/flow/types';
+import type { OperatorDisplayConfig, OperatorInsightsData } from '../../services/flow/types';
 import { TOKEN } from '../../theme';
 import './workbench.css';
 
@@ -90,6 +90,8 @@ interface AnalysisRecord {
   queryDurationMs?: number;
   // Snapshot of attachments at the time of this query
   attachmentsSnapshot?: Attachment[];
+  // Structured insights produced by business analysis operators — flows to ResultsDisplay → InsightsPanel
+  insightsData?: OperatorInsightsData;
 }
 
 interface WorkbenchProps {
@@ -518,15 +520,17 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
       console.log('[Workbench] Flow query executed, rows:', result.data.length);
 
-      // Call postProcessFn if available to enrich result with displayConfig
+      // Call postProcessFn if available to enrich result with displayConfig and insightsData
       let displayConfig: OperatorDisplayConfig | undefined;
+      let insightsData: OperatorInsightsData | undefined;
       if (postProcessFn) {
         try {
           const processedResult = await postProcessFn(result);
           displayConfig = processedResult.displayConfig;
+          insightsData = processedResult.insightsData;
         } catch (processError) {
           console.error('[Workbench] postProcess failed:', processError);
-          // Fallback: continue with raw result, no displayConfig
+          // Fallback: continue with raw result, no displayConfig or insightsData
         }
       }
 
@@ -546,6 +550,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         status: 'resultsReady',
         queryDurationMs: queryDuration,
         attachmentsSnapshot: attachments,
+        insightsData,  // top-level field, NOT inside thinkingSteps
       };
 
       // Add to analysis history
@@ -1215,6 +1220,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         onCopyQuery={handleCopyQuery}
         // pass attachment snapshot for this record
         attachments={record.attachmentsSnapshot}
+        // insights data for InsightsPanel (undefined for LLM/UDF paths → not rendered)
+        insightsData={record.insightsData}
       />
     ));
   };
