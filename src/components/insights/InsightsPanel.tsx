@@ -70,14 +70,27 @@ interface SummaryOverviewProps {
  * Renders a row of summary metric tiles from the InsightSummary object.
  * Only non-undefined fields are rendered — operators control visibility by omitting fields.
  * Max 5 tiles per row; auto-wraps on smaller viewports via flex-wrap.
+ * Hidden entirely when all core fields are zero (no meaningful data to show).
  */
 const SummaryOverview: React.FC<SummaryOverviewProps> = ({ summary }) => {
+  // Per spec 4.2: hide the entire section when all core fields are at default zero values
+  if (
+    summary.totalRecordCount === 0 &&
+    summary.totalFilterRecordCount === 0 &&
+    (summary.riskRecordCount === undefined || summary.riskRecordCount === 0) &&
+    (summary.criticalRecordCount === undefined || summary.criticalRecordCount === 0) &&
+    (summary.estimatedLoss === undefined || summary.estimatedLoss === 0)
+  ) {
+    return null;
+  }
+
   // Build the list of summary tiles from defined fields only
   const tiles: Array<{ label: string; value: string; highlight?: boolean }> = [];
 
   // Common fields — always present when summary is defined
   tiles.push({ label: '总记录数', value: summary.totalRecordCount.toLocaleString('zh-CN') });
-  tiles.push({ label: '筛选记录数', value: summary.totalFilterRecordCount.toLocaleString('zh-CN') });
+  // Per spec 4.3: label is "符合条件记录数"
+  tiles.push({ label: '符合条件记录数', value: summary.totalFilterRecordCount.toLocaleString('zh-CN') });
 
   // Arbitrage-specific fields
   if (summary.riskRecordCount !== undefined) {
