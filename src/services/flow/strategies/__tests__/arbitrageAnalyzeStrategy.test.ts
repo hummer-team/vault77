@@ -9,7 +9,7 @@
  *   E — Method A (same_hour_avg): hs CTE uses hour_of_day partitioning
  *   F — Custom thresholds: threshold values appear verbatim in score SQL
  *   G — Arbitrage rules disabled: arb_* scores all emit 0, arbitrage_evidence_list is empty
- *   H — postProcess: insights summary is correctly computed from mock result rows
+ *   H — postProcess: insightsData summary is correctly computed from mock result rows
  *   I — Strategy factory: ArbitrageAnalyzeStrategy is registered and retrievable
  */
 
@@ -290,31 +290,59 @@ describe('ArbitrageAnalyzeStrategy', () => {
     expect(sql).toContain('(0) AS arb_dev_score');
   });
 
-  // ── Test H: postProcess insights ─────────────────────────────────────────
+  // ── Test H: postProcess insightsData ─────────────────────────────────────
+  // Mock data: 4 rows — 1 low, 1 medium, 1 high, 1 critical(dirty)
+  // Expected counts: totalOrders=4, riskOrders=3 (score>0), highRisk=2 (高+严重),
+  //                  dirtyOrders=1, criticalCount=1, mediumAndAbove=3 (中+高+严重)
 
   it('H — postProcess should return correct insight summary', async () => {
     const mockData = [
-      { risk_score: 0, risk_level: '低', data_quality_flag: 'normal' },
-      { risk_score: 45, risk_level: '中', data_quality_flag: 'normal' },
-      { risk_score: 75, risk_level: '高', data_quality_flag: 'normal' },
+      { risk_score: 0,  risk_level: '低',  data_quality_flag: 'normal' },
+      { risk_score: 45, risk_level: '中',  data_quality_flag: 'normal' },
+      { risk_score: 75, risk_level: '高',  data_quality_flag: 'normal' },
       { risk_score: 90, risk_level: '严重', data_quality_flag: 'dirty' },
     ];
     const result = await strategy.postProcess({ data: mockData, schema: [] });
 
     expect(result.type).toBe(OperatorType.ARBITRAGE_ANALYZE);
     expect(result.data).toHaveLength(4);
-    expect(result.insights).toBeDefined();
-    expect(result.insights![0]).toContain('4 条');           // total orders
-    expect(result.insights![1]).toContain('3 条');           // risk > 0
-    expect(result.insights![2]).toContain('2 条');           // high + severe
-    expect(result.insights![3]).toContain('dirty');          // data quality warning
+
+    // Structured insightsData replaces deprecated insights[]
+    expect(result.insightsData).toBeDefined();
+    const id = result.insightsData!;
+
+    // Summary fields
+    expect(id.summary?.totalRecordCount).toBe(4);       // total orders
+    expect(id.summary?.totalFilterRecordCount).toBe(3); // risk orders (score > 0)
+    expect(id.summary?.riskRecordCount).toBe(3);        // 中+高+严重
+    expect(id.summary?.criticalRecordCount).toBe(1);    // 严重 only
+
+    // Three insight cards: risk-overview, critical-orders, data-quality
+    expect(id.insights).toHaveLength(3);
+    expect(id.insights[0].id).toBe('risk-overview');
+    expect(id.insights[1].id).toBe('critical-orders');
+    expect(id.insights[2].id).toBe('data-quality');
+
+    // risk-overview metrics: riskOrders=3, highRisk=2
+    const riskMetrics = id.insights[0].metrics ?? [];
+    expect(riskMetrics[0].value).toBe(3);  // risk orders
+    expect(riskMetrics[2].value).toBe(2);  // high + severe
+
+    // critical-orders: criticalCount=1
+    const critMetrics = id.insights[1].metrics ?? [];
+    expect(critMetrics[0].value).toBe(1);
   });
 
   it('H — postProcess with empty data should not throw', async () => {
     const result = await strategy.postProcess({ data: [], schema: [] });
     expect(result.type).toBe(OperatorType.ARBITRAGE_ANALYZE);
     expect(result.data).toHaveLength(0);
-    expect(result.insights![0]).toContain('0 条');
+
+    const id = result.insightsData!;
+    expect(id).toBeDefined();
+    expect(id.summary?.totalRecordCount).toBe(0);
+    // No dirty orders → only 2 insight cards (no data-quality card)
+    expect(id.insights).toHaveLength(2);
   });
 
   // ── Test I: Strategy factory registration ─────────────────────────────────

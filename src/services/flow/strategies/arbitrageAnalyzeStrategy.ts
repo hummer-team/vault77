@@ -44,6 +44,7 @@ import {
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
+  type OperatorInsightsData,
   type ArbitrageAnalyzeConfig,
   type ArbitrageFieldMapping,
   type ArbitrageAutoFieldMapping,
@@ -793,6 +794,17 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const riskOrders   = enrichedRows.filter((r) => (r as Record<string, unknown>)['risk_score'] as number > 0).length;
     const highRisk     = enrichedRows.filter((r) => ['严重', '高'].includes((r as Record<string, unknown>)['risk_level'] as string)).length;
     const dirtyOrders  = enrichedRows.filter((r) => (r as Record<string, unknown>)['data_quality_flag'] === 'dirty').length;
+    // Critical orders: risk_level === '严重'
+    const criticalCount = enrichedRows.filter((r) => (r as Record<string, unknown>)['risk_level'] === '严重').length;
+    // Estimated loss: sum of absolute gross_margin where gross_margin < 0
+    const estimatedLoss = enrichedRows.reduce((acc, r) => {
+      const gm = Number((r as Record<string, unknown>)['gross_margin'] ?? 0);
+      return gm < 0 ? acc + Math.abs(gm) : acc;
+    }, 0);
+    // Medium-and-above: 严重 + 高 + 中
+    const mediumAndAbove = enrichedRows.filter((r) =>
+      ['严重', '高', '中'].includes((r as Record<string, unknown>)['risk_level'] as string)
+    ).length;
 
     // Step 4: Add 'suggestion' to schema if not present
     const enhancedSchema = schema.some((s: any) => s.name === 'suggestion')
@@ -828,17 +840,60 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       },
     };
 
+    // Build structured insights data for InsightsPanel rendering
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: totalOrders,
+        totalFilterRecordCount: riskOrders,
+        riskRecordCount: mediumAndAbove,
+        criticalRecordCount: criticalCount,
+        estimatedLoss,
+      },
+      insights: [
+        {
+          id: 'risk-overview',
+          cardType: 'standard',
+          iconKey: 'warning',
+          title: '风险订单概览',
+          sortOrder: 1,
+          metrics: [
+            { label: '风险订单数', value: riskOrders, unit: '单', highlight: riskOrders > 0 },
+            { label: '风险比例', value: riskOrders / Math.max(totalOrders, 1), unit: '%' },
+            { label: '高/严重风险', value: highRisk, unit: '单', highlight: highRisk > 0 },
+          ],
+        },
+        {
+          id: 'critical-orders',
+          cardType: 'standard',
+          iconKey: 'critical',
+          title: '严重风险订单',
+          description: criticalCount > 0
+            ? `${criticalCount} 笔订单风险评分 ≥80，需立即人工复核与处理`
+            : '本次分析未发现严重风险订单',
+          sortOrder: 2,
+          metrics: [
+            { label: '严重风险', value: criticalCount, unit: '单', highlight: criticalCount > 0 },
+            { label: '预估损失', value: estimatedLoss, unit: '元', highlight: estimatedLoss > 0 },
+          ],
+        },
+        ...(dirtyOrders > 0 ? [{
+          id: 'data-quality',
+          cardType: 'standard' as const,
+          iconKey: 'quality' as const,
+          title: '数据质量问题',
+          description: `${dirtyOrders} 笔订单因数据质量问题被标记为 dirty，不参与风险评分`,
+          sortOrder: 3,
+          metrics: [{ label: '问题订单数', value: dirtyOrders, unit: '单' }],
+        }] : []),
+      ],
+    };
+
     return {
       type: OperatorType.ARBITRAGE_ANALYZE,
       sql: '',
       data: enrichedRows,
       schema: enhancedSchema as any[],
-      insights: [
-        `共分析 ${totalOrders} 条订单`,
-        `风险订单 ${riskOrders} 条（${((riskOrders / Math.max(totalOrders, 1)) * 100).toFixed(1)}%）`,
-        `高/严重风险 ${highRisk} 条`,
-        ...(dirtyOrders > 0 ? [`数据质量问题订单 ${dirtyOrders} 条（已标记 dirty，不参与评分）`] : []),
-      ],
+      insightsData,
       displayConfig,
     };
   }
