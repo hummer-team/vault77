@@ -734,6 +734,134 @@ export interface RowColorizerConfig {
   >;
 }
 
+// ============================================================================
+// Insights Data Types
+// ============================================================================
+
+/**
+ * A single metric row displayed inside an InsightItem.
+ *
+ * @remarks
+ * - `value` must always be the raw number — formatting is handled by the UI layer (InsightsPanel).
+ * - `unit="%"` convention: backend stores raw decimal (e.g. 0.15), UI multiplies ×100 → "15.00%".
+ * - `unit="元"` convention: backend stores raw number, UI formats with toLocaleString(2 decimals).
+ * - Max 4 metrics per InsightItem to maintain visual density.
+ */
+export interface InsightMetric {
+  /** Display label, e.g. "风险订单数" */
+  label: string;
+  /** Raw numeric value — never pre-format this before storing */
+  value: number;
+  /**
+   * Display unit string that drives the formatter:
+   * - "%" → multiply ×100 then append "%"
+   * - "元" → toLocaleString zh-CN, 2 decimals
+   * - others (e.g. "单", "条", "天") → integer locale string or 2-decimal fallback
+   */
+  unit?: string;
+  /** When true, the metric value is rendered in the primary theme color and bold */
+  highlight?: boolean;
+}
+
+/**
+ * A single insight block rendered as a card in the InsightsPanel.
+ * Naming uses "InsightItem", not "InsightCard" — no "Card" suffix per project convention.
+ *
+ * @remarks
+ * - `cardType="custom"` enables `metadata.customColor` for icon/accent override.
+ * - `sortOrder` is set by the operator; the UI renders in this order without re-sorting.
+ * - `metrics` is optional; an InsightItem can be text-only (title + description).
+ */
+export interface InsightItem {
+  /** Unique identifier — used for event callbacks (drill-down, future feature) */
+  id: string;
+  /**
+   * Layout variant:
+   * - "standard" — uses iconKey to pick a predefined icon + semantic color
+   * - "custom" — uses metadata.customColor to override icon accent color
+   */
+  cardType: 'standard' | 'custom';
+  /**
+   * Semantic icon key — determines both the Ant Design icon component and its color.
+   * Mapping:
+   *   critical → WarningFilled       (var(--vm-color-error))
+   *   warning  → ExclamationCircleFilled (var(--vm-color-warning))
+   *   insight  → BulbFilled          (var(--vm-primary))
+   *   safe     → CheckCircleFilled   (var(--vm-color-success))
+   *   quality  → DatabaseFilled      (var(--vm-text-secondary))
+   *   price    → TagFilled           (var(--vm-color-info))
+   *   user     → UserOutlined        (var(--vm-primary))
+   *   rfm      → BarChartOutlined    (var(--vm-color-warning))
+   *   order    → ShoppingOutlined    (var(--vm-color-info))
+   */
+  iconKey: 'critical' | 'warning' | 'insight' | 'safe' | 'quality' | 'price' | 'user' | 'rfm' | 'order';
+  /** Short title displayed at the top of the card */
+  title: string;
+  /** Optional supporting text — max 3 lines recommended */
+  description?: string;
+  /** Render order; the UI displays items in ascending sortOrder without re-sorting */
+  sortOrder: number;
+  /** Optional metric rows — max 4 items for visual density */
+  metrics?: InsightMetric[];
+  /** Extra data for custom rendering or future drill-down callbacks */
+  metadata?: {
+    /** Hex or CSS variable string for custom icon accent color (cardType="custom" only) */
+    customColor?: string;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Top-level summary bar displayed above the InsightItem grid.
+ * Each field is optional except the two required counters — operators only populate
+ * fields that are semantically meaningful for their analysis type.
+ *
+ * Visibility rule: if the operator returns `summary=undefined`, the UI hides the entire overview area.
+ *
+ * Field ownership:
+ *   - totalRecordCount / totalFilterRecordCount — all operators (required when summary is defined)
+ *   - riskRecordCount / criticalRecordCount / estimatedLoss — ArbitrageAnalyzeStrategy
+ *   - repurchaseUserCount / avgRepurchaseDays — RepurchaseCycleStrategy
+ *   - topRegion — OrderDistributionStrategy (geo_dist sub-type)
+ *   - peakPeriod — OrderDistributionStrategy (time_dist sub-type)
+ */
+export interface InsightSummary {
+  /** Total number of records in the raw analysis result */
+  totalRecordCount: number;
+  /** Number of records that match the primary filter condition (e.g. risk orders, repurchase users) */
+  totalFilterRecordCount: number;
+  /** [Arbitrage] Number of orders with risk_level in {中, 高, 严重} */
+  riskRecordCount?: number;
+  /** [Arbitrage] Number of orders with risk_level === "严重" */
+  criticalRecordCount?: number;
+  /** [Arbitrage] Sum of |gross_margin| for all negative-margin orders (unit: 元) */
+  estimatedLoss?: number;
+  /** [Repurchase] Number of users with order_count >= 2 */
+  repurchaseUserCount?: number;
+  /** [Repurchase] Average repurchase cycle days across all users (rounded to integer) */
+  avgRepurchaseDays?: number;
+  /** [OrderDist/geo] Name of the top region by order_count */
+  topRegion?: string;
+  /** [OrderDist/time] Label of the peak time period by order_count */
+  peakPeriod?: string;
+}
+
+/**
+ * Complete insights payload produced by a business analysis operator's postProcess().
+ * This is attached to AnalysisResult.insightsData and flows to ResultsDisplay → InsightsPanel.
+ *
+ * Design rules:
+ * - `summary=undefined` → InsightsPanel hides the overview bar (operator controls visibility)
+ * - `insights=[]` → InsightsPanel shows a default fallback InsightItem ("暂无洞察")
+ * - ML / UDF / LLM paths never populate this field → InsightsPanel is not rendered
+ */
+export interface OperatorInsightsData {
+  /** Overview metric bar. Omit to hide the entire summary section. */
+  summary?: InsightSummary;
+  /** Ordered insight cards. Use empty array to trigger the fallback "暂无洞察" card. */
+  insights: InsightItem[];
+}
+
 /**
  * OperatorDisplayConfig defines how ResultsDisplay should render operator results.
  * Pure data-driven — no business logic, only configuration.
@@ -757,12 +885,26 @@ export interface AnalysisResult {
   sql: string;
   data: any[];
   schema?: any[];
+  /**
+   * @deprecated Replaced by `insightsData.insights` (InsightItem[]).
+   * Will be removed after all operators migrate to insightsData. Do not add new usages.
+   */
   insights?: string[];
+  /**
+   * @deprecated Dead code — visualizations are not rendered anywhere.
+   * Will be removed in Phase 6 cleanup.
+   */
   visualizations?: {
     type: 'scatter' | 'radar' | 'table';
     config: unknown;
   }[];
   displayConfig?: OperatorDisplayConfig;
+  /**
+   * Structured insights payload produced by business analysis operators.
+   * Flows through AnalysisRecord → ResultsDisplay → InsightsPanel.
+   * Undefined for LLM / UDF paths — InsightsPanel is not rendered in those cases.
+   */
+  insightsData?: OperatorInsightsData;
 }
 
 export interface FlowStrategy {
