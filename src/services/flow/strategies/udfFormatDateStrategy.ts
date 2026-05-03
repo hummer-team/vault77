@@ -94,7 +94,7 @@ export class UdfFormatDateStrategy extends UdfBaseStrategy {
     return sql;
   }
 
-  // postProcess and getSuccessInsight are inherited from UdfBaseStrategy
+  // postProcess is inherited from UdfBaseStrategy
 
   // ============================================================================
   // Private helpers

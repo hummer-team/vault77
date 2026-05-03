@@ -9,7 +9,7 @@
  *   - resolveTblParam(): single/multi-table tbl argument (full-schema mode, fixes legacy
  *     t0.* column conflict bug in legacy strategies)
  *   - validate() template method + abstract validateUdfConfig()
- *   - postProcess() shared implementation with getSuccessInsight() hook
+ *   - postProcess() shared implementation (returns data + schema; no insights panel for UDF operators)
  *   - buildUdfConditionSql(): MACRO-ready condition string with multi-table alias rewriting
  */
 
@@ -162,7 +162,7 @@ export abstract class UdfBaseStrategy extends BaseStrategy {
 
   /**
    * Default postProcess shared by all UDF strategies.
-   * Subclasses may override getSuccessInsight() for a custom success message.
+   * Returns the transformed data directly — no insights panel for UDF operators.
    */
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
     return {
@@ -170,14 +170,7 @@ export abstract class UdfBaseStrategy extends BaseStrategy {
       sql: '',
       data: queryResult.data as Record<string, unknown>[],
       schema: queryResult.schema,
-      insights: [this.getSuccessInsight()],
-      visualizations: [{ type: 'table', config: { data: queryResult.data } }],
     };
-  }
-
-  /** Override in subclasses for a custom success message. */
-  protected getSuccessInsight(): string {
-    return `${this.name}执行成功`;
   }
 
   /**

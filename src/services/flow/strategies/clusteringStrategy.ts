@@ -43,16 +43,6 @@ export class ClusteringStrategy extends BaseStrategy {
       sql: '',
       data: queryResult.data as Record<string, unknown>[],
       schema: queryResult.schema,
-      insights: [
-        '基于K-Means的用户分群',
-        '已识别用户群组特征',
-      ],
-      visualizations: [
-        {
-          type: 'radar',
-          config: { data: queryResult.data, clusterField: 'cluster_id' },
-        },
-      ],
     };
   }
 }

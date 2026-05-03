@@ -290,9 +290,9 @@ describe('UdfReplaceColumnStrategy.postProcess', () => {
     expect(result.data).toEqual(mockData);
   });
 
-  it('should include a table visualization config', async () => {
+  it('should return data and schema in postProcess', async () => {
     const result = await strategy.postProcess({ data: [], schema: [] });
-    expect(result.visualizations).toHaveLength(1);
-    expect(result.visualizations![0].type).toBe('table');
+    expect(result.data).toBeDefined();
+    expect(result.schema).toBeDefined();
   });
 });

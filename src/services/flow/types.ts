@@ -885,19 +885,6 @@ export interface AnalysisResult {
   sql: string;
   data: any[];
   schema?: any[];
-  /**
-   * @deprecated Replaced by `insightsData.insights` (InsightItem[]).
-   * Will be removed after all operators migrate to insightsData. Do not add new usages.
-   */
-  insights?: string[];
-  /**
-   * @deprecated Dead code — visualizations are not rendered anywhere.
-   * Will be removed in Phase 6 cleanup.
-   */
-  visualizations?: {
-    type: 'scatter' | 'radar' | 'table';
-    config: unknown;
-  }[];
   displayConfig?: OperatorDisplayConfig;
   /**
    * Structured insights payload produced by business analysis operators.

@@ -41,16 +41,6 @@ export class AnomalyStrategy extends BaseStrategy {
       sql: '',
       data: queryResult.data as Record<string, unknown>[],
       schema: queryResult.schema,
-      insights: [
-        '基于孤立森林算法的异常检测',
-        '已标记异常数据点',
-      ],
-      visualizations: [
-        {
-          type: 'scatter',
-          config: { data: queryResult.data, anomalyField: 'is_anomaly' },
-        },
-      ],
     };
   }
 }

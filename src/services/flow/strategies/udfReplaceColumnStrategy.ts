@@ -219,13 +219,6 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
       sql: '',
       data: queryResult.data as Record<string, unknown>[],
       schema: queryResult.schema,
-      insights: ['替换特定列值执行成功'],
-      visualizations: [
-        {
-          type: 'table',
-          config: { data: queryResult.data },
-        },
-      ],
     };
   }
 

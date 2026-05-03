@@ -59,13 +59,6 @@ export class AssociationStrategy extends BaseStrategy {
       sql: '',
       data: queryResult.data as Record<string, unknown>[],
       schema: queryResult.schema,
-      insights: ['关联查询执行成功'],
-      visualizations: [
-        {
-          type: 'table',
-          config: { data: queryResult.data },
-        },
-      ],
     };
   }
 }

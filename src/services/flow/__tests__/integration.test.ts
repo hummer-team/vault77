@@ -326,18 +326,17 @@ describe('Integration Tests - Complete Flow Execution', () => {
 
       expect(sql).toBeTruthy();
 
-      // Test postProcess
+      // Test postProcess with correct input structure
       const mockData = [
         { id: 1, amount: 100, score: 0.5 },
         { id: 2, amount: 1000, score: 0.9 },
         { id: 3, amount: 50, score: 0.1 },
       ];
 
-      const result = await strategy.postProcess(mockData as any);
+      const result = await strategy.postProcess({ data: mockData, schema: [] });
 
       expect(result.type).toBe(OperatorType.ANOMALY);
-      expect(result.insights).toBeDefined();
-      expect(result.visualizations).toBeDefined();
+      expect(result.data).toEqual(mockData);
     });
   });
 
@@ -403,18 +402,17 @@ describe('Integration Tests - Complete Flow Execution', () => {
 
       expect(sql).toBeTruthy();
 
-      // Test postProcess
+      // Test postProcess with correct input structure
       const mockData = [
         { id: 1, recency: 10, frequency: 5, monetary: 1000 },
         { id: 2, recency: 5, frequency: 10, monetary: 5000 },
         { id: 3, recency: 30, frequency: 1, monetary: 100 },
       ];
 
-      const result = await strategy.postProcess(mockData as any);
+      const result = await strategy.postProcess({ data: mockData, schema: [] });
 
       expect(result.type).toBe(OperatorType.CLUSTERING);
-      expect(result.insights).toBeDefined();
-      expect(result.visualizations).toBeDefined();
+      expect(result.data).toEqual(mockData);
     });
   });
 
