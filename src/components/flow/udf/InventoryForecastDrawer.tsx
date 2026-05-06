@@ -206,7 +206,7 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
       return;
     }
     onConfirm({ skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode, trendThreshold });
-  }, [skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode, onConfirm, messageApi]);
+  }, [skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode, trendThreshold, onConfirm, messageApi]);
 
   const colOptions = useMemo(
     () => columns.map((c) => ({ value: c, label: c })),
