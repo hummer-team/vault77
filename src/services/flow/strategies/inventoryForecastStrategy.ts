@@ -357,19 +357,46 @@ export class InventoryForecastStrategy extends BaseStrategy {
     const failedSkuIds = new Set(errorRows.map((r) => r.sku_id));
 
     // ---- Step 4: Build InsightItems -----------------------------------------
-    const insights = top5.map((sku, idx) => ({
-      id: `forecast-sku-${idx + 1}`,
-      cardType: 'custom' as const,
-      iconKey: 'order' as const,
-      title: `SKU: ${sku.skuId}`,
-      sortOrder: idx + 1,
-      description: `预测总需求 ${sku.totalPrediction.toFixed(1)}，预测步数 ${sku.predictSteps}`,
-      metrics: [
-        { label: '总预测量', value: Math.round(sku.totalPrediction), unit: '件', highlight: idx === 0 },
-        { label: '预测步数', value: sku.predictSteps, unit: '步' },
-        { label: '平均单步预测', value: Math.round(sku.avgPrediction * 100) / 100, unit: '件/步' },
-      ],
-    }));
+    let insights: OperatorInsightsData['insights'];
+
+    if (successRows.length === 0 && errorRows.length > 0) {
+      // All SKUs failed — surface diagnostic cards instead of silent empty state
+      const uniqueErrors = Array.from(
+        new Map(errorRows.map((r) => [r.error_code, r.error_message])).entries()
+      );
+      insights = uniqueErrors.map(([code, msg], idx) => {
+        const affectedCount = errorRows.filter((r) => r.error_code === code).length;
+        return {
+          id: `forecast-error-${idx + 1}`,
+          cardType: 'custom' as const,
+          iconKey: 'warning' as const,
+          title: `预测失败：${code}`,
+          sortOrder: idx + 1,
+          description: `${msg ?? '未知错误'}。${
+            code === 'ValidationError' && msg?.includes('at least 2 data points')
+              ? '请确保每个 SKU 在所选粒度下有 ≥ 2 个时间点（如选"月"需至少 2 个月的数据）'
+              : '请检查数据质量或调整预测参数后重试'
+          }（影响 ${affectedCount} 个 SKU）`,
+          metrics: [
+            { label: '失败 SKU 数', value: affectedCount, unit: '个', highlight: true },
+          ],
+        };
+      });
+    } else {
+      insights = top5.map((sku, idx) => ({
+        id: `forecast-sku-${idx + 1}`,
+        cardType: 'custom' as const,
+        iconKey: 'order' as const,
+        title: `SKU: ${sku.skuId}`,
+        sortOrder: idx + 1,
+        description: `预测总需求 ${sku.totalPrediction.toFixed(1)}，预测步数 ${sku.predictSteps}`,
+        metrics: [
+          { label: '总预测量', value: Math.round(sku.totalPrediction), unit: '件', highlight: idx === 0 },
+          { label: '预测步数', value: sku.predictSteps, unit: '步' },
+          { label: '平均单步预测', value: Math.round(sku.avgPrediction * 100) / 100, unit: '件/步' },
+        ],
+      }));
+    }
 
     // ---- Step 5: Build summary ----------------------------------------------
     const insightsData: OperatorInsightsData = {
