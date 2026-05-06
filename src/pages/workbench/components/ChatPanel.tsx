@@ -142,12 +142,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     try {
       const applied = bizKernelService.getAppliedKernels();
+      // Use displayName only as mention value to avoid "/" inside the value string —
+      // "/" is the mention prefix character and including it in values causes AntD Mentions
+      // to mis-parse the inserted text as a new mention trigger, causing text stacking.
       const options = applied.map(k => ({
-        value: `${k.category}/${k.displayName}`,
-        label: `${k.category}/${k.displayName}`,
+        value: k.displayName,
+        label: `${k.category} · ${k.displayName}`,
       }));
       const nameMap: Record<string, string> = {};
-      applied.forEach(k => { nameMap[`${k.category}/${k.displayName}`] = k.name; });
+      applied.forEach(k => { nameMap[k.displayName] = k.name; });
       setKernelMentionOptions(options);
       setKernelNameByValue(nameMap);
     } catch {
@@ -446,7 +449,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               options={kernelMentionOptions}
               onSelect={(option) => {
                 const kernelName = kernelNameByValue[option.value ?? ''];
-                if (kernelName) onKernelSelected?.(kernelName);
+                if (kernelName) {
+                  onKernelSelected?.(kernelName);
+                  // Clear the mention text from input — the "/" operator acts as a
+                  // command trigger, not inline text. Leaving it causes stacking on
+                  // repeated selections.
+                  form.setFieldsValue({ message: '' });
+                  if (setInitialMessage) setInitialMessage('');
+                }
               }}
               placeholder={placeholderText}
               disabled={isAnalyzing || isInitializing}

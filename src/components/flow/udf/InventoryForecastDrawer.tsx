@@ -107,6 +107,7 @@ const DEFAULT_CONFIG: InventoryForecastConfig = {
   granularity: 'day',
   predictSteps: 7,
   predictionMode: 'ensemble',
+  trendThreshold: 0.08,
 };
 
 /** Step ranges per granularity */
@@ -172,6 +173,7 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [predictSteps, setPredictSteps] = useState<number>(7);
   const [predictionMode, setPredictionMode] = useState<PredictionMode>('ensemble');
+  const [trendThreshold, setTrendThreshold] = useState<number>(0.08);
 
   // Restore / reset when drawer opens
   useEffect(() => {
@@ -183,6 +185,7 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
     setGranularity(cfg.granularity);
     setPredictSteps(cfg.predictSteps);
     setPredictionMode(cfg.predictionMode);
+    setTrendThreshold(cfg.trendThreshold ?? 0.08);
   }, [open, initialConfig]);
 
   // When granularity changes, reset predictSteps to sensible default and
@@ -202,7 +205,7 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
       void messageApi.warning('请选择 SKU / 商品列、时间列、需求量列');
       return;
     }
-    onConfirm({ skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode });
+    onConfirm({ skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode, trendThreshold });
   }, [skuCol, timeCol, demandCol, granularity, predictSteps, predictionMode, onConfirm, messageApi]);
 
   const colOptions = useMemo(
@@ -431,7 +434,29 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
           </div>
         </Section>
 
-        {/* ---- Section 3: Tips (collapsible) ---- */}
+        {/* ---- Section 3: Trend sensitivity (above tips) ---- */}
+        <Section icon={<InfoCircleOutlined />} title="趋势灵敏度">
+          <div style={rowStyle}>
+            <span style={{ ...labelStyle, width: 96 }}>上升/下降阈值</span>
+            <Radio.Group
+              value={trendThreshold}
+              onChange={(e) => setTrendThreshold(e.target.value as number)}
+              size="small"
+            >
+              {([0.05, 0.08, 0.10, 0.15, 0.20] as const).map((v) => (
+                <Radio.Button key={v} value={v}>
+                  {`${Math.round(v * 100)}%`}{v === 0.08 ? '（默认）' : ''}
+                </Radio.Button>
+              ))}
+            </Radio.Group>
+          </div>
+          <Text style={{ fontSize: 11, color: TOKEN.textMuted }}>
+            前后半段均值变化超过该阈值时，判定为上升↑或下降↓趋势；
+            值越小，趋势判断越敏感。
+          </Text>
+        </Section>
+
+        {/* ---- Section 4: Tips (collapsible) ---- */}
         <Collapse
           ghost
           size="small"

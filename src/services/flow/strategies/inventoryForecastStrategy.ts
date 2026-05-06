@@ -299,15 +299,17 @@ export class InventoryForecastStrategy extends BaseStrategy {
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
     const rawRows = (queryResult.data as AggRow[]) ?? [];
 
-    // Trend: compare avg of first half vs second half of step predictions (8% threshold)
+    // Trend: compare avg of first half vs second half of step predictions.
+    // Uses user-configured trendThreshold (default 8%).
+    const threshold = this._lastConfig?.trendThreshold ?? 0.08;
     const calcTrend = (steps: number[]): '↑ 上升' | '→ 平稳' | '↓ 下降' => {
       if (steps.length < 2) return '→ 平稳';
       const mid = Math.floor(steps.length / 2);
       const firstAvg = steps.slice(0, mid).reduce((s, v) => s + v, 0) / mid;
       const secondAvg = steps.slice(mid).reduce((s, v) => s + v, 0) / (steps.length - mid);
       const rate = firstAvg > 0 ? (secondAvg - firstAvg) / firstAvg : 0;
-      if (rate > 0.08) return '↑ 上升';
-      if (rate < -0.08) return '↓ 下降';
+      if (rate > threshold) return '↑ 上升';
+      if (rate < -threshold) return '↓ 下降';
       return '→ 平稳';
     };
 
@@ -456,15 +458,20 @@ export class InventoryForecastStrategy extends BaseStrategy {
 
     // Success SKU rows — use English keys for column headers
     // Clamp all demand values to 0: regression may produce negative extrapolations
-    const successTableRows: Record<string, unknown>[] = skuSummaries.map((sku) => ({
-      sku_id: sku.skuId,
-      forecast_periods: sku.predictSteps,
-      avg_demand: Math.max(0, Math.round(sku.avgPrediction)),
-      total_demand: Math.max(0, Math.round(sku.totalPrediction)),
-      safety_stock: Math.max(0, Math.ceil(sku.totalPrediction * 1.2)),
-      trend: calcTrend(sku.stepPredictions),
-      status: sku.totalPrediction <= 0 ? '⚠️ 需求趋零' : '✓ Success',
-    }));
+    const successTableRows: Record<string, unknown>[] = skuSummaries.map((sku) => {
+      const isZeroDemand = sku.totalPrediction <= 0;
+      const trendLabel = calcTrend(sku.stepPredictions);
+      return {
+        sku_id: sku.skuId,
+        forecast_periods: sku.predictSteps,
+        avg_demand: Math.max(0, Math.round(sku.avgPrediction)),
+        total_demand: Math.max(0, Math.round(sku.totalPrediction)),
+        safety_stock: Math.max(0, Math.ceil(sku.totalPrediction * 1.2)),
+        // Append zero-demand hint to trend column — business-visible without extra column
+        trend: isZeroDemand ? `${trendLabel}/需求趋零` : trendLabel,
+        status: '✓ Success',
+      };
+    });
 
     // Failed SKU rows — one row per unique SKU, reason from first occurrence
     const failedTableRows: Record<string, unknown>[] = Array.from(
@@ -499,7 +506,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
         avg_demand: `${periodLabel}均需求（件）— 每${periodLabel}平均预测需求量，单位：${periodLabelEn}`,
         total_demand: `预测总需求（件）— 全部 ${periodLabel} 预测期的需求总量`,
         safety_stock: `建议备货量（件）— 预测总需求 × 1.2 安全系数，建议采购数量`,
-        trend: `需求趋势 — 比较前后半段均值：↑上升 / →平稳 / ↓下降（变化率 > 8%）`,
+        trend: `需求趋势 — 比较前后半段均值：↑上升 / →平稳 / ↓下降（变化率 > ${Math.round(threshold * 100)}%）；若追加"需求趋零"表示预测需求降至零附近，建议暂停备货`,
         status: `预测状态 — ✓ 成功 / ✗ 失败原因`,
       },
     };
@@ -523,7 +530,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
    * can access predictSteps and predictionMode without the strategy interface
    * needing to change.
    */
-  private _lastConfig: Pick<InventoryForecastConfig, 'predictSteps' | 'predictionMode' | 'granularity'> | null = null;
+  private _lastConfig: Pick<InventoryForecastConfig, 'predictSteps' | 'predictionMode' | 'granularity' | 'trendThreshold'> | null = null;
 
   /** @override Intercept buildSql to capture the config before delegating. */
   override buildSql(
@@ -539,6 +546,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
         predictSteps: cfg.predictSteps,
         predictionMode: cfg.predictionMode,
         granularity: cfg.granularity,
+        trendThreshold: cfg.trendThreshold,
       };
     }
     return super.buildSql(nodes, edges, placeholderValues);

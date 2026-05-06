@@ -577,6 +577,12 @@ export interface InventoryForecastConfig {
     | 'polynomial_3'
     | 'seasonal_7'
     | 'ensemble';
+  /**
+   * Trend sensitivity threshold (0–1, default 0.08 = 8%).
+   * If second-half avg demand exceeds first-half by > threshold → rising.
+   * If it drops by > threshold → declining.
+   */
+  trendThreshold?: number;
 }
 
 /**
