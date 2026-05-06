@@ -317,84 +317,90 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
           {/* Prediction mode */}
           <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
             <span style={{ ...labelStyle, paddingTop: 4 }}>预测模式</span>
-            <Space direction="vertical" size={4} style={{ flex: 1 }}>
-              {(
-                [
-                  {
-                    value: 'linear' as PredictionMode,
-                    label: '稳定趋势',
-                    desc: '适合平稳增长/下降场景',
-                    disabled: false,
-                  },
-                  {
-                    value: 'polynomial_2' as PredictionMode,
-                    label: '加速增长',
-                    desc: '适合S型曲线、需求加速场景',
-                    disabled: false,
-                  },
-                  {
-                    value: 'polynomial_3' as PredictionMode,
-                    label: '复杂曲线',
-                    desc: '适合非线性饱和场景',
-                    disabled: false,
-                  },
-                  {
-                    value: 'seasonal_7' as PredictionMode,
-                    label: '周期波动',
-                    desc: '日粒度专用，周期=7天',
-                    disabled: granularity !== 'day',
-                    disabledTip: '仅在时间粒度为"日"时可用',
-                  },
-                  {
-                    value: 'ensemble' as PredictionMode,
-                    label: '智能集成（推荐）',
-                    desc: '生产环境首选，自动融合多种模型',
-                    disabled: false,
-                  },
-                ] as Array<{
-                  value: PredictionMode;
-                  label: string;
-                  desc: string;
-                  disabled: boolean;
-                  disabledTip?: string;
-                }>
-              ).map(({ value, label, desc, disabled, disabledTip }) => {
-                const radio = (
-                  <Radio
-                    key={value}
-                    value={value}
-                    disabled={disabled}
-                    style={{
-                      color: disabled
-                        ? 'var(--vm-text-disabled)'
-                        : TOKEN.textPrimary,
-                      fontSize: 12,
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <span style={{ fontWeight: predictionMode === value ? 600 : 400 }}>
-                      {label}
-                    </span>
-                    <span
+            <Radio.Group
+              value={predictionMode}
+              onChange={(e) => setPredictionMode(e.target.value as PredictionMode)}
+              style={{ flex: 1 }}
+            >
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                {(
+                  [
+                    {
+                      value: 'linear' as PredictionMode,
+                      label: '稳定趋势',
+                      desc: '适合平稳增长/下降场景',
+                      disabled: false,
+                    },
+                    {
+                      value: 'polynomial_2' as PredictionMode,
+                      label: '加速增长',
+                      desc: '适合S型曲线、需求加速场景',
+                      disabled: false,
+                    },
+                    {
+                      value: 'polynomial_3' as PredictionMode,
+                      label: '复杂曲线',
+                      desc: '适合非线性饱和场景',
+                      disabled: false,
+                    },
+                    {
+                      value: 'seasonal_7' as PredictionMode,
+                      label: '周期波动',
+                      desc: '日粒度专用，周期=7天',
+                      disabled: granularity !== 'day',
+                      disabledTip: '仅在时间粒度为"日"时可用',
+                    },
+                    {
+                      value: 'ensemble' as PredictionMode,
+                      label: '智能集成（推荐）',
+                      desc: '生产环境首选，自动融合多种模型',
+                      disabled: false,
+                    },
+                  ] as Array<{
+                    value: PredictionMode;
+                    label: string;
+                    desc: string;
+                    disabled: boolean;
+                    disabledTip?: string;
+                  }>
+                ).map(({ value, label, desc, disabled, disabledTip }) => {
+                  const radio = (
+                    <Radio
+                      key={value}
+                      value={value}
+                      disabled={disabled}
                       style={{
-                        fontSize: 11,
-                        color: disabled ? 'var(--vm-text-disabled)' : TOKEN.textMuted,
-                        marginLeft: 4,
+                        color: disabled
+                          ? 'var(--vm-text-disabled)'
+                          : TOKEN.textPrimary,
+                        fontSize: 12,
+                        alignItems: 'flex-start',
                       }}
                     >
-                      — {desc}
-                    </span>
-                  </Radio>
-                );
-                return disabled && disabledTip ? (
-                  <Tooltip key={value} title={disabledTip} placement="right">
-                    {radio}
-                  </Tooltip>
-                ) : (
-                  <React.Fragment key={value}>{radio}</React.Fragment>
-                );
-              })}
-            </Space>
+                      <span style={{ fontWeight: predictionMode === value ? 600 : 400 }}>
+                        {label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: disabled ? 'var(--vm-text-disabled)' : TOKEN.textMuted,
+                          marginLeft: 4,
+                        }}
+                      >
+                        — {desc}
+                      </span>
+                    </Radio>
+                  );
+                  return disabled && disabledTip ? (
+                    <Tooltip key={value} title={disabledTip} placement="right">
+                      {radio}
+                    </Tooltip>
+                  ) : (
+                    <React.Fragment key={value}>{radio}</React.Fragment>
+                  );
+                })}
+              </Space>
+            </Radio.Group>
           </div>
         </Section>
 

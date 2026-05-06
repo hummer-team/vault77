@@ -17,11 +17,13 @@ import { BaseStrategy } from '../strategies';
 import {
   FlowNodeType,
   OperatorType,
+  ValidationSeverity,
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
   type OperatorInsightsData,
   type InventoryForecastConfig,
+  type ValidationError,
 } from '../types';
 
 // ============================================================================
@@ -185,6 +187,36 @@ export class InventoryForecastStrategy extends BaseStrategy {
   }
 
   private wasmInitialized = false;
+
+  /**
+   * Validates operator-specific configuration: skuCol, timeCol, demandCol must
+   * be non-empty and predictSteps must be ≥ 1.
+   */
+  protected override validateOperatorSpecific(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
+    const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
+    const cfg = (selectNode?.data as { inventoryForecastConfig?: InventoryForecastConfig } | undefined)
+      ?.inventoryForecastConfig;
+
+    if (!cfg) return [];
+
+    const errors: ValidationError[] = [];
+    const nodeId = selectNode?.id ?? 'select';
+
+    if (!cfg.skuCol) {
+      errors.push({ nodeId, nodeType: FlowNodeType.SELECT, severity: ValidationSeverity.ERROR, message: 'inventory forecast config: skuCol is required' });
+    }
+    if (!cfg.timeCol) {
+      errors.push({ nodeId, nodeType: FlowNodeType.SELECT, severity: ValidationSeverity.ERROR, message: 'inventory forecast config: timeCol is required' });
+    }
+    if (!cfg.demandCol) {
+      errors.push({ nodeId, nodeType: FlowNodeType.SELECT, severity: ValidationSeverity.ERROR, message: 'inventory forecast config: demandCol is required' });
+    }
+    if (cfg.predictSteps < 1) {
+      errors.push({ nodeId, nodeType: FlowNodeType.SELECT, severity: ValidationSeverity.ERROR, message: 'inventory forecast config: predictSteps must be ≥ 1' });
+    }
+
+    return errors;
+  }
 
   /**
    * Ensure Wasm module is initialized (idempotent).
