@@ -387,6 +387,12 @@ export interface ArbitrageAnalyzeDrawerProps {
   open: boolean;
   columns: string[];
   initialConfig?: ArbitrageAnalyzeConfig;
+  /** Kernel display name for dynamic title (falls back to '价格套利分析') */
+  kernelDisplayName?: string;
+  /** Kernel industry label for dynamic subtitle (falls back to '电商/订单') */
+  kernelIndustry?: string;
+  /** Kernel category label for dynamic subtitle (falls back to '风险风控') */
+  kernelCategory?: string;
   onConfirm: (config: ArbitrageAnalyzeConfig) => void;
   onCancel: () => void;
 }
@@ -399,6 +405,9 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
   open,
   columns,
   initialConfig,
+  kernelDisplayName,
+  kernelIndustry,
+  kernelCategory,
   onConfirm,
   onCancel,
 }) => {
@@ -565,10 +574,12 @@ export const ArbitrageAnalyzeDrawer: React.FC<ArbitrageAnalyzeDrawerProps> = ({
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--vm-text-primary)' }}>
-                价格套利分析
+                {kernelDisplayName ?? '价格套利分析'}
               </div>
               <div style={{ fontSize: 11, color: TOKEN.textMuted, fontWeight: 400 }}>
-                电商/订单 · 风险风控
+                {kernelIndustry && kernelCategory
+                  ? `${kernelIndustry} · ${kernelCategory}`
+                  : '电商/订单 · 风险风控'}
               </div>
             </div>
           </div>

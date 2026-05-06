@@ -24,8 +24,8 @@ import {
   DatabaseOutlined,
   SettingOutlined,
   BulbOutlined,
-  CloseOutlined,
   InfoCircleOutlined,
+  FundOutlined,
 } from '@ant-design/icons';
 import type { InventoryForecastConfig } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
@@ -42,6 +42,12 @@ export interface InventoryForecastDrawerProps {
   columns: string[];
   /** Pre-existing config to restore when reopening */
   initialConfig?: InventoryForecastConfig;
+  /** Kernel display name for dynamic title (falls back to '库存需求预测') */
+  kernelDisplayName?: string;
+  /** Kernel industry label for dynamic subtitle */
+  kernelIndustry?: string;
+  /** Kernel category label for dynamic subtitle */
+  kernelCategory?: string;
   onConfirm: (config: InventoryForecastConfig) => void;
   onCancel: () => void;
 }
@@ -152,6 +158,9 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
   open,
   columns,
   initialConfig,
+  kernelDisplayName,
+  kernelIndustry,
+  kernelCategory,
   onConfirm,
   onCancel,
 }) => {
@@ -206,14 +215,32 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
       {contextHolder}
       <Drawer
         title={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ color: TOKEN.textPrimary, fontSize: 14, fontWeight: 600 }}>
-              库存需求预测
-            </span>
-            <CloseOutlined
-              onClick={onCancel}
-              style={{ color: TOKEN.textMuted, cursor: 'pointer', fontSize: 14 }}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 7,
+                background: 'var(--vm-primary-light)',
+                border: '1px solid var(--vm-primary-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <FundOutlined style={{ color: TOKEN.primary, fontSize: 14 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--vm-text-primary)' }}>
+                {kernelDisplayName ?? '库存需求预测'}
+              </div>
+              <div style={{ fontSize: 11, color: TOKEN.textMuted, fontWeight: 400 }}>
+                {kernelIndustry && kernelCategory
+                  ? `${kernelIndustry} · ${kernelCategory}`
+                  : '电商/商品 · 经营决策'}
+              </div>
+            </div>
           </div>
         }
         open={open}

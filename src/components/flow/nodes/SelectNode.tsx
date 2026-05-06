@@ -525,6 +525,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     {/* UDF Drawers — rendered based on udfFunctionName routing */}
     {shouldRenderUdfDrawer(data.udfFunctionName) && (() => {
       const panelType = resolveSelectNodePanelType(data.udfFunctionName);
+      // Lookup kernel metadata for dynamic title/subtitle in UDF Drawers
+      const kernelMeta = data.udfFunctionName
+        ? bizKernelService.getKernelByName(data.udfFunctionName)
+        : undefined;
       switch (panelType) {
         case SelectNodePanelType.REPLACE_COLUMN_DRAWER:
           return (
@@ -618,6 +622,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               open={udfDrawerOpen}
               columns={columnNames}
               initialConfig={data.arbitrageAnalyzeConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
               onConfirm={handleArbitrageAnalyzeConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
@@ -628,6 +635,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               open={udfDrawerOpen}
               columns={columnNames}
               initialConfig={data.inventoryForecastConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
               onConfirm={handleInventoryForecastConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
