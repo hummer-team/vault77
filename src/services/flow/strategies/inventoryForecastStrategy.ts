@@ -1,0 +1,455 @@
+/**
+ * InventoryForecastStrategy
+ *
+ * Builds DuckDB aggregation SQL for fn_ecom_inventory_forecast (库存需求预测).
+ * Calls predict_inventory_demand_batch() Wasm API in postProcess.
+ *
+ * Data flow:
+ *   buildOperatorSql → DuckDB: GROUP BY skuCol + date_trunc(granularity, timeCol),
+ *                               SUM(demandCol), ROW_NUMBER()-1 AS time_index
+ *   postProcess      → Arrow IPC serialization → predict_inventory_demand_batch()
+ *                    → parse results → TOP5 InsightItems + full detail table
+ */
+
+import init, { predict_inventory_demand_batch } from '../../../../wasm/fast_insight_engine.js';
+import * as arrow from 'apache-arrow';
+import { BaseStrategy } from '../strategies';
+import {
+  FlowNodeType,
+  OperatorType,
+  type FlowNode,
+  type FlowEdge,
+  type AnalysisResult,
+  type OperatorInsightsData,
+  type InventoryForecastConfig,
+} from '../types';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/** A single row of the aggregated DuckDB result */
+interface AggRow {
+  sku_id: string;
+  time_index: number;
+  demand: number;
+}
+
+/** A successfully predicted SKU row from Wasm */
+interface ForecastSuccessRow {
+  sku_id: string;
+  step_index: number;
+  prediction: number;
+  error_code: null | string;
+  error_message: null | string;
+}
+
+/** A failed SKU row from Wasm */
+interface ForecastErrorRow {
+  sku_id: string;
+  step_index: number | null;
+  prediction: number | null;
+  error_code: string;
+  error_message: string;
+}
+
+type ForecastRow = ForecastSuccessRow | ForecastErrorRow;
+
+/** Per-SKU aggregated prediction metrics */
+interface SkuForecastSummary {
+  skuId: string;
+  totalPrediction: number;
+  predictSteps: number;
+  avgPrediction: number;
+}
+
+// ============================================================================
+// Arrow IPC helpers
+// ============================================================================
+
+/**
+ * Serialize aggregated DuckDB rows into Arrow IPC format expected by Wasm.
+ *
+ * Arrow schema: sku_id (Utf8), time_index (Float64), demand (Float64)
+ *
+ * @param rows - Aggregated rows from DuckDB query
+ * @returns Arrow IPC Stream bytes
+ */
+function serializeToArrowIPC(rows: AggRow[]): Uint8Array {
+  const skuIds: string[] = [];
+  const timeIndexes: number[] = [];
+  const demands: number[] = [];
+
+  for (const row of rows) {
+    skuIds.push(String(row.sku_id ?? ''));
+    timeIndexes.push(Number(row.time_index ?? 0));
+    demands.push(Number(row.demand ?? 0));
+  }
+
+  const skuIdBuilder = new arrow.Utf8Builder({ type: new arrow.Utf8() });
+  const timeIdxBuilder = new arrow.Float64Builder({ type: new arrow.Float64() });
+  const demandBuilder = new arrow.Float64Builder({ type: new arrow.Float64() });
+
+  for (let i = 0; i < rows.length; i++) {
+    skuIdBuilder.append(skuIds[i]);
+    timeIdxBuilder.append(timeIndexes[i]);
+    demandBuilder.append(demands[i]);
+  }
+
+  const skuIdVec = skuIdBuilder.finish().toVector();
+  const timeIdxVec = timeIdxBuilder.finish().toVector();
+  const demandVec = demandBuilder.finish().toVector();
+
+  const fields = [
+    new arrow.Field('sku_id', new arrow.Utf8(), false),
+    new arrow.Field('time_index', new arrow.Float64(), false),
+    new arrow.Field('demand', new arrow.Float64(), false),
+  ];
+  const schema = new arrow.Schema(fields);
+
+  const children = [
+    skuIdVec.data[0],
+    timeIdxVec.data[0],
+    demandVec.data[0],
+  ];
+  const structData = new arrow.Data(
+    new arrow.Struct(fields),
+    0,
+    rows.length,
+    0,
+    undefined,
+    children
+  );
+  const recordBatch = new arrow.RecordBatch(schema, structData);
+
+  const writer = arrow.RecordBatchStreamWriter.writeAll([recordBatch]);
+  // RecordBatchStreamWriter.writeAll returns a RecordBatchWriter (sync)
+  return new Uint8Array(writer.toUint8Array() as unknown as Uint8Array);
+}
+
+/**
+ * Deserialize Arrow IPC bytes returned from predict_inventory_demand_batch.
+ *
+ * Expected output schema:
+ *   sku_id (Utf8), step_index (Int32?), prediction (Float64?),
+ *   error_code (Utf8?), error_message (Utf8?)
+ *
+ * @param bytes - Raw Wasm output in Arrow IPC format
+ * @returns Array of ForecastRow (success + error rows mixed)
+ */
+function deserializeFromArrowIPC(bytes: Uint8Array): ForecastRow[] {
+  const table = arrow.tableFromIPC(bytes);
+
+  const skuIdCol = table.getChild('sku_id');
+  const stepIdxCol = table.getChild('step_index');
+  const predictionCol = table.getChild('prediction');
+  const errorCodeCol = table.getChild('error_code');
+  const errorMsgCol = table.getChild('error_message');
+
+  if (!skuIdCol) {
+    throw new Error('[InventoryForecastStrategy] Missing sku_id column in Wasm output');
+  }
+
+  const rowCount = table.numRows;
+  const rows: ForecastRow[] = [];
+
+  for (let i = 0; i < rowCount; i++) {
+    const skuId = String(skuIdCol.get(i) ?? '');
+    const stepIdx = stepIdxCol ? (stepIdxCol.get(i) as number | null) : null;
+    const prediction = predictionCol ? (predictionCol.get(i) as number | null) : null;
+    const errorCode = errorCodeCol ? (errorCodeCol.get(i) as string | null) : null;
+    const errorMsg = errorMsgCol ? (errorMsgCol.get(i) as string | null) : null;
+
+    rows.push({
+      sku_id: skuId,
+      step_index: stepIdx as number,
+      prediction: prediction as number,
+      error_code: errorCode as string,
+      error_message: errorMsg as string,
+    });
+  }
+
+  return rows;
+}
+
+// ============================================================================
+// Strategy class
+// ============================================================================
+
+export class InventoryForecastStrategy extends BaseStrategy {
+  readonly type = OperatorType.INVENTORY_FORECAST;
+  readonly name = '库存需求预测';
+
+  getRequiredNodes(): FlowNodeType[] {
+    return [FlowNodeType.TABLE];
+  }
+
+  private wasmInitialized = false;
+
+  /**
+   * Ensure Wasm module is initialized (idempotent).
+   */
+  private async ensureWasm(): Promise<void> {
+    if (!this.wasmInitialized) {
+      await init();
+      this.wasmInitialized = true;
+    }
+  }
+
+  /**
+   * Build DuckDB aggregation SQL.
+   *
+   * Groups raw data by SKU + time period, sums demand, and assigns sequential
+   * time_index values (0, 1, 2, …) within each SKU partition.
+   *
+   * @param nodes   - All canvas nodes
+   * @param _edges  - Canvas edges (unused)
+   * @param _ph     - Placeholder values (unused)
+   * @param userWhere - Optional WHERE clause injected from condition nodes
+   * @returns DuckDB SQL string
+   */
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _ph: Record<string, unknown> | undefined,
+    userWhere: string
+  ): string {
+    const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
+    const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
+
+    const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
+    const cfg = (selectNode?.data as { inventoryForecastConfig?: InventoryForecastConfig } | undefined)
+      ?.inventoryForecastConfig;
+
+    if (!cfg || !tableName) {
+      console.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
+      return `SELECT *\nFROM "${tableName}"`;
+    }
+
+    const { skuCol, timeCol, demandCol, granularity } = cfg;
+    const wherePart = userWhere ? `\n  WHERE ${userWhere.replace(/^WHERE\s+/i, '')}` : '';
+    const timeTrunc = `date_trunc('${granularity}', "${timeCol}"::TIMESTAMP)`;
+
+    const sql = [
+      `SELECT`,
+      `  "${skuCol}" AS sku_id,`,
+      `  (ROW_NUMBER() OVER (`,
+      `    PARTITION BY "${skuCol}"`,
+      `    ORDER BY ${timeTrunc}`,
+      `  ) - 1)::DOUBLE AS time_index,`,
+      `  SUM("${demandCol}")::DOUBLE AS demand`,
+      `FROM "${tableName}"${wherePart}`,
+      `GROUP BY "${skuCol}", ${timeTrunc}`,
+      `ORDER BY "${skuCol}", ${timeTrunc}`,
+    ].join('\n');
+
+    console.log(`[${this.name}.buildOperatorSql] granularity=${granularity} sql=\n${sql}`);
+    return sql;
+  }
+
+  /**
+   * Call Wasm prediction API and build AnalysisResult.
+   *
+   * Steps:
+   *   1. Serialize DuckDB rows to Arrow IPC
+   *   2. Call predict_inventory_demand_batch()
+   *   3. Parse results → success rows + error rows
+   *   4. Aggregate by SKU: score = SUM(prediction)
+   *   5. Build TOP5 InsightItems (by score DESC)
+   *   6. Build InsightSummary
+   *   7. Return AnalysisResult
+   *
+   * @param queryResult - Raw DuckDB query result
+   * @returns AnalysisResult with insightsData and full forecast detail table
+   */
+  async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
+    const rawRows = (queryResult.data as AggRow[]) ?? [];
+
+    // ---- Early-exit: no data -----------------------------------------------
+    if (rawRows.length === 0) {
+      return this.buildEmptyResult(queryResult);
+    }
+
+    // ---- Step 1: Serialize → Wasm ------------------------------------------
+    let forecastRows: ForecastRow[];
+    try {
+      await this.ensureWasm();
+
+      const inputBytes = serializeToArrowIPC(rawRows);
+      console.log(`[${this.name}.postProcess] Calling predict_inventory_demand_batch: rows=${rawRows.length}`);
+
+      const { predictSteps, predictionMode } = this._lastConfig ?? {
+        predictSteps: 7,
+        predictionMode: 'ensemble' as const,
+      };
+
+      const resultBytes = await predict_inventory_demand_batch(
+        inputBytes,
+        predictSteps,
+        predictionMode,
+        'standard',
+        0.0
+      );
+
+      forecastRows = deserializeFromArrowIPC(resultBytes);
+      console.log(`[${this.name}.postProcess] Wasm returned ${forecastRows.length} rows`);
+    } catch (err) {
+      console.error(`[${this.name}.postProcess] Wasm call failed`, err);
+      return this.buildErrorResult(queryResult, err instanceof Error ? err.message : String(err));
+    }
+
+    // ---- Step 2: Separate success / error rows ------------------------------
+    const successRows = forecastRows.filter((r) => !r.error_code);
+    const errorRows = forecastRows.filter((r) => !!r.error_code);
+
+    // ---- Step 3: Per-SKU aggregation ----------------------------------------
+    const skuMap = new Map<string, { total: number; count: number }>();
+    for (const row of successRows) {
+      const cur = skuMap.get(row.sku_id) ?? { total: 0, count: 0 };
+      cur.total += row.prediction ?? 0;
+      cur.count += 1;
+      skuMap.set(row.sku_id, cur);
+    }
+
+    const skuSummaries: SkuForecastSummary[] = Array.from(skuMap.entries())
+      .map(([skuId, { total, count }]) => ({
+        skuId,
+        totalPrediction: total,
+        predictSteps: count,
+        avgPrediction: count > 0 ? total / count : 0,
+      }))
+      .sort((a, b) => b.totalPrediction - a.totalPrediction);
+
+    const top5 = skuSummaries.slice(0, 5);
+    const peakSku = skuSummaries[0]?.skuId ?? null;
+    const failedSkuIds = new Set(errorRows.map((r) => r.sku_id));
+
+    // ---- Step 4: Build InsightItems -----------------------------------------
+    const insights = top5.map((sku, idx) => ({
+      id: `forecast-sku-${idx + 1}`,
+      cardType: 'custom' as const,
+      iconKey: 'order' as const,
+      title: `SKU: ${sku.skuId}`,
+      sortOrder: idx + 1,
+      description: `预测总需求 ${sku.totalPrediction.toFixed(1)}，预测步数 ${sku.predictSteps}`,
+      metrics: [
+        { label: '总预测量', value: Math.round(sku.totalPrediction), unit: '件', highlight: idx === 0 },
+        { label: '预测步数', value: sku.predictSteps, unit: '步' },
+        { label: '平均单步预测', value: Math.round(sku.avgPrediction * 100) / 100, unit: '件/步' },
+      ],
+    }));
+
+    // ---- Step 5: Build summary ----------------------------------------------
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: forecastRows.length,
+        totalFilterRecordCount: successRows.length,
+        forecastSkuCount: skuMap.size + failedSkuIds.size,
+        failedSkuCount: failedSkuIds.size,
+        peakForecastSku: peakSku ?? undefined,
+      },
+      insights,
+    };
+
+    // ---- Step 6: Build table display config ----------------------------------
+    const displayConfig: import('../types').OperatorDisplayConfig = {
+      columnTooltips: {
+        sku_id: 'SKU / 产品编号',
+        step_index: '预测步骤序号（从 0 开始）',
+        prediction: '该步骤的预测需求量',
+        error_code: '预测失败错误码（成功行为空）',
+        error_message: '错误说明（成功行为空）',
+      },
+    };
+
+    return {
+      type: this.type,
+      sql: '',
+      data: forecastRows as unknown as Record<string, unknown>[],
+      schema: queryResult.schema as { name: string; type: string }[],
+      insightsData,
+      displayConfig,
+    };
+  }
+
+  // ============================================================================
+  // Private helpers
+  // ============================================================================
+
+  /**
+   * Stores the config from the most recent buildOperatorSql call so postProcess
+   * can access predictSteps and predictionMode without the strategy interface
+   * needing to change.
+   */
+  private _lastConfig: Pick<InventoryForecastConfig, 'predictSteps' | 'predictionMode'> | null = null;
+
+  /** @override Intercept buildSql to capture the config before delegating. */
+  override buildSql(
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    placeholderValues?: Record<string, unknown>
+  ): string {
+    const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
+    const cfg = (selectNode?.data as { inventoryForecastConfig?: InventoryForecastConfig } | undefined)
+      ?.inventoryForecastConfig;
+    if (cfg) {
+      this._lastConfig = { predictSteps: cfg.predictSteps, predictionMode: cfg.predictionMode };
+    }
+    return super.buildSql(nodes, edges, placeholderValues);
+  }
+
+  private buildEmptyResult(queryResult: { data: unknown[]; schema: unknown[] }): AnalysisResult {
+    return {
+      type: this.type,
+      sql: '',
+      data: [],
+      schema: queryResult.schema as { name: string; type: string }[],
+      insightsData: {
+        summary: {
+          totalRecordCount: 0,
+          totalFilterRecordCount: 0,
+          forecastSkuCount: 0,
+          failedSkuCount: 0,
+        },
+        insights: [{
+          id: 'forecast-empty',
+          cardType: 'custom' as const,
+          iconKey: 'order' as const,
+          title: '暂无数据',
+          sortOrder: 1,
+          description: '未找到符合条件的历史需求记录，请检查数据和字段配置',
+          metrics: [],
+        }],
+      },
+    };
+  }
+
+  private buildErrorResult(
+    queryResult: { data: unknown[]; schema: unknown[] },
+    errorMsg: string
+  ): AnalysisResult {
+    return {
+      type: this.type,
+      sql: '',
+      data: [],
+      schema: queryResult.schema as { name: string; type: string }[],
+      insightsData: {
+        summary: {
+          totalRecordCount: 0,
+          totalFilterRecordCount: 0,
+          forecastSkuCount: 0,
+          failedSkuCount: 0,
+        },
+        insights: [{
+          id: 'forecast-error',
+          cardType: 'custom' as const,
+          iconKey: 'order' as const,
+          title: '预测执行失败',
+          sortOrder: 1,
+          description: `Wasm 调用失败：${errorMsg}`,
+          metrics: [],
+        }],
+      },
+    };
+  }
+}
