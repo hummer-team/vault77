@@ -284,6 +284,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 经营决策 - 库存预测
+  // done
   {
     name: 'fn_ecom_inventory_forecast',
     displayName: '库存预测分析',

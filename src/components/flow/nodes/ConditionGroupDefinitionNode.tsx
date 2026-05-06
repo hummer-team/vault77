@@ -453,8 +453,8 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
             >
               {availableTables.map((tableName) => {
                 const fullFileName = tableToFileName[tableName] || tableName;
-                const displayLabel = fullFileName.length > 10
-                  ? fullFileName.slice(0, 10) + '…'
+                const displayLabel = fullFileName.length > 20
+                  ? fullFileName.slice(0, 20) + '…'
                   : fullFileName;
                 return (
                   <Select.Option key={tableName} value={tableName}>
