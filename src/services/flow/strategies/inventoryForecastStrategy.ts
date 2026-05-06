@@ -409,19 +409,28 @@ export class InventoryForecastStrategy extends BaseStrategy {
 
       insights = top5.map((sku, idx) => {
         const trendLabel = calcTrend(sku.stepPredictions);
-        // Safety stock: recommended procurement = total + 20% buffer
-        const safetyStock = Math.ceil(sku.totalPrediction * 1.2);
+        // Clamp negative predictions to 0: demand cannot be negative in business context.
+        // Negative values come from regression extrapolation when demand trend is declining steeply.
+        const displayAvg = Math.max(0, Math.round(sku.avgPrediction));
+        const displayTotal = Math.max(0, Math.round(sku.totalPrediction));
+        // Safety stock: recommended procurement = total + 20% buffer (min 0)
+        const safetyStock = Math.max(0, Math.ceil(sku.totalPrediction * 1.2));
+        const isZeroDemand = sku.totalPrediction <= 0;
+
+        const description = isZeroDemand
+          ? `未来 ${sku.predictSteps} 个${periodLabel}预测，需求预计趋零，趋势 ${trendLabel}，建议暂停备货`
+          : `未来 ${sku.predictSteps} 个${periodLabel}预测，${periodLabel}均需求 ${displayAvg} 件，趋势 ${trendLabel}`;
 
         return {
           id: `forecast-sku-${idx + 1}`,
           cardType: 'custom' as const,
-          iconKey: 'order' as const,
+          iconKey: isZeroDemand ? ('warning' as const) : ('order' as const),
           title: sku.skuId,
           sortOrder: idx + 1,
-          description: `未来 ${sku.predictSteps} 个${periodLabel}预测，${periodLabel}均需求 ${Math.round(sku.avgPrediction)} 件，趋势 ${trendLabel}`,
+          description,
           metrics: [
-            { label: `${periodLabel}均需求`, value: Math.round(sku.avgPrediction), unit: '件', highlight: idx === 0 },
-            { label: '预测总需求', value: Math.round(sku.totalPrediction), unit: '件' },
+            { label: `${periodLabel}均需求`, value: displayAvg, unit: '件', highlight: idx === 0 },
+            { label: '预测总需求', value: displayTotal, unit: '件' },
             { label: '建议备货量', value: safetyStock, unit: '件' },
           ],
         };
@@ -446,14 +455,15 @@ export class InventoryForecastStrategy extends BaseStrategy {
     const periodLabelEn = granularity === 'month' ? 'Month' : granularity === 'week' ? 'Week' : 'Day';
 
     // Success SKU rows — use English keys for column headers
+    // Clamp all demand values to 0: regression may produce negative extrapolations
     const successTableRows: Record<string, unknown>[] = skuSummaries.map((sku) => ({
       sku_id: sku.skuId,
       forecast_periods: sku.predictSteps,
-      avg_demand: Math.round(sku.avgPrediction),
-      total_demand: Math.round(sku.totalPrediction),
-      safety_stock: Math.ceil(sku.totalPrediction * 1.2),
+      avg_demand: Math.max(0, Math.round(sku.avgPrediction)),
+      total_demand: Math.max(0, Math.round(sku.totalPrediction)),
+      safety_stock: Math.max(0, Math.ceil(sku.totalPrediction * 1.2)),
       trend: calcTrend(sku.stepPredictions),
-      status: '✓ Success',
+      status: sku.totalPrediction <= 0 ? '⚠️ 需求趋零' : '✓ Success',
     }));
 
     // Failed SKU rows — one row per unique SKU, reason from first occurrence
