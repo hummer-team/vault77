@@ -299,6 +299,18 @@ export class InventoryForecastStrategy extends BaseStrategy {
   async postProcess(queryResult: { data: unknown[]; schema: unknown[] }): Promise<AnalysisResult> {
     const rawRows = (queryResult.data as AggRow[]) ?? [];
 
+    // Trend: compare avg of first half vs second half of step predictions (8% threshold)
+    const calcTrend = (steps: number[]): '↑ 上升' | '→ 平稳' | '↓ 下降' => {
+      if (steps.length < 2) return '→ 平稳';
+      const mid = Math.floor(steps.length / 2);
+      const firstAvg = steps.slice(0, mid).reduce((s, v) => s + v, 0) / mid;
+      const secondAvg = steps.slice(mid).reduce((s, v) => s + v, 0) / (steps.length - mid);
+      const rate = firstAvg > 0 ? (secondAvg - firstAvg) / firstAvg : 0;
+      if (rate > 0.08) return '↑ 上升';
+      if (rate < -0.08) return '↓ 下降';
+      return '→ 平稳';
+    };
+
     // ---- Early-exit: no data -----------------------------------------------
     if (rawRows.length === 0) {
       return this.buildEmptyResult(queryResult);
@@ -396,18 +408,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
       const periodLabel = granularity === 'month' ? '月' : granularity === 'week' ? '周' : '日';
 
       insights = top5.map((sku, idx) => {
-        // Trend: compare avg of first half vs second half of step predictions
-        const steps = sku.stepPredictions;
-        let trendLabel = '→ 平稳';
-        if (steps.length >= 2) {
-          const mid = Math.floor(steps.length / 2);
-          const firstHalfAvg = steps.slice(0, mid).reduce((s, v) => s + v, 0) / mid;
-          const secondHalfAvg = steps.slice(mid).reduce((s, v) => s + v, 0) / (steps.length - mid);
-          const changeRate = firstHalfAvg > 0 ? (secondHalfAvg - firstHalfAvg) / firstHalfAvg : 0;
-          if (changeRate > 0.08) trendLabel = '↑ 上升';
-          else if (changeRate < -0.08) trendLabel = '↓ 下降';
-        }
-
+        const trendLabel = calcTrend(sku.stepPredictions);
         // Safety stock: recommended procurement = total + 20% buffer
         const safetyStock = Math.ceil(sku.totalPrediction * 1.2);
 
@@ -439,22 +440,73 @@ export class InventoryForecastStrategy extends BaseStrategy {
       insights,
     };
 
-    // ---- Step 6: Build table display config ----------------------------------
+    // ---- Step 6: Build business-friendly table rows (per-SKU summary) --------
+    const granularity = this._lastConfig?.granularity;
+    const periodLabel = granularity === 'month' ? '月' : granularity === 'week' ? '周' : '日';
+
+    // Success SKU rows
+    const successTableRows: Record<string, unknown>[] = skuSummaries.map((sku) => ({
+      商品编号: sku.skuId,
+      [`预测期数(${periodLabel})`]: sku.predictSteps,
+      [`${periodLabel}均需求(件)`]: Math.round(sku.avgPrediction),
+      预测总需求: Math.round(sku.totalPrediction),
+      建议备货量: Math.ceil(sku.totalPrediction * 1.2),
+      需求趋势: calcTrend(sku.stepPredictions),
+      状态: '✓ 预测成功',
+    }));
+
+    // Failed SKU rows — one row per unique SKU, reason from first occurrence
+    const failedTableRows: Record<string, unknown>[] = Array.from(
+      new Map(errorRows.map((r) => [r.sku_id, r])).values()
+    ).map((r) => ({
+      商品编号: r.sku_id,
+      [`预测期数(${periodLabel})`]: 0,
+      [`${periodLabel}均需求(件)`]: 0,
+      预测总需求: 0,
+      建议备货量: 0,
+      需求趋势: '— 无法预测',
+      状态: `✗ ${r.error_message ?? r.error_code ?? '预测失败'}`,
+    }));
+
+    const businessRows = [...successTableRows, ...failedTableRows];
+
+    const businessSchema: { name: string; type: string }[] = [
+      { name: '商品编号', type: 'VARCHAR' },
+      { name: `预测期数(${periodLabel})`, type: 'INTEGER' },
+      { name: `${periodLabel}均需求(件)`, type: 'INTEGER' },
+      { name: '预测总需求', type: 'INTEGER' },
+      { name: '建议备货量', type: 'INTEGER' },
+      { name: '需求趋势', type: 'VARCHAR' },
+      { name: '状态', type: 'VARCHAR' },
+    ];
+
     const displayConfig: import('../types').OperatorDisplayConfig = {
+      defaultSort: { column: '预测总需求', order: 'descend' },
       columnTooltips: {
-        sku_id: 'SKU / 产品编号',
-        step_index: '预测步骤序号（从 0 开始）',
-        prediction: '该步骤的预测需求量',
-        error_code: '预测失败错误码（成功行为空）',
-        error_message: '错误说明（成功行为空）',
+        商品编号: 'SKU / 产品编号',
+        [`预测期数(${periodLabel})`]: `预测覆盖的${periodLabel}数`,
+        [`${periodLabel}均需求(件)`]: `每${periodLabel}平均预测需求量`,
+        预测总需求: '全部预测期的需求总量（件）',
+        建议备货量: '预测总需求 × 1.2 安全系数，建议采购数量',
+        需求趋势: '比较前后半段均值：↑ 上升 / → 平稳 / ↓ 下降（变化率 > 8%）',
+        状态: '✓ 预测成功 / ✗ 失败原因',
+      },
+      rowColorizer: {
+        field: '需求趋势',
+        colorMap: {
+          '↑ 上升': { bg: 'rgba(82,196,26,0.08)', badgeColor: '#52c41a' },
+          '→ 平稳': { bg: 'rgba(250,173,20,0.08)', badgeColor: '#faad14' },
+          '↓ 下降': { bg: 'rgba(255,77,79,0.08)', badgeColor: '#ff4d4f' },
+          '— 无法预测': { bg: 'rgba(140,140,140,0.08)', badgeColor: '#8c8c8c' },
+        },
       },
     };
 
     return {
       type: this.type,
       sql: '',
-      data: forecastRows as unknown as Record<string, unknown>[],
-      schema: queryResult.schema as { name: string; type: string }[],
+      data: businessRows,
+      schema: businessSchema,
       insightsData,
       displayConfig,
     };
