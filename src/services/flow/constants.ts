@@ -266,8 +266,8 @@ export const SQL_OPERATORS = {
     { value: '<=', label: '小于等于' },
   ],
   string: [
-    { value: 'LIKE', label: '包含' },
-    { value: 'NOT LIKE', label: '不包含' },
+    { value: 'LIKE', label: '模糊匹配' },
+    { value: 'NOT LIKE', label: '不匹配' },
     { value: 'STARTS WITH', label: '开头是' },
     { value: 'ENDS WITH', label: '结尾是' },
   ],
@@ -278,6 +278,10 @@ export const SQL_OPERATORS = {
   set: [
     { value: 'IN', label: '在列表中' },
     { value: 'NOT IN', label: '不在列表中' },
+  ],
+  range: [
+    { value: 'BETWEEN', label: '介于' },
+    { value: 'NOT BETWEEN', label: '不介于' },
   ],
 };
 
@@ -302,6 +306,7 @@ export function getOperatorsByFieldType(fieldType: FieldType | string | undefine
       ...SQL_OPERATORS.string,
       ...SQL_OPERATORS.null,
       ...SQL_OPERATORS.set,
+      ...SQL_OPERATORS.range,
     ];
   }
 
@@ -321,6 +326,7 @@ export function getOperatorsByFieldType(fieldType: FieldType | string | undefine
       ...SQL_OPERATORS.comparison,
       ...SQL_OPERATORS.null,
       ...SQL_OPERATORS.set,
+      ...SQL_OPERATORS.range,
     ];
   }
 
@@ -329,6 +335,7 @@ export function getOperatorsByFieldType(fieldType: FieldType | string | undefine
       ...SQL_OPERATORS.comparison,
       ...SQL_OPERATORS.null,
       ...SQL_OPERATORS.set,
+      ...SQL_OPERATORS.range,
     ];
   }
 

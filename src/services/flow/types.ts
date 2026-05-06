@@ -208,6 +208,9 @@ export interface ConditionGroupRelationNodeData extends BaseNodeData {
  * Condition item within a condition definition node
  * Represents a single condition line with placeholder
  */
+/** Controls how % wildcards are applied when operator is LIKE / NOT LIKE */
+export type LikeMode = 'both' | 'left' | 'right';
+
 export interface ConditionItem {
   id: string;
   field: string;
@@ -215,6 +218,8 @@ export interface ConditionItem {
   placeholder: string; // e.g., "GC1_1", "GC1_2"
   valueType: FieldType;
   value?: string | number | null | string[]; // Actual value filled later
+  /** Wildcard position for LIKE / NOT LIKE operators (default: 'both') */
+  likeMode?: LikeMode;
 }
 
 /**

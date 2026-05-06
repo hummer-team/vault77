@@ -472,8 +472,10 @@ export abstract class BaseStrategy implements FlowStrategy {
    * Operator-specific rules:
    *  - IS NULL / IS NOT NULL  → no value needed, always emits
    *  - IN / NOT IN            → value wrapped in (…); comma-separated strings are split
-   *  - LIKE / NOT LIKE        → scalar string value
-   *  - STARTS WITH / ENDS WITH → scalar string value (DuckDB native operators)
+   *  - LIKE / NOT LIKE        → uses likeMode to position % wildcards (default: both sides)
+   *  - STARTS WITH            → converted to LIKE 'value%' (DuckDB doesn't support STARTS WITH syntax)
+   *  - ENDS WITH              → converted to LIKE '%value' (DuckDB doesn't support ENDS WITH syntax)
+   *  - BETWEEN / NOT BETWEEN  → value parsed as "val1,val2"; emits col BETWEEN val1 AND val2
    *  - comparison operators   → scalar value
    */
   private buildSingleConditionSql(
@@ -514,7 +516,51 @@ export abstract class BaseStrategy implements FlowStrategy {
       return `${colRef} ${op} (${items})`;
     }
 
-    // All other operators — scalar value
+    // BETWEEN / NOT BETWEEN — parse "val1,val2" into range
+    if (op === 'BETWEEN' || op === 'NOT BETWEEN') {
+      const raw = String(Array.isArray(value) ? value[0] : value).trim();
+      const BETWEEN_SPLIT_RE = /[,，;；]+/;
+      const parts = raw.split(BETWEEN_SPLIT_RE).map((v) => v.trim()).filter((v) => v !== '');
+      if (parts.length >= 2) {
+        const v1 = this.escapeSqlValue(parts[0], condition.valueType);
+        const v2 = this.escapeSqlValue(parts[1], condition.valueType);
+        return `${colRef} ${op} ${v1} AND ${v2}`;
+      }
+      // Insufficient parts — skip this condition
+      return '';
+    }
+
+    const strVal = String(Array.isArray(value) ? value[0] : value).trim();
+
+    // STARTS WITH → DuckDB does not support this syntax; rewrite as LIKE 'val%'
+    if (op === 'STARTS WITH') {
+      const escaped = strVal.replace(/'/g, "''");
+      return `${colRef} LIKE '${escaped}%'`;
+    }
+
+    // ENDS WITH → DuckDB does not support this syntax; rewrite as LIKE '%val'
+    if (op === 'ENDS WITH') {
+      const escaped = strVal.replace(/'/g, "''");
+      return `${colRef} LIKE '%${escaped}'`;
+    }
+
+    // LIKE / NOT LIKE — apply wildcard pattern based on likeMode
+    if (op === 'LIKE' || op === 'NOT LIKE') {
+      const escaped = strVal.replace(/'/g, "''");
+      const likeMode = condition.likeMode ?? 'both';
+      let pattern: string;
+      if (likeMode === 'left') {
+        pattern = `%${escaped}`;
+      } else if (likeMode === 'right') {
+        pattern = `${escaped}%`;
+      } else {
+        // 'both' is the default
+        pattern = `%${escaped}%`;
+      }
+      return `${colRef} ${op} '${pattern}'`;
+    }
+
+    // All other comparison operators — scalar value
     const sqlValue = Array.isArray(value)
       ? this.escapeSqlValue(value[0], condition.valueType)
       : this.escapeSqlValue(value, condition.valueType);

@@ -366,3 +366,75 @@ describe('AssociationStrategy - Placeholder Support', () => {
     });
   });
 });
+
+describe('AssociationStrategy - LIKE / STARTS WITH / ENDS WITH / BETWEEN', () => {
+  const strategy = new AssociationStrategy();
+
+  const makeNode = (conditions: Array<Record<string, unknown>>): FlowNode => ({
+    id: 'cg1',
+    type: FlowNodeType.CONDITION_GROUP_DEFINITION,
+    position: { x: 0, y: 0 },
+    data: {
+      refId: 'GC1',
+      tableName: 'products',
+      logicType: LogicType.AND,
+      conditions,
+    },
+  });
+
+  it('LIKE with likeMode=both wraps value with %value%', () => {
+    const node = makeNode([{ id: 'c1', field: 'name', operator: 'LIKE', placeholder: 'GC1_1', valueType: 'VARCHAR', likeMode: 'both' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: 'apple' });
+    expect(sql).toContain(`"products"."name" LIKE '%apple%'`);
+  });
+
+  it('LIKE with likeMode=left wraps value with %value', () => {
+    const node = makeNode([{ id: 'c1', field: 'name', operator: 'LIKE', placeholder: 'GC1_1', valueType: 'VARCHAR', likeMode: 'left' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: 'apple' });
+    expect(sql).toContain(`"products"."name" LIKE '%apple'`);
+  });
+
+  it('LIKE with likeMode=right wraps value with value%', () => {
+    const node = makeNode([{ id: 'c1', field: 'name', operator: 'LIKE', placeholder: 'GC1_1', valueType: 'VARCHAR', likeMode: 'right' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: 'apple' });
+    expect(sql).toContain(`"products"."name" LIKE 'apple%'`);
+  });
+
+  it('LIKE without likeMode defaults to both (%value%)', () => {
+    const node = makeNode([{ id: 'c1', field: 'name', operator: 'LIKE', placeholder: 'GC1_1', valueType: 'VARCHAR' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: 'pear' });
+    expect(sql).toContain(`"products"."name" LIKE '%pear%'`);
+  });
+
+  it('STARTS WITH converts to LIKE col LIKE val%', () => {
+    const node = makeNode([{ id: 'c1', field: 'sku', operator: 'STARTS WITH', placeholder: 'GC1_1', valueType: 'VARCHAR' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: '006' });
+    expect(sql).toContain(`"products"."sku" LIKE '006%'`);
+    expect(sql).not.toContain('STARTS WITH');
+  });
+
+  it('ENDS WITH converts to LIKE %val', () => {
+    const node = makeNode([{ id: 'c1', field: 'sku', operator: 'ENDS WITH', placeholder: 'GC1_1', valueType: 'VARCHAR' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: '_XL' });
+    expect(sql).toContain(`"products"."sku" LIKE '%_XL'`);
+    expect(sql).not.toContain('ENDS WITH');
+  });
+
+  it('BETWEEN emits col BETWEEN val1 AND val2', () => {
+    const node = makeNode([{ id: 'c1', field: 'price', operator: 'BETWEEN', placeholder: 'GC1_1', valueType: 'DECIMAL' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: '10,100' });
+    expect(sql).toContain(`"products"."price" BETWEEN 10 AND 100`);
+  });
+
+  it('NOT BETWEEN emits col NOT BETWEEN val1 AND val2', () => {
+    const node = makeNode([{ id: 'c1', field: 'price', operator: 'NOT BETWEEN', placeholder: 'GC1_1', valueType: 'DECIMAL' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: '10,100' });
+    expect(sql).toContain(`"products"."price" NOT BETWEEN 10 AND 100`);
+  });
+
+  it('BETWEEN with insufficient parts skips the condition', () => {
+    const node = makeNode([{ id: 'c1', field: 'price', operator: 'BETWEEN', placeholder: 'GC1_1', valueType: 'DECIMAL' }]);
+    const sql = strategy.buildSql([node], [], { GC1_1: '10' });
+    expect(sql).not.toContain('BETWEEN');
+  });
+});

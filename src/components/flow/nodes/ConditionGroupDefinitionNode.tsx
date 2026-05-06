@@ -19,11 +19,12 @@ import {
 import { useFlowStore } from '../../../stores/flowStore';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
 import { getAvailableTables, getTableSchema, generatePlaceholderName, validateRefId, isRefIdUnique, generateConditionGroupDefinitionDisplayName, generateConditionValueDisplayName } from '../../../services/flow/flowService';
-import type { ConditionGroupDefinitionNodeData, ConditionItem, Field, FieldType } from '../../../services/flow/types';
+import type { ConditionGroupDefinitionNodeData, ConditionItem, Field, FieldType, LikeMode } from '../../../services/flow/types';
 import { FLOW_COLORS, PLACEHOLDER_CONSTANTS, getOperatorsByFieldType } from '../../../services/flow/constants';
 import { LogicType, FlowNodeType } from '../../../services/flow/types';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useCanvasJoinedTables } from '../hooks/useUpstreamJoinedTables';
+import { useFlowAttachments } from '../contexts/FlowAttachmentsContext';
 import { TOKEN } from '../../../theme';
 
 interface ConditionGroupDefinitionNodeProps {
@@ -49,6 +50,19 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
 
   // Canvas-wide joined tables — recalculates whenever join topology changes
   const canvasJoinedTables = useCanvasJoinedTables();
+  // File attachments for table → filename display mapping
+  const attachments = useFlowAttachments();
+
+  /** Maps DuckDB table name (e.g. main_table_1) → original file name */
+  const tableToFileName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const att of attachments) {
+      if (att.tableName && att.file?.name) {
+        map[att.tableName] = att.file.name;
+      }
+    }
+    return map;
+  }, [attachments]);
 
   const [availableTables, setAvailableTables] = useState<string[]>([]);
   const [tableFields, setTableFields] = useState<Field[]>([]);
@@ -232,6 +246,17 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
     (conditionId: string, operator: string) => {
       const updatedConditions = data.conditions.map((c) =>
         c.id === conditionId ? { ...c, operator } : c
+      );
+      updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
+    },
+    [id, data.conditions, updateNode]
+  );
+
+  // Update LIKE wildcard mode for a condition
+  const handleConditionLikeModeChange = useCallback(
+    (conditionId: string, likeMode: LikeMode) => {
+      const updatedConditions = data.conditions.map((c) =>
+        c.id === conditionId ? { ...c, likeMode } : c
       );
       updateNode(id, { conditions: updatedConditions } as Partial<ConditionGroupDefinitionNodeData>);
     },
@@ -426,11 +451,19 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
               popupClassName="condition-definition-select-dropdown nodrag"
               className="nodrag"
             >
-              {availableTables.map((tableName) => (
-                <Select.Option key={tableName} value={tableName}>
-                  {tableName}
-                </Select.Option>
-              ))}
+              {availableTables.map((tableName) => {
+                const fullFileName = tableToFileName[tableName] || tableName;
+                const displayLabel = fullFileName.length > 10
+                  ? fullFileName.slice(0, 10) + '…'
+                  : fullFileName;
+                return (
+                  <Select.Option key={tableName} value={tableName}>
+                    <Tooltip title={fullFileName} placement="right">
+                      <span>{displayLabel}</span>
+                    </Tooltip>
+                  </Select.Option>
+                );
+              })}
             </Select>
           </div>
         </div>
@@ -442,66 +475,83 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
             className="nodrag nowheel"
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: 8,
+              flexDirection: 'column',
+              gap: 6,
               marginBottom: 8,
               padding: '8px',
               background: TOKEN.bgSection,
               borderRadius: '4px',
             }}
           >
-            {/* Field selection */}
-            <Select
-              value={condition.field || undefined}
-              placeholder="Field"
-              loading={isLoadingFields}
-              disabled={!data.tableName}
-              style={{ flex: 1, minWidth: 100 }}
-              onChange={(value) => handleConditionFieldChange(condition.id, value)}
-              options={tableFields.map((f) => ({ value: f.name, label: f.name }))}
-              showSearch
-              getPopupContainer={() => document.body}
-              popupClassName="condition-definition-select-dropdown nodrag"
-              className="nodrag"
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Field selection */}
+              <Select
+                value={condition.field || undefined}
+                placeholder="Field"
+                loading={isLoadingFields}
+                disabled={!data.tableName}
+                style={{ flex: 1, minWidth: 100 }}
+                onChange={(value) => handleConditionFieldChange(condition.id, value)}
+                options={tableFields.map((f) => ({ value: f.name, label: f.name }))}
+                showSearch
+                getPopupContainer={() => document.body}
+                popupClassName="condition-definition-select-dropdown nodrag"
+                className="nodrag"
+              />
 
-            {/* Operator selection — filtered by field data type */}
-            <Select
-              value={condition.operator}
-              style={{ width: 100 }}
-              onChange={(value) => handleConditionOperatorChange(condition.id, value)}
-              options={getOperatorsByFieldType(condition.valueType)}
-              getPopupContainer={() => document.body}
-              popupClassName="condition-definition-select-dropdown nodrag"
-              className="nodrag"
-            />
+              {/* Operator selection — filtered by field data type */}
+              <Select
+                value={condition.operator}
+                style={{ width: 100 }}
+                onChange={(value) => handleConditionOperatorChange(condition.id, value)}
+                options={getOperatorsByFieldType(condition.valueType)}
+                getPopupContainer={() => document.body}
+                popupClassName="condition-definition-select-dropdown nodrag"
+                className="nodrag"
+              />
 
-            {/* Placeholder display */}
-            <Tag
-              color="purple"
-              style={{
-                fontFamily: 'monospace',
-                fontSize: 12,
-                minWidth: 60,
-                textAlign: 'center',
-              }}
-            >
-              {generateConditionValueDisplayName(condition.placeholder)}
-            </Tag>
+              {/* Placeholder display */}
+              <Tag
+                color="purple"
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  minWidth: 60,
+                  textAlign: 'center',
+                }}
+              >
+                {generateConditionValueDisplayName(condition.placeholder)}
+              </Tag>
 
-            {/* Remove button */}
-            <Button
-              type="text"
-              size="small"
-              icon={<MinusOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRemoveCondition(condition.id);
-              }}
-              disabled={data.conditions.length <= 1}
-              danger
-              style={{ padding: '0 4px' }}
-            />
+              {/* Remove button */}
+              <Button
+                type="text"
+                size="small"
+                icon={<MinusOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveCondition(condition.id);
+                }}
+                disabled={data.conditions.length <= 1}
+                danger
+                style={{ padding: '0 4px' }}
+              />
+            </div>
+
+            {/* LIKE wildcard mode selector — shown only for LIKE / NOT LIKE */}
+            {(condition.operator === 'LIKE' || condition.operator === 'NOT LIKE') && (
+              <div style={{ paddingLeft: 4 }}>
+                <Radio.Group
+                  size="small"
+                  value={condition.likeMode ?? 'both'}
+                  onChange={(e) => handleConditionLikeModeChange(condition.id, e.target.value as LikeMode)}
+                >
+                  <Radio.Button value="both">%值%</Radio.Button>
+                  <Radio.Button value="left">%值</Radio.Button>
+                  <Radio.Button value="right">值%</Radio.Button>
+                </Radio.Group>
+              </div>
+            )}
           </div>
         ))}
 
