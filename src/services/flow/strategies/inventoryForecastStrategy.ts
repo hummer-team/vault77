@@ -63,6 +63,8 @@ interface SkuForecastSummary {
   totalPrediction: number;
   predictSteps: number;
   avgPrediction: number;
+  /** Ordered predictions per step (for trend calculation) */
+  stepPredictions: number[];
 }
 
 // ============================================================================
@@ -335,21 +337,27 @@ export class InventoryForecastStrategy extends BaseStrategy {
     const errorRows = forecastRows.filter((r) => !!r.error_code);
 
     // ---- Step 3: Per-SKU aggregation ----------------------------------------
-    const skuMap = new Map<string, { total: number; count: number }>();
+    const skuMap = new Map<string, { total: number; steps: Map<number, number> }>();
     for (const row of successRows) {
-      const cur = skuMap.get(row.sku_id) ?? { total: 0, count: 0 };
+      const cur = skuMap.get(row.sku_id) ?? { total: 0, steps: new Map<number, number>() };
       cur.total += row.prediction ?? 0;
-      cur.count += 1;
+      cur.steps.set(row.step_index ?? cur.steps.size, row.prediction ?? 0);
       skuMap.set(row.sku_id, cur);
     }
 
     const skuSummaries: SkuForecastSummary[] = Array.from(skuMap.entries())
-      .map(([skuId, { total, count }]) => ({
-        skuId,
-        totalPrediction: total,
-        predictSteps: count,
-        avgPrediction: count > 0 ? total / count : 0,
-      }))
+      .map(([skuId, { total, steps }]) => {
+        const ordered = Array.from(steps.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([, v]) => v);
+        return {
+          skuId,
+          totalPrediction: total,
+          predictSteps: ordered.length,
+          avgPrediction: ordered.length > 0 ? total / ordered.length : 0,
+          stepPredictions: ordered,
+        };
+      })
       .sort((a, b) => b.totalPrediction - a.totalPrediction);
 
     const top5 = skuSummaries.slice(0, 5);
@@ -383,19 +391,40 @@ export class InventoryForecastStrategy extends BaseStrategy {
         };
       });
     } else {
-      insights = top5.map((sku, idx) => ({
-        id: `forecast-sku-${idx + 1}`,
-        cardType: 'custom' as const,
-        iconKey: 'order' as const,
-        title: `SKU: ${sku.skuId}`,
-        sortOrder: idx + 1,
-        description: `预测总需求 ${sku.totalPrediction.toFixed(1)}，预测步数 ${sku.predictSteps}`,
-        metrics: [
-          { label: '总预测量', value: Math.round(sku.totalPrediction), unit: '件', highlight: idx === 0 },
-          { label: '预测步数', value: sku.predictSteps, unit: '步' },
-          { label: '平均单步预测', value: Math.round(sku.avgPrediction * 100) / 100, unit: '件/步' },
-        ],
-      }));
+      // Granularity-aware period label for average demand display
+      const granularity = this._lastConfig?.granularity;
+      const periodLabel = granularity === 'month' ? '月' : granularity === 'week' ? '周' : '日';
+
+      insights = top5.map((sku, idx) => {
+        // Trend: compare avg of first half vs second half of step predictions
+        const steps = sku.stepPredictions;
+        let trendLabel = '→ 平稳';
+        if (steps.length >= 2) {
+          const mid = Math.floor(steps.length / 2);
+          const firstHalfAvg = steps.slice(0, mid).reduce((s, v) => s + v, 0) / mid;
+          const secondHalfAvg = steps.slice(mid).reduce((s, v) => s + v, 0) / (steps.length - mid);
+          const changeRate = firstHalfAvg > 0 ? (secondHalfAvg - firstHalfAvg) / firstHalfAvg : 0;
+          if (changeRate > 0.08) trendLabel = '↑ 上升';
+          else if (changeRate < -0.08) trendLabel = '↓ 下降';
+        }
+
+        // Safety stock: recommended procurement = total + 20% buffer
+        const safetyStock = Math.ceil(sku.totalPrediction * 1.2);
+
+        return {
+          id: `forecast-sku-${idx + 1}`,
+          cardType: 'custom' as const,
+          iconKey: 'order' as const,
+          title: sku.skuId,
+          sortOrder: idx + 1,
+          description: `未来 ${sku.predictSteps} 个${periodLabel}预测，${periodLabel}均需求 ${Math.round(sku.avgPrediction)} 件，趋势 ${trendLabel}`,
+          metrics: [
+            { label: `${periodLabel}均需求`, value: Math.round(sku.avgPrediction), unit: '件', highlight: idx === 0 },
+            { label: '预测总需求', value: Math.round(sku.totalPrediction), unit: '件' },
+            { label: '建议备货量', value: safetyStock, unit: '件' },
+          ],
+        };
+      });
     }
 
     // ---- Step 5: Build summary ----------------------------------------------
@@ -440,7 +469,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
    * can access predictSteps and predictionMode without the strategy interface
    * needing to change.
    */
-  private _lastConfig: Pick<InventoryForecastConfig, 'predictSteps' | 'predictionMode'> | null = null;
+  private _lastConfig: Pick<InventoryForecastConfig, 'predictSteps' | 'predictionMode' | 'granularity'> | null = null;
 
   /** @override Intercept buildSql to capture the config before delegating. */
   override buildSql(
@@ -452,7 +481,11 @@ export class InventoryForecastStrategy extends BaseStrategy {
     const cfg = (selectNode?.data as { inventoryForecastConfig?: InventoryForecastConfig } | undefined)
       ?.inventoryForecastConfig;
     if (cfg) {
-      this._lastConfig = { predictSteps: cfg.predictSteps, predictionMode: cfg.predictionMode };
+      this._lastConfig = {
+        predictSteps: cfg.predictSteps,
+        predictionMode: cfg.predictionMode,
+        granularity: cfg.granularity,
+      };
     }
     return super.buildSql(nodes, edges, placeholderValues);
   }
