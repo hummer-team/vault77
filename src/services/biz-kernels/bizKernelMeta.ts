@@ -215,6 +215,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 风险风控 - 价格套利审计
+  // done
   {
     name: 'fn_ecom_arbitrage_analyze',
     displayName: '价格套利分析',
