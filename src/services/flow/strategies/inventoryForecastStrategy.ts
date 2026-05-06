@@ -77,7 +77,7 @@ interface SkuForecastSummary {
  * @param rows - Aggregated rows from DuckDB query
  * @returns Arrow IPC Stream bytes
  */
-function serializeToArrowIPC(rows: AggRow[]): Uint8Array {
+async function serializeToArrowIPC(rows: AggRow[]): Promise<Uint8Array> {
   const skuIds: string[] = [];
   const timeIndexes: number[] = [];
   const demands: number[] = [];
@@ -125,8 +125,8 @@ function serializeToArrowIPC(rows: AggRow[]): Uint8Array {
   const recordBatch = new arrow.RecordBatch(schema, structData);
 
   const writer = arrow.RecordBatchStreamWriter.writeAll([recordBatch]);
-  // RecordBatchStreamWriter.writeAll returns a RecordBatchWriter (sync)
-  return new Uint8Array(writer.toUint8Array() as unknown as Uint8Array);
+  // toUint8Array() is async — must await to get actual bytes (not a Promise)
+  return await writer.toUint8Array();
 }
 
 /**
@@ -307,7 +307,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
     try {
       await this.ensureWasm();
 
-      const inputBytes = serializeToArrowIPC(rawRows);
+      const inputBytes = await serializeToArrowIPC(rawRows);
       console.log(`[${this.name}.postProcess] Calling predict_inventory_demand_batch: rows=${rawRows.length}`);
 
       const { predictSteps, predictionMode } = this._lastConfig ?? {
