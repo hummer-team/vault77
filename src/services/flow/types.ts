@@ -52,6 +52,7 @@ export enum OperatorType {
   ORDER_DISTRIBUTION = 'order_distribution',  // Order distribution: time / amount / geo
   REPURCHASE_CYCLE = 'repurchase_cycle',  // User growth: repurchase cycle + churn risk
   ARBITRAGE_ANALYZE = 'arbitrage_analyze',  // Risk control: price arbitrage analysis
+  INVENTORY_FORECAST = 'inventory_forecast',  // Inventory: batch multi-SKU demand forecasting
 }
 
 export enum LogicType {
@@ -261,6 +262,8 @@ export interface SelectNodeData extends BaseNodeData {
   repurchaseCycleConfig?: RepurchaseCycleConfig;
   /** Config for fn_ecom_arbitrage_analyze */
   arbitrageAnalyzeConfig?: ArbitrageAnalyzeConfig;
+  /** Config for fn_ecom_inventory_forecast */
+  inventoryForecastConfig?: InventoryForecastConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -536,6 +539,40 @@ export interface ArbitrageAnalyzeConfig {
 }
 
 
+
+/**
+ * Config for fn_ecom_inventory_forecast — batch multi-SKU inventory demand forecasting.
+ *
+ * The strategy will:
+ *   1. GROUP BY skuCol + date_trunc(granularity, timeCol), SUM(demandCol) in DuckDB
+ *   2. Pass the aggregated Arrow IPC data to predict_inventory_demand_batch()
+ *   3. Return TOP5 InsightItems (by SUM prediction) + full detail table
+ */
+export interface InventoryForecastConfig {
+  /** Column used as the SKU / product identifier */
+  skuCol: string;
+  /** Date/time column used for time-series ordering and aggregation */
+  timeCol: string;
+  /** Numeric column representing historical demand quantity (will be SUMmed per period) */
+  demandCol: string;
+  /** Time granularity for aggregation — determines the meaning of predictSteps */
+  granularity: 'day' | 'week' | 'month';
+  /**
+   * Number of future time steps to forecast.
+   * Ranges: day → 1-30, week → 1-12, month → 1-24.
+   */
+  predictSteps: number;
+  /**
+   * Forecasting algorithm mode.
+   * 'seasonal_7' is ONLY valid when granularity === 'day' (period hardcoded to 7).
+   */
+  predictionMode:
+    | 'linear'
+    | 'polynomial_2'
+    | 'polynomial_3'
+    | 'seasonal_7'
+    | 'ensemble';
+}
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.
@@ -844,6 +881,12 @@ export interface InsightSummary {
   topRegion?: string;
   /** [OrderDist/time] Label of the peak time period by order_count */
   peakPeriod?: string;
+  /** [InventoryForecast] Total number of SKUs submitted for forecasting */
+  forecastSkuCount?: number;
+  /** [InventoryForecast] Number of SKUs that failed (ValidationError / ModelError) */
+  failedSkuCount?: number;
+  /** [InventoryForecast] SKU id with the highest total predicted demand */
+  peakForecastSku?: string;
 }
 
 /**

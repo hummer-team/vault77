@@ -202,6 +202,12 @@ export const OPERATOR_CONFIG = {
     icon: '🛡️',
     color: '#f5222d',
   },
+  inventory_forecast: {
+    name: '库存需求预测',
+    description: '基于历史需求数据，批量预测多SKU未来需求趋势',
+    icon: '📈',
+    color: '#1890ff',
+  },
 };
 
 // ============================================================================

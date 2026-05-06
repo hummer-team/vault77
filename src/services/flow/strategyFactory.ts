@@ -16,6 +16,8 @@ import { BasicStatsStrategy }       from './strategies/basicStatsStrategy';
 import { OrderDistributionStrategy } from './strategies/orderDistributionStrategy';
 import { RepurchaseCycleStrategy } from './strategies/repurchaseCycleStrategy';
 import { ArbitrageAnalyzeStrategy } from './strategies/arbitrageAnalyzeStrategy';
+// Phase 2: import InventoryForecastStrategy once the file is created
+// import { InventoryForecastStrategy } from './strategies/inventoryForecastStrategy';
 
 /**
  * Strategy Factory
@@ -35,6 +37,7 @@ export class StrategyFactory {
     [OperatorType.ORDER_DISTRIBUTION, new OrderDistributionStrategy()],
     [OperatorType.REPURCHASE_CYCLE,   new RepurchaseCycleStrategy()],
     [OperatorType.ARBITRAGE_ANALYZE,  new ArbitrageAnalyzeStrategy()],
+    // Phase 2: [OperatorType.INVENTORY_FORECAST, new InventoryForecastStrategy()],
   ]);
 
   /**
