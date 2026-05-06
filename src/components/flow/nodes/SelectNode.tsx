@@ -30,6 +30,7 @@ import type {
   OrderDistributionConfig,
   RepurchaseCycleConfig,
   ArbitrageAnalyzeConfig,
+  InventoryForecastConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -48,6 +49,7 @@ import { BasicStatsDrawer } from '../udf/BasicStatsDrawer';
 import { OrderDistributionDrawer } from '../udf/OrderDistributionDrawer';
 import { RepurchaseCycleDrawer } from '../udf/RepurchaseCycleDrawer';
 import { ArbitrageAnalyzeDrawer } from '../udf/ArbitrageAnalyzeDrawer';
+import { InventoryForecastDrawer } from '../udf/InventoryForecastDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -222,6 +224,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleInventoryForecastConfirm = useCallback(
+    (config: InventoryForecastConfig) => {
+      updateNode(id, { inventoryForecastConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -261,6 +271,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.repurchaseCycleConfig?.userIdCol);
       case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
         return !!(data.arbitrageAnalyzeConfig?.fieldMapping?.orderIdCol);
+      case SelectNodePanelType.INVENTORY_FORECAST_DRAWER:
+        return !!(data.inventoryForecastConfig?.skuCol);
       default:
         return false;
     }
@@ -607,6 +619,16 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               columns={columnNames}
               initialConfig={data.arbitrageAnalyzeConfig}
               onConfirm={handleArbitrageAnalyzeConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.INVENTORY_FORECAST_DRAWER:
+          return (
+            <InventoryForecastDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.inventoryForecastConfig}
+              onConfirm={handleInventoryForecastConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
