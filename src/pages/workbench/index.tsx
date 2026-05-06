@@ -523,11 +523,20 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       // Call postProcessFn if available to enrich result with displayConfig and insightsData
       let displayConfig: OperatorDisplayConfig | undefined;
       let insightsData: OperatorInsightsData | undefined;
+      let tableData: unknown[] = result.data;
+      let tableSchema: unknown[] = result.schema;
       if (postProcessFn) {
         try {
           const processedResult = await postProcessFn(result);
           displayConfig = processedResult.displayConfig;
           insightsData = processedResult.insightsData;
+          // Use transformed data/schema from postProcess when available
+          if (processedResult.data && processedResult.data.length > 0) {
+            tableData = processedResult.data;
+          }
+          if (processedResult.schema && (processedResult.schema as unknown[]).length > 0) {
+            tableSchema = processedResult.schema as unknown[];
+          }
         } catch (processError) {
           console.error('[Workbench] postProcess failed:', processError);
           // Fallback: continue with raw result, no displayConfig or insightsData
@@ -545,8 +554,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
           flowSummary,
           displayConfig,
         },
-        data: result.data,
-        schema: result.schema,
+        data: tableData,
+        schema: tableSchema,
         status: 'resultsReady',
         queryDurationMs: queryDuration,
         attachmentsSnapshot: attachments,
