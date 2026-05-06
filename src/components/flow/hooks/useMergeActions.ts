@@ -87,6 +87,7 @@ export function useMergeActions(
 ): MergeActionsResult {
   const addNode = useFlowStore((state) => state.addNode);
   const addEdge = useFlowStore((state) => state.addEdge);
+  const removeEdge = useFlowStore((state) => state.removeEdge);
   const updateNode = useFlowStore((state) => state.updateNode);
   const nodes = useFlowStore((state) => state.nodes);
   const edges = useFlowStore((state) => state.edges);
@@ -218,17 +219,43 @@ export function useMergeActions(
   const createRelationNode = useCallback(() => {
     const { x, y } = getSourcePosition();
     // Always create a brand-new ConditionGroupRelationNode (条件组关系) — never reuse an existing one.
-    // Only the triggering CG node is wired here; other CG nodes connect manually.
     const groupNodeId = `relation_${Date.now()}`;
     const relationDisplayName = generateConditionGroupRelationDisplayName(nodes);
+
+    // Collect all ConditionGroupDefinitionNode IDs already on the canvas
+    const allCGDefNodes = nodes.filter((n) => n.type === FlowNodeType.CONDITION_GROUP_DEFINITION);
+
+    // Find the EndNode (if it exists) so we can redirect existing CG→End edges
+    const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
+
+    // Build initial conditionIds from ALL CG definition nodes
+    const allRefIds = allCGDefNodes
+      .map((n) => (n.data as ConditionGroupDefinitionNodeData).refId)
+      .filter(Boolean) as string[];
+
     addNode({
       id: groupNodeId,
       type: FlowNodeType.CONDITION_GROUP_RELATION,
       position: { x: x + X_OFFSET, y },
-      data: { logicType: LogicType.AND, conditionIds: [(nodes.find((n) => n.id === sourceNodeId)?.data as ConditionGroupDefinitionNodeData)?.refId ?? ''], relationDisplayName },
+      data: { logicType: LogicType.AND, conditionIds: allRefIds, relationDisplayName },
     } as Parameters<typeof addNode>[0]);
-    addEdge(makeEdge(sourceNodeId, groupNodeId) as Parameters<typeof addEdge>[0]);
-  }, [sourceNodeId, nodes, getSourcePosition, addNode, addEdge]);
+
+    // Wire ALL CG definition nodes to the new RelationNode
+    allCGDefNodes.forEach((cgNode) => {
+      addEdge(makeEdge(cgNode.id, groupNodeId) as Parameters<typeof addEdge>[0]);
+    });
+
+    // Remove any existing CG definition → EndNode edges (they now route through the RelationNode)
+    if (existingEnd) {
+      edges
+        .filter(
+          (e) =>
+            e.target === existingEnd.id &&
+            allCGDefNodes.some((cg) => cg.id === e.source)
+        )
+        .forEach((e) => removeEdge(e.id));
+    }
+  }, [sourceNodeId, nodes, edges, getSourcePosition, addNode, addEdge, removeEdge]);
 
   const createEndNode = useCallback(
     (triggerSource: EndNodeTriggerSource = EndNodeTriggerSource.CONDITION) => {
