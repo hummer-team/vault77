@@ -443,62 +443,54 @@ export class InventoryForecastStrategy extends BaseStrategy {
     // ---- Step 6: Build business-friendly table rows (per-SKU summary) --------
     const granularity = this._lastConfig?.granularity;
     const periodLabel = granularity === 'month' ? '月' : granularity === 'week' ? '周' : '日';
+    const periodLabelEn = granularity === 'month' ? 'Month' : granularity === 'week' ? 'Week' : 'Day';
 
-    // Success SKU rows
+    // Success SKU rows — use English keys for column headers
     const successTableRows: Record<string, unknown>[] = skuSummaries.map((sku) => ({
-      商品编号: sku.skuId,
-      [`预测期数(${periodLabel})`]: sku.predictSteps,
-      [`${periodLabel}均需求(件)`]: Math.round(sku.avgPrediction),
-      预测总需求: Math.round(sku.totalPrediction),
-      建议备货量: Math.ceil(sku.totalPrediction * 1.2),
-      需求趋势: calcTrend(sku.stepPredictions),
-      状态: '✓ 预测成功',
+      sku_id: sku.skuId,
+      forecast_periods: sku.predictSteps,
+      avg_demand: Math.round(sku.avgPrediction),
+      total_demand: Math.round(sku.totalPrediction),
+      safety_stock: Math.ceil(sku.totalPrediction * 1.2),
+      trend: calcTrend(sku.stepPredictions),
+      status: '✓ Success',
     }));
 
     // Failed SKU rows — one row per unique SKU, reason from first occurrence
     const failedTableRows: Record<string, unknown>[] = Array.from(
       new Map(errorRows.map((r) => [r.sku_id, r])).values()
     ).map((r) => ({
-      商品编号: r.sku_id,
-      [`预测期数(${periodLabel})`]: 0,
-      [`${periodLabel}均需求(件)`]: 0,
-      预测总需求: 0,
-      建议备货量: 0,
-      需求趋势: '— 无法预测',
-      状态: `✗ ${r.error_message ?? r.error_code ?? '预测失败'}`,
+      sku_id: r.sku_id,
+      forecast_periods: 0,
+      avg_demand: 0,
+      total_demand: 0,
+      safety_stock: 0,
+      trend: '—',
+      status: `✗ ${r.error_message ?? r.error_code ?? 'Failed'}`,
     }));
 
     const businessRows = [...successTableRows, ...failedTableRows];
 
     const businessSchema: { name: string; type: string }[] = [
-      { name: '商品编号', type: 'VARCHAR' },
-      { name: `预测期数(${periodLabel})`, type: 'INTEGER' },
-      { name: `${periodLabel}均需求(件)`, type: 'INTEGER' },
-      { name: '预测总需求', type: 'INTEGER' },
-      { name: '建议备货量', type: 'INTEGER' },
-      { name: '需求趋势', type: 'VARCHAR' },
-      { name: '状态', type: 'VARCHAR' },
+      { name: 'sku_id', type: 'VARCHAR' },
+      { name: 'forecast_periods', type: 'INTEGER' },
+      { name: 'avg_demand', type: 'INTEGER' },
+      { name: 'total_demand', type: 'INTEGER' },
+      { name: 'safety_stock', type: 'INTEGER' },
+      { name: 'trend', type: 'VARCHAR' },
+      { name: 'status', type: 'VARCHAR' },
     ];
 
     const displayConfig: import('../types').OperatorDisplayConfig = {
-      defaultSort: { column: '预测总需求', order: 'descend' },
+      defaultSort: { column: 'total_demand', order: 'descend' },
       columnTooltips: {
-        商品编号: 'SKU / 产品编号',
-        [`预测期数(${periodLabel})`]: `预测覆盖的${periodLabel}数`,
-        [`${periodLabel}均需求(件)`]: `每${periodLabel}平均预测需求量`,
-        预测总需求: '全部预测期的需求总量（件）',
-        建议备货量: '预测总需求 × 1.2 安全系数，建议采购数量',
-        需求趋势: '比较前后半段均值：↑ 上升 / → 平稳 / ↓ 下降（变化率 > 8%）',
-        状态: '✓ 预测成功 / ✗ 失败原因',
-      },
-      rowColorizer: {
-        field: '需求趋势',
-        colorMap: {
-          '↑ 上升': { bg: 'rgba(82,196,26,0.08)', badgeColor: '#52c41a' },
-          '→ 平稳': { bg: 'rgba(250,173,20,0.08)', badgeColor: '#faad14' },
-          '↓ 下降': { bg: 'rgba(255,77,79,0.08)', badgeColor: '#ff4d4f' },
-          '— 无法预测': { bg: 'rgba(140,140,140,0.08)', badgeColor: '#8c8c8c' },
-        },
+        sku_id: '商品编号 / SKU',
+        forecast_periods: `预测期数（${periodLabel}）— 预测覆盖的${periodLabel}数`,
+        avg_demand: `${periodLabel}均需求（件）— 每${periodLabel}平均预测需求量，单位：${periodLabelEn}`,
+        total_demand: `预测总需求（件）— 全部 ${periodLabel} 预测期的需求总量`,
+        safety_stock: `建议备货量（件）— 预测总需求 × 1.2 安全系数，建议采购数量`,
+        trend: `需求趋势 — 比较前后半段均值：↑上升 / →平稳 / ↓下降（变化率 > 8%）`,
+        status: `预测状态 — ✓ 成功 / ✗ 失败原因`,
       },
     };
 
