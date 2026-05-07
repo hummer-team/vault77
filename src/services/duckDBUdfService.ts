@@ -21,6 +21,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_repurchase_cycle: 'fn_ecom_repurchase_cycle',
   fn_ecom_arbitrage_analyze: 'fn_ecom_arbitrage_analyze',
   fn_ecom_inventory_forecast: 'fn_ecom_inventory_forecast',
+  fn_ecom_market_basket: 'fn_ecom_market_basket',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */
