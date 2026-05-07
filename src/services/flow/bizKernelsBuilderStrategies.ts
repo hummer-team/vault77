@@ -37,6 +37,7 @@ export enum SelectNodePanelType {
   ARBITRAGE_ANALYZE_DRAWER = 'ARBITRAGE_ANALYZE_DRAWER',
   /** InventoryForecastDrawer — used for 库存需求预测 (batch multi-SKU) */
   INVENTORY_FORECAST_DRAWER = 'INVENTORY_FORECAST_DRAWER',
+  MARKET_BASKET_DRAWER = 'MARKET_BASKET_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -66,6 +67,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_repurchase_cycle:      SelectNodePanelType.REPURCHASE_CYCLE_DRAWER,
   fn_ecom_arbitrage_analyze:     SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER,
   fn_ecom_inventory_forecast:    SelectNodePanelType.INVENTORY_FORECAST_DRAWER,
+  fn_ecom_market_basket:         SelectNodePanelType.MARKET_BASKET_DRAWER,
 };
 
 // ============================================================================
@@ -137,6 +139,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.REPURCHASE_CYCLE_DRAWER:
     case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
     case SelectNodePanelType.INVENTORY_FORECAST_DRAWER:
+    case SelectNodePanelType.MARKET_BASKET_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

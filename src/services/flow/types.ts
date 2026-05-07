@@ -53,6 +53,7 @@ export enum OperatorType {
   REPURCHASE_CYCLE = 'repurchase_cycle',  // User growth: repurchase cycle + churn risk
   ARBITRAGE_ANALYZE = 'arbitrage_analyze',  // Risk control: price arbitrage analysis
   INVENTORY_FORECAST = 'inventory_forecast',  // Inventory: batch multi-SKU demand forecasting
+  MARKET_BASKET = 'market_basket',  // MBA: association rules mining (frequent co-purchase patterns)
 }
 
 export enum LogicType {
@@ -269,6 +270,8 @@ export interface SelectNodeData extends BaseNodeData {
   arbitrageAnalyzeConfig?: ArbitrageAnalyzeConfig;
   /** Config for fn_ecom_inventory_forecast */
   inventoryForecastConfig?: InventoryForecastConfig;
+  /** Config for fn_ecom_market_basket */
+  marketBasketConfig?: MarketBasketConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -583,6 +586,42 @@ export interface InventoryForecastConfig {
    * If it drops by > threshold → declining.
    */
   trendThreshold?: number;
+}
+
+/**
+ * Config for fn_ecom_market_basket — Market Basket Analysis (关联销售建议).
+ *
+ * Phase-1: DuckDB SQL self-join computes 2-item association rules.
+ * Phase-2: postProcess calls find_association_patterns() Wasm for k-itemsets.
+ *
+ * min_support is stored as a ratio (0.01 = 1%). The Phase-1 SQL converts it
+ * to an absolute order count internally. The Phase-2 Wasm call uses
+ * Math.round(totalOrders * minSupport) at runtime.
+ *
+ * Best practice (Phase-2): start with Math.round(totalOrders * 0.01);
+ * double if > 500 patterns returned, halve if < 10 patterns returned.
+ */
+export interface MarketBasketConfig {
+  /** Column used as the order / transaction identifier */
+  orderIdCol: string;
+  /** Column used as the product / SKU identifier */
+  productIdCol: string;
+  /**
+   * Minimum support threshold as a ratio (0.005–0.05, default 0.01 = 1%).
+   * Converted to absolute count = Math.round(totalOrders * minSupport) before Wasm.
+   */
+  minSupport: number;
+  /** Minimum confidence threshold (0.1–0.8, default 0.30 = 30%). */
+  minConfidence: number;
+  /** Minimum lift threshold (default 1.2 — values > 1 indicate positive association). */
+  minLift: number;
+  /**
+   * Maximum items per order. Orders exceeding this are excluded (B2B bulk order isolation).
+   * Default 50. Prevents cartesian explosion in the self-join.
+   */
+  maxItemsPerOrder: number;
+  /** Maximum number of association rules to return (default 100). */
+  topN: number;
 }
 
 /**

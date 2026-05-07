@@ -17,6 +17,7 @@ import { OrderDistributionStrategy } from './strategies/orderDistributionStrateg
 import { RepurchaseCycleStrategy } from './strategies/repurchaseCycleStrategy';
 import { ArbitrageAnalyzeStrategy } from './strategies/arbitrageAnalyzeStrategy';
 import { InventoryForecastStrategy } from './strategies/inventoryForecastStrategy';
+import { MarketBasketStrategy } from './strategies/marketBasketStrategy';
 
 /**
  * Strategy Factory
@@ -37,6 +38,7 @@ export class StrategyFactory {
     [OperatorType.REPURCHASE_CYCLE,   new RepurchaseCycleStrategy()],
     [OperatorType.ARBITRAGE_ANALYZE,  new ArbitrageAnalyzeStrategy()],
     [OperatorType.INVENTORY_FORECAST, new InventoryForecastStrategy()],
+    [OperatorType.MARKET_BASKET,      new MarketBasketStrategy()],
   ]);
 
   /**

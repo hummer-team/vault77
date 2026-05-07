@@ -31,6 +31,7 @@ import type {
   RepurchaseCycleConfig,
   ArbitrageAnalyzeConfig,
   InventoryForecastConfig,
+  MarketBasketConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -50,6 +51,7 @@ import { OrderDistributionDrawer } from '../udf/OrderDistributionDrawer';
 import { RepurchaseCycleDrawer } from '../udf/RepurchaseCycleDrawer';
 import { ArbitrageAnalyzeDrawer } from '../udf/ArbitrageAnalyzeDrawer';
 import { InventoryForecastDrawer } from '../udf/InventoryForecastDrawer';
+import { MarketBasketDrawer } from '../udf/MarketBasketDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -233,6 +235,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleMarketBasketConfirm = useCallback(
+    (config: MarketBasketConfig) => {
+      updateNode(id, { marketBasketConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -274,6 +284,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.arbitrageAnalyzeConfig?.fieldMapping?.orderIdCol);
       case SelectNodePanelType.INVENTORY_FORECAST_DRAWER:
         return !!(data.inventoryForecastConfig?.skuCol);
+      case SelectNodePanelType.MARKET_BASKET_DRAWER:
+        return !!(data.marketBasketConfig?.orderIdCol && data.marketBasketConfig?.productIdCol);
       default:
         return false;
     }
@@ -640,6 +652,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleInventoryForecastConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.MARKET_BASKET_DRAWER:
+          return (
+            <MarketBasketDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.marketBasketConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleMarketBasketConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
