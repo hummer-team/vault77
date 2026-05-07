@@ -276,5 +276,61 @@ describe('DEFAULT_MARKET_BASKET_CONFIG', () => {
     expect(DEFAULT_MARKET_BASKET_CONFIG.minLift).toBe(1.2);
     expect(DEFAULT_MARKET_BASKET_CONFIG.maxItemsPerOrder).toBe(50);
     expect(DEFAULT_MARKET_BASKET_CONFIG.topN).toBe(100);
+    expect(DEFAULT_MARKET_BASKET_CONFIG.enableTriples).toBe(false);
   });
 });
+
+// ============================================================================
+// Phase-2: enableTriples SQL path
+// ============================================================================
+
+describe('MarketBasketStrategy › buildOperatorSql (Phase-2 clean txn)', () => {
+  const strategy = new MarketBasketStrategy();
+
+  it('outputs clean (order_id, product_id) SELECT when enableTriples = true', () => {
+    const sql = strategy.buildSql(
+      [createTableNode(), createSelectNode({ ...BASE_CONFIG, enableTriples: true })],
+      []
+    );
+    expect(sql).toContain('SELECT f.order_id, f.product_id');
+    expect(sql).not.toContain('self-join');
+    expect(sql).not.toContain('confidence_ab');
+    expect(sql).not.toContain('AS lift');
+  });
+
+  it('still includes Apriori prune (item_freq) for Phase-2', () => {
+    const sql = strategy.buildSql(
+      [createTableNode(), createSelectNode({ ...BASE_CONFIG, enableTriples: true })],
+      []
+    );
+    expect(sql).toContain('item_freq');
+    expect(sql).toContain('HAVING order_count >= CAST(0.01 *');
+  });
+
+  it('still includes B2B bulk order filter for Phase-2', () => {
+    const sql = strategy.buildSql(
+      [createTableNode(), createSelectNode({ ...BASE_CONFIG, enableTriples: true })],
+      []
+    );
+    expect(sql).toContain('order_size');
+    expect(sql).toContain('HAVING COUNT(*) <= 50');
+  });
+
+  it('does NOT include LIMIT in Phase-2 SQL (Wasm processes all)', () => {
+    const sql = strategy.buildSql(
+      [createTableNode(), createSelectNode({ ...BASE_CONFIG, enableTriples: true })],
+      []
+    );
+    expect(sql).not.toContain('LIMIT');
+  });
+
+  it('Phase-1 SQL still contains self-join when enableTriples = false', () => {
+    const sql = strategy.buildSql(
+      [createTableNode(), createSelectNode({ ...BASE_CONFIG, enableTriples: false })],
+      []
+    );
+    expect(sql).toContain('AND a.product_id < b.product_id');
+    expect(sql).toContain('AS confidence_ab');
+  });
+});
+

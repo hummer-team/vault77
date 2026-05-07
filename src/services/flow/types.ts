@@ -622,6 +622,12 @@ export interface MarketBasketConfig {
   maxItemsPerOrder: number;
   /** Maximum number of association rules to return (default 100). */
   topN: number;
+  /**
+   * When true, enables FP-Growth Wasm path (k-itemsets, supports 3-item combos).
+   * Default false — uses faster DuckDB SQL self-join for 2-item rules only.
+   * Recommended only when data has < 50k orders (analysis time increases).
+   */
+  enableTriples?: boolean;
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   Select,
   Slider,
   Space,
+  Switch,
   Tooltip,
   Typography,
   message,
@@ -65,6 +66,7 @@ const DEFAULT_CONFIG: Required<MarketBasketConfig> = {
   minLift:          1.2,
   maxItemsPerOrder: 50,
   topN:             100,
+  enableTriples:    false,
 };
 
 // ============================================================================
@@ -157,6 +159,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
   const [minConfidence, setMinConfidence] = useState<number>(DEFAULT_CONFIG.minConfidence);
   const [minLift, setMinLift] = useState<number>(DEFAULT_CONFIG.minLift);
   const [maxItemsPerOrder, setMaxItemsPerOrder] = useState<number>(DEFAULT_CONFIG.maxItemsPerOrder);
+  const [enableTriples, setEnableTriples] = useState<boolean>(DEFAULT_CONFIG.enableTriples);
 
   // Restore / reset when drawer opens
   useEffect(() => {
@@ -168,6 +171,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
     setMinConfidence(cfg.minConfidence);
     setMinLift(cfg.minLift);
     setMaxItemsPerOrder(cfg.maxItemsPerOrder);
+    setEnableTriples(cfg.enableTriples ?? false);
   }, [open, initialConfig]);
 
   const handleConfirm = useCallback(() => {
@@ -191,8 +195,9 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
       minLift,
       maxItemsPerOrder,
       topN: DEFAULT_CONFIG.topN,
+      enableTriples,
     });
-  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, onConfirm, messageApi]);
+  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, enableTriples, onConfirm, messageApi]);
 
   const columnOptions = columns.map((c) => ({ value: c, label: c }));
 
@@ -348,6 +353,25 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
               addonAfter="件"
             />
           </div>
+
+          {/* enableTriples */}
+          <div style={{ ...rowStyle, marginTop: 10, paddingTop: 10, borderTop: `1px solid var(--vm-border-subtle)` }}>
+            <Text style={labelStyle}>挖掘三品组合</Text>
+            <Tooltip title="开启后使用 FP-Growth 算法挖掘 3-item 关联规则（套装推荐）。分析时间会增加，建议数据量 < 5 万订单时使用">
+              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+            </Tooltip>
+            <Switch
+              size="small"
+              checked={enableTriples}
+              onChange={setEnableTriples}
+              style={{ marginLeft: 4 }}
+            />
+            {enableTriples && (
+              <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 6 }}>
+                已启用 FP-Growth
+              </Text>
+            )}
+          </div>
         </Section>
 
         {/* ── Section 3: Usage Tips ──────────────────────────────────── */}
@@ -383,6 +407,11 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
                   <p>
                     <strong>大单过滤：</strong>
                     单笔订单含有超多品类（B2B 采购单）会虚高关联频次，建议保持默认 50 件上限。
+                  </p>
+                  <p>
+                    <strong>三品组合（FP-Growth）：</strong>
+                    开启后挖掘 3-item 套装规则，适合分析"买A+B 的顾客大概率也买 C"的捆绑场景。
+                    算法时间随数据量增大，建议订单量 &lt; 5 万时启用。
                   </p>
                 </div>
               ),
