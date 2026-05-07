@@ -91,6 +91,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_repurchase_cycle:                     OperatorType.REPURCHASE_CYCLE,
     fn_ecom_arbitrage_analyze:                    OperatorType.ARBITRAGE_ANALYZE,
     fn_ecom_inventory_forecast:                   OperatorType.INVENTORY_FORECAST,
+    fn_ecom_market_basket:                        OperatorType.MARKET_BASKET,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {
