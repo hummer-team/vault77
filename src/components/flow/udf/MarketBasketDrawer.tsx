@@ -67,6 +67,7 @@ const DEFAULT_CONFIG: Required<MarketBasketConfig> = {
   minLift:          1.2,
   maxItemsPerOrder: 50,
   topN:             500,
+  topInsights:      5,
   enableTriples:    false,
 };
 
@@ -172,6 +173,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
   const [minLift, setMinLift] = useState<number>(DEFAULT_CONFIG.minLift);
   const [maxItemsPerOrder, setMaxItemsPerOrder] = useState<number>(DEFAULT_CONFIG.maxItemsPerOrder);
   const [topN, setTopN] = useState<number>(DEFAULT_CONFIG.topN);
+  const [topInsights, setTopInsights] = useState<number>(DEFAULT_CONFIG.topInsights);
   const [enableTriples, setEnableTriples] = useState<boolean>(DEFAULT_CONFIG.enableTriples);
 
   // Restore / reset when drawer opens; auto-match columns when no prior config
@@ -183,6 +185,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
     setMinLift(cfg.minLift);
     setMaxItemsPerOrder(cfg.maxItemsPerOrder);
     setTopN(cfg.topN ?? DEFAULT_CONFIG.topN);
+    setTopInsights(cfg.topInsights ?? DEFAULT_CONFIG.topInsights);
     setEnableTriples(cfg.enableTriples ?? false);
 
     // Auto-match columns when no prior selection
@@ -213,9 +216,10 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
       minLift,
       maxItemsPerOrder,
       topN,
+      topInsights,
       enableTriples,
     });
-  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, topN, enableTriples, onConfirm, messageApi]);
+  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, topN, topInsights, enableTriples, onConfirm, messageApi]);
 
   const columnOptions = columns.map((c) => ({ value: c, label: c }));
 
@@ -377,7 +381,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
           {/* topN: max output rules */}
           <div style={{ ...rowStyle, marginTop: 4 }}>
             <Text style={labelStyle}>最大输出规则数</Text>
-            <Tooltip title="关联规则按 Lift 降序排列后，最多输出该数量的规则。数值越大覆盖更多商品对，但展示行数也会增加（默认 500）">
+            <Tooltip title="关联规则按关联强度降序排列后，最多输出该数量的规则。数值越大覆盖更多商品对，但展示行数也会增加（默认 500）">
               <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
             </Tooltip>
             <InputNumber
@@ -389,6 +393,24 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
               size="small"
               style={{ width: 100, marginLeft: 4 }}
               addonAfter="条"
+            />
+          </div>
+
+          {/* topInsights: number of insight cards to display */}
+          <div style={{ ...rowStyle, marginTop: 4 }}>
+            <Text style={labelStyle}>结果卡片数量</Text>
+            <Tooltip title="分析完成后，在顶部显示的热门搭配卡片数量（按关联强度排序，默认展示 5 张）">
+              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+            </Tooltip>
+            <InputNumber
+              min={1}
+              max={10}
+              step={1}
+              value={topInsights}
+              onChange={(v) => setTopInsights(v ?? 5)}
+              size="small"
+              style={{ width: 100, marginLeft: 4 }}
+              addonAfter="张"
             />
           </div>
 

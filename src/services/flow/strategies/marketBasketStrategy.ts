@@ -86,6 +86,7 @@ export const DEFAULT_MARKET_BASKET_CONFIG: Required<MarketBasketConfig> = {
   minLift:          1.2,
   maxItemsPerOrder: 50,
   topN:             500,
+  topInsights:      5,
   enableTriples:    false,
 };
 
@@ -566,8 +567,9 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
   private postProcessSQL(rows: PairRow[], cfg: Required<MarketBasketConfig>): AnalysisResult {
     if (rows.length === 0) return this.buildEmptyResult(cfg);
 
-    const top5 = rows.slice(0, 5);
-    const insights: InsightItem[] = top5.map((row, idx) => {
+    const topN = cfg.topInsights ?? 5;
+    const topRows = rows.slice(0, topN);
+    const insights: InsightItem[] = topRows.map((row, idx) => {
       const lift = Number(row.lift);
       const confAB = Number(row.confidence_ab);
       const confBA = Number(row.confidence_ba);
@@ -576,13 +578,13 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       const iconKey: InsightItem['iconKey'] =
         lift > 2.0 ? 'insight' : lift >= 1.2 ? 'order' : 'warning';
 
-      // Business-friendly description in Chinese
+      // Business-friendly description: no technical jargon
+      const betterConf = Math.max(confAB, confBA);
       const description =
-        `每100笔订单中，约 ${supportPct} 笔同时购买了「${row.product_a}」和「${row.product_b}」，` +
-        `关联强度 Lift = ${lift.toFixed(2)}×，` +
-        (confAB >= confBA
-          ? `买了 A 后推荐 B 置信度更高（${(confAB * 100).toFixed(0)}%）`
-          : `买了 B 后推荐 A 置信度更高（${(confBA * 100).toFixed(0)}%）`);
+        `「${row.product_a}」和「${row.product_b}」是热门搭配组合 ——` +
+        `每100笔订单中约有 ${supportPct} 笔同时购买，` +
+        `有 ${(betterConf * 100).toFixed(0)}% 的买家会同时购入这两款商品` +
+        (lift > 2.0 ? `，关联极强（是随机概率的 ${lift.toFixed(1)} 倍）` : '');
 
       // Actionable business suggestion
       const suggestion = buildPairSuggestion(row.product_a, row.product_b, lift, confAB, confBA, coCount);
@@ -591,15 +593,15 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
         id: `mb-pair-${idx}`,
         cardType: 'standard',
         iconKey,
-        title: `${row.product_a} → ${row.product_b}`,
+        title: `${row.product_a} × ${row.product_b}`,
         description,
         suggestion,
         sortOrder: idx,
         metrics: [
-          { label: '提升度',      value: lift,            unit: '×' },
-          { label: '支持度',      value: Number(row.support) * 100, unit: '%' },
-          { label: '置信度 A→B', value: confAB * 100,    unit: '%' },
-          { label: '共购订单数',  value: coCount,          unit: '单' },
+          { label: '搭配概率',       value: betterConf * 100,          unit: '%' },
+          { label: '同购频率',        value: Number(row.support) * 100, unit: '%' },
+          { label: '关联倍数',        value: lift,                       unit: '×' },
+          { label: '共购订单',        value: coCount,                    unit: '单' },
         ],
       };
     });
@@ -670,19 +672,24 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
 
     if (rules.length === 0) return this.buildEmptyResult(cfg);
 
-    const top5 = rules.slice(0, 5);
-    const insights: InsightItem[] = top5.map((rule, idx) => {
+    const topN = cfg.topInsights ?? 5;
+    const topRules = rules.slice(0, topN);
+    const insights: InsightItem[] = topRules.map((rule, idx) => {
       const iconKey: InsightItem['iconKey'] =
         rule.lift > 2.0 ? 'insight' : rule.lift >= 1.2 ? 'order' : 'warning';
 
       const title = rule.rule_type === '3-item'
-        ? `${rule.product_a} + ${rule.product_b} → ${rule.product_c}`
-        : `${rule.product_a} → ${rule.product_b}`;
+        ? `${rule.product_a} × ${rule.product_b} × ${rule.product_c}`
+        : `${rule.product_a} × ${rule.product_b}`;
 
       const supportPct = (rule.support * 100).toFixed(1);
+      const confPct = (rule.confidence * 100).toFixed(0);
       const description = rule.rule_type === '3-item'
-        ? `每100笔订单中，约 ${supportPct} 笔同时购买了「${rule.product_a}」「${rule.product_b}」和「${rule.product_c}」，三品同购是高价值捆绑推荐机会`
-        : `每100笔订单中，约 ${supportPct} 笔同时购买了「${rule.product_a}」和「${rule.product_b}」，关联强度 Lift = ${rule.lift.toFixed(2)}×`;
+        ? `「${rule.product_a}」「${rule.product_b}」「${rule.product_c}」三款商品是热门组合 ——` +
+          `每100笔订单约有 ${supportPct} 笔同时购入全部三款，是捆绑促销的绝佳机会`
+        : `「${rule.product_a}」和「${rule.product_b}」是热门搭配 ——` +
+          `每100笔订单约有 ${supportPct} 笔同时购入，有 ${confPct}% 的买家会同时购入这两款` +
+          (rule.lift > 2.0 ? `，关联极强（是随机概率的 ${rule.lift.toFixed(1)} 倍）` : '');
 
       const suggestion = rule.rule_type === '3-item'
         ? buildTripleSuggestion(rule.product_a, rule.product_b, rule.product_c ?? '', rule.lift, rule.co_count)
@@ -697,10 +704,10 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
         suggestion,
         sortOrder: idx,
         metrics: [
-          { label: '提升度',     value: rule.lift,              unit: '×' },
-          { label: '支持度',     value: rule.support * 100,     unit: '%' },
-          { label: '置信度',     value: rule.confidence * 100,  unit: '%' },
-          { label: rule.rule_type === '3-item' ? '三品共购订单数' : '共购订单数',
+          { label: '搭配概率',   value: rule.confidence * 100,  unit: '%' },
+          { label: '同购频率',   value: rule.support * 100,     unit: '%' },
+          { label: '关联倍数',   value: rule.lift,              unit: '×' },
+          { label: rule.rule_type === '3-item' ? '三品共购订单' : '共购订单',
             value: rule.co_count, unit: '单' },
         ],
       };

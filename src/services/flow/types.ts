@@ -620,8 +620,10 @@ export interface MarketBasketConfig {
    * Default 50. Prevents cartesian explosion in the self-join.
    */
   maxItemsPerOrder: number;
-  /** Maximum number of association rules to return (default 100). */
+  /** Maximum number of association rules to return (default 500). */
   topN: number;
+  /** Maximum number of insight cards to display (default 5, range 1–10). */
+  topInsights?: number;
   /**
    * When true, enables FP-Growth Wasm path (k-itemsets, supports 3-item combos).
    * Default false — uses faster DuckDB SQL self-join for 2-item rules only.

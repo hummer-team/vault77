@@ -300,13 +300,14 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '8s',
     metadata: {
-      inputFields: ['order_id','product_id', 'quantity', 'order_time'],
+      inputFields: ['order_id','product_id','product_name', 'quantity', 'order_time'],
       outputFields: ['product_id', 'avg_demand','total_demand','trand', 'safety_stock'],
       constraints: ['需要商品ID字段'],
     },
   },
 
   // 经营决策 - 关联销售建议
+  // done
   {
     name: 'fn_ecom_market_basket',
     displayName: '关联销售建议',
