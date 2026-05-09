@@ -8,7 +8,7 @@
  *   3. Usage tips (collapsible)
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Collapse,
@@ -22,6 +22,7 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { RefSelectProps } from 'antd';
 import {
   ApartmentOutlined,
   BulbOutlined,
@@ -137,6 +138,14 @@ const LIFT_OPTIONS = [
   { value: 2.0, label: '2.0 — 强关联' },
 ];
 
+// Column name auto-match patterns (English + Chinese)
+const ORDER_ID_PATTERNS = /^(order[_\s]?id|orderid|order[_\s]?no|orderno|transaction[_\s]?id|trans[_\s]?id|bill[_\s]?id|receipt[_\s]?id|purchase[_\s]?id|sale[_\s]?id|消费[_\s]?id)$|订单|单号|交易|流水/i;
+const PRODUCT_ID_PATTERNS = /^(product[_\s]?id|productid|sku[_\s]?id|skuid|item[_\s]?id|itemid|goods[_\s]?id|commodity[_\s]?id|merchandise[_\s]?id|article[_\s]?id|prod[_\s]?id|商品[_\s]?id|产品[_\s]?id)$|商品|产品|sku|物品|货品/i;
+
+function autoMatchColumn(columns: string[], pattern: RegExp): string {
+  return columns.find((c) => pattern.test(c)) ?? '';
+}
+
 // ============================================================================
 // Main component
 // ============================================================================
@@ -153,6 +162,9 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
 }) => {
   const [messageApi, contextHolder] = message.useMessage();
 
+  const orderIdRef = useRef<RefSelectProps>(null);
+  const productIdRef = useRef<RefSelectProps>(null);
+
   const [orderIdCol, setOrderIdCol] = useState('');
   const [productIdCol, setProductIdCol] = useState('');
   const [minSupport, setMinSupport] = useState<number>(DEFAULT_CONFIG.minSupport);
@@ -162,27 +174,31 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
   const [topN, setTopN] = useState<number>(DEFAULT_CONFIG.topN);
   const [enableTriples, setEnableTriples] = useState<boolean>(DEFAULT_CONFIG.enableTriples);
 
-  // Restore / reset when drawer opens
+  // Restore / reset when drawer opens; auto-match columns when no prior config
   useEffect(() => {
     if (!open) return;
     const cfg = initialConfig ?? DEFAULT_CONFIG;
-    setOrderIdCol(cfg.orderIdCol);
-    setProductIdCol(cfg.productIdCol);
     setMinSupport(cfg.minSupport);
     setMinConfidence(cfg.minConfidence);
     setMinLift(cfg.minLift);
     setMaxItemsPerOrder(cfg.maxItemsPerOrder);
     setTopN(cfg.topN ?? DEFAULT_CONFIG.topN);
     setEnableTriples(cfg.enableTriples ?? false);
-  }, [open, initialConfig]);
+
+    // Auto-match columns when no prior selection
+    const savedOrder = cfg.orderIdCol || autoMatchColumn(columns, ORDER_ID_PATTERNS);
+    const savedProduct = cfg.productIdCol || autoMatchColumn(columns, PRODUCT_ID_PATTERNS);
+    setOrderIdCol(savedOrder);
+    setProductIdCol(savedProduct !== savedOrder ? savedProduct : '');
+  }, [open, initialConfig, columns]);
 
   const handleConfirm = useCallback(() => {
     if (!orderIdCol) {
-      messageApi.warning('请选择订单 ID 列');
+      orderIdRef.current?.focus();
       return;
     }
     if (!productIdCol) {
-      messageApi.warning('请选择商品 ID 列');
+      productIdRef.current?.focus();
       return;
     }
     if (orderIdCol === productIdCol) {
@@ -248,6 +264,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
           <div style={rowStyle}>
             <Text style={labelStyle}>订单 ID 列</Text>
             <Select
+              ref={orderIdRef}
               style={selectStyle}
               value={orderIdCol || undefined}
               placeholder="选择订单 ID 列"
@@ -260,6 +277,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
           <div style={rowStyle}>
             <Text style={labelStyle}>商品 ID 列</Text>
             <Select
+              ref={productIdRef}
               style={selectStyle}
               value={productIdCol || undefined}
               placeholder="选择商品 ID 列"
@@ -356,6 +374,24 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
             />
           </div>
 
+          {/* topN: max output rules */}
+          <div style={{ ...rowStyle, marginTop: 4 }}>
+            <Text style={labelStyle}>最大输出规则数</Text>
+            <Tooltip title="关联规则按 Lift 降序排列后，最多输出该数量的规则。数值越大覆盖更多商品对，但展示行数也会增加（默认 500）">
+              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+            </Tooltip>
+            <InputNumber
+              min={10}
+              max={5000}
+              step={100}
+              value={topN}
+              onChange={(v) => setTopN(v ?? 500)}
+              size="small"
+              style={{ width: 100, marginLeft: 4 }}
+              addonAfter="条"
+            />
+          </div>
+
           {/* enableTriples */}
           <div style={{ ...rowStyle, marginTop: 10, paddingTop: 10, borderTop: `1px solid var(--vm-border-subtle)` }}>
             <Text style={labelStyle}>挖掘三品组合</Text>
@@ -375,24 +411,6 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
             )}
           </div>
         </Section>
-
-        {/* ── topN: max output rules ──────────────────────────────────── */}
-        <div style={{ ...rowStyle, marginBottom: 12 }}>
-          <Text style={labelStyle}>最大输出规则数</Text>
-          <Tooltip title="关联规则按 Lift 降序排列后，最多输出该数量的规则。数值越大覆盖更多商品对，但展示行数也会增加（默认 500）">
-            <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
-          </Tooltip>
-          <InputNumber
-            min={10}
-            max={5000}
-            step={100}
-            value={topN}
-            onChange={(v) => setTopN(v ?? 500)}
-            size="small"
-            style={{ width: 100 }}
-            addonAfter="条"
-          />
-        </div>
 
         {/* ── Section 3: Usage Tips ──────────────────────────────────── */}
         <Collapse
