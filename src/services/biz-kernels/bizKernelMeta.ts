@@ -300,7 +300,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '8s',
     metadata: {
-      inputFields: ['product_id', 'quantity', 'order_time'],
+      inputFields: ['order_id','product_id', 'quantity', 'order_time'],
       outputFields: ['product_id', 'avg_demand','total_demand','trand', 'safety_stock'],
       constraints: ['需要商品ID字段'],
     },

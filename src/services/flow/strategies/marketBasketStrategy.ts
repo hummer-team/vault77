@@ -85,7 +85,7 @@ export const DEFAULT_MARKET_BASKET_CONFIG: Required<MarketBasketConfig> = {
   minConfidence:    0.30,
   minLift:          1.2,
   maxItemsPerOrder: 50,
-  topN:             100,
+  topN:             500,
   enableTriples:    false,
 };
 

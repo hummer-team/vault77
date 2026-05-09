@@ -275,7 +275,7 @@ describe('DEFAULT_MARKET_BASKET_CONFIG', () => {
     expect(DEFAULT_MARKET_BASKET_CONFIG.minConfidence).toBe(0.30);
     expect(DEFAULT_MARKET_BASKET_CONFIG.minLift).toBe(1.2);
     expect(DEFAULT_MARKET_BASKET_CONFIG.maxItemsPerOrder).toBe(50);
-    expect(DEFAULT_MARKET_BASKET_CONFIG.topN).toBe(100);
+    expect(DEFAULT_MARKET_BASKET_CONFIG.topN).toBe(500);
     expect(DEFAULT_MARKET_BASKET_CONFIG.enableTriples).toBe(false);
   });
 });

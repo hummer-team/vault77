@@ -65,7 +65,7 @@ const DEFAULT_CONFIG: Required<MarketBasketConfig> = {
   minConfidence:    0.30,
   minLift:          1.2,
   maxItemsPerOrder: 50,
-  topN:             100,
+  topN:             500,
   enableTriples:    false,
 };
 
@@ -159,6 +159,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
   const [minConfidence, setMinConfidence] = useState<number>(DEFAULT_CONFIG.minConfidence);
   const [minLift, setMinLift] = useState<number>(DEFAULT_CONFIG.minLift);
   const [maxItemsPerOrder, setMaxItemsPerOrder] = useState<number>(DEFAULT_CONFIG.maxItemsPerOrder);
+  const [topN, setTopN] = useState<number>(DEFAULT_CONFIG.topN);
   const [enableTriples, setEnableTriples] = useState<boolean>(DEFAULT_CONFIG.enableTriples);
 
   // Restore / reset when drawer opens
@@ -171,6 +172,7 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
     setMinConfidence(cfg.minConfidence);
     setMinLift(cfg.minLift);
     setMaxItemsPerOrder(cfg.maxItemsPerOrder);
+    setTopN(cfg.topN ?? DEFAULT_CONFIG.topN);
     setEnableTriples(cfg.enableTriples ?? false);
   }, [open, initialConfig]);
 
@@ -194,10 +196,10 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
       minConfidence,
       minLift,
       maxItemsPerOrder,
-      topN: DEFAULT_CONFIG.topN,
+      topN,
       enableTriples,
     });
-  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, enableTriples, onConfirm, messageApi]);
+  }, [orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, topN, enableTriples, onConfirm, messageApi]);
 
   const columnOptions = columns.map((c) => ({ value: c, label: c }));
 
@@ -373,6 +375,24 @@ export const MarketBasketDrawer: React.FC<MarketBasketDrawerProps> = ({
             )}
           </div>
         </Section>
+
+        {/* ── topN: max output rules ──────────────────────────────────── */}
+        <div style={{ ...rowStyle, marginBottom: 12 }}>
+          <Text style={labelStyle}>最大输出规则数</Text>
+          <Tooltip title="关联规则按 Lift 降序排列后，最多输出该数量的规则。数值越大覆盖更多商品对，但展示行数也会增加（默认 500）">
+            <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+          </Tooltip>
+          <InputNumber
+            min={10}
+            max={5000}
+            step={100}
+            value={topN}
+            onChange={(v) => setTopN(v ?? 500)}
+            size="small"
+            style={{ width: 100 }}
+            addonAfter="条"
+          />
+        </div>
 
         {/* ── Section 3: Usage Tips ──────────────────────────────────── */}
         <Collapse
