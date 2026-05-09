@@ -892,6 +892,8 @@ export interface InsightItem {
   title: string;
   /** Optional supporting text — max 3 lines recommended */
   description?: string;
+  /** Optional business recommendation — concise action advice shown below metrics */
+  suggestion?: string;
   /** Render order; the UI displays items in ascending sortOrder without re-sorting */
   sortOrder: number;
   /** Optional metric rows — max 4 items for visual density */

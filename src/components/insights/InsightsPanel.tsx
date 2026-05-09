@@ -298,6 +298,21 @@ const InsightItemView: React.FC<InsightItemViewProps> = ({ item, onItemClick }) 
           ))}
         </div>
       )}
+
+      {/* Suggestion — business action recommendation */}
+      {item.suggestion && (
+        <div style={{
+          marginTop: 10,
+          paddingTop: 8,
+          borderTop: '1px solid var(--vm-border-subtle)',
+          fontSize: 12,
+          color: 'var(--vm-color-success)',
+          lineHeight: 1.6,
+        }}>
+          <span style={{ fontWeight: 600, marginRight: 4 }}>💡 建议：</span>
+          {item.suggestion}
+        </div>
+      )}
     </div>
   );
 };

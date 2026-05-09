@@ -90,6 +90,44 @@ export const DEFAULT_MARKET_BASKET_CONFIG: Required<MarketBasketConfig> = {
 };
 
 // ============================================================================
+// Business suggestion helpers — generate actionable Chinese advice from metrics
+// ============================================================================
+
+/**
+ * Generate a concise business recommendation for a 2-item association rule.
+ * Considers lift tier and the stronger confidence direction.
+ */
+function buildPairSuggestion(
+  a: string, b: string,
+  lift: number, confAB: number, confBA: number, coCount: number,
+): string {
+  const betterDir = confAB >= confBA
+    ? `买「${a}」后推荐「${b}」（置信度 ${(confAB * 100).toFixed(0)}%）`
+    : `买「${b}」后推荐「${a}」（置信度 ${(confBA * 100).toFixed(0)}%）`;
+
+  if (lift > 2.0) {
+    return `强关联！建议将「${a}」和「${b}」打包为组合套餐，共购 ${coCount} 单，可直接在结算页或首页设置捆绑购，预计显著提升客单价。`;
+  }
+  if (lift >= 1.5) {
+    return `正向关联明显，${betterDir}，建议在商品详情页添加"买了还买了"推荐位，测试加购转化效果。`;
+  }
+  return `存在弱关联，${betterDir}，可在购物车结算页或搜索结果中小范围测试关联推荐。`;
+}
+
+/**
+ * Generate a concise business recommendation for a 3-item association rule.
+ */
+function buildTripleSuggestion(
+  a: string, b: string, c: string,
+  lift: number, coCount: number,
+): string {
+  if (lift > 2.0) {
+    return `三品强关联！共购 ${coCount} 单，建议创建「${a}+${b}+${c}」套装优惠，打折促销可有效拉高客单价和连带率。`;
+  }
+  return `发现三品同购规律（共购 ${coCount} 单），建议在「${a}」「${b}」「${c}」任一商品页交叉展示其余两款，增加连带销售机会。`;
+}
+
+// ============================================================================
 // Strategy
 // ============================================================================
 
@@ -531,21 +569,37 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
     const top5 = rows.slice(0, 5);
     const insights: InsightItem[] = top5.map((row, idx) => {
       const lift = Number(row.lift);
+      const confAB = Number(row.confidence_ab);
+      const confBA = Number(row.confidence_ba);
+      const coCount = Number(row.co_count);
+      const supportPct = (Number(row.support) * 100).toFixed(1);
       const iconKey: InsightItem['iconKey'] =
         lift > 2.0 ? 'insight' : lift >= 1.2 ? 'order' : 'warning';
+
+      // Business-friendly description in Chinese
+      const description =
+        `每100笔订单中，约 ${supportPct} 笔同时购买了「${row.product_a}」和「${row.product_b}」，` +
+        `关联强度 Lift = ${lift.toFixed(2)}×，` +
+        (confAB >= confBA
+          ? `买了 A 后推荐 B 置信度更高（${(confAB * 100).toFixed(0)}%）`
+          : `买了 B 后推荐 A 置信度更高（${(confBA * 100).toFixed(0)}%）`);
+
+      // Actionable business suggestion
+      const suggestion = buildPairSuggestion(row.product_a, row.product_b, lift, confAB, confBA, coCount);
 
       return {
         id: `mb-pair-${idx}`,
         cardType: 'standard',
         iconKey,
         title: `${row.product_a} → ${row.product_b}`,
-        description: `Every 100 orders, ~${(Number(row.support) * 100).toFixed(0)} orders co-purchased both items.`,
+        description,
+        suggestion,
         sortOrder: idx,
         metrics: [
-          { label: 'Lift',      value: lift,                                   unit: '×' },
-          { label: 'Support',   value: Number(row.support) * 100,              unit: '%' },
-          { label: 'Conf A→B',  value: Number(row.confidence_ab) * 100,        unit: '%' },
-          { label: 'Co-orders', value: Number(row.co_count),                   unit: '单' },
+          { label: '提升度',      value: lift,            unit: '×' },
+          { label: '支持度',      value: Number(row.support) * 100, unit: '%' },
+          { label: '置信度 A→B', value: confAB * 100,    unit: '%' },
+          { label: '共购订单数',  value: coCount,          unit: '单' },
         ],
       };
     });
@@ -563,6 +617,10 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       confidence_ba:  Number(row.confidence_ba),
       lift:           Number(row.lift),
       co_count:       Number(row.co_count),
+      suggestion:     buildPairSuggestion(
+        row.product_a, row.product_b, Number(row.lift),
+        Number(row.confidence_ab), Number(row.confidence_ba), Number(row.co_count),
+      ),
     }));
 
     const schema: { name: string; type: string }[] = [
@@ -573,18 +631,20 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       { name: 'confidence_ba', type: 'DOUBLE' },
       { name: 'lift',          type: 'DOUBLE' },
       { name: 'co_count',      type: 'INTEGER' },
+      { name: 'suggestion',    type: 'VARCHAR' },
     ];
 
     const displayConfig: import('../types').OperatorDisplayConfig = {
       defaultSort: { column: 'lift', order: 'descend' },
       columnTooltips: {
-        product_a:      'Product A — first item in the association rule',
-        product_b:      'Product B — second item in the association rule',
-        support:        'Support — fraction of orders that contain both items',
-        confidence_ab:  'Confidence A→B — among orders with A, how many also have B',
-        confidence_ba:  'Confidence B→A — among orders with B, how many also have A',
-        lift:           'Lift — ratio of observed to expected co-purchase rate; >1 = positive association',
-        co_count:       'Co-orders — absolute number of orders containing both items (sample size)',
+        product_a:      '商品A — 关联规则的前项商品（"买了A"中的A）',
+        product_b:      '商品B — 关联规则的后项商品（"也买了B"中的B）',
+        support:        '支持度 — 两款商品同时出现在总订单中的比例，越高说明同购越普遍',
+        confidence_ab:  '置信度 A→B — 购买A的订单中同时购买B的比例，越高说明"买A推B"越有效',
+        confidence_ba:  '置信度 B→A — 购买B的订单中同时购买A的比例，越高说明"买B推A"越有效',
+        lift:           '提升度 — 实际同购率与随机预期的比值；>1 正向关联，数值越高关联越强',
+        co_count:       '共购订单数 — 同时购买这两款商品的订单绝对数量，反映样本规模',
+        suggestion:     '建议 — 基于关联强度与置信度给出的具体营销操作建议',
       },
     };
 
@@ -619,20 +679,28 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
         ? `${rule.product_a} + ${rule.product_b} → ${rule.product_c}`
         : `${rule.product_a} → ${rule.product_b}`;
 
+      const supportPct = (rule.support * 100).toFixed(1);
+      const description = rule.rule_type === '3-item'
+        ? `每100笔订单中，约 ${supportPct} 笔同时购买了「${rule.product_a}」「${rule.product_b}」和「${rule.product_c}」，三品同购是高价值捆绑推荐机会`
+        : `每100笔订单中，约 ${supportPct} 笔同时购买了「${rule.product_a}」和「${rule.product_b}」，关联强度 Lift = ${rule.lift.toFixed(2)}×`;
+
+      const suggestion = rule.rule_type === '3-item'
+        ? buildTripleSuggestion(rule.product_a, rule.product_b, rule.product_c ?? '', rule.lift, rule.co_count)
+        : buildPairSuggestion(rule.product_a, rule.product_b, rule.lift, rule.confidence, rule.confidence, rule.co_count);
+
       return {
         id: `mb-rule-${idx}`,
         cardType: 'standard',
         iconKey,
         title,
-        description: rule.rule_type === '3-item'
-          ? `Every 100 orders, ~${(rule.support * 100).toFixed(0)} contain all three items together.`
-          : `Every 100 orders, ~${(rule.support * 100).toFixed(0)} orders co-purchased both items.`,
+        description,
+        suggestion,
         sortOrder: idx,
         metrics: [
-          { label: 'Lift',       value: rule.lift,              unit: '×' },
-          { label: 'Support',    value: rule.support * 100,     unit: '%' },
-          { label: 'Confidence', value: rule.confidence * 100,  unit: '%' },
-          { label: rule.rule_type === '3-item' ? 'Co-orders (3)' : 'Co-orders',
+          { label: '提升度',     value: rule.lift,              unit: '×' },
+          { label: '支持度',     value: rule.support * 100,     unit: '%' },
+          { label: '置信度',     value: rule.confidence * 100,  unit: '%' },
+          { label: rule.rule_type === '3-item' ? '三品共购订单数' : '共购订单数',
             value: rule.co_count, unit: '单' },
         ],
       };
@@ -652,6 +720,9 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       lift:       rule.lift,
       co_count:   rule.co_count,
       rule_type:  rule.rule_type,
+      suggestion: rule.rule_type === '3-item'
+        ? buildTripleSuggestion(rule.product_a, rule.product_b, rule.product_c ?? '', rule.lift, rule.co_count)
+        : buildPairSuggestion(rule.product_a, rule.product_b, rule.lift, rule.confidence, rule.confidence, rule.co_count),
     }));
 
     const schema: { name: string; type: string }[] = [
@@ -663,19 +734,21 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       { name: 'lift',       type: 'DOUBLE' },
       { name: 'co_count',   type: 'INTEGER' },
       { name: 'rule_type',  type: 'VARCHAR' },
+      { name: 'suggestion', type: 'VARCHAR' },
     ];
 
     const displayConfig: import('../types').OperatorDisplayConfig = {
       defaultSort: { column: 'lift', order: 'descend' },
       columnTooltips: {
-        product_a:  'Product A — first item in the association rule',
-        product_b:  'Product B — second item in the rule',
-        product_c:  'Product C — third item (3-item rules only; empty for 2-item rules)',
-        support:    'Support — fraction of total orders containing all rule items',
-        confidence: 'Confidence — for 2-item: best direction; for 3-item: AB→C confidence',
-        lift:       'Lift — ratio of observed to expected co-purchase; >1 = positive association',
-        co_count:   'Co-orders — absolute order count containing all rule items (sample size)',
-        rule_type:  'Rule Type — 2-item (pair) or 3-item (triple) association rule',
+        product_a:  '商品A — 关联规则的前项商品（"买了A"中的A）',
+        product_b:  '商品B — 关联规则的后项商品（"也买了B"中的B）',
+        product_c:  '商品C — 三品规则中的第三项商品（仅三品规则有值，二品规则为空）',
+        support:    '支持度 — 所有规则商品同时出现在总订单中的比例，越高说明同购越普遍',
+        confidence: '置信度 — 二品规则取最佳方向置信度；三品规则为 AB→C 的置信度',
+        lift:       '提升度 — 实际同购率与随机预期的比值；>1 正向关联，数值越高关联越强',
+        co_count:   '共购订单数 — 同时购买所有规则商品的订单绝对数量，反映样本规模',
+        rule_type:  '规则类型 — 二品关联（2-item）或三品组合（3-item）',
+        suggestion: '建议 — 基于关联强度给出的具体营销操作建议',
       },
     };
 
@@ -689,10 +762,10 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       id: 'mb-no-rules',
       cardType: 'standard',
       iconKey: 'warning',
-      title: 'No Association Rules Found',
-      description: `No rules satisfy support ≥ ${(cfg.minSupport * 100).toFixed(1)}%, confidence ≥ ${(cfg.minConfidence * 100).toFixed(0)}%, lift ≥ ${cfg.minLift}. Try lowering the thresholds.`,
+      title: '未发现关联规则',
+      description: `当前阈值（支持度≥${(cfg.minSupport * 100).toFixed(1)}%，置信度≥${(cfg.minConfidence * 100).toFixed(0)}%，提升度≥${cfg.minLift}）未找到满足条件的商品关联。建议适当降低支持度或置信度后重试。`,
       sortOrder: 0,
-      metrics: [{ label: 'No Rules', value: 0, unit: '' }],
+      metrics: [{ label: '规则数', value: 0, unit: '条' }],
     };
     return {
       type: this.type,
