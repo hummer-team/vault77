@@ -142,6 +142,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER:
     case SelectNodePanelType.INVENTORY_FORECAST_DRAWER:
     case SelectNodePanelType.MARKET_BASKET_DRAWER:
+    case SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

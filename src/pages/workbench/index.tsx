@@ -598,11 +598,10 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }
 
     // Always open the canvas regardless of whether a template already exists.
-    // Show a build hint only when no template is saved yet.
+    // Route "no template" error through the error bubble system (same style as other errors).
+    setKernelFlowHint(null);
     if (!bizKernelService.hasFlowTemplate(kernelName)) {
-      setKernelFlowHint('由于你选择的算子未构建模板，请先构建模板');
-    } else {
-      setKernelFlowHint(null);
+      setChatError('由于你选择的算子未构建模板，请先构建模板');
     }
     setPendingKernelTemplate(kernelName);
     setTimeout(() => setShowFlowModal(true), 200);
