@@ -10,6 +10,7 @@ import { MarketBasketStrategy, DEFAULT_MARKET_BASKET_CONFIG } from '../marketBas
 import {
   FlowNodeType,
   OperatorType,
+  type FlowEdge,
   type FlowNode,
   type MarketBasketConfig,
 } from '../../types';
@@ -131,6 +132,36 @@ describe('MarketBasketStrategy › buildOperatorSql', () => {
       []
     );
     expect(sql).toContain('ORDER BY lift DESC');
+  });
+
+  it('injects userWhere into src CTE when provided (Phase-1)', () => {
+    const sql = (strategy as unknown as {
+      buildOperatorSql: (n: FlowNode[], e: FlowEdge[], ph: undefined, w: string) => string;
+    }).buildOperatorSql(
+      [createTableNode(), createSelectNode(BASE_CONFIG)],
+      [],
+      undefined,
+      '"region" = \'North\''
+    );
+    expect(sql).toContain("src AS (");
+    expect(sql).toContain("WHERE \"region\" = 'North'");
+    // Downstream CTEs should reference src, not the raw table directly
+    expect(sql).toContain('FROM src');
+    expect(sql).toMatch(/item_freq[\s\S]*FROM src/);
+  });
+
+  it('omits src WHERE clause when userWhere is empty (Phase-1)', () => {
+    const sql = (strategy as unknown as {
+      buildOperatorSql: (n: FlowNode[], e: FlowEdge[], ph: undefined, w: string) => string;
+    }).buildOperatorSql(
+      [createTableNode(), createSelectNode(BASE_CONFIG)],
+      [],
+      undefined,
+      ''
+    );
+    expect(sql).toContain("src AS (");
+    // src CTE must not contain a WHERE clause (no user filter injected)
+    expect(sql).toMatch(/src AS \(\s*SELECT \* FROM "orders"\s*\)/);
   });
 });
 

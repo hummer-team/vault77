@@ -185,7 +185,7 @@ export class MarketBasketStrategy extends BaseStrategy {
     nodes: FlowNode[],
     _edges: FlowEdge[],
     _ph: Record<string, unknown> | undefined,
-    _userWhere: string
+    userWhere: string
   ): string {
     const tableNode = nodes.find((n) => n.type === FlowNodeType.TABLE);
     const tableName = (tableNode?.data as { tableName?: string } | undefined)?.tableName ?? '';
@@ -206,8 +206,8 @@ export class MarketBasketStrategy extends BaseStrategy {
     }
 
     return cfg.enableTriples
-      ? this.buildCleanTxnSql(cfg, tableName)
-      : this.buildAssocRulesSql(cfg, tableName);
+      ? this.buildCleanTxnSql(cfg, tableName, userWhere)
+      : this.buildAssocRulesSql(cfg, tableName, userWhere);
   }
 
   /**
@@ -216,32 +216,37 @@ export class MarketBasketStrategy extends BaseStrategy {
    * NOTE: DuckDB does not allow SELECT-alias references in WHERE.
    *       Expressions are repeated verbatim in the WHERE clause.
    */
-  private buildAssocRulesSql(cfg: Required<MarketBasketConfig>, tableName: string): string {
+  private buildAssocRulesSql(cfg: Required<MarketBasketConfig>, tableName: string, userWhere: string): string {
     const { orderIdCol, productIdCol, minSupport, minConfidence, minLift, maxItemsPerOrder, topN } = cfg;
     const tbl = `"${tableName}"`;
     const oid = `"${orderIdCol}"`;
     const pid = `"${productIdCol}"`;
 
+    // Inject user-defined filter as a base CTE so all downstream CTEs are scoped correctly.
+    const whereClause = userWhere ? `\n  WHERE ${userWhere.replace(/^WHERE\s+/i, '')}` : '';
+    const srcCte = `src AS (\n  SELECT * FROM ${tbl}${whereClause}\n),`;
+
     return `
-WITH item_freq AS (
+WITH ${srcCte}
+item_freq AS (
   SELECT ${pid} AS product_id,
          COUNT(DISTINCT ${oid}) AS order_count
-  FROM ${tbl}
+  FROM src
   GROUP BY ${pid}
   HAVING order_count >= CAST(${minSupport} * (
-    SELECT COUNT(DISTINCT ${oid}) FROM ${tbl}
+    SELECT COUNT(DISTINCT ${oid}) FROM src
   ) AS INTEGER)
 ),
 order_size AS (
   SELECT ${oid} AS order_id
-  FROM ${tbl}
+  FROM src
   GROUP BY ${oid}
   HAVING COUNT(*) <= ${maxItemsPerOrder}
 ),
 filtered_txn AS (
   SELECT t.${oid} AS order_id,
          t.${pid} AS product_id
-  FROM ${tbl} t
+  FROM src t
   INNER JOIN item_freq  i ON t.${pid} = i.product_id
   INNER JOIN order_size o ON t.${oid} = o.order_id
 ),
@@ -303,32 +308,36 @@ LIMIT ${topN}
    * Same Apriori prune + B2B filter as Phase-1, but skips self-join.
    * postProcess handles FP-Growth computation.
    */
-  private buildCleanTxnSql(cfg: Required<MarketBasketConfig>, tableName: string): string {
+  private buildCleanTxnSql(cfg: Required<MarketBasketConfig>, tableName: string, userWhere: string): string {
     const { orderIdCol, productIdCol, minSupport, maxItemsPerOrder } = cfg;
     const tbl = `"${tableName}"`;
     const oid = `"${orderIdCol}"`;
     const pid = `"${productIdCol}"`;
 
+    const whereClause = userWhere ? `\n  WHERE ${userWhere.replace(/^WHERE\s+/i, '')}` : '';
+    const srcCte = `src AS (\n  SELECT * FROM ${tbl}${whereClause}\n),`;
+
     return `
-WITH item_freq AS (
+WITH ${srcCte}
+item_freq AS (
   SELECT ${pid} AS product_id,
          COUNT(DISTINCT ${oid}) AS order_count
-  FROM ${tbl}
+  FROM src
   GROUP BY ${pid}
   HAVING order_count >= CAST(${minSupport} * (
-    SELECT COUNT(DISTINCT ${oid}) FROM ${tbl}
+    SELECT COUNT(DISTINCT ${oid}) FROM src
   ) AS INTEGER)
 ),
 order_size AS (
   SELECT ${oid} AS order_id
-  FROM ${tbl}
+  FROM src
   GROUP BY ${oid}
   HAVING COUNT(*) <= ${maxItemsPerOrder}
 ),
 filtered_txn AS (
   SELECT t.${oid} AS order_id,
          t.${pid} AS product_id
-  FROM ${tbl} t
+  FROM src t
   INNER JOIN item_freq  i ON t.${pid} = i.product_id
   INNER JOIN order_size o ON t.${oid} = o.order_id
 ),
