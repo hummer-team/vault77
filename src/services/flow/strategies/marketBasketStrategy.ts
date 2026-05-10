@@ -91,6 +91,52 @@ export const DEFAULT_MARKET_BASKET_CONFIG: Required<MarketBasketConfig> = {
 };
 
 // ============================================================================
+// Business description helpers — human-readable, co_count-first framing
+// ============================================================================
+
+/**
+ * Build a business-friendly description for a 2-item pair card.
+ * Primary anchor: co_count (real number, gives magnitude).
+ * Secondary: support % in parentheses for context.
+ * Tertiary: best-direction confidence for the "who buys together" insight.
+ */
+function buildPairDescription(
+  a: string, b: string,
+  support: number, confAB: number, confBA: number,
+  lift: number, coCount: number,
+): string {
+  const betterConf = Math.max(confAB, confBA);
+  const supportPct = (support * 100).toFixed(1);
+  const confPct    = (betterConf * 100).toFixed(0);
+  const coFmt      = coCount.toLocaleString();
+
+  return (
+    `「${a}」和「${b}」共有 ${coFmt} 笔订单同时购入（占总订单 ${supportPct}%），` +
+    `有 ${confPct}% 的买家购买其中一款后会同时购入另一款` +
+    (lift > 2.0 ? `，关联极强（是随机概率的 ${lift.toFixed(1)} 倍）` : '')
+  );
+}
+
+/**
+ * Build a business-friendly description for a 3-item combo card.
+ */
+function buildTripleDescription(
+  a: string, b: string, c: string,
+  support: number, confidence: number,
+  lift: number, coCount: number,
+): string {
+  const supportPct = (support * 100).toFixed(1);
+  const confPct    = (confidence * 100).toFixed(0);
+  const coFmt      = coCount.toLocaleString();
+
+  return (
+    `「${a}」「${b}」「${c}」共有 ${coFmt} 笔订单同时购入全部三款（占总订单 ${supportPct}%），` +
+    `有 ${confPct}% 的概率会一起出现` +
+    (lift > 2.0 ? `，三品关联极强（是随机概率的 ${lift.toFixed(1)} 倍）` : '，是捆绑促销的绝佳机会')
+  );
+}
+
+// ============================================================================
 // Business suggestion helpers — generate actionable Chinese advice from metrics
 // ============================================================================
 
@@ -583,17 +629,15 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
       const confAB = Number(row.confidence_ab);
       const confBA = Number(row.confidence_ba);
       const coCount = Number(row.co_count);
-      const supportPct = (Number(row.support) * 100).toFixed(1);
       const iconKey: InsightItem['iconKey'] =
         lift > 2.0 ? 'insight' : lift >= 1.2 ? 'order' : 'warning';
 
-      // Business-friendly description: no technical jargon
+      // Business-friendly description: co_count first, support % in parentheses
       const betterConf = Math.max(confAB, confBA);
-      const description =
-        `「${row.product_a}」和「${row.product_b}」是热门搭配组合 ——` +
-        `每100笔订单中约有 ${supportPct} 笔同时购买，` +
-        `有 ${(betterConf * 100).toFixed(0)}% 的买家会同时购入这两款商品` +
-        (lift > 2.0 ? `，关联极强（是随机概率的 ${lift.toFixed(1)} 倍）` : '');
+      const description = buildPairDescription(
+        row.product_a, row.product_b,
+        Number(row.support), confAB, confBA, lift, coCount,
+      );
 
       // Actionable business suggestion
       const suggestion = buildPairSuggestion(row.product_a, row.product_b, lift, confAB, confBA, coCount);
@@ -691,14 +735,15 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
         ? `${rule.product_a} × ${rule.product_b} × ${rule.product_c}`
         : `${rule.product_a} × ${rule.product_b}`;
 
-      const supportPct = (rule.support * 100).toFixed(1);
-      const confPct = (rule.confidence * 100).toFixed(0);
       const description = rule.rule_type === '3-item'
-        ? `「${rule.product_a}」「${rule.product_b}」「${rule.product_c}」三款商品是热门组合 ——` +
-          `每100笔订单约有 ${supportPct} 笔同时购入全部三款，是捆绑促销的绝佳机会`
-        : `「${rule.product_a}」和「${rule.product_b}」是热门搭配 ——` +
-          `每100笔订单约有 ${supportPct} 笔同时购入，有 ${confPct}% 的买家会同时购入这两款` +
-          (rule.lift > 2.0 ? `，关联极强（是随机概率的 ${rule.lift.toFixed(1)} 倍）` : '');
+        ? buildTripleDescription(
+            rule.product_a, rule.product_b, rule.product_c ?? '',
+            rule.support, rule.confidence, rule.lift, rule.co_count,
+          )
+        : buildPairDescription(
+            rule.product_a, rule.product_b,
+            rule.support, rule.confidence, rule.confidence, rule.lift, rule.co_count,
+          );
 
       const suggestion = rule.rule_type === '3-item'
         ? buildTripleSuggestion(rule.product_a, rule.product_b, rule.product_c ?? '', rule.lift, rule.co_count)
