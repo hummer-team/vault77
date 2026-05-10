@@ -487,7 +487,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleFlowSqlReady = useCallback(async (
     sql: string,
     flowSummary?: FlowSummary,
-    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<import('../../services/flow/types').AnalysisResult>
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<import('../../services/flow/types').AnalysisResult>,
+    operatorMeta?: { category: string; displayName: string }
   ) => {
     console.log('[Workbench] Flow SQL validated, executing query:', sql);
     
@@ -546,7 +547,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       // Create analysis record (similar to handleViewAnomalies)
       const newRecord: AnalysisRecord = {
         id: `flow-${Date.now()}`,
-        query: 'Flow Analysis Query',
+        query: operatorMeta
+          ? `${operatorMeta.category} · ${operatorMeta.displayName}`
+          : 'Flow Analysis Query',
         thinkingSteps: {
           tool: 'flow_builder',
           params: { query: sql },

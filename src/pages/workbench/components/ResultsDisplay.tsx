@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs } from 'antd';
-import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input } from 'antd';
+import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
@@ -1092,10 +1092,65 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       const columnFormatters = displayConfig?.columnFormatters ?? {};
       const columnTooltips = displayConfig?.columnTooltips ?? {};
 
+      // Shared text-search filterDropdown factory (client-side, no SQL)
+      const makeTextFilterDropdown = (colName: string) => ({
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
+          <div style={{ padding: 8, display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+            <Input
+              placeholder={`搜索 ${colName}…`}
+              value={selectedKeys[0]}
+              onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+              onPressEnter={() => confirm()}
+              style={{ width: 180 }}
+              allowClear
+            />
+            <Space>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => confirm()}
+                icon={<SearchOutlined />}
+                style={{ width: 80 }}
+              >
+                筛选
+              </Button>
+              <Button
+                size="small"
+                onClick={() => { clearFilters?.(); confirm(); }}
+                style={{ width: 60 }}
+              >
+                重置
+              </Button>
+            </Space>
+          </div>
+        ),
+        filterIcon: (filtered: boolean) => (
+          <SearchOutlined style={{ color: filtered ? 'var(--vm-primary)' : undefined }} />
+        ),
+        onFilter: (value: unknown, record: any) =>
+          String(record[colName] ?? '').toLowerCase().includes(String(value).toLowerCase()),
+      });
+
       const tableColumns: ColumnsType<any> = safeSchema.map((col) => {
         let renderFunction;
         const typeStr = String(col.type || '').toLowerCase();
         const colName = col.name;
+
+        // Column type classification
+        const isNumericCol = /double|float|decimal|real|int|bigint|numeric/.test(typeStr);
+        const isDateCol = /timestamp|date|time/.test(typeStr);
+        const isBooleanCol = typeStr.includes('boolean');
+
+        // Sorter: numeric > date (ISO string) > string localeCompare
+        const sorter = isNumericCol
+          ? (a: any, b: any) => {
+              const av = Number(a[colName] ?? 0);
+              const bv = Number(b[colName] ?? 0);
+              return av - bv;
+            }
+          : isDateCol
+          ? (a: any, b: any) => String(a[colName] ?? '').localeCompare(String(b[colName] ?? ''))
+          : (a: any, b: any) => String(a[colName] ?? '').localeCompare(String(b[colName] ?? ''));
 
         // Check if there's a custom formatter for this column
         const customFormatter = columnFormatters[colName];
@@ -1117,20 +1172,36 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           colName
         );
 
-        // Auto-add filters for risk_badge columns
-        const colFilters = customFormatter?.type === 'risk_badge' ? [
-          { text: '🔴 高风险', value: '高' },
-          { text: '🟡 中风险', value: '中' },
-          { text: '🟢 低风险', value: '低' },
-        ] : undefined;
+        // Filter config: risk_badge → 3-value checkboxes, boolean → Yes/No, others → text search
+        const isRiskBadge = customFormatter?.type === 'risk_badge';
+        const colFilters = isRiskBadge
+          ? [
+              { text: '🔴 高风险', value: '高' },
+              { text: '🟡 中风险', value: '中' },
+              { text: '🟢 低风险', value: '低' },
+            ]
+          : isBooleanCol
+          ? [
+              { text: '是', value: true },
+              { text: '否', value: false },
+            ]
+          : undefined;
+
+        // Spread text-search filterDropdown for non-badge, non-boolean columns
+        const textFilter = !isRiskBadge && !isBooleanCol ? makeTextFilterDropdown(colName) : {};
 
         return {
           title: headerTitle,
           dataIndex: colName,
           key: colName,
           render: renderFunction,
+          sorter,
+          sortDirections: ['ascend', 'descend'] as const,
           filters: colFilters,
-          onFilter: colFilters ? (value: unknown, record: any) => record[colName] === value : undefined,
+          onFilter: colFilters
+            ? (value: unknown, record: any) => record[colName] === value
+            : undefined,
+          ...textFilter,
           onHeaderCell: () => ({
             style: {
               background: 'var(--vm-bg-base)',

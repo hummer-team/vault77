@@ -64,7 +64,8 @@ interface FlowCanvasProps {
   onSqlValidated?: (
     sql: string,
     flowSummary?: FlowSummary,
-    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>,
+    operatorMeta?: { category: string; displayName: string }
   ) => void;
   /** Pre-selected kernel name from ChatPanel "/" trigger */
   defaultKernelName?: string;

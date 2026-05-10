@@ -32,7 +32,8 @@ interface EndNodeProps {
   onSqlValidated?: (
     sql: string,
     flowSummary?: FlowSummary,
-    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>
+    postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<AnalysisResult>,
+    operatorMeta?: { category: string; displayName: string }
   ) => void;
 }
 
@@ -166,7 +167,14 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
         if (onSqlValidated) {
           const flowSummary = buildFlowSummary(storeNodes, edges);
-          onSqlValidated(sql, flowSummary, strategy.postProcess.bind(strategy));
+          // Look up kernel metadata for operator label (category · displayName)
+          const opNode = storeNodes.find((n) => n.type === FlowNodeType.OPERATOR);
+          const kName = (opNode?.data as OperatorNodeData | undefined)?.kernelName;
+          const kMeta = kName ? bizKernelService.getKernelByName(kName) : undefined;
+          const operatorMeta = kMeta
+            ? { category: kMeta.category, displayName: kMeta.displayName }
+            : undefined;
+          onSqlValidated(sql, flowSummary, strategy.postProcess.bind(strategy), operatorMeta);
         }
 
         updateNode(id, {
