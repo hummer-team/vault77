@@ -32,6 +32,7 @@ import type {
   ArbitrageAnalyzeConfig,
   InventoryForecastConfig,
   MarketBasketConfig,
+  AbnormalAmountConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -52,6 +53,7 @@ import { RepurchaseCycleDrawer } from '../udf/RepurchaseCycleDrawer';
 import { ArbitrageAnalyzeDrawer } from '../udf/ArbitrageAnalyzeDrawer';
 import { InventoryForecastDrawer } from '../udf/InventoryForecastDrawer';
 import { MarketBasketDrawer } from '../udf/MarketBasketDrawer';
+import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -118,6 +120,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_arbitrage_analyze:                    OperatorType.ARBITRAGE_ANALYZE,
     fn_ecom_inventory_forecast:                   OperatorType.INVENTORY_FORECAST,
     fn_ecom_market_basket:                        OperatorType.MARKET_BASKET,
+    fn_ecom_abnormal_amount:                      OperatorType.ABNORMAL_AMOUNT,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -244,6 +247,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleAbnormalAmountConfirm = useCallback(
+    (config: AbnormalAmountConfig) => {
+      updateNode(id, { abnormalAmountConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -287,6 +298,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.inventoryForecastConfig?.skuCol);
       case SelectNodePanelType.MARKET_BASKET_DRAWER:
         return !!(data.marketBasketConfig?.orderIdCol && data.marketBasketConfig?.productIdCol);
+      case SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER:
+        return !!(data.abnormalAmountConfig?.fieldMapping?.orderIdCol &&
+                  data.abnormalAmountConfig?.fieldMapping?.amountCol &&
+                  data.abnormalAmountConfig?.fieldMapping?.originalAmountCol);
       default:
         return false;
     }
@@ -666,6 +681,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleMarketBasketConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER:
+          return (
+            <OrderAbnormalAmountDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.abnormalAmountConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleAbnormalAmountConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

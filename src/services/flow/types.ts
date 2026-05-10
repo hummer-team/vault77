@@ -54,6 +54,7 @@ export enum OperatorType {
   ARBITRAGE_ANALYZE = 'arbitrage_analyze',  // Risk control: price arbitrage analysis
   INVENTORY_FORECAST = 'inventory_forecast',  // Inventory: batch multi-SKU demand forecasting
   MARKET_BASKET = 'market_basket',  // MBA: association rules mining (frequent co-purchase patterns)
+  ABNORMAL_AMOUNT = 'abnormal_amount',  // Risk control: order amount anomaly detection
 }
 
 export enum LogicType {
@@ -272,6 +273,8 @@ export interface SelectNodeData extends BaseNodeData {
   inventoryForecastConfig?: InventoryForecastConfig;
   /** Config for fn_ecom_market_basket */
   marketBasketConfig?: MarketBasketConfig;
+  /** Config for fn_ecom_abnormal_amount */
+  abnormalAmountConfig?: AbnormalAmountConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -630,6 +633,61 @@ export interface MarketBasketConfig {
    * Recommended only when data has < 50k orders (analysis time increases).
    */
   enableTriples?: boolean;
+}
+
+// ============================================================================
+// AbnormalAmount types (fn_ecom_abnormal_amount)
+// ============================================================================
+
+/**
+ * Field mapping for fn_ecom_abnormal_amount.
+ * Required fields must be set before execution; optional fields add extra detection dimensions.
+ */
+export interface AbnormalAmountFieldMapping {
+  /** Required: order identifier column */
+  orderIdCol: string;
+  /** Required: actual payment amount column */
+  amountCol: string;
+  /** Required: original / list price column (needed for discount_rate feature) */
+  originalAmountCol: string;
+  /** Optional: order timestamp column — enables daily amount percentile rank feature */
+  orderTimeCol?: string;
+  /** Optional: user identifier column — enables user daily order count feature (requires orderTimeCol) */
+  userIdCol?: string;
+  /** Optional: SKU / product identifier column — reserved for future feature dimensions */
+  skuIdCol?: string;
+  /** Optional: category identifier column — reserved for future feature dimensions */
+  categoryIdCol?: string;
+}
+
+/**
+ * Risk level thresholds — user-adjustable via Drawer sliders.
+ * Scores are from the isolation forest algorithm [0, 1].
+ */
+export interface AbnormalAmountRiskThresholds {
+  /** score >= high → risk_level = '高' (default: 0.9) */
+  high: number;
+  /** score >= medium && < high → risk_level = '中' (default: 0.7) */
+  medium: number;
+}
+
+/**
+ * Top-level config stored on SelectNodeData for fn_ecom_abnormal_amount.
+ */
+export interface AbnormalAmountConfig {
+  fieldMapping: AbnormalAmountFieldMapping;
+  /** Isolation forest anomaly detection threshold [0, 1]. Default: 0.8 */
+  anomalyThreshold: number;
+  /** Feature scaling mode: 0=None, 1=MinMax, 2=Standard. Default: 2 */
+  scalingMode: 0 | 1 | 2;
+  /** Risk level thresholds (user-adjustable) */
+  riskThresholds: AbnormalAmountRiskThresholds;
+  /** Sampling rate [0.25, 1.0] applied when row count > samplingThreshold. Default: 0.75 */
+  samplingRate: number;
+  /** Row count threshold that triggers sampling. Default: 50000 */
+  samplingThreshold: number;
+  /** GPU acceleration strategy. Default: 'auto' */
+  useGPU: 'auto' | 'force' | 'disable';
 }
 
 /**

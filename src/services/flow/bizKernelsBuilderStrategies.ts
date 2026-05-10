@@ -38,6 +38,7 @@ export enum SelectNodePanelType {
   /** InventoryForecastDrawer — used for 库存需求预测 (batch multi-SKU) */
   INVENTORY_FORECAST_DRAWER = 'INVENTORY_FORECAST_DRAWER',
   MARKET_BASKET_DRAWER = 'MARKET_BASKET_DRAWER',
+  ABNORMAL_AMOUNT_DRAWER = 'ABNORMAL_AMOUNT_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -68,6 +69,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_arbitrage_analyze:     SelectNodePanelType.ARBITRAGE_ANALYZE_DRAWER,
   fn_ecom_inventory_forecast:    SelectNodePanelType.INVENTORY_FORECAST_DRAWER,
   fn_ecom_market_basket:         SelectNodePanelType.MARKET_BASKET_DRAWER,
+  fn_ecom_abnormal_amount:       SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER,
 };
 
 // ============================================================================
