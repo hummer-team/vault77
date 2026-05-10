@@ -482,7 +482,7 @@ export class OrderAbnormalAmountStrategy extends BaseStrategy {
             unit: '元',
             highlight: maxDeviation > 0,
           },
-          { label: 'z-score 峰值', value: Math.round(peakZScore * 100) / 100, unit: '' },
+          { label: '金额偏离峰值', value: Math.round(peakZScore * 100) / 100, unit: '' },
         ],
       },
       {
@@ -574,12 +574,16 @@ export class OrderAbnormalAmountStrategy extends BaseStrategy {
       },
       columnTooltips: {
         abnormal_score: '异常分（0~1），越高越异常；超过检测阈值即判定为异常订单',
-        amount_z_score: '金额 z-score：相对过滤后订单均值的标准差偏离倍数，>2 通常值得关注',
+        amount_z_score: '金额偏离指数：相对过滤后订单均值的偏离倍数，数值越大说明金额越不寻常',
         discount_rate: '折扣率：1 - 实付/原价；0 表示无折扣，0.5 表示五折',
         risk_level: '风险等级：高（异常分 ≥ 0.9）/ 中（0.7~0.9）/ 低（< 0.7）',
         is_abnormal: '是否异常：true = 异常分超过检测阈值',
         Suggestion: '业务建议：基于异常分档位给出的具体处理建议',
       },
+      tabs: [
+        { label: '全量订单' },
+        { label: '异常订单', filterField: 'is_abnormal', filterValue: true },
+      ],
     };
 
     return {

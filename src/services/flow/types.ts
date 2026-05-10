@@ -1023,6 +1023,16 @@ export interface OperatorInsightsData {
   insights: InsightItem[];
 }
 
+/** Tab filter config for operator result display */
+export interface TabConfig {
+  /** Tab label displayed to user */
+  label: string;
+  /** Field name to filter by; undefined = show all rows */
+  filterField?: string;
+  /** Value to match; rows where record[filterField] === filterValue are shown */
+  filterValue?: unknown;
+}
+
 /**
  * OperatorDisplayConfig defines how ResultsDisplay should render operator results.
  * Pure data-driven — no business logic, only configuration.
@@ -1039,6 +1049,9 @@ export interface OperatorDisplayConfig {
 
   /** Column header tooltips — map column name → tooltip text */
   columnTooltips?: Record<string, string>;
+
+  /** If provided, renders a tab bar above the result table; each tab can filter rows */
+  tabs?: TabConfig[];
 }
 
 export interface AnalysisResult {

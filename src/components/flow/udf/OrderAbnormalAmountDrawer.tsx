@@ -391,14 +391,14 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           )}
           <FieldRow
             label="商品 SKU"
-            tip="为未来特征维度预留，当前版本记录上下文"
+            tip="可选，选择后用于多维分析（如按商品 SKU 追踪异常集中度）"
             value={skuIdCol}
             columns={columns}
             onChange={setSkuIdCol}
           />
           <FieldRow
             label="品类 ID"
-            tip="为未来特征维度预留，当前版本记录上下文"
+            tip="可选，选择后用于多维分析（如按品类追踪异常分布）"
             value={categoryIdCol}
             columns={columns}
             onChange={setCategoryIdCol}
@@ -412,7 +412,7 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ fontSize: 12, color: TOKEN.textSecondary }}>
                 异常分数阈值
-                <Tooltip title="隔离森林输出分数 [0,1]，高于阈值的订单被标记为异常。建议范围 0.7–0.95。">
+                <Tooltip title="检测分值越高表示该订单越可疑。超过此阈值将被标记为异常订单，建议设置在 0.70–0.95 之间">
                   <InfoCircleOutlined style={{ marginLeft: 4, fontSize: 11, color: TOKEN.textMuted }} />
                 </Tooltip>
               </Text>
@@ -434,7 +434,7 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           <div style={{ marginBottom: 14 }}>
             <Text style={{ fontSize: 12, color: TOKEN.textSecondary, display: 'block', marginBottom: 6 }}>
               风险等级阈值
-              <Tooltip title="高风险：score ≥ 高阈值（🔴）；中风险：score ∈ [中,高)（🟡）；低风险：其他异常（🟢）">
+              <Tooltip title="风险等级划分：高风险（异常分 ≥ 高阈值 🔴）/ 中风险（在中值与高值之间 🟡）/ 低风险（其余异常订单 🟢）">
                 <InfoCircleOutlined style={{ marginLeft: 4, fontSize: 11, color: TOKEN.textMuted }} />
               </Tooltip>
             </Text>
@@ -472,7 +472,7 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           <div style={{ marginBottom: 14 }}>
             <Text style={{ fontSize: 12, color: TOKEN.textSecondary, display: 'block', marginBottom: 6 }}>
               特征归一化模式
-              <Tooltip title="Standard（Z-score）：适合正态分布金额；MinMax：适合宽分布长尾；None：保留原始尺度。">
+              <Tooltip title="通常使用默认模式（Standard）即可；如遇大促等极端价格场景，可尝试 MinMax 模式">
                 <InfoCircleOutlined style={{ marginLeft: 4, fontSize: 11, color: TOKEN.textMuted }} />
               </Tooltip>
             </Text>
@@ -491,8 +491,8 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ fontSize: 12, color: TOKEN.textSecondary }}>
-                采样比例（超 5 万行时生效）
-                <Tooltip title="数据量超过采样阈值时随机 BERNOULLI 采样，加快检测速度。1.0 = 不采样。">
+                大数据加速比例（超过 5 万行时自动启用）
+                <Tooltip title="数据量较大时按比例抽样分析，可加快检测速度；100% 表示全量检测不抽样">
                   <InfoCircleOutlined style={{ marginLeft: 4, fontSize: 11, color: TOKEN.textMuted }} />
                 </Tooltip>
               </Text>
@@ -515,7 +515,7 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           <div style={{ marginBottom: 4 }}>
             <Text style={{ fontSize: 12, color: TOKEN.textSecondary, display: 'block', marginBottom: 6 }}>
               <ThunderboltOutlined style={{ marginRight: 4 }} />
-              GPU 加速策略
+              计算加速模式
             </Text>
             <Select
               size="small"
@@ -524,8 +524,8 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
               style={{ width: '100%' }}
               options={[
                 { label: '🤖 自动检测（推荐）', value: 'auto' },
-                { label: '⚡ 强制 GPU（需支持 WebGPU）', value: 'force' },
-                { label: '🧮 仅 CPU', value: 'disable' },
+                { label: '⚡ 优先加速', value: 'force' },
+                { label: '🖥️ 标准计算', value: 'disable' },
               ]}
               styles={{
                 popup: { root: { background: TOKEN.bgBase, borderColor: TOKEN.borderMid } },
@@ -545,7 +545,7 @@ export const OrderAbnormalAmountDrawer: React.FC<OrderAbnormalAmountDrawerProps>
           }}
         >
           <Text style={{ fontSize: 11, color: TOKEN.textMuted, lineHeight: '18px' }}>
-            💡 <b>提示：</b>异常检测在数据预览完成后通过 Rust WASM 隔离森林执行，结果包含异常分数、风险等级和建议处置说明。采样仅影响检测速度，不影响全量数据输出。
+            💡 <b>提示：</b>检测完成后，结果将包含每笔订单的异常分数、风险等级和建议处置说明。采样仅影响检测速度，不影响全量数据的最终输出。
           </Text>
         </div>
       </Drawer>

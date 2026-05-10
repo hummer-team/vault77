@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
-import type { OperatorDisplayConfig, ColumnFormatterSpec, OperatorInsightsData } from '../../../services/flow/types';
+import type { OperatorDisplayConfig, ColumnFormatterSpec, OperatorInsightsData, TabConfig } from '../../../services/flow/types';
 import InsightsPanel from '../../../components/insights/InsightsPanel';
 import { TOKEN } from '../../../theme';
 
@@ -661,6 +661,7 @@ const buildSafeSchema = (schema: unknown, data: unknown): Array<{ name: string; 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments, insightsData }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
   const [queryExpanded, setQueryExpanded] = useState(false);
+  const [activeTabKey, setActiveTabKey] = useState('0');
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1116,11 +1117,20 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           colName
         );
 
+        // Auto-add filters for risk_badge columns
+        const colFilters = customFormatter?.type === 'risk_badge' ? [
+          { text: '🔴 高风险', value: '高' },
+          { text: '🟡 中风险', value: '中' },
+          { text: '🟢 低风险', value: '低' },
+        ] : undefined;
+
         return {
           title: headerTitle,
           dataIndex: colName,
           key: colName,
           render: renderFunction,
+          filters: colFilters,
+          onFilter: colFilters ? (value: unknown, record: any) => record[colName] === value : undefined,
           onHeaderCell: () => ({
             style: {
               background: 'var(--vm-bg-base)',
@@ -1131,13 +1141,22 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
             },
           }),
-          onCell: () => ({
-            style: {
-              fontFamily: 'Fira Code, monospace',
-              fontSize: '12px',
-              color: 'var(--vm-bg-section)',
-            },
-          }),
+          onCell: (record: any) => {
+            const rowColorizer = displayConfig?.rowColorizer;
+            let cellBg: string | undefined;
+            if (rowColorizer) {
+              const fieldValue = record[rowColorizer.field];
+              const colorConfig = rowColorizer.colorMap?.[String(fieldValue)];
+              if (colorConfig?.bg) cellBg = colorConfig.bg;
+            }
+            return {
+              style: {
+                fontFamily: 'Fira Code, monospace',
+                fontSize: '12px',
+                ...(cellBg ? { background: cellBg } : {}),
+              },
+            };
+          },
         };
       });
 
@@ -1176,44 +1195,54 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         return sorted;
       })();
 
+      // Apply active tab filtering
+      const activeTabs: TabConfig[] | undefined = displayConfig?.tabs;
+      const tabFilteredData = (() => {
+        if (!activeTabs || activeTabKey === '0') return sortedTableDataSource;
+        const tab = activeTabs[Number(activeTabKey)];
+        if (!tab?.filterField) return sortedTableDataSource;
+        return sortedTableDataSource.filter((row) => row[tab.filterField!] === tab.filterValue);
+      })();
+
+      const tableElement = (
+        <Table
+          dataSource={tabFilteredData}
+          columns={tableColumns}
+          pagination={{
+            defaultPageSize: 20,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            style: {
+              marginTop: 16,
+            },
+          }}
+          size="small"
+          scroll={{ x: 'max-content' }}
+          style={{
+            marginTop: activeTabs ? 0 : 16,
+          }}
+          className="data-analysis-table"
+          rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
+        />
+      );
+
       return (
         <Card {...cardProps}>
           {commonContent}
           {/* Operator insights panel rendered above the data table */}
           {insightsData && <InsightsPanel insightsData={insightsData} />}
-          <Table
-            dataSource={sortedTableDataSource}
-            columns={tableColumns}
-            pagination={{
-              defaultPageSize: 20,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-              style: {
-                marginTop: 16,
-              },
-            }}
-            size="small"
-            scroll={{ x: 'max-content' }}
-            style={{
-              marginTop: 16,
-            }}
-            className="data-analysis-table"
-            rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
-            onRow={(record) => {
-              const rowColorizer = displayConfig?.rowColorizer;
-              const style: React.CSSProperties = {};
-              
-              if (rowColorizer) {
-                const fieldValue = record[rowColorizer.field];
-                const colorConfig = rowColorizer.colorMap?.[String(fieldValue)];
-                if (colorConfig?.bg) {
-                  style.background = colorConfig.bg;
-                }
-              }
-              
-              return { style };
-            }}
-          />
+          {activeTabs ? (
+            <Tabs
+              activeKey={activeTabKey}
+              onChange={setActiveTabKey}
+              style={{ marginTop: 8 }}
+              items={activeTabs.map((tab, i) => ({
+                key: String(i),
+                label: tab.label,
+                children: tableElement,
+              }))}
+            />
+          ) : tableElement}
           <style>{`
             .data-analysis-table .ant-table {
               background: transparent;
