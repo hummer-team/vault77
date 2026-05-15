@@ -15,6 +15,14 @@ import {
   type AdvancedColumnFilterState,
   type ColumnFilterKind,
 } from '../../../utils/resultsTableFiltersUtils';
+import {
+  computeColumnAggregatesAsync,
+  formatAggValue,
+  type ActiveColStats,
+  type ColAggregates,
+  type ColStatsMap,
+  type ColStatMetric,
+} from '../../../utils/tableAnalyticsUtils';
 import dayjs from 'dayjs';
 import { TOKEN } from '../../../theme';
 
@@ -687,6 +695,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     y: number;
     isNumeric: boolean;
   } | null>(null);
+  // Active column stats: which metrics are enabled per column
+  const [activeColStats, setActiveColStats] = useState<ActiveColStats>({});
+  // Computed aggregation results per column
+  const [colAggResults, setColAggResults] = useState<ColStatsMap>({});
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -723,6 +735,28 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       console.error('Failed to export CSV:', e);
       message.error('导出失败，请稍后重试');
     }
+  };
+
+  /**
+   * Toggle a stat metric on/off for a numeric column.
+   * Triggers async computation via requestIdleCallback when activated.
+   */
+  const toggleColStat = (colName: string, metric: ColStatMetric, rows: Record<string, unknown>[]) => {
+    setActiveColStats((prev) => {
+      const existing = prev[colName] ?? [];
+      const next = existing.includes(metric)
+        ? existing.filter((m) => m !== metric)
+        : [...existing, metric];
+      const updated = { ...prev };
+      if (next.length === 0) delete updated[colName];
+      else updated[colName] = next;
+      return updated;
+    });
+
+    // Trigger async compute for this column if not yet computed or data changed
+    computeColumnAggregatesAsync(rows, colName, (result: ColAggregates) => {
+      setColAggResults((prev) => ({ ...prev, [colName]: result }));
+    });
   };
 
   const renderContent = () => {
@@ -1512,8 +1546,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       // Derived toolbar state
       const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
-      // Virtual scrolling: only when > 500 rows and no active summary stats (future: check activeColStats)
-      const enableVirtual = columnFilteredData.length > 500;
+      // Virtual scrolling: disabled when summary stats active (Antd incompatibility)
+      const hasSummaryStats = Object.keys(activeColStats).length > 0;
+      const enableVirtual = columnFilteredData.length > 500 && !hasSummaryStats;
 
       const tableElement = (
         <>
@@ -1552,6 +1587,51 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             style={{ marginTop: activeTabs ? 0 : 4 }}
             className="data-analysis-table"
             rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
+            summary={Object.keys(activeColStats).length > 0 ? () => (
+              <Table.Summary fixed="bottom">
+                <Table.Summary.Row
+                  style={{
+                    background: 'var(--vm-bg-base)',
+                    borderTop: '2px solid var(--vm-accent-orange-border-strong)',
+                  }}
+                >
+                  {visibleTableColumns.map((col) => {
+                    const cName = String(col.key);
+                    const metrics = activeColStats[cName];
+                    const agg = colAggResults[cName];
+                    if (!metrics || metrics.length === 0) {
+                      return (
+                        <Table.Summary.Cell key={cName} index={visibleTableColumns.indexOf(col)}>
+                          <span />
+                        </Table.Summary.Cell>
+                      );
+                    }
+                    return (
+                      <Table.Summary.Cell key={cName} index={visibleTableColumns.indexOf(col)}>
+                        <div style={{ fontSize: 11, lineHeight: 1.6 }}>
+                          {metrics.map((m) => {
+                            const labels: Record<ColStatMetric, string> = {
+                              sum: 'SUM', avg: 'AVG', min: 'MIN', max: 'MAX', count: 'COUNT',
+                            };
+                            const val = agg
+                              ? (m === 'count' ? agg.count : formatAggValue(agg[m]))
+                              : '…';
+                            return (
+                              <div key={m} style={{ color: 'var(--vm-primary)', fontWeight: 600 }}>
+                                <span style={{ color: 'var(--vm-text-muted)', fontWeight: 400 }}>
+                                  {labels[m]}:{' '}
+                                </span>
+                                {String(val)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Table.Summary.Cell>
+                    );
+                  })}
+                </Table.Summary.Row>
+              </Table.Summary>
+            ) : undefined}
           />
         </>
       );
@@ -1630,6 +1710,39 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                   >
                     🙈 隐藏此列
                   </div>
+                  {/* Numeric column stats section */}
+                  {colContextMenu.isNumeric && (
+                    <>
+                      <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                      <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--vm-text-muted)' }}>
+                        列统计（显示在底栏）
+                      </div>
+                      {(['sum', 'avg', 'min', 'max', 'count'] as ColStatMetric[]).map((metric) => {
+                        const isActive = (activeColStats[colContextMenu.colName] ?? []).includes(metric);
+                        const labels: Record<ColStatMetric, string> = {
+                          sum: '合计 SUM', avg: '平均 AVG', min: '最小 MIN',
+                          max: '最大 MAX', count: '计数 COUNT',
+                        };
+                        return (
+                          <div
+                            key={metric}
+                            style={{
+                              padding: '5px 14px',
+                              cursor: 'pointer',
+                              color: isActive ? 'var(--vm-primary)' : 'var(--vm-text-primary)',
+                              fontWeight: isActive ? 600 : 400,
+                            }}
+                            className="ctx-menu-item"
+                            onClick={() => toggleColStat(
+                              colContextMenu.colName, metric, columnFilteredData,
+                            )}
+                          >
+                            {isActive ? '✓ ' : '  '}{labels[metric]}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               )}
             >
