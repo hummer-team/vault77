@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import TableToolbar from './TableToolbar';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
@@ -678,6 +678,15 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const filteredDataRef = useRef<Record<string, unknown>[]>([]);
   // Hidden columns: Set of column names to exclude from table display
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  // Pinned columns: 'left' or 'right' per column name
+  const [pinnedColumns, setPinnedColumns] = useState<Record<string, 'left' | 'right'>>({});
+  // Context menu state for column header right-click
+  const [colContextMenu, setColContextMenu] = useState<{
+    colName: string;
+    x: number;
+    y: number;
+    isNumeric: boolean;
+  } | null>(null);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1388,6 +1397,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
         const filterKind = getColumnFilterKind(typeStr, customFormatter);
         const advancedFilter = makeAdvancedFilterDropdown(colName, filterKind);
+        // Use filterKind for context menu numeric check (consistent with filter logic)
+        const isNumericColForMenu = filterKind === 'number';
+        // Pinning state for this column
+        const pinFixed = pinnedColumns[colName];
 
         return {
           title: headerTitle,
@@ -1396,6 +1409,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           render: renderFunction,
           sorter,
           sortDirections: ['ascend', 'descend'] as const,
+          ...(pinFixed ? { fixed: pinFixed } : {}),
           ...advancedFilter,
           onHeaderCell: () => ({
             style: {
@@ -1405,6 +1419,16 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               fontFamily: 'Fira Sans, sans-serif',
               fontSize: '13px',
               borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
+              cursor: 'context-menu',
+            },
+            onContextMenu: (e: React.MouseEvent) => {
+              e.preventDefault();
+              setColContextMenu({
+                colName,
+                x: e.clientX,
+                y: e.clientY,
+                isNumeric: isNumericColForMenu,
+              });
             },
           }),
           onCell: (record: any) => {
@@ -1549,6 +1573,79 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               }))}
             />
           ) : tableElement}
+          {/* Column header right-click context menu */}
+          {colContextMenu && (
+            <Dropdown
+              open
+              onOpenChange={(open) => { if (!open) setColContextMenu(null); }}
+              dropdownRender={() => (
+                <div
+                  style={{
+                    position: 'fixed',
+                    left: colContextMenu.x,
+                    top: colContextMenu.y,
+                    zIndex: 9999,
+                    background: 'var(--vm-bg-card)',
+                    border: '1px solid var(--vm-border-mid)',
+                    borderRadius: 6,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                    minWidth: 160,
+                    padding: '4px 0',
+                    fontSize: 13,
+                  }}
+                  onClick={() => setColContextMenu(null)}
+                >
+                  {/* Pin Left */}
+                  <div
+                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                    className="ctx-menu-item"
+                    onClick={() => setPinnedColumns((prev) => {
+                      const next = { ...prev };
+                      if (next[colContextMenu.colName] === 'left') delete next[colContextMenu.colName];
+                      else next[colContextMenu.colName] = 'left';
+                      return next;
+                    })}
+                  >
+                    {pinnedColumns[colContextMenu.colName] === 'left' ? '📌 取消左固定' : '📌 固定到左侧'}
+                  </div>
+                  {/* Pin Right */}
+                  <div
+                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                    className="ctx-menu-item"
+                    onClick={() => setPinnedColumns((prev) => {
+                      const next = { ...prev };
+                      if (next[colContextMenu.colName] === 'right') delete next[colContextMenu.colName];
+                      else next[colContextMenu.colName] = 'right';
+                      return next;
+                    })}
+                  >
+                    {pinnedColumns[colContextMenu.colName] === 'right' ? '📌 取消右固定' : '📌 固定到右侧'}
+                  </div>
+                  <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                  {/* Hide column */}
+                  <div
+                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                    className="ctx-menu-item"
+                    onClick={() => setHiddenColumns((prev) => new Set([...prev, colContextMenu.colName]))}
+                  >
+                    🙈 隐藏此列
+                  </div>
+                </div>
+              )}
+            >
+              {/* Invisible trigger anchor at cursor position */}
+              <span
+                style={{
+                  position: 'fixed',
+                  left: colContextMenu.x,
+                  top: colContextMenu.y,
+                  width: 1,
+                  height: 1,
+                  pointerEvents: 'none',
+                }}
+              />
+            </Dropdown>
+          )}
           <style>{`
             .data-analysis-table .ant-table {
               background: transparent;
@@ -1586,6 +1683,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             }
             .data-analysis-table .ant-pagination-item-active a {
               color: var(--vm-primary);
+            }
+            .ctx-menu-item:hover {
+              background: var(--vm-surface-hover);
             }
           `}</style>
           {/* Action buttons aligned with pagination */}
