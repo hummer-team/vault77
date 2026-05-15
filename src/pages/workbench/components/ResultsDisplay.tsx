@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
@@ -673,6 +673,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [columnFilters, setColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
   // Draft state: edited in dropdown but not yet applied to table
   const [pendingColumnFilters, setPendingColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
+  // Ref to latest filtered table data — used by export handler
+  const filteredDataRef = useRef<Record<string, unknown>[]>([]);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -696,9 +698,13 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       message.warning('暂无可导出的数据');
       return;
     }
+    // Export uses filtered data captured in ref (reflects active filters)
+    const exportData = filteredDataRef.current.length > 0
+      ? filteredDataRef.current
+      : (data as Record<string, unknown>[]);
     try {
       exportTableToCsv({
-        data: data as any[],
+        data: exportData as any[],
         schema: safeSchema,
       });
     } catch (e) {
@@ -1470,6 +1476,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               return applyAdvancedColumnFilter(row[colName], filterState, kind);
             }),
           );
+
+      // Keep ref in sync so export handler can access latest filtered data
+      filteredDataRef.current = columnFilteredData;
 
       const tableElement = (
         <Table
