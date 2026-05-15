@@ -699,6 +699,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [activeColStats, setActiveColStats] = useState<ActiveColStats>({});
   // Computed aggregation results per column
   const [colAggResults, setColAggResults] = useState<ColStatsMap>({});
+  // Row selection: keys of selected rows
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1398,8 +1400,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         const isNumericCol = /double|float|decimal|real|int|bigint|numeric/.test(typeStr);
         const isDateCol = /timestamp|date|time/.test(typeStr);
 
-        // Sorter: numeric > date (ISO string) > string localeCompare
-        const sorter = isNumericCol
+        // Sorter: use { compare, multiple } format for multi-column sort support
+        const compareFn = isNumericCol
           ? (a: any, b: any) => {
               const av = Number(a[colName] ?? 0);
               const bv = Number(b[colName] ?? 0);
@@ -1408,6 +1410,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           : isDateCol
           ? (a: any, b: any) => String(a[colName] ?? '').localeCompare(String(b[colName] ?? ''))
           : (a: any, b: any) => String(a[colName] ?? '').localeCompare(String(b[colName] ?? ''));
+
+        // multi: column index used as priority (lower index = higher priority for tiebreak)
+        const colIndex = safeSchema.findIndex((c) => c.name === colName);
+        const sorter = { compare: compareFn, multiple: colIndex + 1 };
 
         // Check if there's a custom formatter for this column
         const customFormatter = columnFormatters[colName];
@@ -1572,6 +1578,35 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             }}
             onExport={handleExportClick}
           />
+          {/* Row selection status bar (Antd default layout, visible only when rows selected) */}
+          {selectedRowKeys.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '5px 8px',
+                marginBottom: 4,
+                background: 'var(--vm-primary-light)',
+                border: '1px solid var(--vm-primary-border)',
+                borderRadius: 4,
+                fontSize: 12,
+                color: 'var(--vm-text-primary)',
+              }}
+            >
+              <span style={{ fontWeight: 600, color: 'var(--vm-primary)' }}>
+                已选 {selectedRowKeys.length} 行
+              </span>
+              <Button
+                size="small"
+                type="text"
+                style={{ fontSize: 11, color: 'var(--vm-text-muted)', padding: '0 4px' }}
+                onClick={() => setSelectedRowKeys([])}
+              >
+                清除选择
+              </Button>
+            </div>
+          )}
           <Table
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
@@ -1587,6 +1622,11 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             style={{ marginTop: activeTabs ? 0 : 4 }}
             className="data-analysis-table"
             rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (keys) => setSelectedRowKeys(keys),
+              columnWidth: 36,
+            }}
             summary={Object.keys(activeColStats).length > 0 ? () => (
               <Table.Summary fixed="bottom">
                 <Table.Summary.Row
