@@ -21,7 +21,7 @@ import {
   BarChartOutlined,
   ShoppingOutlined,
 } from '@ant-design/icons';
-import type { InsightItem, InsightMetric, InsightSummary, OperatorInsightsData } from '../../services/flow/types';
+import type { InsightItem, InsightMetric, InsightSummary, OperatorInsightsData } from '../../../services/flow/types';
 
 // ============================================================================
 // iconKey → { icon component, CSS variable color } mapping

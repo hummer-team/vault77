@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
 import type { FlowSummary } from '../../../services/flow/flowSummary';
 import type { OperatorDisplayConfig, ColumnFormatterSpec, OperatorInsightsData, TabConfig } from '../../../services/flow/types';
-import InsightsPanel from '../../../components/insights/InsightsPanel';
+import ResultInsightsPanel from './ResultInsightsPanel';
+import {
+  applyAdvancedColumnFilter,
+  getDistinctColumnValues,
+  isFilterStateActive,
+  type AdvancedColumnFilterState,
+  type ColumnFilterKind,
+} from '../../../services/utils/resultsTableFiltersUtils';
 import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
@@ -662,6 +669,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [voted, setVoted] = useState<'up' | null>(null);
   const [queryExpanded, setQueryExpanded] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState('0');
+  const [columnFilters, setColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1072,7 +1080,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           return (
             <Card {...cardProps}>
               {commonContent}
-              <InsightsPanel insightsData={insightsData} />
+              <ResultInsightsPanel insightsData={insightsData} />
             </Card>
           );
         }
@@ -1092,43 +1100,203 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       const columnFormatters = displayConfig?.columnFormatters ?? {};
       const columnTooltips = displayConfig?.columnTooltips ?? {};
 
-      // Shared text-search filterDropdown factory (client-side, no SQL)
-      const makeTextFilterDropdown = (colName: string) => ({
-        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
-          <div style={{ padding: 8, display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
-            <Input
-              placeholder={`搜索 ${colName}…`}
-              value={selectedKeys[0]}
-              onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-              onPressEnter={() => confirm()}
-              style={{ width: 180 }}
-              allowClear
-            />
-            <Space>
-              <Button
-                type="primary"
+      const getColumnFilterKind = (typeStr: string, formatter?: ColumnFormatterSpec): ColumnFilterKind => {
+        if (formatter?.type === 'risk_badge') return 'enum';
+        if (typeStr.includes('boolean')) return 'boolean';
+        if (/double|float|decimal|real|int|bigint|numeric/.test(typeStr)) return 'number';
+        if (/timestamp|date|time/.test(typeStr)) return 'date';
+        return 'text';
+      };
+
+      const getDefaultOperator = (kind: ColumnFilterKind): AdvancedColumnFilterState['operator'] => {
+        if (kind === 'number') return 'between';
+        if (kind === 'date') return 'between';
+        if (kind === 'boolean' || kind === 'enum') return 'in';
+        return 'contains';
+      };
+
+      const tableDataSource = actualData.map((row: any, rowIndex: number) => ({
+        ...row,
+        key: `row-${rowIndex}`,
+      }));
+
+      const distinctValuesByColumn = safeSchema.reduce<Record<string, string[]>>((acc, col) => {
+        acc[col.name] = getDistinctColumnValues(tableDataSource, col.name);
+        return acc;
+      }, {});
+
+      const makeAdvancedFilterDropdown = (colName: string, kind: ColumnFilterKind) => ({
+        filterDropdown: ({ confirm }: any) => {
+          const current = columnFilters[colName] ?? { operator: getDefaultOperator(kind) };
+          const operatorOptions: Array<{ value: AdvancedColumnFilterState['operator']; label: string }> = kind === 'number'
+            ? [
+                { value: 'between', label: '范围 (Between)' },
+                { value: 'equals', label: '=' },
+                { value: 'notEquals', label: '≠' },
+                { value: 'gt', label: '>' },
+                { value: 'gte', label: '≥' },
+                { value: 'lt', label: '<' },
+                { value: 'lte', label: '≤' },
+                { value: 'blank', label: '为空' },
+                { value: 'notBlank', label: '不为空' },
+              ]
+            : kind === 'date'
+            ? [
+                { value: 'between', label: '日期范围' },
+                { value: 'on', label: '等于日期' },
+                { value: 'before', label: '早于日期' },
+                { value: 'after', label: '晚于日期' },
+                { value: 'last7', label: '最近 7 天' },
+                { value: 'last30', label: '最近 30 天' },
+                { value: 'last90', label: '最近 90 天' },
+                { value: 'blank', label: '为空' },
+                { value: 'notBlank', label: '不为空' },
+              ]
+            : kind === 'boolean' || kind === 'enum'
+            ? [
+                { value: 'in', label: '值选择' },
+                { value: 'blank', label: '为空' },
+                { value: 'notBlank', label: '不为空' },
+              ]
+            : [
+                { value: 'contains', label: '包含' },
+                { value: 'notContains', label: '不包含' },
+                { value: 'equals', label: '等于' },
+                { value: 'notEquals', label: '不等于' },
+                { value: 'startsWith', label: '前缀匹配' },
+                { value: 'endsWith', label: '后缀匹配' },
+                { value: 'in', label: '值选择' },
+                { value: 'blank', label: '为空' },
+                { value: 'notBlank', label: '不为空' },
+              ];
+
+          const shouldShowSingleInput = !['in', 'blank', 'notBlank', 'last7', 'last30', 'last90'].includes(current.operator);
+          const shouldShowRangeInput = current.operator === 'between';
+          const shouldShowMultiValue = current.operator === 'in';
+          const canUseNumericInput = kind === 'number';
+
+          const updateCurrentFilter = (next: Partial<AdvancedColumnFilterState>) => {
+            setColumnFilters((prev) => ({
+              ...prev,
+              [colName]: { ...current, ...next },
+            }));
+          };
+
+          const applyFilter = () => {
+            setColumnFilters((prev) => {
+              const candidate = prev[colName] ?? current;
+              if (!isFilterStateActive(candidate)) {
+                const { [colName]: _omitted, ...rest } = prev;
+                return rest;
+              }
+              return prev;
+            });
+            confirm();
+          };
+
+          const resetFilter = () => {
+            setColumnFilters((prev) => {
+              const { [colName]: _omitted, ...rest } = prev;
+              return rest;
+            });
+            confirm();
+          };
+
+          const selectOptions = distinctValuesByColumn[colName].map((v) => ({ label: v, value: v }));
+
+          return (
+            <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 260 }}>
+              <Select
                 size="small"
-                onClick={() => confirm()}
-                icon={<SearchOutlined />}
-                style={{ width: 80 }}
-              >
-                筛选
-              </Button>
-              <Button
-                size="small"
-                onClick={() => { clearFilters?.(); confirm(); }}
-                style={{ width: 60 }}
-              >
-                重置
-              </Button>
-            </Space>
-          </div>
+                value={current.operator}
+                options={operatorOptions}
+                onChange={(value) => {
+                  setColumnFilters((prev) => ({
+                    ...prev,
+                    [colName]: { operator: value as AdvancedColumnFilterState['operator'] },
+                  }));
+                }}
+              />
+
+              {shouldShowMultiValue && (
+                <Checkbox.Group
+                  options={selectOptions}
+                  value={Array.isArray(current.values) ? current.values.map(String) : []}
+                  onChange={(values) => updateCurrentFilter({ values: values.map(String), value: undefined, valueTo: undefined })}
+                />
+              )}
+
+              {shouldShowRangeInput && (
+                <Space>
+                  {canUseNumericInput ? (
+                    <>
+                      <InputNumber
+                        size="small"
+                        value={typeof current.value === 'number' ? current.value : undefined}
+                        onChange={(value) => updateCurrentFilter({ value: value ?? undefined })}
+                        placeholder="起始"
+                      />
+                      <InputNumber
+                        size="small"
+                        value={typeof current.valueTo === 'number' ? current.valueTo : undefined}
+                        onChange={(value) => updateCurrentFilter({ valueTo: value ?? undefined })}
+                        placeholder="结束"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        size="small"
+                        value={String(current.value ?? '')}
+                        onChange={(e) => updateCurrentFilter({ value: e.target.value })}
+                        placeholder={kind === 'date' ? 'YYYY-MM-DD' : '起始值'}
+                      />
+                      <Input
+                        size="small"
+                        value={String(current.valueTo ?? '')}
+                        onChange={(e) => updateCurrentFilter({ valueTo: e.target.value })}
+                        placeholder={kind === 'date' ? 'YYYY-MM-DD' : '结束值'}
+                      />
+                    </>
+                  )}
+                </Space>
+              )}
+
+              {!shouldShowRangeInput && shouldShowSingleInput && (
+                canUseNumericInput ? (
+                  <InputNumber
+                    size="small"
+                    style={{ width: '100%' }}
+                    value={typeof current.value === 'number' ? current.value : undefined}
+                    onChange={(value) => updateCurrentFilter({ value: value ?? undefined, valueTo: undefined })}
+                    placeholder="输入数值"
+                  />
+                ) : (
+                  <Input
+                    size="small"
+                    value={String(current.value ?? '')}
+                    onChange={(e) => updateCurrentFilter({ value: e.target.value, valueTo: undefined })}
+                    placeholder={kind === 'date' ? 'YYYY-MM-DD' : `搜索 ${colName}`}
+                  />
+                )
+              )}
+
+              <Space>
+                <Button type="primary" size="small" onClick={applyFilter} icon={<SearchOutlined />}>
+                  应用
+                </Button>
+                <Button size="small" onClick={resetFilter}>
+                  重置
+                </Button>
+              </Space>
+            </div>
+          );
+        },
+        filterIcon: () => (
+          <SearchOutlined
+            style={{ color: isFilterStateActive(columnFilters[colName]) ? 'var(--vm-primary)' : undefined }}
+          />
         ),
-        filterIcon: (filtered: boolean) => (
-          <SearchOutlined style={{ color: filtered ? 'var(--vm-primary)' : undefined }} />
-        ),
-        onFilter: (value: unknown, record: any) =>
-          String(record[colName] ?? '').toLowerCase().includes(String(value).toLowerCase()),
       });
 
       const tableColumns: ColumnsType<any> = safeSchema.map((col) => {
@@ -1139,7 +1307,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         // Column type classification
         const isNumericCol = /double|float|decimal|real|int|bigint|numeric/.test(typeStr);
         const isDateCol = /timestamp|date|time/.test(typeStr);
-        const isBooleanCol = typeStr.includes('boolean');
 
         // Sorter: numeric > date (ISO string) > string localeCompare
         const sorter = isNumericCol
@@ -1172,23 +1339,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           colName
         );
 
-        // Filter config: risk_badge → 3-value checkboxes, boolean → Yes/No, others → text search
-        const isRiskBadge = customFormatter?.type === 'risk_badge';
-        const colFilters = isRiskBadge
-          ? [
-              { text: '🔴 高风险', value: '高' },
-              { text: '🟡 中风险', value: '中' },
-              { text: '🟢 低风险', value: '低' },
-            ]
-          : isBooleanCol
-          ? [
-              { text: '是', value: true },
-              { text: '否', value: false },
-            ]
-          : undefined;
-
-        // Spread text-search filterDropdown for non-badge, non-boolean columns
-        const textFilter = !isRiskBadge && !isBooleanCol ? makeTextFilterDropdown(colName) : {};
+        const filterKind = getColumnFilterKind(typeStr, customFormatter);
+        const advancedFilter = makeAdvancedFilterDropdown(colName, filterKind);
 
         return {
           title: headerTitle,
@@ -1197,11 +1349,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           render: renderFunction,
           sorter,
           sortDirections: ['ascend', 'descend'] as const,
-          filters: colFilters,
-          onFilter: colFilters
-            ? (value: unknown, record: any) => record[colName] === value
-            : undefined,
-          ...textFilter,
+          ...advancedFilter,
           onHeaderCell: () => ({
             style: {
               background: 'var(--vm-bg-base)',
@@ -1232,10 +1380,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       });
 
       // Data is already an array of objects, just need to add a key for Ant Design Table
-      const tableDataSource = actualData.map((row: any, rowIndex: number) => ({
-        ...row,
-        key: `row-${rowIndex}`, // Add a unique key for each row
-      }));
+      // (tableDataSource is defined above near distinctValuesByColumn)
 
       // Apply default sorting if configured
       const sortedTableDataSource = (() => {
@@ -1275,9 +1420,22 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         return sortedTableDataSource.filter((row) => row[tab.filterField!] === tab.filterValue);
       })();
 
+      // Apply active column filters (client-side, driven by columnFilters state)
+      const columnFilteredData = Object.keys(columnFilters).length === 0
+        ? tabFilteredData
+        : tabFilteredData.filter((row) =>
+            Object.entries(columnFilters).every(([colName, filterState]) => {
+              if (!isFilterStateActive(filterState)) return true;
+              const colTypeStr = String(safeSchema.find((c) => c.name === colName)?.type || '').toLowerCase();
+              const colFormatter = columnFormatters[colName];
+              const kind = getColumnFilterKind(colTypeStr, colFormatter);
+              return applyAdvancedColumnFilter(row[colName], filterState, kind);
+            }),
+          );
+
       const tableElement = (
         <Table
-          dataSource={tabFilteredData}
+          dataSource={columnFilteredData}
           columns={tableColumns}
           pagination={{
             defaultPageSize: 20,
@@ -1301,7 +1459,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         <Card {...cardProps}>
           {commonContent}
           {/* Operator insights panel rendered above the data table */}
-          {insightsData && <InsightsPanel insightsData={insightsData} />}
+          {insightsData && <ResultInsightsPanel insightsData={insightsData} />}
           {activeTabs ? (
             <Tabs
               activeKey={activeTabKey}
