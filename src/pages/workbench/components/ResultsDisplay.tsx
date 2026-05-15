@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
+import TableToolbar from './TableToolbar';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
@@ -675,6 +676,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [pendingColumnFilters, setPendingColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
   // Ref to latest filtered table data — used by export handler
   const filteredDataRef = useRef<Record<string, unknown>[]>([]);
+  // Hidden columns: Set of column names to exclude from table display
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1423,6 +1426,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         };
       });
 
+      // Filter out hidden columns for display
+      const visibleTableColumns = tableColumns.filter((col) => !hiddenColumns.has(String(col.key)));
+
       // Data is already an array of objects, just need to add a key for Ant Design Table
       // (tableDataSource is defined above near distinctValuesByColumn)
 
@@ -1480,26 +1486,50 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       // Keep ref in sync so export handler can access latest filtered data
       filteredDataRef.current = columnFilteredData;
 
+      // Derived toolbar state
+      const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
+      // Virtual scrolling: only when > 500 rows and no active summary stats (future: check activeColStats)
+      const enableVirtual = columnFilteredData.length > 500;
+
       const tableElement = (
-        <Table
-          dataSource={columnFilteredData}
-          columns={tableColumns}
-          pagination={{
-            defaultPageSize: 20,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
-            style: {
-              marginTop: 16,
-            },
-          }}
-          size="small"
-          scroll={{ x: 'max-content' }}
-          style={{
-            marginTop: activeTabs ? 0 : 16,
-          }}
-          className="data-analysis-table"
-          rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
-        />
+        <>
+          <TableToolbar
+            columns={safeSchema.map((c) => ({ name: c.name }))}
+            hiddenColumns={hiddenColumns}
+            activeFilterCount={activeFilterCount}
+            canExport={canExport}
+            onToggleColumn={(colName) =>
+              setHiddenColumns((prev) => {
+                const next = new Set(prev);
+                if (next.has(colName)) next.delete(colName);
+                else next.add(colName);
+                return next;
+              })
+            }
+            onShowAll={() => setHiddenColumns(new Set())}
+            onClearFilters={() => {
+              setColumnFilters({});
+              setPendingColumnFilters({});
+            }}
+            onExport={handleExportClick}
+          />
+          <Table
+            dataSource={columnFilteredData}
+            columns={visibleTableColumns}
+            pagination={{
+              defaultPageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              style: { marginTop: 16 },
+            }}
+            size="small"
+            scroll={{ x: 'max-content', y: enableVirtual ? 480 : undefined }}
+            virtual={enableVirtual}
+            style={{ marginTop: activeTabs ? 0 : 4 }}
+            className="data-analysis-table"
+            rowClassName={(_, index) => index % 2 === 0 ? 'table-row-even' : 'table-row-odd'}
+          />
+        </>
       );
 
       return (
