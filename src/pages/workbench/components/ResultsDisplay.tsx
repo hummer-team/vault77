@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown, Descriptions } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import TableToolbar from './TableToolbar';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
@@ -1625,6 +1625,44 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             rowSelection={{
               selectedRowKeys,
               onChange: (keys) => setSelectedRowKeys(keys),
+              columnWidth: 36,
+            }}
+            expandable={{
+              expandedRowRender: (record) => (
+                <Descriptions
+                  size="small"
+                  bordered
+                  column={3}
+                  style={{
+                    background: 'var(--vm-surface-light)',
+                    borderRadius: 6,
+                    padding: '8px',
+                    margin: '4px 0',
+                  }}
+                  styles={{
+                    label: {
+                      color: 'var(--vm-text-muted)',
+                      fontWeight: 600,
+                      fontSize: 11,
+                      background: 'var(--vm-bg-base)',
+                    },
+                    content: {
+                      color: 'var(--vm-text-primary)',
+                      fontSize: 12,
+                      background: 'var(--vm-surface-light)',
+                      fontFamily: 'Fira Code, monospace',
+                    },
+                  }}
+                  items={visibleTableColumns.map((col) => ({
+                    key: String(col.key),
+                    label: String(col.key),
+                    children: record[String(col.key)] !== null && record[String(col.key)] !== undefined
+                      ? String(record[String(col.key)])
+                      : <span style={{ color: 'var(--vm-text-muted)' }}>—</span>,
+                  }))}
+                />
+              ),
+              rowExpandable: () => true,
               columnWidth: 36,
             }}
             summary={Object.keys(activeColStats).length > 0 ? () => (
