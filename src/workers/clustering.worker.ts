@@ -8,7 +8,7 @@ import {
   serializeToArrowIPC, 
   deserializeClusteringResult,
   WASM_COLUMN_MAPPING 
-} from '../services/utils/arrowUtils';
+} from '../utils/arrowUtils';
 import type {
   ClusteringRequest,
   ClusteringSuccess,

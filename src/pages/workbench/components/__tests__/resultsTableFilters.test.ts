@@ -3,7 +3,7 @@ import {
   applyAdvancedColumnFilter,
   isFilterStateActive,
   type AdvancedColumnFilterState,
-} from '../../../../services/utils/resultsTableFiltersUtils';
+} from '../../../../utils/resultsTableFiltersUtils';
 
 describe('resultsTableFilters', () => {
   it('applies numeric between range inclusively', () => {

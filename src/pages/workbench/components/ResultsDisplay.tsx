@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
@@ -13,7 +13,8 @@ import {
   isFilterStateActive,
   type AdvancedColumnFilterState,
   type ColumnFilterKind,
-} from '../../../services/utils/resultsTableFiltersUtils';
+} from '../../../utils/resultsTableFiltersUtils';
+import dayjs from 'dayjs';
 import { TOKEN } from '../../../theme';
 
 // --- M6: Clarification helpers ---
@@ -670,6 +671,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [queryExpanded, setQueryExpanded] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState('0');
   const [columnFilters, setColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
+  // Draft state: edited in dropdown but not yet applied to table
+  const [pendingColumnFilters, setPendingColumnFilters] = useState<Record<string, AdvancedColumnFilterState>>({});
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -1127,7 +1130,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const makeAdvancedFilterDropdown = (colName: string, kind: ColumnFilterKind) => ({
         filterDropdown: ({ confirm }: any) => {
-          const current = columnFilters[colName] ?? { operator: getDefaultOperator(kind) };
+          // Read draft state; fallback to applied state; fallback to default
+          const current = pendingColumnFilters[colName] ?? columnFilters[colName] ?? { operator: getDefaultOperator(kind) };
           const operatorOptions: Array<{ value: AdvancedColumnFilterState['operator']; label: string }> = kind === 'number'
             ? [
                 { value: 'between', label: '范围 (Between)' },
@@ -1174,27 +1178,37 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           const shouldShowRangeInput = current.operator === 'between';
           const shouldShowMultiValue = current.operator === 'in';
           const canUseNumericInput = kind === 'number';
+          const canUseDatePicker = kind === 'date';
 
-          const updateCurrentFilter = (next: Partial<AdvancedColumnFilterState>) => {
-            setColumnFilters((prev) => ({
+          // Updates draft only — does NOT affect the table until "应用" is clicked
+          const updateDraft = (next: Partial<AdvancedColumnFilterState>) => {
+            setPendingColumnFilters((prev) => ({
               ...prev,
               [colName]: { ...current, ...next },
             }));
           };
 
+          // Commit draft → applied state, then close the dropdown
           const applyFilter = () => {
-            setColumnFilters((prev) => {
-              const candidate = prev[colName] ?? current;
-              if (!isFilterStateActive(candidate)) {
+            const draft = pendingColumnFilters[colName] ?? current;
+            if (!isFilterStateActive(draft)) {
+              // Draft not active → clear applied filter
+              setColumnFilters((prev) => {
                 const { [colName]: _omitted, ...rest } = prev;
                 return rest;
-              }
-              return prev;
-            });
+              });
+            } else {
+              setColumnFilters((prev) => ({ ...prev, [colName]: draft }));
+            }
             confirm();
           };
 
+          // Clear both draft and applied for this column
           const resetFilter = () => {
+            setPendingColumnFilters((prev) => {
+              const { [colName]: _omitted, ...rest } = prev;
+              return rest;
+            });
             setColumnFilters((prev) => {
               const { [colName]: _omitted, ...rest } = prev;
               return rest;
@@ -1211,7 +1225,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 value={current.operator}
                 options={operatorOptions}
                 onChange={(value) => {
-                  setColumnFilters((prev) => ({
+                  // Operator change resets value inputs in the draft
+                  setPendingColumnFilters((prev) => ({
                     ...prev,
                     [colName]: { operator: value as AdvancedColumnFilterState['operator'] },
                   }));
@@ -1222,40 +1237,54 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 <Checkbox.Group
                   options={selectOptions}
                   value={Array.isArray(current.values) ? current.values.map(String) : []}
-                  onChange={(values) => updateCurrentFilter({ values: values.map(String), value: undefined, valueTo: undefined })}
+                  onChange={(values) => updateDraft({ values: values.map(String), value: undefined, valueTo: undefined })}
                 />
               )}
 
               {shouldShowRangeInput && (
-                <Space>
+                <Space direction={canUseDatePicker ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
                   {canUseNumericInput ? (
                     <>
                       <InputNumber
                         size="small"
                         value={typeof current.value === 'number' ? current.value : undefined}
-                        onChange={(value) => updateCurrentFilter({ value: value ?? undefined })}
+                        onChange={(value) => updateDraft({ value: value ?? undefined })}
                         placeholder="起始"
                       />
                       <InputNumber
                         size="small"
                         value={typeof current.valueTo === 'number' ? current.valueTo : undefined}
-                        onChange={(value) => updateCurrentFilter({ valueTo: value ?? undefined })}
+                        onChange={(value) => updateDraft({ valueTo: value ?? undefined })}
                         placeholder="结束"
                       />
                     </>
+                  ) : canUseDatePicker ? (
+                    // Date range: use RangePicker for better UX
+                    <DatePicker.RangePicker
+                      size="small"
+                      style={{ width: '100%' }}
+                      value={[
+                        current.value ? dayjs(String(current.value)) : null,
+                        current.valueTo ? dayjs(String(current.valueTo)) : null,
+                      ]}
+                      onChange={(dates) => updateDraft({
+                        value: dates?.[0]?.format('YYYY-MM-DD') ?? undefined,
+                        valueTo: dates?.[1]?.format('YYYY-MM-DD') ?? undefined,
+                      })}
+                    />
                   ) : (
                     <>
                       <Input
                         size="small"
                         value={String(current.value ?? '')}
-                        onChange={(e) => updateCurrentFilter({ value: e.target.value })}
-                        placeholder={kind === 'date' ? 'YYYY-MM-DD' : '起始值'}
+                        onChange={(e) => updateDraft({ value: e.target.value })}
+                        placeholder="起始值"
                       />
                       <Input
                         size="small"
                         value={String(current.valueTo ?? '')}
-                        onChange={(e) => updateCurrentFilter({ valueTo: e.target.value })}
-                        placeholder={kind === 'date' ? 'YYYY-MM-DD' : '结束值'}
+                        onChange={(e) => updateDraft({ valueTo: e.target.value })}
+                        placeholder="结束值"
                       />
                     </>
                   )}
@@ -1268,15 +1297,23 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                     size="small"
                     style={{ width: '100%' }}
                     value={typeof current.value === 'number' ? current.value : undefined}
-                    onChange={(value) => updateCurrentFilter({ value: value ?? undefined, valueTo: undefined })}
+                    onChange={(value) => updateDraft({ value: value ?? undefined, valueTo: undefined })}
                     placeholder="输入数值"
+                  />
+                ) : canUseDatePicker ? (
+                  // Single date: use DatePicker
+                  <DatePicker
+                    size="small"
+                    style={{ width: '100%' }}
+                    value={current.value ? dayjs(String(current.value)) : null}
+                    onChange={(date) => updateDraft({ value: date?.format('YYYY-MM-DD') ?? undefined, valueTo: undefined })}
                   />
                 ) : (
                   <Input
                     size="small"
                     value={String(current.value ?? '')}
-                    onChange={(e) => updateCurrentFilter({ value: e.target.value, valueTo: undefined })}
-                    placeholder={kind === 'date' ? 'YYYY-MM-DD' : `搜索 ${colName}`}
+                    onChange={(e) => updateDraft({ value: e.target.value, valueTo: undefined })}
+                    placeholder={`搜索 ${colName}`}
                   />
                 )
               )}
@@ -1293,6 +1330,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           );
         },
         filterIcon: () => (
+          // Filter icon color reflects APPLIED state (not draft)
           <SearchOutlined
             style={{ color: isFilterStateActive(columnFilters[colName]) ? 'var(--vm-primary)' : undefined }}
           />
