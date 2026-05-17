@@ -760,8 +760,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   /** Export only selected rows as CSV */
   const handleExportSelected = () => {
     if (!canExport || !Array.isArray(data)) return;
-    const selectedData = (filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]))
-      .filter((_, idx) => selectedRowKeys.includes(idx));
+    const keySet = new Set(selectedRowKeys.map(String));
+    const sourceData = filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]);
+    const selectedData = sourceData.filter((_, idx) => keySet.has(String(idx)));
     if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
     try {
       exportTableToCsv({ data: selectedData as any[], schema: safeSchema });
@@ -774,7 +775,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   /** Copy selected rows to clipboard as TSV (pasteable into Excel/Sheets) */
   const handleCopySelectedRows = () => {
     const sourceData = filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]) ?? [];
-    const selectedData = sourceData.filter((_, idx) => selectedRowKeys.includes(idx));
+    // selectedRowKeys from Ant Design are strings ("0","1"...) but filter idx is number — normalize both to string
+    const keySet = new Set(selectedRowKeys.map(String));
+    const selectedData = sourceData.filter((_, idx) => keySet.has(String(idx)));
     if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
     const colNames = safeSchema.map((c) => c.name);
     const header = colNames.join('\t');
@@ -858,7 +861,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             <Tooltip title={selectedRowKeys.length > 0 ? `复制 ${selectedRowKeys.length} 条选中行（TSV，可粘贴到 Excel）` : '请先选择行'}>
               <Button
                 type="text"
-                icon={<span style={{ fontSize: 13 }}>📋</span>}
+                icon={<CopyOutlined style={selectedRowKeys.length > 0 ? { ...iconStyle, color: 'var(--vm-primary)' } : iconStyle} />}
                 onClick={handleCopySelectedRows}
                 disabled={selectedRowKeys.length === 0}
                 style={{ opacity: selectedRowKeys.length > 0 ? 1 : 0.4 }}
