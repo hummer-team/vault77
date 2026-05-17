@@ -239,6 +239,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 用户增长 - RFM 画像
+  // done
   {
     name: 'fn_ecom_rfm_profile',
     displayName: 'RFM 用户画像',

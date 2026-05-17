@@ -54,6 +54,133 @@ export interface ChartConfig {
   thousandsSeparator?: boolean;
 }
 
+// ─── Sampling ─────────────────────────────────────────────────────────────────
+
+/**
+ * Maximum data points per chart type before sampling kicks in.
+ * Prevents browser freeze and memory pressure for large result sets.
+ */
+export const CHART_MAX_POINTS: Record<ChartType, number> = {
+  line:    2000,  // rows (LTTB — preserves visual peaks/troughs)
+  scatter: 3000,  // rows (uniform random)
+  bar:      500,  // unique x-categories (capped inside builder)
+  pie:       20,  // aggregated slices (capped inside builder)
+  funnel:    50,  // steps (capped inside builder)
+};
+
+/** Result returned by sampleForChart — carries sampling metadata for badge display. */
+export interface SampleResult {
+  /** Rows after sampling (or original when no sampling needed). */
+  data: Record<string, unknown>[];
+  /** Row count before sampling. */
+  originalCount: number;
+  /** Row count after sampling. */
+  sampledCount: number;
+  /** True when data was actually reduced. */
+  wasSampled: boolean;
+}
+
+/**
+ * Largest-Triangle-Three-Buckets downsampling for time-series / continuous data.
+ * Preserves visual peaks and troughs far better than uniform sampling.
+ * The X coordinate used for triangle area is the row index (stable for any column type).
+ *
+ * @param data - input rows
+ * @param threshold - target number of output points (≥ 3)
+ * @param yKey - column name used as the Y signal for area computation
+ */
+function lttbSample(
+  data: Record<string, unknown>[],
+  threshold: number,
+  yKey: string,
+): Record<string, unknown>[] {
+  const n = data.length;
+  if (n <= threshold) return data;
+  if (threshold < 3) return [data[0], data[n - 1]];
+
+  const toY = (row: Record<string, unknown>): number => {
+    const v = Number(row[yKey]);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  const sampled: Record<string, unknown>[] = [data[0]];
+  const bucketSize = (n - 2) / (threshold - 2);
+  let a = 0; // index of last selected point
+
+  for (let i = 0; i < threshold - 2; i++) {
+    // Reference anchor C: average of next bucket
+    const nextStart = Math.floor((i + 1) * bucketSize) + 1;
+    const nextEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, n);
+    let avgX = 0;
+    let avgY = 0;
+    for (let j = nextStart; j < nextEnd; j++) {
+      avgX += j;
+      avgY += toY(data[j]);
+    }
+    const nextBucketLen = nextEnd - nextStart;
+    avgX /= nextBucketLen;
+    avgY /= nextBucketLen;
+
+    // Current bucket: pick point maximising triangle area(A, B, C)
+    const bucketStart = Math.floor(i * bucketSize) + 1;
+    const bucketEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1, n);
+    const ax = a;
+    const ay = toY(data[a]);
+    let maxArea = -1;
+    let maxIdx = bucketStart;
+    for (let j = bucketStart; j < bucketEnd; j++) {
+      const area = Math.abs((ax - avgX) * (toY(data[j]) - ay) - (ax - j) * (avgY - ay));
+      if (area > maxArea) { maxArea = area; maxIdx = j; }
+    }
+    sampled.push(data[maxIdx]);
+    a = maxIdx;
+  }
+
+  sampled.push(data[n - 1]);
+  return sampled;
+}
+
+/**
+ * Uniform (every-Nth) sampling — evenly spaced across the array.
+ * Used for scatter plots where density distribution is more important than peak preservation.
+ */
+function uniformSample<T>(arr: T[], maxPoints: number): T[] {
+  if (arr.length <= maxPoints) return arr;
+  const result: T[] = [];
+  const step = (arr.length - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints; i++) {
+    result.push(arr[Math.round(i * step)]);
+  }
+  return result;
+}
+
+/**
+ * Sample rows for line / scatter charts before passing to buildChartOption.
+ * Bar / pie / funnel are aggregation-based — their caps are applied inside the builders.
+ *
+ * @param data - full row array
+ * @param config - chart configuration (determines strategy)
+ * @returns SampleResult with sampled data and metadata for badge display
+ */
+export function sampleForChart(
+  data: Record<string, unknown>[],
+  config: Pick<ChartConfig, 'type' | 'xColumn' | 'yColumns'>,
+): SampleResult {
+  const originalCount = data.length;
+  const maxPoints = CHART_MAX_POINTS[config.type];
+
+  if (originalCount <= maxPoints || !['line', 'scatter'].includes(config.type)) {
+    return { data, originalCount, sampledCount: originalCount, wasSampled: false };
+  }
+
+  const sampled =
+    config.type === 'line'
+      ? lttbSample(data, maxPoints, config.yColumns[0])
+      : uniformSample(data, maxPoints);
+
+  return { data: sampled, originalCount, sampledCount: sampled.length, wasSampled: true };
+}
+
 // ─── Column Type Inference ────────────────────────────────────────────────────
 
 /** Matches ISO date strings like 2024-01-15 or 2024-01-15T10:00:00 */
@@ -359,7 +486,11 @@ export function buildBarOption(
   }
 
   // ── Standard groupBy path ──
-  const xCategories = Array.from(new Set(data.map((r) => String(r[xColumn] ?? ''))));
+  const allXCategories = Array.from(new Set(data.map((r) => String(r[xColumn] ?? ''))));
+  // Cap to prevent rendering freeze with high-cardinality categorical data
+  const xCategories = allXCategories.length > CHART_MAX_POINTS.bar
+    ? allXCategories.slice(0, CHART_MAX_POINTS.bar)
+    : allXCategories;
   const { dual, axisIndices } = detectDualAxis(yColumns, data);
 
   const series = yColumns.map((yCol, i) => {
@@ -485,7 +616,20 @@ export function buildPieOption(
     const v = Number(row[yCol]);
     if (Number.isFinite(v)) aggMap[label] = (aggMap[label] ?? 0) + v;
   });
-  const pieData = Object.entries(aggMap).map(([name, value]) => ({ name, value }));
+  // Sort by value desc, cap at MAX_POINTS.pie slices, merge the rest into "其他"
+  const allPieData = Object.entries(aggMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+  const max = CHART_MAX_POINTS.pie;
+  const pieData = allPieData.length > max
+    ? [
+        ...allPieData.slice(0, max),
+        {
+          name: '其他',
+          value: allPieData.slice(max).reduce((sum, d) => sum + d.value, 0),
+        },
+      ]
+    : allPieData;
 
   return {
     backgroundColor: ec.chartBg,
@@ -627,7 +771,8 @@ export function buildFunnelOption(
   const funnelData = data
     .map((row) => ({ name: String(row[xColumn] ?? ''), value: Number(row[yCol]) }))
     .filter((d) => d.name && Number.isFinite(d.value))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value)
+    .slice(0, CHART_MAX_POINTS.funnel);
 
   return {
     backgroundColor: ec.chartBg,

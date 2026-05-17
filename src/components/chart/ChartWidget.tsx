@@ -4,7 +4,7 @@
  * Wraps an ECharts instance and reacts to theme changes and data updates.
  */
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import * as echarts from 'echarts';
 import type { ECharts } from 'echarts';
 import { Button, Dropdown, Popconfirm, Tooltip } from 'antd';
@@ -15,7 +15,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useEChartsColors } from '../../theme';
-import { buildChartOption } from '../../utils/chartUtils';
+import { buildChartOption, sampleForChart } from '../../utils/chartUtils';
 import type { ChartConfig } from '../../utils/chartUtils';
 import { vmMessage } from '../../utils/vmDialog';
 
@@ -77,6 +77,11 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
   // Internal data state — updated on refresh
   const [currentData, setCurrentData] = useState<Record<string, unknown>[]>(data);
 
+  // Apply data sampling before passing to ECharts — prevents freeze / memory leak on large datasets.
+  // LTTB for line (preserves peaks/troughs), uniform for scatter.
+  // Bar/pie/funnel are capped inside their builders (aggregation-based).
+  const sampleResult = useMemo(() => sampleForChart(currentData, config), [currentData, config]);
+
   // Detect columns used by this chart that are hidden in the table
   const hiddenUsedCols = (() => {
     if (!hiddenColumnNames || hiddenColumnNames.size === 0) return [];
@@ -96,7 +101,7 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
 
     const chart = echarts.init(chartRef.current, isDarkTheme ? 'dark' : null);
     instanceRef.current = chart;
-    chart.setOption(buildChartOption(config, currentData, ecRef.current));
+    chart.setOption(buildChartOption(config, sampleResult.data, ecRef.current));
 
     return () => {
       chart.dispose();
@@ -110,10 +115,10 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
   // ec is intentionally read from ecRef to avoid spurious triggers.
   useEffect(() => {
     if (!instanceRef.current) return;
-    instanceRef.current.setOption(buildChartOption(config, currentData, ecRef.current), {
+    instanceRef.current.setOption(buildChartOption(config, sampleResult.data, ecRef.current), {
       notMerge: true,
     });
-  }, [config, currentData]);
+  }, [config, sampleResult]);
 
   // ── ResizeObserver — responds to CSS resize: both ───────────────────────
   useEffect(() => {
@@ -230,6 +235,28 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {/* Sampling badge — shown when LTTB/uniform sampling reduced data points */}
+          {sampleResult.wasSampled && (
+            <Tooltip
+              title={`数据量过大，已自动采样以保障渲染性能。原始 ${sampleResult.originalCount.toLocaleString()} 条 → 采样后 ${sampleResult.sampledCount.toLocaleString()} 条`}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  color: 'var(--vm-text-muted)',
+                  background: 'var(--vm-surface-light)',
+                  border: '1px solid var(--vm-border-subtle)',
+                  borderRadius: 3,
+                  padding: '1px 5px',
+                  cursor: 'default',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                采样 {sampleResult.sampledCount.toLocaleString()}/{sampleResult.originalCount.toLocaleString()}
+              </span>
+            </Tooltip>
+          )}
+
           {/* Warning badge for hidden columns */}
           {hiddenUsedCols.length > 0 && (
             <Tooltip
