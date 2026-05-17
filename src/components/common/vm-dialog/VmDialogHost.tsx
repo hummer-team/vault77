@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { getState, subscribe, StoreState } from './vmDialogStore';
+import { getState, subscribe, StoreState } from '../../../utils/vmDialogStore';
 import { VmNotification } from './VmNotification';
 import { VmConfirmModal } from './VmConfirmModal';
 

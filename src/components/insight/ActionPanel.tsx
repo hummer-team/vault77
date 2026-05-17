@@ -7,7 +7,7 @@ import React from 'react';
 import { Card, Button, Space, Typography, Tag, Alert, Spin } from 'antd';
 import { CopyOutlined, DownloadOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { InsightAction } from '../../types/insight-action.types';
-import { vmMessage } from '../common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 import './ActionPanel.css';
 import { TOKEN } from '../../theme';
 

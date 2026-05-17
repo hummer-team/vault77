@@ -11,7 +11,7 @@ import BizKernelGrid from './components/BizKernelGrid';
 import BizKernelDetailModal from './components/BizKernelDetailModal';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService.ts';
 import type { BizKernelMetadata } from '../../services/biz-kernels/types';
-import { vmMessage, vmConfirm } from '../../components/common/vm-dialog';
+import { vmMessage, vmConfirm } from '../../utils/vmDialog';
 
 const { Title } = Typography;
 

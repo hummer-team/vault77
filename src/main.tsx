@@ -13,7 +13,7 @@ import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 import ProfilePage from "./pages/settings/ProfilePage.tsx";
 import BizKernelMarketPage from "./pages/biz-kernel-market/BizKernelMarketPage.tsx";
 import { Agentation } from "agentation";
-import { VmDialogHost } from './components/common/vm-dialog';
+import { VmDialogHost } from './components/common/vm-dialog/VmDialogHost';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('1');

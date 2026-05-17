@@ -3,7 +3,7 @@
  * Centered confirm dialog using CSS variables for theme adaptation.
  */
 import React, { useEffect, useState } from 'react';
-import { ConfirmItem, removeConfirm } from './vmDialogStore';
+import { ConfirmItem, removeConfirm } from '../../../utils/vmDialogStore';
 
 // --- SVG Icons ---
 

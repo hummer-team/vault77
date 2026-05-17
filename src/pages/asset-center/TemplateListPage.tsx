@@ -2,7 +2,7 @@ import React from 'react';
 import { TOKEN } from '../../theme';
 import { Card, Table, Typography, Collapse, Space, Tooltip } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
-import { vmMessage } from '../../components/common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 
 const { Title, Paragraph, Text } = Typography;
 const { Panel } = Collapse;

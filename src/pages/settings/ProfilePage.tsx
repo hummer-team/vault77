@@ -27,7 +27,7 @@ import { useUserStore } from '../../status/appStatusManager.ts';
 import { personaRegistry } from '../../config/personas';
 import { userSkillService } from '../../services/user-skill/userSkillService.ts';
 import type { UserSkillConfig, TableSkillConfig, FieldMapping, FilterExpr, RelativeTimeValue, LiteralValue, MetricDefinition } from '../../services/llm/skills/types.ts';
-import { vmMessage } from '../../components/common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 import './ProfilePage.css';
 
 const { Panel } = Collapse;

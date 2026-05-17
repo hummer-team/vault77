@@ -1,7 +1,7 @@
 import React from 'react';
 import { Drawer, Form, Input, Button, Radio, Upload } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
-import { vmMessage } from '../../components/common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 
 interface FeedbackDrawerProps {
   open: boolean;

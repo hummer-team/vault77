@@ -9,7 +9,7 @@ import { useUserStore } from '../../../status/appStatusManager.ts';
 import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
-import { vmConfirm } from '../../../components/common/vm-dialog';
+import { vmConfirm } from '../../../utils/vmDialog';
 
 interface ChatPanelProps {
   onSendMessage: (message: string) => void;

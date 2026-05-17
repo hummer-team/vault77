@@ -1,16 +1,15 @@
 /**
- * vm-dialog/index.ts
- * Public API: vmMessage and vmConfirm utility functions.
+ * vmDialog.ts — Public API for the vm-dialog notification and confirm system.
  *
- * Usage:
+ * Usage (from any .ts/.tsx file):
+ *   import { vmMessage, vmConfirm } from '../../utils/vmDialog';
+ *
  *   vmMessage.success('Saved!')
  *   vmMessage.error('Something went wrong')
- *   const dismiss = vmMessage.loading('Processing...') → call dismiss() to hide
+ *   const dismiss = vmMessage.loading('Processing...') → dismiss() to hide
  *   vmConfirm({ title: 'Delete?', onOk: () => ... })
  */
 import { addNotification, addConfirm } from './vmDialogStore';
-
-export { VmDialogHost } from './VmDialogHost';
 
 // --- Durations (ms) ---
 const DURATION_SUCCESS = 2200;
@@ -28,6 +27,7 @@ export interface VmConfirmOptions {
   onCancel?: () => void;
 }
 
+/** Notification utility. Auto-dismiss durations: success 2.2s, info 2.5s, warning 3.5s, error 4.5s. */
 export const vmMessage = {
   success: (content: string): void => {
     addNotification({ type: 'success', content, duration: DURATION_SUCCESS });
@@ -42,8 +42,8 @@ export const vmMessage = {
     addNotification({ type: 'error', content, duration: DURATION_ERROR });
   },
   /**
-   * Loading notification. Returns a dismiss function (same API as antd message.loading).
-   * @param content - Message text
+   * Show a loading notification.
+   * @returns Dismiss function — call it to hide the notification manually.
    * @param duration - ms, 0 = manual dismiss only (default: 0)
    */
   loading: (content: string, duration = 0): (() => void) => {
@@ -52,7 +52,8 @@ export const vmMessage = {
 } as const;
 
 /**
- * Show a centered confirm dialog. Returns a Promise resolving to true (OK) or false (Cancel).
+ * Show a centered confirm dialog.
+ * @returns Promise resolving to true (OK) or false (Cancel).
  */
 export function vmConfirm(options: VmConfirmOptions): Promise<boolean> {
   return new Promise<boolean>((resolve) => {

@@ -25,7 +25,7 @@ import {
 } from '../../../utils/tableAnalyticsUtils';
 import dayjs from 'dayjs';
 import { TOKEN } from '../../../theme';
-import { vmMessage } from '../../../components/common/vm-dialog';
+import { vmMessage } from '../../../utils/vmDialog';
 
 // --- M6: Clarification helpers ---
 const parseClarifyingQuestions = (errorText: string): string[] => {

@@ -36,7 +36,7 @@ import { operatorBindingService } from '../../services/flow/operatorBindingServi
 import type { FlowSummary } from '../../services/flow/flowSummary';
 import type { OperatorDisplayConfig, OperatorInsightsData } from '../../services/flow/types';
 import { TOKEN } from '../../theme';
-import { vmMessage } from '../../components/common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 import './workbench.css';
 
 const InsightPage = React.lazy(() => import('../insight'));

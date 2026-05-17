@@ -3,7 +3,7 @@
  * Individual notification card using CSS variables for theme adaptation.
  */
 import React, { useEffect, useState } from 'react';
-import { NotificationItem, NotificationType, removeNotification } from './vmDialogStore';
+import { NotificationItem, NotificationType, removeNotification } from '../../../utils/vmDialogStore';
 
 // --- SVG Icons ---
 

@@ -38,7 +38,7 @@ import type { ClusteringAnalysisOutput } from '../../types/clustering.types';
 import type { InsightAction } from '../../types/insight-action.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 import { DEFAULT_K_VALUE, K_VALUE_RANGE } from '../../constants/clustering.constants';
-import { vmMessage } from '../../components/common/vm-dialog';
+import { vmMessage } from '../../utils/vmDialog';
 import './index.css';
 
 const { Title, Paragraph, Text } = Typography;
