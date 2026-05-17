@@ -840,17 +840,32 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               className="hover:bg-amber-500/15"
             />
           </Tooltip>
-          <Tooltip title={canExport
-            ? (Object.values(columnFilters).some(isFilterStateActive) ? '导出过滤后的数据' : '导出全部数据')
-            : '暂无可导出数据'}>
+          <Tooltip title={
+            !canExport ? '暂无可导出数据'
+            : selectedRowKeys.length > 0 ? `导出 ${selectedRowKeys.length} 条选中行`
+            : Object.values(columnFilters).some(isFilterStateActive) ? '导出过滤后的数据'
+            : '导出全部数据'
+          }>
             <Button
               type="text"
-              icon={<DownloadOutlined style={iconStyle} />}
-              onClick={handleExportClick}
+              icon={<DownloadOutlined style={selectedRowKeys.length > 0 ? { ...iconStyle, color: 'var(--vm-primary)' } : iconStyle} />}
+              onClick={selectedRowKeys.length > 0 ? handleExportSelected : handleExportClick}
               disabled={!canExport}
               className="hover:bg-green-500/15"
             />
           </Tooltip>
+          {canExport && (
+            <Tooltip title={selectedRowKeys.length > 0 ? `复制 ${selectedRowKeys.length} 条选中行（TSV，可粘贴到 Excel）` : '请先选择行'}>
+              <Button
+                type="text"
+                icon={<span style={{ fontSize: 13 }}>📋</span>}
+                onClick={handleCopySelectedRows}
+                disabled={selectedRowKeys.length === 0}
+                style={{ opacity: selectedRowKeys.length > 0 ? 1 : 0.4 }}
+                className="hover:bg-blue-500/15"
+              />
+            </Tooltip>
+          )}
           <Popconfirm
             title="您确定要删除此条记录吗？"
             onConfirm={onDelete}
@@ -1735,53 +1750,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const tableElement = (
         <>
-          {/* Row selection status bar — visible only when rows selected */}
-          {selectedRowKeys.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '5px 8px',
-                marginBottom: 4,
-                background: 'var(--vm-primary-light)',
-                border: '1px solid var(--vm-primary-border)',
-                borderRadius: 4,
-                fontSize: 12,
-                color: 'var(--vm-text-primary)',
-              }}
-            >
-              <span style={{ fontWeight: 600, color: 'var(--vm-primary)', marginRight: 4 }}>
-                已选 {selectedRowKeys.length} 行
-              </span>
-              <Button
-                size="small"
-                type="default"
-                icon={<span style={{ fontSize: 12 }}>📋</span>}
-                style={{ fontSize: 11, height: 22, padding: '0 6px' }}
-                onClick={handleCopySelectedRows}
-              >
-                复制（TSV）
-              </Button>
-              <Button
-                size="small"
-                type="default"
-                icon={<span style={{ fontSize: 12 }}>⬇️</span>}
-                style={{ fontSize: 11, height: 22, padding: '0 6px' }}
-                onClick={handleExportSelected}
-              >
-                导出选中行
-              </Button>
-              <Button
-                size="small"
-                type="text"
-                style={{ fontSize: 11, color: 'var(--vm-text-muted)', padding: '0 4px', marginLeft: 'auto' }}
-                onClick={() => setSelectedRowKeys([])}
-              >
-                清除选择
-              </Button>
-            </div>
-          )}
           <Table
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
@@ -1849,6 +1817,39 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               </Table.Summary>
             ) : undefined}
           />
+          {/* Bottom-left selection indicator — same visual level as pagination */}
+          {selectedRowKeys.length > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: -32,
+              paddingLeft: 4,
+              height: 32,
+              pointerEvents: 'none',
+            }}>
+              <span style={{
+                fontSize: 12,
+                color: 'var(--vm-primary)',
+                fontWeight: 600,
+                background: 'var(--vm-primary-light)',
+                border: '1px solid var(--vm-primary-border)',
+                borderRadius: 4,
+                padding: '1px 8px',
+                pointerEvents: 'auto',
+              }}>
+                已选 {selectedRowKeys.length} 行
+              </span>
+              <Button
+                size="small"
+                type="text"
+                style={{ fontSize: 11, color: 'var(--vm-text-muted)', padding: '0 4px', height: 20, pointerEvents: 'auto' }}
+                onClick={() => setSelectedRowKeys([])}
+              >
+                清除
+              </Button>
+            </div>
+          )}
         </>
       );
 
