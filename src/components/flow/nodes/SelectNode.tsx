@@ -716,8 +716,11 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
           return (
             <RfmDrawer
               open={udfDrawerOpen}
-              columns={allFields}
+              columns={columnNames}
               initialConfig={data.rfmProfileConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
               onConfirm={handleRfmProfileConfirm}
               onClose={() => setUdfDrawerOpen(false)}
             />
