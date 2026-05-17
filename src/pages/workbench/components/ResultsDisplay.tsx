@@ -925,6 +925,76 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               />
             </Tooltip>
           </Popconfirm>
+          {/* Column visibility settings — placed in toolbar to avoid overlapping table header filter icons */}
+          {canExport && (
+            <Dropdown
+              open={settingsOpen}
+              onOpenChange={(v) => setSettingsOpen(v)}
+              trigger={['click']}
+              placement="topRight"
+              dropdownRender={() => (
+                <div
+                  style={{
+                    background: 'var(--vm-bg-card)',
+                    border: '1px solid var(--vm-border-subtle)',
+                    borderRadius: 6,
+                    padding: '6px 0',
+                    minWidth: 180,
+                    maxHeight: 320,
+                    overflowY: 'auto',
+                    boxShadow: '0 -4px 16px rgba(0,0,0,0.25)',
+                  }}
+                >
+                  <div
+                    style={{ padding: '4px 12px', cursor: 'pointer', color: 'var(--vm-primary)', fontWeight: 600, fontSize: 12 }}
+                    onClick={() => setHiddenColumns(new Set())}
+                  >
+                    显示全部列
+                  </div>
+                  {Object.values(columnFilters).filter(isFilterStateActive).length > 0 && (
+                    <>
+                      <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                      <div
+                        style={{ padding: '4px 12px', cursor: 'pointer', color: 'var(--vm-text-secondary)', fontSize: 12 }}
+                        onClick={() => { setColumnFilters({}); setPendingColumnFilters({}); }}
+                      >
+                        🧹 清除所有过滤（{Object.values(columnFilters).filter(isFilterStateActive).length} 列）
+                      </div>
+                    </>
+                  )}
+                  <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                  {safeSchema.map((col) => (
+                    <div
+                      key={col.name}
+                      style={{ padding: '3px 12px', cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); toggleColumn(col.name); }}
+                    >
+                      <Checkbox
+                        checked={!hiddenColumns.has(col.name)}
+                        style={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
+                      >
+                        {col.name}
+                      </Checkbox>
+                    </div>
+                  ))}
+                </div>
+              )}
+            >
+              <Tooltip title={hiddenColumns.size > 0 ? `列设置（已隐藏 ${hiddenColumns.size} 列）` : '列设置'}>
+                <Button
+                  type="text"
+                  icon={<SettingOutlined style={{ ...iconStyle, color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : undefined }} />}
+                  style={{
+                    color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : undefined,
+                    background: hiddenColumns.size > 0 ? 'var(--vm-primary-light)' : 'transparent',
+                    border: hiddenColumns.size > 0 ? '1px solid var(--vm-primary-border)' : 'none',
+                    borderRadius: 4,
+                  }}
+                  className="hover:bg-blue-500/15"
+                />
+              </Tooltip>
+            </Dropdown>
+          )}
         </Space>
       </div>
     );
@@ -1649,8 +1719,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         ...filteredTableColumns.filter((c) => !effectiveOrder.includes(String(c.key))),
       ] as typeof filteredTableColumns;
 
-      const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
-
       const visibleTableColumns = [...dataTableColumns];
 
       // Data is already an array of objects, just need to add a key for Ant Design Table
@@ -1716,86 +1784,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const tableElement = (
         <>
-          {/* Table container: relative position so the settings gear can float top-right */}
           <div style={{ position: 'relative' }}>
-            {/* Floating column settings button — top-right corner, BI tool best practice */}
-            {/* Use dropdownRender (custom panel) so clicking checkboxes never auto-closes the dropdown */}
-            <Dropdown
-              open={settingsOpen}
-              onOpenChange={(v) => setSettingsOpen(v)}
-              trigger={['click']}
-              placement="bottomRight"
-              dropdownRender={() => (
-                <div
-                  style={{
-                    background: 'var(--vm-bg-card)',
-                    border: '1px solid var(--vm-border-subtle)',
-                    borderRadius: 6,
-                    padding: '6px 0',
-                    minWidth: 180,
-                    maxHeight: 320,
-                    overflowY: 'auto',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                  }}
-                >
-                  {/* Show all */}
-                  <div
-                    style={{ padding: '4px 12px', cursor: 'pointer', color: 'var(--vm-primary)', fontWeight: 600, fontSize: 12 }}
-                    onClick={() => setHiddenColumns(new Set())}
-                  >
-                    显示全部列
-                  </div>
-                  {/* Clear filters (only when active) */}
-                  {activeFilterCount > 0 && (
-                    <>
-                      <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
-                      <div
-                        style={{ padding: '4px 12px', cursor: 'pointer', color: 'var(--vm-text-secondary)', fontSize: 12 }}
-                        onClick={() => { setColumnFilters({}); setPendingColumnFilters({}); }}
-                      >
-                        🧹 清除所有过滤（{activeFilterCount} 列）
-                      </div>
-                    </>
-                  )}
-                  <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
-                  {/* Column checkboxes — clicking does NOT close the dropdown */}
-                  {safeSchema.map((col) => (
-                    <div
-                      key={col.name}
-                      style={{ padding: '3px 12px', cursor: 'pointer' }}
-                      onClick={(e) => { e.stopPropagation(); toggleColumn(col.name); }}
-                    >
-                      <Checkbox
-                        checked={!hiddenColumns.has(col.name)}
-                        style={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
-                      >
-                        {col.name}
-                      </Checkbox>
-                    </div>
-                  ))}
-                </div>
-              )}
-            >
-              <Tooltip title={hiddenColumns.size > 0 ? `列设置（已隐藏 ${hiddenColumns.size} 列）` : '列设置'}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<SettingOutlined style={{ fontSize: 13 }} />}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    right: 0,
-                    zIndex: 10,
-                    height: 28,
-                    width: 28,
-                    color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : 'var(--vm-text-muted)',
-                    background: hiddenColumns.size > 0 ? 'var(--vm-primary-light)' : 'transparent',
-                    border: hiddenColumns.size > 0 ? '1px solid var(--vm-primary-border)' : 'none',
-                    borderRadius: 4,
-                  }}
-                />
-              </Tooltip>
-            </Dropdown>
           <Table
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
