@@ -675,6 +675,43 @@ const buildSafeSchema = (schema: unknown, data: unknown): Array<{ name: string; 
   return [];
 };
 
+/** Resizable column header cell — handles right-border drag to resize column width */
+interface ResizableTitleProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  onResize?: (newWidth: number) => void;
+  width?: number;
+}
+const ResizableTitle: React.FC<ResizableTitleProps> = ({ onResize, width, style, children, ...restProps }) => {
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!onResize) return;
+    const startX = e.clientX;
+    const startWidth = width ?? 120;
+    const onMouseMove = (me: MouseEvent) => onResize(Math.max(60, startWidth + me.clientX - startX));
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  return (
+    <th {...restProps} style={{ ...style, position: 'relative', overflow: 'visible' }}>
+      {children}
+      {onResize && (
+        <div
+          style={{
+            position: 'absolute', right: -3, top: 0, bottom: 0,
+            width: 6, cursor: 'col-resize', zIndex: 1,
+          }}
+          onMouseDown={handleResizeMouseDown}
+        />
+      )}
+    </th>
+  );
+};
+
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, schema, thinkingSteps, onUpvote, onDownvote, onRetry, onDelete, llmDurationMs, queryDurationMs, onEditQuery, onCopyQuery, attachments, insightsData }) => {
   const [voted, setVoted] = useState<'up' | null>(null);
   const [queryExpanded, setQueryExpanded] = useState(false);
@@ -703,6 +740,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   // Column order: controls drag-to-reorder
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  // Column widths: user-resized widths per column name
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   // Track cell copy feedback: colName+rowKey being flashed
   const [copiedCell, setCopiedCell] = useState<string | null>(null);
   // Drag-reorder refs
@@ -1513,13 +1552,15 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           title: headerTitle,
           dataIndex: colName,
           key: colName,
-          ellipsis: { showTitle: true },
+          width: columnWidths[colName] ?? 120,
           render: renderFunction,
           sorter,
           sortDirections: ['ascend', 'descend'] as const,
           ...(pinFixed ? { fixed: pinFixed } : {}),
           ...advancedFilter,
-          onHeaderCell: () => ({
+          onHeaderCell: (column: any) => ({
+            width: column.width,
+            onResize: (newWidth: number) => setColumnWidths((prev) => ({ ...prev, [colName]: newWidth })),
             style: {
               background: 'var(--vm-bg-base)',
               color: 'var(--vm-primary)',
@@ -1757,6 +1798,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
             showSorterTooltip={false}
+            rowKey={(_, index) => String(index)}
+            components={{ header: { cell: ResizableTitle } }}
             pagination={{
               defaultPageSize: 20,
               showSizeChanger: true,
