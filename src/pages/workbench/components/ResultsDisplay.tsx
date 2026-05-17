@@ -1690,46 +1690,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         })),
       ];
 
-      const settingsColumn: ColumnsType<any>[number] = {
-        key: '__settings',
-        dataIndex: '__settings',
-        width: 40,
-        fixed: 'left' as const,
-        title: (
-          <Dropdown
-            menu={{ items: settingsColumnMenuItems }}
-            trigger={['click']}
-            overlayStyle={{
-              background: 'var(--vm-bg-card)',
-              border: '1px solid var(--vm-border-mid)',
-              borderRadius: 6,
-              minWidth: 180,
-            }}
-          >
-            <Tooltip title={hiddenColumns.size > 0 ? `列设置（已隐藏 ${hiddenColumns.size} 列）` : '列设置'}>
-              <Button
-                size="small"
-                type="text"
-                icon={<SettingOutlined />}
-                style={{
-                  color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : 'var(--vm-text-secondary)',
-                  padding: 0,
-                }}
-              />
-            </Tooltip>
-          </Dropdown>
-        ),
-        render: () => null,
-        onHeaderCell: () => ({
-          style: {
-            background: 'var(--vm-bg-base)',
-            borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
-            padding: '0 4px',
-          },
-        }),
-      };
-
-      const visibleTableColumns = [settingsColumn, ...dataTableColumns];
+      const visibleTableColumns = [...dataTableColumns];
 
       // Data is already an array of objects, just need to add a key for Ant Design Table
       // (tableDataSource is defined above near distinctValuesByColumn)
@@ -1794,6 +1755,34 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const tableElement = (
         <>
+          {/* Table container: relative position so the settings gear can float top-right */}
+          <div style={{ position: 'relative' }}>
+            {/* Floating column settings button — top-right corner, BI tool best practice */}
+            <Dropdown
+              menu={{ items: settingsColumnMenuItems }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Tooltip title={hiddenColumns.size > 0 ? `列设置（已隐藏 ${hiddenColumns.size} 列）` : '列设置'}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<SettingOutlined style={{ fontSize: 13 }} />}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    zIndex: 10,
+                    height: 28,
+                    width: 28,
+                    color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : 'var(--vm-text-muted)',
+                    background: hiddenColumns.size > 0 ? 'var(--vm-primary-light)' : 'transparent',
+                    border: hiddenColumns.size > 0 ? '1px solid var(--vm-primary-border)' : 'none',
+                    borderRadius: 4,
+                  }}
+                />
+              </Tooltip>
+            </Dropdown>
           <Table
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
@@ -1896,6 +1885,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               </Button>
             </div>
           )}
+          </div>{/* end table container */}
         </>
       );
 
