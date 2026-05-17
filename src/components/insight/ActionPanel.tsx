@@ -4,9 +4,10 @@
  */
 
 import React from 'react';
-import { Card, Button, Space, Typography, Tag, Alert, Spin, message } from 'antd';
+import { Card, Button, Space, Typography, Tag, Alert, Spin } from 'antd';
 import { CopyOutlined, DownloadOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { InsightAction } from '../../types/insight-action.types';
+import { vmMessage } from '../common/vm-dialog';
 import './ActionPanel.css';
 import { TOKEN } from '../../theme';
 
@@ -76,7 +77,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       const content = formatForClipboard(insightAction);
       await navigator.clipboard.writeText(content);
     } catch (err) {
-      message.error('Failed to copy to clipboard');
+      vmMessage.error('Failed to copy to clipboard');
       console.error('[ActionPanel] Copy failed:', err);
     }
   };
@@ -86,7 +87,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
    */
   const handleDownload = async () => {
     if (!onDownloadReport) {
-      message.warning('Download function not available');
+      vmMessage.warning('Download function not available');
       return;
     }
 
@@ -95,7 +96,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       await onDownloadReport();
       // Silent success - no message popup (browser will show download)
     } catch (err) {
-      message.error('Failed to download report');
+      vmMessage.error('Failed to download report');
       console.error('[ActionPanel] Download failed:', err);
     } finally {
       setIsDownloading(false);

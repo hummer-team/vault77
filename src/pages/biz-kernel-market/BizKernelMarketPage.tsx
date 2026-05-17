@@ -4,13 +4,14 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Typography, Card, message, Modal } from 'antd';
+import { Typography, Card } from 'antd';
 import SearchBar from './components/SearchBar';
 import CategoryFilter from './components/CategoryFilter';
 import BizKernelGrid from './components/BizKernelGrid';
 import BizKernelDetailModal from './components/BizKernelDetailModal';
 import { bizKernelService } from '../../services/biz-kernels/bizKernelService.ts';
 import type { BizKernelMetadata } from '../../services/biz-kernels/types';
+import { vmMessage, vmConfirm } from '../../components/common/vm-dialog';
 
 const { Title } = Typography;
 
@@ -61,7 +62,7 @@ const BizKernelMarketPage: React.FC = () => {
         setAppliedKernelNames(new Set(applied.map((k: BizKernelMetadata) => k.name)));
       } catch (error) {
         console.error('[BizKernelMarketPage] Failed to initialize:', error);
-        message.error('算子加载失败，请重试');
+        vmMessage.error('算子加载失败，请重试');
       } finally {
         setLoading(false);
       }
@@ -159,18 +160,18 @@ const BizKernelMarketPage: React.FC = () => {
       setAppliedKernelNames((prev) => new Set([...prev, name]));
     } catch (error) {
       console.error('[BizKernelMarketPage] Apply failed:', error);
-      message.error('算子应用失败');
+      vmMessage.error('算子应用失败');
     }
   }, []);
 
   // Cancel kernel with confirmation
   const handleCancel = useCallback((name: string) => {
-    Modal.confirm({
+    vmConfirm({
       title: '确认取消应用',
-      content:
-        '您已经构建该算子分析流，取消后将无法继续使用，确认取消？',
+      content: '您已经构建该算子分析流，取消后将无法继续使用，确认取消？',
       okText: '确认',
       cancelText: '取消',
+      type: 'warning',
       onOk: async () => {
         try {
           await bizKernelService.cancelKernel(name);
@@ -181,7 +182,7 @@ const BizKernelMarketPage: React.FC = () => {
           });
         } catch (error) {
           console.error('[BizKernelMarketPage] Cancel failed:', error);
-          message.error('取消应用失败');
+          vmMessage.error('取消应用失败');
         }
       },
     });

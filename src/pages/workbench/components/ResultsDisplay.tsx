@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
@@ -25,6 +25,7 @@ import {
 } from '../../../utils/tableAnalyticsUtils';
 import dayjs from 'dayjs';
 import { TOKEN } from '../../../theme';
+import { vmMessage } from '../../../components/common/vm-dialog';
 
 // --- M6: Clarification helpers ---
 const parseClarifyingQuestions = (errorText: string): string[] => {
@@ -779,7 +780,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
   const handleExportClick = () => {
     if (!canExport || !Array.isArray(data)) {
-      message.warning('暂无可导出的数据');
+      vmMessage.warning('暂无可导出的数据');
       return;
     }
     // Smart export: filtered data when active filters exist, otherwise full data
@@ -794,7 +795,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       });
     } catch (e) {
       console.error('Failed to export CSV:', e);
-      message.error('导出失败，请稍后重试');
+      vmMessage.error('导出失败，请稍后重试');
     }
   };
 
@@ -804,12 +805,12 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     const keySet = new Set(selectedRowKeys.map(String));
     const sourceData = filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]);
     const selectedData = sourceData.filter((_, idx) => keySet.has(String(idx)));
-    if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
+    if (selectedData.length === 0) { vmMessage.warning('未选中任何行'); return; }
     try {
       exportTableToCsv({ data: selectedData as any[], schema: safeSchema });
     } catch (e) {
       console.error('Failed to export selected rows:', e);
-      message.error('导出失败，请稍后重试');
+      vmMessage.error('导出失败，请稍后重试');
     }
   };
 
@@ -819,14 +820,14 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     // selectedRowKeys from Ant Design are strings ("0","1"...) but filter idx is number — normalize both to string
     const keySet = new Set(selectedRowKeys.map(String));
     const selectedData = sourceData.filter((_, idx) => keySet.has(String(idx)));
-    if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
+    if (selectedData.length === 0) { vmMessage.warning('未选中任何行'); return; }
     const colNames = safeSchema.map((c) => c.name);
     const header = colNames.join('\t');
     const rows = selectedData.map((row) => colNames.map((c) => String(row[c] ?? '')).join('\t'));
     const tsv = [header, ...rows].join('\n');
     navigator.clipboard.writeText(tsv).then(
-      () => message.success(`已复制 ${selectedData.length} 行到剪贴板（TSV格式，可直接粘贴到 Excel）`),
-      () => message.error('复制失败，请检查浏览器权限'),
+      () => vmMessage.success(`已复制 ${selectedData.length} 行到剪贴板（TSV格式，可直接粘贴到 Excel）`),
+      () => vmMessage.error('复制失败，请检查浏览器权限'),
     );
   };
 

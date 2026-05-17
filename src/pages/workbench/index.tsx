@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
-import { Spin, App, Typography, Space, Drawer, Modal } from 'antd';
+import { Spin, Typography, Space, Drawer, Modal } from 'antd';
 import { 
   CodeOutlined, 
   BarChartOutlined, 
@@ -36,6 +36,7 @@ import { operatorBindingService } from '../../services/flow/operatorBindingServi
 import type { FlowSummary } from '../../services/flow/flowSummary';
 import type { OperatorDisplayConfig, OperatorInsightsData } from '../../services/flow/types';
 import { TOKEN } from '../../theme';
+import { vmMessage } from '../../components/common/vm-dialog';
 import './workbench.css';
 
 const InsightPage = React.lazy(() => import('../insight'));
@@ -178,7 +179,6 @@ const InitialWelcomeView: React.FC = () => (
 );
 
 const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDBReady }) => {
-  const { message, notification } = App.useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
   // timer for persona hint auto clear
   const personaHintTimerRef = useRef<number | null>(null);
@@ -364,7 +364,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       console.log('[Workbench] Anomaly re-detection completed');
     } catch (error) {
       console.error('[Workbench] Anomaly re-detection failed:', error);
-      message.error('Failed to re-detect anomalies with new threshold');
+      vmMessage.error('Failed to re-detect anomalies with new threshold');
     }
   }, [insightTableName, isDBReady, anomalyDetection]);
 
@@ -385,7 +385,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       console.log('[Workbench] Clustering re-run completed');
     } catch (error) {
       console.error('[Workbench] Clustering re-run failed:', error);
-      message.error('Failed to re-run clustering with new K value');
+      vmMessage.error('Failed to re-run clustering with new K value');
     }
   }, [insightTableName, isDBReady, clusteringAnalysis]);
 
@@ -441,7 +441,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     // Limit to prevent timeout
     const limitedOrderIds = orderIds.slice(0, 10000);
     if (orderIds.length > 10000) {
-      message.warning(`Showing top 10,000 out of ${orderIds.length} anomalies`);
+      vmMessage.warning(`Showing top 10,000 out of ${orderIds.length} anomalies`);
     }
 
     // Build SQL to fetch full order data
@@ -509,7 +509,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     }
 
     if (!isDBReady) {
-      message.error('Database not ready');
+      vmMessage.error('Database not ready');
       return;
     }
 
@@ -576,7 +576,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       }, 100);
     } catch (error) {
       console.error('[Workbench] Flow query execution failed:', error);
-      // message.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // vmMessage.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate, selectedAttachmentIds, allowedTableNames]);
 
@@ -857,12 +857,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
       // 4. Notify user if any templates were cleared
       if (affectedKernels.length > 0) {
-        notification.warning({
-          message: '分析流已自动清理',
-          description: `已清理与该附件关联的 ${affectedKernels.length} 个分析流模板，如需使用请重新构建。`,
-          placement: 'topRight',
-          duration: 5,
-        });
+        vmMessage.warning(`分析流已自动清理：已清理与该附件关联的 ${affectedKernels.length} 个分析流模板，如需使用请重新构建。`);
       }
     }
   }, [handleDeleteAttachment]);
@@ -1145,10 +1140,10 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     try {
       await navigator.clipboard.writeText(query);
       // success toast removed, UI 已足够明确
-      // message.success('提示词已复制到剪贴板');
+      // vmMessage.success('提示词已复制到剪贴板');
     } catch (e) {
       console.error('复制失败:', e);
-      message.error('复制失败，请手动复制');
+      vmMessage.error('复制失败，请手动复制');
     }
   };
 
@@ -1162,7 +1157,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleUpvote = (query: string) => {
     console.log(`Upvoted query: "${query}". Backend call would be here.`);
     // 非关键 success 提示移除，避免打断
-    // message.success('Thanks for your feedback!');
+    // vmMessage.success('Thanks for your feedback!');
     return Promise.resolve({ status: 'success' });
   };
 
@@ -1179,7 +1174,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleDeleteRecord = (recordId: string) => {
     setAnalysisHistory((prev) => prev.filter((rec) => rec.id !== recordId));
     // 卡片消失即为最直观反馈，这里去掉 success 提示
-    // message.success('分析记录已删除');
+    // vmMessage.success('分析记录已删除');
   };
 
   const handleScrollToBottom = () => {

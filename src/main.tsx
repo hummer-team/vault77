@@ -13,6 +13,7 @@ import FeedbackDrawer from './pages/feedback/FeedbackDrawer.tsx';
 import ProfilePage from "./pages/settings/ProfilePage.tsx";
 import BizKernelMarketPage from "./pages/biz-kernel-market/BizKernelMarketPage.tsx";
 import { Agentation } from "agentation";
+import { VmDialogHost } from './components/common/vm-dialog';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('1');
@@ -113,6 +114,7 @@ const App = () => {
           open={isFeedbackDrawerOpen}
           onClose={() => setIsFeedbackDrawerOpen(false)}
         />
+        <VmDialogHost />
       </AntdApp>
     </ThemeProvider>
   );

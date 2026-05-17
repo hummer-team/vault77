@@ -1,6 +1,7 @@
 import React from 'react';
-import { Drawer, Form, Input, Button, Radio, Upload, App } from 'antd';
+import { Drawer, Form, Input, Button, Radio, Upload } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
+import { vmMessage } from '../../components/common/vm-dialog';
 
 interface FeedbackDrawerProps {
   open: boolean;
@@ -8,13 +9,11 @@ interface FeedbackDrawerProps {
 }
 
 const FeedbackDrawer: React.FC<FeedbackDrawerProps> = ({ open, onClose }) => {
-  const { message } = App.useApp();
   const [form] = Form.useForm();
 
   const onFinish = (values: any) => {
     console.log('Feedback submitted:', values);
-    // Here you would typically send the data to your backend
-    message.success('感谢您的反馈，我们会尽快处理！');
+    vmMessage.success('感谢您的反馈，我们会尽快处理！');
     form.resetFields();
     onClose();
   };

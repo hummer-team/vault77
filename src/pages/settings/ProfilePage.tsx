@@ -10,7 +10,6 @@ import {
   Switch,
   Popconfirm,
   Modal,
-  App,
   Space,
   Upload,
   Typography,
@@ -28,6 +27,7 @@ import { useUserStore } from '../../status/appStatusManager.ts';
 import { personaRegistry } from '../../config/personas';
 import { userSkillService } from '../../services/user-skill/userSkillService.ts';
 import type { UserSkillConfig, TableSkillConfig, FieldMapping, FilterExpr, RelativeTimeValue, LiteralValue, MetricDefinition } from '../../services/llm/skills/types.ts';
+import { vmMessage } from '../../components/common/vm-dialog';
 import './ProfilePage.css';
 
 const { Panel } = Collapse;
@@ -86,7 +86,6 @@ const getBase64 = (img: File, callback: (url: string) => void) => {
 };
 
 const ProfilePage: React.FC = () => {
-  const { message } = App.useApp();
   const [profileForm] = Form.useForm();
   const [llmForm] = Form.useForm();
 
@@ -129,7 +128,7 @@ const ProfilePage: React.FC = () => {
         const configs = await settingsService.getLlmConfigs();
         setLlmConfigs(configs);
       } catch (error) {
-        message.error('Failed to load LLM configurations.');
+        vmMessage.error('Failed to load LLM configurations.');
         console.error('[ProfilePage] Error loading LLM configs:', error);
       }
     };
@@ -456,13 +455,13 @@ const ProfilePage: React.FC = () => {
   // Storage Integration handlers
   const handleSaveConfiguration = async () => {
     if (!selectedTable || !currentTableConfig) {
-      message.warning('Please configure at least the industry field');
+      vmMessage.warning('Please configure at least the industry field');
       return;
     }
 
     // Validate that industry is set
     if (!currentTableConfig.industry) {
-      message.error('Industry is required');
+      vmMessage.error('Industry is required');
       return;
     }
 
@@ -474,10 +473,10 @@ const ProfilePage: React.FC = () => {
       const updatedConfig = await userSkillService.loadUserSkill();
       setUserSkillConfig(updatedConfig);
       
-      message.success(`Configuration saved for table: ${selectedTable}`);
+      vmMessage.success(`Configuration saved for table: ${selectedTable}`);
       console.log('[ProfilePage] Saved configuration:', currentTableConfig);
     } catch (error) {
-      message.error('Failed to save configuration. Check console for details.');
+      vmMessage.error('Failed to save configuration. Check console for details.');
       console.error('[ProfilePage] Save configuration error:', error);
     }
   };
@@ -493,10 +492,10 @@ const ProfilePage: React.FC = () => {
       setUserSkillConfig(updatedConfig);
       setCurrentTableConfig(null);
       
-      message.success(`Configuration reset for table: ${selectedTable}`);
+      vmMessage.success(`Configuration reset for table: ${selectedTable}`);
       console.log('[ProfilePage] Reset configuration for table:', selectedTable);
     } catch (error) {
-      message.error('Failed to reset configuration');
+      vmMessage.error('Failed to reset configuration');
       console.error('[ProfilePage] Reset configuration error:', error);
     }
   };
@@ -511,10 +510,10 @@ const ProfilePage: React.FC = () => {
       setCurrentTableConfig(null);
       setSelectedTable(null);
       
-      message.success('All configurations reset');
+      vmMessage.success('All configurations reset');
       console.log('[ProfilePage] Reset all configurations');
     } catch (error) {
-      message.error('Failed to reset all configurations');
+      vmMessage.error('Failed to reset all configurations');
       console.error('[ProfilePage] Reset all error:', error);
     }
   };
@@ -533,7 +532,7 @@ const ProfilePage: React.FC = () => {
       // ✅ keep global userProfile in sync so Workbench / ChatPanel see latest role
       setUserProfile(updatedProfile);
     } catch (error) {
-      message.error('Failed to update profile.');
+      vmMessage.error('Failed to update profile.');
       console.error('[ProfilePage] Error updating profile:', error);
     }
   };
@@ -565,7 +564,7 @@ const ProfilePage: React.FC = () => {
         });
         return;
       }
-      message.error('Failed to save LLM config.');
+      vmMessage.error('Failed to save LLM config.');
       console.error('[ProfilePage] Error saving LLM config:', error);
     }
   };
@@ -583,7 +582,7 @@ const ProfilePage: React.FC = () => {
         });
         return;
       }
-      message.error('Failed to toggle LLM config status.');
+      vmMessage.error('Failed to toggle LLM config status.');
     }
   };
 
@@ -592,7 +591,7 @@ const ProfilePage: React.FC = () => {
       const updatedConfigs = await settingsService.deleteLlmConfig(configId);
       setLlmConfigs(updatedConfigs);
     } catch (error) {
-      message.error('Failed to delete LLM config.');
+      vmMessage.error('Failed to delete LLM config.');
     }
   };
 
@@ -603,11 +602,11 @@ const ProfilePage: React.FC = () => {
       if (!userProfile) return false;
       const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
       if (!isJpgOrPng) {
-        message.error('You may only upload images in JPG/PNG format!');
+        vmMessage.error('You may only upload images in JPG/PNG format!');
       }
       const isLt200K = file.size / 1024 < 200;
       if (!isLt200K) {
-        message.error('Images must be smaller than 200KB!');
+        vmMessage.error('Images must be smaller than 200KB!');
       }
       if (isJpgOrPng && isLt200K) {
         getBase64(file, (url) => {

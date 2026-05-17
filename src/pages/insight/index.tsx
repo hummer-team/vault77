@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, message, Tooltip } from 'antd';
+import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
   ReloadOutlined, 
@@ -38,6 +38,7 @@ import type { ClusteringAnalysisOutput } from '../../types/clustering.types';
 import type { InsightAction } from '../../types/insight-action.types';
 import { MAX_ANOMALIES_FOR_VISUALIZATION } from '../../constants/anomaly.constants';
 import { DEFAULT_K_VALUE, K_VALUE_RANGE } from '../../constants/clustering.constants';
+import { vmMessage } from '../../components/common/vm-dialog';
 import './index.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -256,12 +257,12 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     const orderIds = anomalyResult.anomalies.map(a => a.orderId);
     
     if (orderIds.length === 0) {
-      message.warning('No anomalies to download');
+      vmMessage.warning('No anomalies to download');
       return;
     }
 
     try {
-      const loadingMsg = message.loading('Preparing CSV download...', 0);
+      const loadingMsg = vmMessage.loading('Preparing CSV download...', 0);
       
       const fullData = await onDownloadAnomalies(orderIds);
       
@@ -276,7 +277,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       
       loadingMsg();
     } catch (error) {
-      message.error('Failed to download anomalies: ' + (error as Error).message);
+      vmMessage.error('Failed to download anomalies: ' + (error as Error).message);
       console.error('[InsightPage] Download failed:', error);
     }
   };
@@ -288,18 +289,18 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     const orderIds = anomalyResult.anomalies.map(a => a.orderId);
     
     if (orderIds.length === 0) {
-      message.warning('No anomalies to view');
+      vmMessage.warning('No anomalies to view');
       return;
     }
 
     try {
-      const loadingMsg = message.loading('Loading anomalies in analysis panel...', 0);
+      const loadingMsg = vmMessage.loading('Loading anomalies in analysis panel...', 0);
       
       await onViewAnomalies(orderIds, tableName);
       
       loadingMsg();
     } catch (error) {
-      message.error('Failed to view anomalies: ' + (error as Error).message);
+      vmMessage.error('Failed to view anomalies: ' + (error as Error).message);
       console.error('[InsightPage] View failed:', error);
     }
   };
@@ -309,14 +310,14 @@ export const InsightPage: React.FC<InsightPageProps> = ({
    */
   const handleDownloadReport = useCallback(async () => {
     if (!anomalyResult || !insightAction || !onDownloadAnomalies) {
-      message.warning('Report not ready for download');
+      vmMessage.warning('Report not ready for download');
       return;
     }
 
     const orderIds = anomalyResult.anomalies.map(a => a.orderId);
 
     try {
-      const hideLoading = message.loading('Preparing report...', 0);
+      const hideLoading = vmMessage.loading('Preparing report...', 0);
 
       // Fetch full anomaly data
       const anomalyData = await onDownloadAnomalies(orderIds);
@@ -332,7 +333,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       hideLoading();
       // Silent success - no message popup
     } catch (error) {
-      message.error('Failed to download report: ' + (error as Error).message);
+      vmMessage.error('Failed to download report: ' + (error as Error).message);
       console.error('[InsightPage] Report download failed:', error);
     }
   }, [anomalyResult, insightAction, onDownloadAnomalies, tableName]);
@@ -838,27 +839,27 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                         try {
                           switch (key) {
                             case 'download':
-                              message.info('CSV export will be implemented in future');
+                              vmMessage.info('CSV export will be implemented in future');
                               break;
                             case 'view':
                               if (!onViewCustomers) {
-                                message.warning('View customers callback not available');
+                                vmMessage.warning('View customers callback not available');
                                 return;
                               }
                               // Extract all customer IDs from clustering result
                               const customerIds = clusteringResult.customers.map(c => c.customerId);
                               if (customerIds.length === 0) {
-                                message.warning('No customers to display');
+                                vmMessage.warning('No customers to display');
                                 return;
                               }
                               await onViewCustomers(customerIds, tableName);
                               break;
                             case 'analyze':
-                              message.info('LLM analysis coming soon');
+                              vmMessage.info('LLM analysis coming soon');
                               break;
                           }
                         } catch (error) {
-                          message.error(`Failed to ${key}: ${error}`);
+                          vmMessage.error(`Failed to ${key}: ${error}`);
                         }
                       },
                       style: {
@@ -1055,7 +1056,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                     URL.revokeObjectURL(url);
                   } catch (error) {
                     console.error('[InsightPage] Failed to download clustering report:', error);
-                    message.error('下载失败');
+                    vmMessage.error('下载失败');
                   }
                 }}
                 onRetry={handleRetryClusteringInsight}

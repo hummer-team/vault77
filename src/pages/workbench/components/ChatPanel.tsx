@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
-import { App, Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions, Popover } from 'antd';
-import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, ExclamationCircleOutlined, WarningFilled, CloseOutlined, ClearOutlined } from '@ant-design/icons';
+import { Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions, Popover } from 'antd';
+import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, WarningFilled, CloseOutlined, ClearOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
 import './ChatPanel.css'; // Import a CSS file for animations
@@ -9,6 +9,7 @@ import { useUserStore } from '../../../status/appStatusManager.ts';
 import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
+import { vmConfirm } from '../../../components/common/vm-dialog';
 
 interface ChatPanelProps {
   onSendMessage: (message: string) => void;
@@ -85,7 +86,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onToggleAttachmentSelection,
 }) => {
   const [form] = Form.useForm();
-  const { modal } = App.useApp();
   const { userProfile } = useUserStore();
   const [userSkillConfigs, setUserSkillConfigs] = useState<Record<string, TableSkillConfig>>({});
 
@@ -402,20 +402,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   onClose={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    modal.confirm({
+                    vmConfirm({
                       title: '删除附件',
-                      icon: <ExclamationCircleOutlined style={{ color: 'var(--vm-warning-color)' }} />,
-                      content: (
-                        <div>
-                          <p>确定要删除 <strong>{group.fileName}</strong> 吗？</p>
-                          <p style={{ color: 'var(--vm-text-secondary)', fontSize: '12px', marginTop: '8px' }}>
-                            此操作将同步清理关联的分析流，删除后无法恢复。
-                          </p>
-                        </div>
-                      ),
+                      content: `确定要删除 ${group.fileName} 吗？此操作将同步清理关联的分析流，删除后无法恢复。`,
                       okText: '删除',
-                      okType: 'danger',
                       cancelText: '取消',
+                      type: 'warning',
                       onOk: () => handleDeleteGroup(group.attachmentIds),
                     });
                   }}

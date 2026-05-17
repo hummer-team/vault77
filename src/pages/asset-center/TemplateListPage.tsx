@@ -1,7 +1,8 @@
 import React from 'react';
 import { TOKEN } from '../../theme';
-import { Card, Table, Typography, Collapse, Space, Tooltip, App } from 'antd';
+import { Card, Table, Typography, Collapse, Space, Tooltip } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
+import { vmMessage } from '../../components/common/vm-dialog';
 
 const { Title, Paragraph, Text } = Typography;
 const { Panel } = Collapse;
@@ -129,15 +130,14 @@ const templateCategories: TemplateCategory[] = [
 ];
 
 const TemplateListPage: React.FC = () => {
-  const { message } = App.useApp();
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(
       () => {
-        message.success('Prompt copied to clipboard!');
+        vmMessage.success('Prompt copied to clipboard!');
       },
       (err) => {
-        message.error('Failed to copy prompt.');
+        vmMessage.error('Failed to copy prompt.');
         console.error('Could not copy text: ', err);
       }
     );
