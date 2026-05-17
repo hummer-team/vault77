@@ -419,7 +419,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     alignItems: 'center',
                     gap: '4px',
                     cursor: 'pointer',
-                    border: isSelected ? '1.5px solid #ff6b35' : '1px solid #434343',
+                    border: isSelected ? '1.5px solid var(--vm-primary)' : '1px solid var(--vm-border-mid)',
                     boxShadow: isSelected ? '0 0 0 2px var(--vm-primary-light)' : 'none',
                     transition: 'border-color 0.2s, box-shadow 0.2s',
                   }}
