@@ -241,6 +241,48 @@ function makeSplitLine(ec: EChartsColors): object {
   return { lineStyle: { color: ec.gridLine } };
 }
 
+/** Build a single or dual Y-axis config for ECharts. */
+function buildYAxis(
+  dual: boolean,
+  ec: EChartsColors,
+): EChartsOption['yAxis'] {
+  if (!dual) {
+    return { type: 'value', axisLabel: makeAxisLabel(ec), splitLine: makeSplitLine(ec) };
+  }
+  return [
+    { type: 'value', axisLabel: makeAxisLabel(ec), splitLine: makeSplitLine(ec) },
+    { type: 'value', position: 'right', axisLabel: makeAxisLabel(ec), splitLine: { show: false } },
+  ] as EChartsOption['yAxis'];
+}
+
+/**
+ * Detect if dual Y-axis is needed based on series magnitude ratio.
+ * Triggers when the ratio of the largest series max to the smallest series max > 10.
+ * Returns per-series axis indices: 0 = left (dominant), 1 = right (small-scale).
+ */
+function detectDualAxis(
+  yColumns: string[],
+  data: Record<string, unknown>[],
+): { dual: boolean; axisIndices: number[] } {
+  if (yColumns.length < 2) return { dual: false, axisIndices: [0] };
+
+  const maxVals = yColumns.map((col) =>
+    data.reduce((m, r) => Math.max(m, Math.abs(Number(r[col]) || 0)), 0),
+  );
+  const dominantMax = Math.max(...maxVals);
+  const positiveMaxes = maxVals.filter((v) => v > 0);
+  if (positiveMaxes.length < 2) return { dual: false, axisIndices: yColumns.map(() => 0) };
+
+  const smallestMax = Math.min(...positiveMaxes);
+  if (dominantMax / smallestMax <= 10) return { dual: false, axisIndices: yColumns.map(() => 0) };
+
+  // Series whose max is within 1/10 of dominantMax → left axis (0); rest → right axis (1)
+  return {
+    dual: true,
+    axisIndices: maxVals.map((mv) => (mv >= dominantMax / 10 ? 0 : 1)),
+  };
+}
+
 // ─── Option Builders ──────────────────────────────────────────────────────────
 
 /**
@@ -259,13 +301,21 @@ export function buildBarOption(
 ): EChartsOption {
   const { xColumn, yColumns, stacked, autoBin, binCount, thousandsSeparator = false } = config;
 
+  const multiSeries = yColumns.length > 1;
+  // Legend at top only when multiple series; grid.top accounts for it.
+  const legendOption = multiSeries
+    ? { top: 0, textStyle: { color: ec.textPrimary }, itemStyle: { borderWidth: 0 } }
+    : undefined;
+  const gridTop = multiSeries ? 32 : 10;
+
   // ── Auto-binning path ──
   if (autoBin) {
     const xValues = data.map((r) => Number(r[xColumn])).filter((v) => Number.isFinite(v));
     const bins = autoBinData(xValues, binCount);
     const xLabels = bins.map((b) => b.label);
 
-    const series = yColumns.map((yCol, i) => {
+    // Dual-axis detection using binned sums
+    const binnedData = yColumns.map((yCol) => {
       const sums: number[] = new Array(bins.length).fill(0);
       data.forEach((row) => {
         const xv = Number(row[xColumn]);
@@ -276,30 +326,42 @@ export function buildBarOption(
         const yv = Number(row[yCol]);
         if (Number.isFinite(yv)) sums[idx] += yv;
       });
-      return {
-        name: yCol,
-        type: 'bar' as const,
-        stack: stacked ? 'total' : undefined,
-        itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
-        data: sums,
-      };
+      return sums;
     });
+
+    const fakeRows = binnedData[0].map((_, i) =>
+      Object.fromEntries(yColumns.map((col, ci) => [col, binnedData[ci][i]])),
+    );
+    const { dual, axisIndices } = detectDualAxis(yColumns, fakeRows);
+
+    const series = yColumns.map((yCol, i) => ({
+      name: yCol,
+      type: 'bar' as const,
+      stack: stacked && !dual ? 'total' : undefined,
+      yAxisIndex: dual ? axisIndices[i] : 0,
+      itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
+      data: binnedData[i],
+    }));
+
+    const yAxis = buildYAxis(dual, ec);
 
     return {
       backgroundColor: ec.chartBg,
       color: SERIES_COLORS,
       textStyle: { color: ec.textPrimary },
       tooltip: makeTooltip(ec, thousandsSeparator),
-      legend: yColumns.length > 1 ? { textStyle: { color: ec.textPrimary } } : undefined,
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      legend: legendOption,
+      grid: { top: gridTop, left: '3%', right: dual ? '8%' : '4%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: xLabels, axisLabel: { ...makeAxisLabel(ec), rotate: xLabels.length > 8 ? 30 : 0 } },
-      yAxis: { type: 'value', axisLabel: makeAxisLabel(ec), splitLine: makeSplitLine(ec) },
+      yAxis,
       series,
     };
   }
 
   // ── Standard groupBy path ──
   const xCategories = Array.from(new Set(data.map((r) => String(r[xColumn] ?? ''))));
+  const { dual, axisIndices } = detectDualAxis(yColumns, data);
+
   const series = yColumns.map((yCol, i) => {
     const aggMap: Record<string, number> = Object.fromEntries(xCategories.map((x) => [x, 0]));
     data.forEach((row) => {
@@ -310,25 +372,28 @@ export function buildBarOption(
     return {
       name: yCol,
       type: 'bar' as const,
-      stack: stacked ? 'total' : undefined,
+      stack: stacked && !dual ? 'total' : undefined,
+      yAxisIndex: dual ? axisIndices[i] : 0,
       itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
       data: xCategories.map((x) => aggMap[x]),
     };
   });
+
+  const yAxis = buildYAxis(dual, ec);
 
   return {
     backgroundColor: ec.chartBg,
     color: SERIES_COLORS,
     textStyle: { color: ec.textPrimary },
     tooltip: makeTooltip(ec, thousandsSeparator),
-    legend: yColumns.length > 1 ? { textStyle: { color: ec.textPrimary } } : undefined,
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    legend: legendOption,
+    grid: { top: gridTop, left: '3%', right: dual ? '8%' : '4%', bottom: '3%', containLabel: true },
     xAxis: {
       type: 'category',
       data: xCategories,
       axisLabel: { ...makeAxisLabel(ec), rotate: xCategories.length > 8 ? 30 : 0 },
     },
-    yAxis: { type: 'value', axisLabel: makeAxisLabel(ec), splitLine: makeSplitLine(ec) },
+    yAxis,
     series,
   };
 }
@@ -350,6 +415,14 @@ export function buildLineOption(
   const { xColumn, yColumns, areaFill, thousandsSeparator = false } = config;
   const xCategories = Array.from(new Set(data.map((r) => String(r[xColumn] ?? ''))));
 
+  const multiSeries = yColumns.length > 1;
+  const legendOption = multiSeries
+    ? { top: 0, textStyle: { color: ec.textPrimary }, itemStyle: { borderWidth: 0 } }
+    : undefined;
+  const gridTop = multiSeries ? 32 : 10;
+
+  const { dual, axisIndices } = detectDualAxis(yColumns, data);
+
   const series = yColumns.map((yCol, i) => {
     const aggMap: Record<string, number> = Object.fromEntries(xCategories.map((x) => [x, 0]));
     data.forEach((row) => {
@@ -361,26 +434,29 @@ export function buildLineOption(
       name: yCol,
       type: 'line' as const,
       smooth: true,
+      yAxisIndex: dual ? axisIndices[i] : 0,
       itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
       areaStyle: areaFill ? { opacity: 0.2 } : undefined,
       data: xCategories.map((x) => aggMap[x]),
     };
   });
 
+  const yAxis = buildYAxis(dual, ec);
+
   return {
     backgroundColor: ec.chartBg,
     color: SERIES_COLORS,
     textStyle: { color: ec.textPrimary },
     tooltip: makeTooltip(ec, thousandsSeparator),
-    legend: yColumns.length > 1 ? { textStyle: { color: ec.textPrimary } } : undefined,
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    legend: legendOption,
+    grid: { top: gridTop, left: '3%', right: dual ? '8%' : '4%', bottom: '3%', containLabel: true },
     xAxis: {
       type: 'category',
       data: xCategories,
       boundaryGap: false,
       axisLabel: { ...makeAxisLabel(ec), rotate: xCategories.length > 8 ? 30 : 0 },
     },
-    yAxis: { type: 'value', axisLabel: makeAxisLabel(ec), splitLine: makeSplitLine(ec) },
+    yAxis,
     series,
   };
 }

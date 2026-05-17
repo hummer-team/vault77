@@ -37,14 +37,10 @@ export interface ChartContainerProps {
 
 /**
  * Compute the flex basis (width) for each chart given total count.
- * - 1 chart  → 100%
- * - 2 charts → calc(50% - 6px)
- * - 3+       → min-width 380px (flex-wrap handles row overflow)
+ * One chart per row — prevents multi-chart horizontal clutter.
  */
-function chartFlexBasis(count: number): string {
-  if (count === 1) return '100%';
-  if (count === 2) return 'calc(50% - 6px)';
-  return 'calc(33.33% - 8px)';
+function chartFlexBasis(_count: number): string {
+  return '100%';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -99,11 +95,10 @@ const ChartContainer = React.memo(forwardRef<ChartContainerHandle, ChartContaine
           <div
             key={config.id}
             style={{
-              flexBasis,
-              flexGrow: charts.length < 3 ? 1 : 0,
+              flexBasis: flexBasis,
+              flexGrow: 0,
               flexShrink: 0,
               minWidth: 280,
-              // height is managed by ChartWidget itself (resize:both)
             }}
           >
             <ChartWidget
