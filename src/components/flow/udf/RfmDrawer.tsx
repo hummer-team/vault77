@@ -16,18 +16,16 @@ import {
   Space,
   Typography,
   Collapse,
-  Alert,
-  message,
 } from 'antd';
 import {
   UserOutlined,
   SettingOutlined,
   BulbOutlined,
-  WarningOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import type { RfmProfileConfig } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
+import { vmMessage } from '../../../utils/vmDialog';
 
 const { Text } = Typography;
 
@@ -163,7 +161,6 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
   onConfirm,
   onClose,
 }) => {
-  const [messageApi, contextHolder] = message.useMessage();
 
   const [userIdColumn, setUserIdColumn]       = useState('');
   const [orderTimeColumn, setOrderTimeColumn] = useState('');
@@ -198,15 +195,6 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
     }
   }, [open, initialConfig, autoDetected]);
 
-  // Columns that were not auto-detected (need manual selection)
-  const missingAutoDetect = useMemo(() => {
-    const missing: string[] = [];
-    if (!autoDetected.userId)    missing.push('用户ID列');
-    if (!autoDetected.orderTime) missing.push('下单时间列');
-    if (!autoDetected.amount)    missing.push('金额列');
-    return missing;
-  }, [autoDetected]);
-
   const colOptions = useMemo(
     () => columns.map((c) => ({ value: c, label: c })),
     [columns]
@@ -214,15 +202,14 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
 
   const handleConfirm = useCallback(() => {
     if (!userIdColumn || !orderTimeColumn || !amountColumn) {
-      void messageApi.warning('请完整配置：用户ID列、下单时间列、金额列');
+      vmMessage.warning('请完整配置：用户ID列、下单时间列、金额列');
       return;
     }
     onConfirm({ userIdColumn, orderTimeColumn, amountColumn, nClusters, scalingMode });
-  }, [userIdColumn, orderTimeColumn, amountColumn, nClusters, scalingMode, onConfirm, messageApi]);
+  }, [userIdColumn, orderTimeColumn, amountColumn, nClusters, scalingMode, onConfirm]);
 
   return (
     <>
-      {contextHolder}
       <Drawer
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -284,17 +271,6 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
           },
         }}
       >
-        {/* Auto-detection warning */}
-        {missingAutoDetect.length > 0 && (
-          <Alert
-            type="warning"
-            icon={<WarningOutlined />}
-            showIcon
-            message={`未能自动识别：${missingAutoDetect.join('、')}，请手动选择`}
-            style={{ marginBottom: 14, fontSize: 12 }}
-          />
-        )}
-
         {/* ---- Section 1: Column mapping ---- */}
         <Section icon={<UserOutlined />} title="数据列配置" required>
           <div style={rowStyle}>
