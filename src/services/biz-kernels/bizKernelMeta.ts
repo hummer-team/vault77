@@ -193,6 +193,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 风险风控 - 异常金额
+  // done
   {
     name: 'fn_ecom_abnormal_amount',
     displayName: '异常金额监控',
