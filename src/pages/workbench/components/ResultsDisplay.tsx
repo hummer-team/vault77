@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown, Descriptions } from 'antd';
-import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined } from '@ant-design/icons';
-import TableToolbar from './TableToolbar';
+import React, { useState, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
+import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, message, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
+import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
@@ -709,6 +709,16 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     onUpvote(query);
   };
 
+  // Toggle a column's visibility
+  const toggleColumn = useCallback((colName: string) => {
+    setHiddenColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(colName)) next.delete(colName);
+      else next.add(colName);
+      return next;
+    });
+  }, []);
+
   const safeSchema = buildSafeSchema(schema, data);
 
   const canExport =
@@ -724,8 +734,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       message.warning('暂无可导出的数据');
       return;
     }
-    // Export uses filtered data captured in ref (reflects active filters)
-    const exportData = filteredDataRef.current.length > 0
+    // Smart export: filtered data when active filters exist, otherwise full data
+    const hasActiveFilters = Object.values(columnFilters).some(isFilterStateActive);
+    const exportData = hasActiveFilters
       ? filteredDataRef.current
       : (data as Record<string, unknown>[]);
     try {
@@ -793,7 +804,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               className="hover:bg-amber-500/15"
             />
           </Tooltip>
-          <Tooltip title={canExport ? "导出CSV" : "暂无可导出数据"}>
+          <Tooltip title={canExport
+            ? (Object.values(columnFilters).some(isFilterStateActive) ? '导出过滤后的数据' : '导出全部数据')
+            : '暂无可导出数据'}>
             <Button
               type="text"
               icon={<DownloadOutlined style={iconStyle} />}
@@ -1491,7 +1504,91 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       });
 
       // Filter out hidden columns for display
-      const visibleTableColumns = tableColumns.filter((col) => !hiddenColumns.has(String(col.key)));
+      const dataTableColumns = tableColumns.filter((col) => !hiddenColumns.has(String(col.key)));
+
+      // Settings column: fixed leftmost, hosts column visibility dropdown
+      const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
+      const settingsColumnMenuItems: import('antd').MenuProps['items'] = [
+        {
+          key: '__show_all',
+          label: (
+            <span
+              style={{ color: 'var(--vm-primary)', fontWeight: 600, fontSize: 12 }}
+              onClick={(e) => { e.stopPropagation(); setHiddenColumns(new Set()); }}
+            >
+              显示全部列
+            </span>
+          ),
+        },
+        ...(activeFilterCount > 0 ? [
+          { type: 'divider' as const },
+          {
+            key: '__clear_filters',
+            label: (
+              <span
+                style={{ color: 'var(--vm-text-secondary)', fontSize: 12 }}
+                onClick={(e) => { e.stopPropagation(); setColumnFilters({}); setPendingColumnFilters({}); }}
+              >
+                🧹 清除所有过滤（{activeFilterCount} 列）
+              </span>
+            ),
+          },
+        ] : []),
+        { type: 'divider' as const },
+        ...safeSchema.map((col) => ({
+          key: col.name,
+          label: (
+            <Checkbox
+              checked={!hiddenColumns.has(col.name)}
+              onChange={(e) => { e.stopPropagation(); toggleColumn(col.name); }}
+              style={{ color: 'var(--vm-text-primary)', fontSize: 12 }}
+            >
+              {col.name}
+            </Checkbox>
+          ),
+        })),
+      ];
+
+      const settingsColumn: ColumnsType<any>[number] = {
+        key: '__settings',
+        dataIndex: '__settings',
+        width: 40,
+        fixed: 'left' as const,
+        title: (
+          <Dropdown
+            menu={{ items: settingsColumnMenuItems }}
+            trigger={['click']}
+            overlayStyle={{
+              background: 'var(--vm-bg-card)',
+              border: '1px solid var(--vm-border-mid)',
+              borderRadius: 6,
+              minWidth: 180,
+            }}
+          >
+            <Tooltip title={hiddenColumns.size > 0 ? `列设置（已隐藏 ${hiddenColumns.size} 列）` : '列设置'}>
+              <Button
+                size="small"
+                type="text"
+                icon={<SettingOutlined />}
+                style={{
+                  color: hiddenColumns.size > 0 ? 'var(--vm-primary)' : 'var(--vm-text-secondary)',
+                  padding: 0,
+                }}
+              />
+            </Tooltip>
+          </Dropdown>
+        ),
+        render: () => null,
+        onHeaderCell: () => ({
+          style: {
+            background: 'var(--vm-bg-base)',
+            borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
+            padding: '0 4px',
+          },
+        }),
+      };
+
+      const visibleTableColumns = [settingsColumn, ...dataTableColumns];
 
       // Data is already an array of objects, just need to add a key for Ant Design Table
       // (tableDataSource is defined above near distinctValuesByColumn)
@@ -1550,35 +1647,13 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       // Keep ref in sync so export handler can access latest filtered data
       filteredDataRef.current = columnFilteredData;
 
-      // Derived toolbar state
-      const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
       // Virtual scrolling: disabled when summary stats active (Antd incompatibility)
       const hasSummaryStats = Object.keys(activeColStats).length > 0;
       const enableVirtual = columnFilteredData.length > 500 && !hasSummaryStats;
 
       const tableElement = (
         <>
-          <TableToolbar
-            columns={safeSchema.map((c) => ({ name: c.name }))}
-            hiddenColumns={hiddenColumns}
-            activeFilterCount={activeFilterCount}
-            canExport={canExport}
-            onToggleColumn={(colName) =>
-              setHiddenColumns((prev) => {
-                const next = new Set(prev);
-                if (next.has(colName)) next.delete(colName);
-                else next.add(colName);
-                return next;
-              })
-            }
-            onShowAll={() => setHiddenColumns(new Set())}
-            onClearFilters={() => {
-              setColumnFilters({});
-              setPendingColumnFilters({});
-            }}
-            onExport={handleExportClick}
-          />
-          {/* Row selection status bar (Antd default layout, visible only when rows selected) */}
+          {/* Row selection status bar (visible only when rows selected) */}
           {selectedRowKeys.length > 0 && (
             <div
               style={{
@@ -1627,44 +1702,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               onChange: (keys) => setSelectedRowKeys(keys),
               columnWidth: 36,
             }}
-            expandable={{
-              expandedRowRender: (record) => (
-                <Descriptions
-                  size="small"
-                  bordered
-                  column={3}
-                  style={{
-                    background: 'var(--vm-surface-light)',
-                    borderRadius: 6,
-                    padding: '8px',
-                    margin: '4px 0',
-                  }}
-                  styles={{
-                    label: {
-                      color: 'var(--vm-text-muted)',
-                      fontWeight: 600,
-                      fontSize: 11,
-                      background: 'var(--vm-bg-base)',
-                    },
-                    content: {
-                      color: 'var(--vm-text-primary)',
-                      fontSize: 12,
-                      background: 'var(--vm-surface-light)',
-                      fontFamily: 'Fira Code, monospace',
-                    },
-                  }}
-                  items={visibleTableColumns.map((col) => ({
-                    key: String(col.key),
-                    label: String(col.key),
-                    children: record[String(col.key)] !== null && record[String(col.key)] !== undefined
-                      ? String(record[String(col.key)])
-                      : <span style={{ color: 'var(--vm-text-muted)' }}>—</span>,
-                  }))}
-                />
-              ),
-              rowExpandable: () => true,
-              columnWidth: 36,
-            }}
             summary={Object.keys(activeColStats).length > 0 ? () => (
               <Table.Summary fixed="bottom">
                 <Table.Summary.Row
@@ -1695,9 +1732,9 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                               ? (m === 'count' ? agg.count : formatAggValue(agg[m]))
                               : '…';
                             return (
-                              <div key={m} style={{ color: 'var(--vm-primary)', fontWeight: 600 }}>
+                              <div key={m} style={{ color: 'var(--vm-primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                 <span style={{ color: 'var(--vm-text-muted)', fontWeight: 400 }}>
-                                  {labels[m]}:{' '}
+                                  {labels[m]}({cName}):{' '}
                                 </span>
                                 {String(val)}
                               </div>
@@ -1731,111 +1768,101 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               }))}
             />
           ) : tableElement}
-          {/* Column header right-click context menu */}
-          {colContextMenu && (
-            <Dropdown
-              open
-              onOpenChange={(open) => { if (!open) setColContextMenu(null); }}
-              dropdownRender={() => (
-                <div
-                  style={{
-                    position: 'fixed',
-                    left: colContextMenu.x,
-                    top: colContextMenu.y,
-                    zIndex: 9999,
-                    background: 'var(--vm-bg-card)',
-                    border: '1px solid var(--vm-border-mid)',
-                    borderRadius: 6,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                    minWidth: 160,
-                    padding: '4px 0',
-                    fontSize: 13,
-                  }}
-                  onClick={() => setColContextMenu(null)}
-                >
-                  {/* Pin Left */}
-                  <div
-                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
-                    className="ctx-menu-item"
-                    onClick={() => setPinnedColumns((prev) => {
-                      const next = { ...prev };
-                      if (next[colContextMenu.colName] === 'left') delete next[colContextMenu.colName];
-                      else next[colContextMenu.colName] = 'left';
-                      return next;
-                    })}
-                  >
-                    {pinnedColumns[colContextMenu.colName] === 'left' ? '📌 取消左固定' : '📌 固定到左侧'}
-                  </div>
-                  {/* Pin Right */}
-                  <div
-                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
-                    className="ctx-menu-item"
-                    onClick={() => setPinnedColumns((prev) => {
-                      const next = { ...prev };
-                      if (next[colContextMenu.colName] === 'right') delete next[colContextMenu.colName];
-                      else next[colContextMenu.colName] = 'right';
-                      return next;
-                    })}
-                  >
-                    {pinnedColumns[colContextMenu.colName] === 'right' ? '📌 取消右固定' : '📌 固定到右侧'}
-                  </div>
-                  <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
-                  {/* Hide column */}
-                  <div
-                    style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
-                    className="ctx-menu-item"
-                    onClick={() => setHiddenColumns((prev) => new Set([...prev, colContextMenu.colName]))}
-                  >
-                    🙈 隐藏此列
-                  </div>
-                  {/* Numeric column stats section */}
-                  {colContextMenu.isNumeric && (
-                    <>
-                      <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
-                      <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--vm-text-muted)' }}>
-                        列统计（显示在底栏）
-                      </div>
-                      {(['sum', 'avg', 'min', 'max', 'count'] as ColStatMetric[]).map((metric) => {
-                        const isActive = (activeColStats[colContextMenu.colName] ?? []).includes(metric);
-                        const labels: Record<ColStatMetric, string> = {
-                          sum: '合计 SUM', avg: '平均 AVG', min: '最小 MIN',
-                          max: '最大 MAX', count: '计数 COUNT',
-                        };
-                        return (
-                          <div
-                            key={metric}
-                            style={{
-                              padding: '5px 14px',
-                              cursor: 'pointer',
-                              color: isActive ? 'var(--vm-primary)' : 'var(--vm-text-primary)',
-                              fontWeight: isActive ? 600 : 400,
-                            }}
-                            className="ctx-menu-item"
-                            onClick={() => toggleColStat(
-                              colContextMenu.colName, metric, columnFilteredData,
-                            )}
-                          >
-                            {isActive ? '✓ ' : '  '}{labels[metric]}
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              )}
-            >
-              {/* Invisible trigger anchor at cursor position */}
-              <span
+          {/* Column header right-click context menu — rendered via portal to avoid flash */}
+          {colContextMenu && ReactDOM.createPortal(
+            <>
+              {/* Transparent overlay to capture outside clicks */}
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                onMouseDown={() => setColContextMenu(null)}
+              />
+              <div
                 style={{
                   position: 'fixed',
                   left: colContextMenu.x,
                   top: colContextMenu.y,
-                  width: 1,
-                  height: 1,
-                  pointerEvents: 'none',
+                  zIndex: 9999,
+                  background: 'var(--vm-bg-card)',
+                  border: '1px solid var(--vm-border-mid)',
+                  borderRadius: 6,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  minWidth: 160,
+                  padding: '4px 0',
+                  fontSize: 13,
                 }}
-              />
-            </Dropdown>
+                onClick={() => setColContextMenu(null)}
+              >
+                {/* Pin Left */}
+                <div
+                  style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                  className="ctx-menu-item"
+                  onClick={() => setPinnedColumns((prev) => {
+                    const next = { ...prev };
+                    if (next[colContextMenu.colName] === 'left') delete next[colContextMenu.colName];
+                    else next[colContextMenu.colName] = 'left';
+                    return next;
+                  })}
+                >
+                  {pinnedColumns[colContextMenu.colName] === 'left' ? '📌 取消左固定' : '📌 固定到左侧'}
+                </div>
+                {/* Pin Right */}
+                <div
+                  style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                  className="ctx-menu-item"
+                  onClick={() => setPinnedColumns((prev) => {
+                    const next = { ...prev };
+                    if (next[colContextMenu.colName] === 'right') delete next[colContextMenu.colName];
+                    else next[colContextMenu.colName] = 'right';
+                    return next;
+                  })}
+                >
+                  {pinnedColumns[colContextMenu.colName] === 'right' ? '📌 取消右固定' : '📌 固定到右侧'}
+                </div>
+                <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                {/* Hide column */}
+                <div
+                  style={{ padding: '6px 14px', cursor: 'pointer', color: 'var(--vm-text-primary)' }}
+                  className="ctx-menu-item"
+                  onClick={() => setHiddenColumns((prev) => new Set([...prev, colContextMenu.colName]))}
+                >
+                  🙈 隐藏此列
+                </div>
+                {/* Numeric column stats section */}
+                {colContextMenu.isNumeric && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--vm-border-subtle)', margin: '4px 0' }} />
+                    <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--vm-text-muted)' }}>
+                      列统计（显示在底栏）
+                    </div>
+                    {(['sum', 'avg', 'min', 'max', 'count'] as ColStatMetric[]).map((metric) => {
+                      const isActive = (activeColStats[colContextMenu.colName] ?? []).includes(metric);
+                      const labels: Record<ColStatMetric, string> = {
+                        sum: '合计 SUM', avg: '平均 AVG', min: '最小 MIN',
+                        max: '最大 MAX', count: '计数 COUNT',
+                      };
+                      return (
+                        <div
+                          key={metric}
+                          style={{
+                            padding: '5px 14px',
+                            cursor: 'pointer',
+                            color: isActive ? 'var(--vm-primary)' : 'var(--vm-text-primary)',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                          className="ctx-menu-item"
+                          onClick={() => toggleColStat(
+                            colContextMenu.colName, metric, columnFilteredData,
+                          )}
+                        >
+                          {isActive ? '✓ ' : '  '}{labels[metric]}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </>,
+            document.body,
           )}
           <style>{`
             .data-analysis-table .ant-table {
