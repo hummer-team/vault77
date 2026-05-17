@@ -18,7 +18,6 @@ import type {
   ClusteringResult,
 } from '../../types/clustering.types';
 import { isClusteringSuccess, isClusteringError } from '../../types/clustering.types';
-import { GPU_AUTO_THRESHOLD } from '../../constants/clustering.constants';
 
 // ============================================================================
 // Types
@@ -121,11 +120,10 @@ export async function segmentRfmCustomers(
   const customerIds = rows.map((r) => r.userId);
   const features = rows.map((r) => [r.recency, r.frequency, r.monetary]);
 
-  // Auto-enable GPU for large datasets if WebGPU is available in browser
-  const useGPU =
-    rows.length >= GPU_AUTO_THRESHOLD &&
-    typeof navigator !== 'undefined' &&
-    !!(navigator as { gpu?: unknown }).gpu;
+  // Always use CPU for RFM segmentation: WebGPU device creation fails on many
+  // environments (unsupported limits like maxInterStageShaderComponents).
+  // CPU path is reliable and performant enough for typical RFM dataset sizes.
+  const useGPU = false;
 
   const request: ClusteringRequest = {
     type: 'CLUSTERING_SEGMENT',

@@ -48,12 +48,12 @@ export interface RfmDrawerProps {
 }
 
 // ============================================================================
-// Column auto-detection regexes (English-first, as per design doc)
+// Column auto-detection regexes — English and Chinese column names supported
 // ============================================================================
 
-const REGEX_USER_ID   = /(^|_)(user|customer|member|buyer|client)(id|_id)?($|_)/i;
-const REGEX_ORDER_TIME = /(^|_)(order|purchase|buy|created|date|time|at)(_date|_time|_at)?($|_)/i;
-const REGEX_AMOUNT    = /(^|_)(amount|price|total|revenue|sales|payment|gmv)($|_)/i;
+const REGEX_USER_ID    = /(^|_)(user|customer|member|buyer|client)(id|_id)?($|_)|顾客|用户|客户|会员|买家/i;
+const REGEX_ORDER_TIME = /(^|_)(order|purchase|buy|created|date|time|at)(_date|_time|_at)?($|_)|下单|购买|创建|时间|日期/i;
+const REGEX_AMOUNT     = /(^|_)(amount|price|total|revenue|sales|payment|gmv)($|_)|金额|价格|实付|总额|收入|销售|支付/i;
 
 function autoDetect(columns: string[], regex: RegExp): string {
   return columns.find((c) => regex.test(c)) ?? '';
