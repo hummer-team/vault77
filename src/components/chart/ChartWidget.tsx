@@ -66,6 +66,13 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<ECharts | null>(null);
   const ec = useEChartsColors();
+  // Keep ec in a ref so effects can always read the latest value without
+  // listing ec as a dependency (ec is a new object on every render).
+  const ecRef = useRef(ec);
+  useEffect(() => { ecRef.current = ec; });
+
+  // Derive a stable primitive for the init effect — only changes on real theme switch.
+  const isDarkTheme = isDark(ec.borderSubtle);
 
   // Internal data state — updated on refresh
   const [currentData, setCurrentData] = useState<Record<string, unknown>[]>(data);
@@ -78,37 +85,35 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
     return used.filter((c) => hiddenColumnNames.has(c));
   })();
 
-  // ── ECharts init / theme change ──────────────────────────────────────────
+  // ── ECharts init — only fires on mount and real theme changes ────────────
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // Dispose existing instance on theme change (must reinit for theme to apply)
     if (instanceRef.current) {
       instanceRef.current.dispose();
       instanceRef.current = null;
     }
 
-    const theme = isDark(ec.borderSubtle) ? 'dark' : null;
-    const chart = echarts.init(chartRef.current, theme);
+    const chart = echarts.init(chartRef.current, isDarkTheme ? 'dark' : null);
     instanceRef.current = chart;
-
-    chart.setOption(buildChartOption(config, currentData, ec));
+    chart.setOption(buildChartOption(config, currentData, ecRef.current));
 
     return () => {
       chart.dispose();
       instanceRef.current = null;
     };
-    // Re-run when theme tokens change (ec reference changes on theme switch)
+    // isDarkTheme is a boolean primitive — stable across re-renders unless theme actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ec]);
+  }, [isDarkTheme]);
 
-  // ── Re-render when data or config changes (no dispose) ───────────────────
+  // ── Re-render when config or data changes (no dispose) ───────────────────
+  // ec is intentionally read from ecRef to avoid spurious triggers.
   useEffect(() => {
     if (!instanceRef.current) return;
-    instanceRef.current.setOption(buildChartOption(config, currentData, ec), {
+    instanceRef.current.setOption(buildChartOption(config, currentData, ecRef.current), {
       notMerge: true,
     });
-  }, [config, currentData, ec]);
+  }, [config, currentData]);
 
   // ── ResizeObserver — responds to CSS resize: both ───────────────────────
   useEffect(() => {
@@ -146,7 +151,7 @@ const ChartWidget: React.FC<ChartWidgetProps> = ({
         const dataURL = chart.getDataURL({
           type: format,
           pixelRatio: 2,
-          backgroundColor: isDark(ec.borderSubtle) ? '#1a1a2e' : '#ffffff',
+          backgroundColor: isDark(ecRef.current.borderSubtle) ? '#1a1a2e' : '#ffffff',
         });
         const link = document.createElement('a');
         link.href = dataURL;

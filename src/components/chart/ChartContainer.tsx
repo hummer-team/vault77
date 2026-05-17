@@ -49,7 +49,7 @@ function chartFlexBasis(count: number): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const ChartContainer = forwardRef<ChartContainerHandle, ChartContainerProps>(
+const ChartContainer = React.memo(forwardRef<ChartContainerHandle, ChartContainerProps>(
   ({ data, latestFilteredDataRef, hiddenColumnNames }, ref) => {
     const [charts, setCharts] = useState<ChartConfig[]>([]);
 
@@ -118,7 +118,7 @@ const ChartContainer = forwardRef<ChartContainerHandle, ChartContainerProps>(
       </div>
     );
   },
-);
+));
 
 ChartContainer.displayName = 'ChartContainer';
 
