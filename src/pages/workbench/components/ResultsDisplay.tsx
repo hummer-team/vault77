@@ -701,6 +701,13 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [colAggResults, setColAggResults] = useState<ColStatsMap>({});
   // Row selection: keys of selected rows
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  // Column order: controls drag-to-reorder
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  // Track cell copy feedback: colName+rowKey being flashed
+  const [copiedCell, setCopiedCell] = useState<string | null>(null);
+  // Drag-reorder refs
+  const dragColRef = useRef<string | null>(null);
+  const dragOverColRef = useRef<string | null>(null);
   const queryDurationLabel = formatDurationSeconds(queryDurationMs);
   const llmDurationLabel = formatDurationSeconds(llmDurationMs);
 
@@ -748,6 +755,35 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
       console.error('Failed to export CSV:', e);
       message.error('导出失败，请稍后重试');
     }
+  };
+
+  /** Export only selected rows as CSV */
+  const handleExportSelected = () => {
+    if (!canExport || !Array.isArray(data)) return;
+    const selectedData = (filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]))
+      .filter((_, idx) => selectedRowKeys.includes(idx));
+    if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
+    try {
+      exportTableToCsv({ data: selectedData as any[], schema: safeSchema });
+    } catch (e) {
+      console.error('Failed to export selected rows:', e);
+      message.error('导出失败，请稍后重试');
+    }
+  };
+
+  /** Copy selected rows to clipboard as TSV (pasteable into Excel/Sheets) */
+  const handleCopySelectedRows = () => {
+    const sourceData = filteredDataRef.current.length > 0 ? filteredDataRef.current : (data as Record<string, unknown>[]) ?? [];
+    const selectedData = sourceData.filter((_, idx) => selectedRowKeys.includes(idx));
+    if (selectedData.length === 0) { message.warning('未选中任何行'); return; }
+    const colNames = safeSchema.map((c) => c.name);
+    const header = colNames.join('\t');
+    const rows = selectedData.map((row) => colNames.map((c) => String(row[c] ?? '')).join('\t'));
+    const tsv = [header, ...rows].join('\n');
+    navigator.clipboard.writeText(tsv).then(
+      () => message.success(`已复制 ${selectedData.length} 行到剪贴板（TSV格式，可直接粘贴到 Excel）`),
+      () => message.error('复制失败，请检查浏览器权限'),
+    );
   };
 
   /**
@@ -1459,6 +1495,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           title: headerTitle,
           dataIndex: colName,
           key: colName,
+          ellipsis: { showTitle: true },
           render: renderFunction,
           sorter,
           sortDirections: ['ascend', 'descend'] as const,
@@ -1472,8 +1509,30 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               fontFamily: 'Fira Sans, sans-serif',
               fontSize: '13px',
               borderBottom: '2px solid var(--vm-accent-orange-border-strong)',
-              cursor: 'context-menu',
+              cursor: 'grab',
+              userSelect: 'none' as const,
             },
+            draggable: true,
+            onDragStart: () => { dragColRef.current = colName; },
+            onDragOver: (e: React.DragEvent) => { e.preventDefault(); dragOverColRef.current = colName; },
+            onDrop: () => {
+              const from = dragColRef.current;
+              const to = dragOverColRef.current;
+              if (!from || !to || from === to) return;
+              setColumnOrder((prev) => {
+                const base = prev.length > 0 ? prev : safeSchema.map((c) => c.name);
+                const next = [...base];
+                const fi = next.indexOf(from);
+                const ti = next.indexOf(to);
+                if (fi < 0 || ti < 0) return prev;
+                next.splice(fi, 1);
+                next.splice(ti, 0, from);
+                return next;
+              });
+              dragColRef.current = null;
+              dragOverColRef.current = null;
+            },
+            onDragEnd: () => { dragColRef.current = null; dragOverColRef.current = null; },
             onContextMenu: (e: React.MouseEvent) => {
               e.preventDefault();
               setColContextMenu({
@@ -1484,7 +1543,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               });
             },
           }),
-          onCell: (record: any) => {
+          onCell: (record: any, rowIndex?: number) => {
             const rowColorizer = displayConfig?.rowColorizer;
             let cellBg: string | undefined;
             if (rowColorizer) {
@@ -1492,19 +1551,42 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               const colorConfig = rowColorizer.colorMap?.[String(fieldValue)];
               if (colorConfig?.bg) cellBg = colorConfig.bg;
             }
+            const cellKey = `${colName}__${rowIndex}`;
+            const isCopied = copiedCell === cellKey;
             return {
               style: {
                 fontFamily: 'Fira Code, monospace',
                 fontSize: '12px',
-                ...(cellBg ? { background: cellBg } : {}),
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+                ...(isCopied
+                  ? { background: 'var(--vm-primary-light)', outline: '1px solid var(--vm-primary)' }
+                  : cellBg
+                  ? { background: cellBg }
+                  : {}),
+              },
+              title: String(record[colName] ?? ''),
+              onClick: () => {
+                const val = String(record[colName] ?? '');
+                navigator.clipboard.writeText(val).then(() => {
+                  setCopiedCell(cellKey);
+                  setTimeout(() => setCopiedCell(null), 800);
+                }).catch(() => {/* silent fail */});
               },
             };
           },
         };
       });
 
-      // Filter out hidden columns for display
-      const dataTableColumns = tableColumns.filter((col) => !hiddenColumns.has(String(col.key)));
+      // Filter out hidden columns, then apply drag-reorder (columnOrder drives sequence)
+      const filteredTableColumns = tableColumns.filter((col) => !hiddenColumns.has(String(col.key)));
+      const effectiveOrder = columnOrder.length > 0 ? columnOrder : safeSchema.map((c) => c.name);
+      const dataTableColumns = [
+        ...effectiveOrder
+          .map((name) => filteredTableColumns.find((c) => String(c.key) === name))
+          .filter(Boolean),
+        ...filteredTableColumns.filter((c) => !effectiveOrder.includes(String(c.key))),
+      ] as typeof filteredTableColumns;
 
       // Settings column: fixed leftmost, hosts column visibility dropdown
       const activeFilterCount = Object.values(columnFilters).filter(isFilterStateActive).length;
@@ -1653,13 +1735,13 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
 
       const tableElement = (
         <>
-          {/* Row selection status bar (visible only when rows selected) */}
+          {/* Row selection status bar — visible only when rows selected */}
           {selectedRowKeys.length > 0 && (
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 12,
+                gap: 8,
                 padding: '5px 8px',
                 marginBottom: 4,
                 background: 'var(--vm-primary-light)',
@@ -1669,13 +1751,31 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                 color: 'var(--vm-text-primary)',
               }}
             >
-              <span style={{ fontWeight: 600, color: 'var(--vm-primary)' }}>
+              <span style={{ fontWeight: 600, color: 'var(--vm-primary)', marginRight: 4 }}>
                 已选 {selectedRowKeys.length} 行
               </span>
               <Button
                 size="small"
+                type="default"
+                icon={<span style={{ fontSize: 12 }}>📋</span>}
+                style={{ fontSize: 11, height: 22, padding: '0 6px' }}
+                onClick={handleCopySelectedRows}
+              >
+                复制（TSV）
+              </Button>
+              <Button
+                size="small"
+                type="default"
+                icon={<span style={{ fontSize: 12 }}>⬇️</span>}
+                style={{ fontSize: 11, height: 22, padding: '0 6px' }}
+                onClick={handleExportSelected}
+              >
+                导出选中行
+              </Button>
+              <Button
+                size="small"
                 type="text"
-                style={{ fontSize: 11, color: 'var(--vm-text-muted)', padding: '0 4px' }}
+                style={{ fontSize: 11, color: 'var(--vm-text-muted)', padding: '0 4px', marginLeft: 'auto' }}
                 onClick={() => setSelectedRowKeys([])}
               >
                 清除选择
@@ -1685,6 +1785,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
           <Table
             dataSource={columnFilteredData}
             columns={visibleTableColumns}
+            showSorterTooltip={false}
             pagination={{
               defaultPageSize: 20,
               showSizeChanger: true,
