@@ -183,11 +183,14 @@ export class RfmStrategy extends BaseStrategy {
     const { nClusters = 5, scalingMode = 2 } = this._lastConfig ?? {};
 
     // ---- Step 1: Call WASM K-Means via rfmClusteringService -----------------
+    // Stringify user_id to ensure consistent key type — DuckDB may return
+    // numeric IDs as Number (after BigInt normalization), but Arrow IPC
+    // serialization/deserialization in WASM always produces string IDs.
     let segmentResults: { userId: string; clusterId: number }[];
     try {
       segmentResults = await segmentRfmCustomers(
         rawRows.map((r) => ({
-          userId: r.user_id,
+          userId: String(r.user_id),
           recency: Number(r.recency),
           frequency: Number(r.frequency),
           monetary: Number(r.monetary),
@@ -204,9 +207,10 @@ export class RfmStrategy extends BaseStrategy {
     }
 
     // ---- Step 2: Build userId → {recency,frequency,monetary} lookup ---------
+    // Use String() to match the stringified IDs returned by WASM Arrow IPC.
     const rfmMap = new Map<string, RfmRow>();
     for (const row of rawRows) {
-      rfmMap.set(row.user_id, row);
+      rfmMap.set(String(row.user_id), row);
     }
 
     // ---- Step 3: Aggregate per cluster (avgR / avgF / avgM) -----------------
