@@ -55,6 +55,7 @@ export enum OperatorType {
   INVENTORY_FORECAST = 'inventory_forecast',  // Inventory: batch multi-SKU demand forecasting
   MARKET_BASKET = 'market_basket',  // MBA: association rules mining (frequent co-purchase patterns)
   ABNORMAL_AMOUNT = 'abnormal_amount',  // Risk control: order amount anomaly detection
+  RFM_PROFILE = 'rfm_profile',  // User growth: RFM customer segmentation via K-Means WASM
 }
 
 export enum LogicType {
@@ -275,6 +276,8 @@ export interface SelectNodeData extends BaseNodeData {
   marketBasketConfig?: MarketBasketConfig;
   /** Config for fn_ecom_abnormal_amount */
   abnormalAmountConfig?: AbnormalAmountConfig;
+  /** Config for fn_ecom_rfm_profile */
+  rfmProfileConfig?: RfmProfileConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -688,6 +691,27 @@ export interface AbnormalAmountConfig {
   samplingThreshold: number;
   /** GPU acceleration strategy. Default: 'auto' */
   useGPU: 'auto' | 'force' | 'disable';
+}
+
+// ============================================================================
+// RFM Profile Types (fn_ecom_rfm_profile)
+// ============================================================================
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_rfm_profile.
+ * DuckDB computes R/F/M per user; WASM K-Means assigns cluster labels.
+ */
+export interface RfmProfileConfig {
+  /** Column name identifying the customer/user (used as Arrow IPC id column) */
+  userIdColumn: string;
+  /** Column name for order timestamp — used to compute recency via DATEDIFF */
+  orderTimeColumn: string;
+  /** Column name for order amount — used to compute monetary via SUM */
+  amountColumn: string;
+  /** Number of K-Means clusters. Range: 2–10. Default: 5 */
+  nClusters: number;
+  /** WASM scaling mode: 0=None, 1=MinMax, 2=Standard (recommended). Default: 2 */
+  scalingMode: 0 | 1 | 2;
 }
 
 /**

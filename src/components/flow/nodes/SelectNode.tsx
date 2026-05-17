@@ -33,6 +33,7 @@ import type {
   InventoryForecastConfig,
   MarketBasketConfig,
   AbnormalAmountConfig,
+  RfmProfileConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -54,6 +55,7 @@ import { ArbitrageAnalyzeDrawer } from '../udf/ArbitrageAnalyzeDrawer';
 import { InventoryForecastDrawer } from '../udf/InventoryForecastDrawer';
 import { MarketBasketDrawer } from '../udf/MarketBasketDrawer';
 import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
+import RfmDrawer from '../udf/RfmDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -121,6 +123,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_inventory_forecast:                   OperatorType.INVENTORY_FORECAST,
     fn_ecom_market_basket:                        OperatorType.MARKET_BASKET,
     fn_ecom_abnormal_amount:                      OperatorType.ABNORMAL_AMOUNT,
+    fn_ecom_rfm_profile:                          OperatorType.RFM_PROFILE,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -255,6 +258,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleRfmProfileConfirm = useCallback(
+    (config: RfmProfileConfig) => {
+      updateNode(id, { rfmProfileConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -302,6 +313,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.abnormalAmountConfig?.fieldMapping?.orderIdCol &&
                   data.abnormalAmountConfig?.fieldMapping?.amountCol &&
                   data.abnormalAmountConfig?.fieldMapping?.originalAmountCol);
+      case SelectNodePanelType.RFM_PROFILE_DRAWER:
+        return !!(data.rfmProfileConfig?.userIdColumn &&
+                  data.rfmProfileConfig?.orderTimeColumn &&
+                  data.rfmProfileConfig?.amountColumn);
       default:
         return false;
     }
@@ -695,6 +710,16 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelCategory={kernelMeta?.category}
               onConfirm={handleAbnormalAmountConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.RFM_PROFILE_DRAWER:
+          return (
+            <RfmDrawer
+              open={udfDrawerOpen}
+              columns={allFields}
+              initialConfig={data.rfmProfileConfig}
+              onConfirm={handleRfmProfileConfirm}
+              onClose={() => setUdfDrawerOpen(false)}
             />
           );
         default:

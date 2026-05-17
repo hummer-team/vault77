@@ -220,6 +220,12 @@ export const OPERATOR_CONFIG = {
     icon: '🚨',
     color: '#f5222d',
   },
+  rfm_profile: {
+    name: 'RFM 用户画像',
+    description: '基于 RFM 模型对用户分群，识别高价值与流失预警用户',
+    icon: '👥',
+    color: '#722ed1',
+  },
 };
 
 // ============================================================================
