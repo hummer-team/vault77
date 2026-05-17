@@ -1,7 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
-import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined, SettingOutlined, BarChartOutlined } from '@ant-design/icons';
+import { ChartContainer, ChartConfigPanel } from '../../../components/chart';
+import type { ChartContainerHandle } from '../../../components/chart';
+import { inferColumnTypes } from '../../../utils/chartUtils';
 import type { ColumnsType } from 'antd/es/table'; // Import ColumnsType for better typing
 import { Attachment } from '../../../types/workbench.types';
 import { exportTableToCsv } from '../../../utils/fileUtils.ts';
@@ -726,6 +729,10 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   // Column settings dropdown open state (controlled: stays open on checkbox click, closes on outside click)
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Chart config panel open state
+  const [chartPanelOpen, setChartPanelOpen] = useState(false);
+  // Chart container ref — exposes addChart imperative handle
+  const chartContainerRef = useRef<ChartContainerHandle>(null);
   // Pinned columns: 'left' or 'right' per column name
   const [pinnedColumns, setPinnedColumns] = useState<Record<string, 'left' | 'right'>>({});
   // Context menu state for column header right-click
@@ -992,6 +999,40 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
                     borderRadius: 4,
                   }}
                   className="hover:bg-blue-500/15"
+                />
+              </Tooltip>
+            </Dropdown>
+          )}
+          {/* Chart button — opens config panel to add a new chart */}
+          {canExport && (
+            <Dropdown
+              open={chartPanelOpen}
+              onOpenChange={(v) => setChartPanelOpen(v)}
+              trigger={['click']}
+              placement="topRight"
+              dropdownRender={() => (
+                <ChartConfigPanel
+                  schema={inferColumnTypes(safeSchema, data as Record<string, unknown>[])}
+                  data={data as Record<string, unknown>[]}
+                  onConfirm={(cfg) => {
+                    chartContainerRef.current?.addChart(cfg);
+                    setChartPanelOpen(false);
+                  }}
+                  onCancel={() => setChartPanelOpen(false)}
+                />
+              )}
+            >
+              <Tooltip title="图表">
+                <Button
+                  type="text"
+                  icon={<BarChartOutlined style={{ ...iconStyle, color: chartPanelOpen ? 'var(--vm-primary)' : undefined }} />}
+                  style={{
+                    color: chartPanelOpen ? 'var(--vm-primary)' : undefined,
+                    background: chartPanelOpen ? 'var(--vm-primary-light)' : 'transparent',
+                    border: chartPanelOpen ? '1px solid var(--vm-primary-border)' : 'none',
+                    borderRadius: 4,
+                  }}
+                  className="hover:bg-purple-500/15"
                 />
               </Tooltip>
             </Dropdown>
@@ -2047,6 +2088,13 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
               background: var(--vm-surface-hover);
             }
           `}</style>
+          {/* Chart area — between table and action bar */}
+          <ChartContainer
+            ref={chartContainerRef}
+            data={data as Record<string, unknown>[]}
+            latestFilteredDataRef={filteredDataRef}
+            hiddenColumnNames={hiddenColumns}
+          />
           {/* Action buttons aligned with pagination */}
           <div
             style={{
