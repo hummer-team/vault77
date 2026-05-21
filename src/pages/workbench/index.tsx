@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import FlowCanvas from '../../components/flow/FlowCanvas';
 import ChatPanel from './components/ChatPanel';
+import StepGuidePanel from '../../components/StepGuidePanel';
 import ResultsDisplay from './components/ResultsDisplay';
 import { SheetSelector } from './components/SheetSelector';
 import { LLMConfig } from '../../services/llm/llmClient.ts';
@@ -239,6 +240,15 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       return prev.filter((id) => currentIds.has(id));
     });
   }, [attachments]);
+
+  // Track whether user has completed building a flow (set in handleFlowSqlReady).
+  // Reset when all attachments are deleted — flow config is tied to specific file columns.
+  const [isFlowBuilt, setIsFlowBuilt] = useState(false);
+  useEffect(() => {
+    if (attachments.length === 0 && isFlowBuilt) {
+      setIsFlowBuilt(false);
+    }
+  }, [attachments.length, isFlowBuilt]);
 
   // Toggle selection of a group of attachment IDs (all-or-none per group).
   const handleToggleAttachmentSelection = useCallback((ids: string[]) => {
@@ -494,6 +504,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     
     // Close Flow Modal
     setShowFlowModal(false);
+
+    // Mark flow as built — hides StepGuidePanel and reveals ChatPanel
+    setIsFlowBuilt(true);
 
     // Save as kernel template if a kernel was pending
     if (pendingKernelTemplate) {
@@ -1187,6 +1200,23 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     return '';
   };
 
+  // Show step guide panel when file not yet ready or flow not yet built.
+  // File ready = uiState is 'fileLoaded'/'analyzing'/'resultsReady' AND at least one success attachment.
+  const hasSuccessAttachment = attachments.some(a => a.status === 'success');
+  const isFileReady = hasSuccessAttachment && (uiState === 'fileLoaded' || uiState === 'analyzing' || uiState === 'resultsReady');
+  const showGuide = !(isFileReady && isFlowBuilt);
+
+  // Pre-compute flags used in both StepGuidePanel and ChatPanel to avoid TS narrowing issues
+  const isAnalyzingState = uiState === 'analyzing';
+  const isInitializingState = uiState === 'initializing';
+
+  // Derive the active step for StepGuidePanel
+  const guideStep: 1 | 2 | 3 = (() => {
+    if (!isFileReady) return 1;
+    if (!isFlowBuilt) return 2;
+    return 3; // unreachable when showGuide=true, but satisfies type
+  })();
+
 
   const renderAnalysisView = () => {
     if (uiState === 'selectingSheet' && sheetsToSelect) {
@@ -1280,34 +1310,46 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             {renderAnalysisView()}
           </div>
           
-          {/* ChatPanel with floating input */}
-          <ChatPanel
-            onSendMessage={handleStartAnalysis}
-            isAnalyzing={uiState === 'analyzing'}
-            isInitializing={uiState === 'initializing'}
-            onCancel={handleCancelAnalysis}
-            suggestions={suggestions}
-            onFileUpload={handleFileUpload}
-            attachments={attachments}
-            onDeleteAttachment={handleDeleteAttachmentWithCleanup}
-            error={chatError}
-            setError={setChatError}
-            showScrollToBottom={showScrollToBottom}
-            onScrollToBottom={handleScrollToBottom}
-            onPersonaBadgeClick={handlePersonaBadgeClick}
-            initialMessage={currentInput}
-            setInitialMessage={setCurrentInput}
-            personaHint={personaHint}
-            uploadHint={uploadHint}
-            isLlmReady={isLlmReady}
-            showInsightSidebar={showInsightSidebar}
-            onToggleInsight={toggleInsightSidebar}
-            onToggleFlow={() => setShowFlowModal(true)}
-            onKernelSelected={handleKernelSelected}
-            kernelFlowHint={kernelFlowHint}
-            selectedAttachmentIds={selectedAttachmentIds}
-            onToggleAttachmentSelection={handleToggleAttachmentSelection}
-          />
+          {/* Bottom panel: StepGuidePanel (onboarding) or ChatPanel (normal mode) */}
+          {showGuide ? (
+            <StepGuidePanel
+              currentStep={guideStep}
+              attachments={attachments}
+              selectedAttachmentIds={selectedAttachmentIds}
+              onFileUpload={handleFileUpload}
+              onDeleteAttachment={handleDeleteAttachmentWithCleanup}
+              onToggleAttachmentSelection={handleToggleAttachmentSelection}
+              onBuildFlow={() => setShowFlowModal(true)}
+            />
+          ) : (
+            <ChatPanel
+              onSendMessage={handleStartAnalysis}
+              isAnalyzing={isAnalyzingState}
+              isInitializing={isInitializingState}
+              onCancel={handleCancelAnalysis}
+              suggestions={suggestions}
+              onFileUpload={handleFileUpload}
+              attachments={attachments}
+              onDeleteAttachment={handleDeleteAttachmentWithCleanup}
+              error={chatError}
+              setError={setChatError}
+              showScrollToBottom={showScrollToBottom}
+              onScrollToBottom={handleScrollToBottom}
+              onPersonaBadgeClick={handlePersonaBadgeClick}
+              initialMessage={currentInput}
+              setInitialMessage={setCurrentInput}
+              personaHint={personaHint}
+              uploadHint={uploadHint}
+              isLlmReady={isLlmReady}
+              showInsightSidebar={showInsightSidebar}
+              onToggleInsight={toggleInsightSidebar}
+              onToggleFlow={() => setShowFlowModal(true)}
+              onKernelSelected={handleKernelSelected}
+              kernelFlowHint={kernelFlowHint}
+              selectedAttachmentIds={selectedAttachmentIds}
+              onToggleAttachmentSelection={handleToggleAttachmentSelection}
+            />
+          )}
         </div>
       </div>
       
