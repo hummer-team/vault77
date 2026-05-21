@@ -8,7 +8,7 @@ import { getPersonaById } from '../../../config/personas';
 import { useUserStore } from '../../../status/appStatusManager.ts';
 import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
-import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
+import { getKernelPickerOptions } from '../../../utils/kernelPickerUtils';
 import { vmConfirm } from '../../../utils/vmDialog';
 
 interface ChatPanelProps {
@@ -140,22 +140,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [kernelMentionOptions, setKernelMentionOptions] = useState<{ value: string; label: string }[]>([]);
   const [kernelNameByValue, setKernelNameByValue] = useState<Record<string, string>>({});
   useEffect(() => {
-    try {
-      const applied = bizKernelService.getAppliedKernels();
-      // Use displayName only as mention value to avoid "/" inside the value string —
-      // "/" is the mention prefix character and including it in values causes AntD Mentions
-      // to mis-parse the inserted text as a new mention trigger, causing text stacking.
-      const options = applied.map(k => ({
-        value: k.displayName,
-        label: `${k.category} · ${k.displayName}`,
-      }));
-      const nameMap: Record<string, string> = {};
-      applied.forEach(k => { nameMap[k.displayName] = k.name; });
-      setKernelMentionOptions(options);
-      setKernelNameByValue(nameMap);
-    } catch {
-      // service not yet initialized — options stay empty
-    }
+    const options = getKernelPickerOptions();
+    setKernelMentionOptions(options.map(o => ({ value: o.value, label: o.label })));
+    const nameMap: Record<string, string> = {};
+    options.forEach(o => { nameMap[o.value] = o.kernelName; });
+    setKernelNameByValue(nameMap);
   }, []);
 
   // Load User Skill configurations and listen for updates

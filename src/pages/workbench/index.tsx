@@ -1320,6 +1320,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
               onDeleteAttachment={handleDeleteAttachmentWithCleanup}
               onToggleAttachmentSelection={handleToggleAttachmentSelection}
               onBuildFlow={() => setShowFlowModal(true)}
+              onKernelSelected={handleKernelSelected}
             />
           ) : (
             <ChatPanel

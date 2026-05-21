@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { Upload, Tag, Tooltip, Spin } from 'antd';
+import { Upload, Tag, Tooltip, Spin, Dropdown } from 'antd';
 import type { UploadProps } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PaperClipOutlined,
   PartitionOutlined,
@@ -8,9 +9,11 @@ import {
   CheckOutlined,
   FileExcelOutlined,
   CloseCircleFilled,
+  PlusOutlined,
 } from '@ant-design/icons';
 import type { Attachment } from '../types/workbench.types';
 import { vmConfirm } from '../utils/vmDialog';
+import { getKernelPickerOptions } from '../utils/kernelPickerUtils';
 
 interface StepGuidePanelProps {
   /** Current active step (1=upload, 2=build flow, 3=insight) */
@@ -20,7 +23,10 @@ interface StepGuidePanelProps {
   onFileUpload: (file: File) => Promise<boolean | void>;
   onDeleteAttachment: (id: string) => void;
   onToggleAttachmentSelection: (ids: string[]) => void;
+  /** Called when user chooses blank flow (no kernel selected) */
   onBuildFlow: () => void;
+  /** Called when user picks a kernel from the dropdown; falls back to onBuildFlow if undefined */
+  onKernelSelected?: (kernelName: string) => void;
 }
 
 interface GroupedAttachment {
@@ -95,6 +101,7 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
   onDeleteAttachment,
   onToggleAttachmentSelection,
   onBuildFlow,
+  onKernelSelected,
 }) => {
   const groupedAttachments = useMemo((): GroupedAttachment[] => {
     const groups: Map<string, GroupedAttachment> = new Map();
@@ -236,6 +243,7 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
                     iconColor={colors.iconColor}
                     uploadProps={uploadProps}
                     onBuildFlow={onBuildFlow}
+                    onKernelSelected={onKernelSelected}
                     isActive={isActive}
                     isDisabled={isDisabled}
                   />
@@ -340,6 +348,7 @@ interface StepIconButtonProps {
   iconColor: string;
   uploadProps: UploadProps;
   onBuildFlow: () => void;
+  onKernelSelected?: (kernelName: string) => void;
   isActive: boolean;
   isDisabled: boolean;
 }
@@ -349,6 +358,7 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
   iconColor,
   uploadProps,
   onBuildFlow,
+  onKernelSelected,
   isActive,
   isDisabled,
 }) => {
@@ -372,49 +382,99 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
     transition: 'color 0.2s',
   };
 
-  // Step 1: wrap in Upload trigger
+  // Step 1: always wrap with Upload (active = primary style, completed = allow adding more files)
   if (step.num === 1) {
-    if (isActive) {
+    if (isDisabled) {
       return (
-        <Tooltip title="点击上传 Excel / CSV 文件">
-          <Upload {...uploadProps}>
-            <div
-              className="step-icon-box"
-              style={iconBoxStyle}
-            >
-              <step.Icon style={iconStyle} />
-            </div>
-          </Upload>
-        </Tooltip>
+        <div style={iconBoxStyle}>
+          <step.Icon style={iconStyle} />
+        </div>
       );
     }
-    // completed or disabled — just show icon
+    const tooltipTitle = isActive ? '点击上传 Excel / CSV 文件' : '添加更多文件';
     return (
-      <div style={iconBoxStyle}>
-        <step.Icon style={iconStyle} />
-      </div>
+      <Tooltip title={tooltipTitle}>
+        <Upload {...uploadProps}>
+          <div className="step-icon-box" style={iconBoxStyle}>
+            {isActive ? (
+              <step.Icon style={iconStyle} />
+            ) : (
+              // Completed: show a small "+" overlay to hint that more uploads are allowed
+              <div style={{ position: 'relative', display: 'flex' }}>
+                <step.Icon style={iconStyle} />
+                <PlusOutlined
+                  style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    right: -6,
+                    fontSize: 10,
+                    color: 'var(--vm-primary)',
+                    background: 'var(--vm-bg-card)',
+                    borderRadius: '50%',
+                    padding: 1,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </Upload>
+      </Tooltip>
     );
   }
 
-  // Step 2: trigger onBuildFlow
+  // Step 2: show kernel picker dropdown if kernels are applied, else open blank flow
   if (step.num === 2) {
-    if (isActive) {
+    if (!isActive) {
+      return (
+        <div style={iconBoxStyle}>
+          <step.Icon style={iconStyle} />
+        </div>
+      );
+    }
+
+    const kernelOptions = getKernelPickerOptions();
+
+    // No kernels applied — open blank flow directly
+    if (kernelOptions.length === 0 || !onKernelSelected) {
       return (
         <Tooltip title="点击构建分析流">
-          <div
-            className="step-icon-box"
-            style={iconBoxStyle}
-            onClick={onBuildFlow}
-          >
+          <div className="step-icon-box" style={iconBoxStyle} onClick={onBuildFlow}>
             <step.Icon style={iconStyle} />
           </div>
         </Tooltip>
       );
     }
+
+    // Kernels available — show dropdown to pick one (same as ChatPanel "/" command)
+    const menuItems: MenuProps['items'] = [
+      ...kernelOptions.map(o => ({
+        key: o.kernelName,
+        label: o.label,
+      })),
+      { type: 'divider' as const },
+      { key: '__blank__', label: '空白分析流' },
+    ];
+
+    const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+      if (key === '__blank__') {
+        onBuildFlow();
+      } else {
+        onKernelSelected(key);
+      }
+    };
+
     return (
-      <div style={iconBoxStyle}>
-        <step.Icon style={iconStyle} />
-      </div>
+      <Dropdown
+        menu={{ items: menuItems, onClick: handleMenuClick }}
+        trigger={['click']}
+        placement="top"
+      >
+        <Tooltip title="点击选择分析模板">
+          <div className="step-icon-box" style={iconBoxStyle}>
+            <step.Icon style={iconStyle} />
+          </div>
+        </Tooltip>
+      </Dropdown>
     );
   }
 
