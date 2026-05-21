@@ -27,6 +27,10 @@ interface StepGuidePanelProps {
   onBuildFlow: () => void;
   /** Called when user picks a kernel from the dropdown; falls back to onBuildFlow if undefined */
   onKernelSelected?: (kernelName: string) => void;
+  /** Whether the right insight sidebar is currently open */
+  showInsightSidebar?: boolean;
+  /** Toggle the right insight sidebar open/close */
+  onToggleInsight?: () => void;
 }
 
 interface GroupedAttachment {
@@ -102,7 +106,11 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
   onToggleAttachmentSelection,
   onBuildFlow,
   onKernelSelected,
+  showInsightSidebar = false,
+  onToggleInsight,
 }) => {
+  // True while any attachment is still being parsed — disables the build-flow action
+  const isAnyUploading = attachments.some(a => a.status === 'uploading');
   const groupedAttachments = useMemo((): GroupedAttachment[] => {
     const groups: Map<string, GroupedAttachment> = new Map();
     attachments.forEach(att => {
@@ -165,8 +173,36 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
+          position: 'relative',
         }}
       >
+        {/* Card top-right: insight sidebar toggle (visible when insight is open or file ready) */}
+        {onToggleInsight && (
+          <div style={{ position: 'absolute', top: 10, right: 10 }}>
+            <Tooltip title={showInsightSidebar ? '隐藏洞察面板' : '打开洞察面板'}>
+              <div
+                onClick={onToggleInsight}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  background: showInsightSidebar ? 'var(--vm-primary-light)' : 'transparent',
+                  border: showInsightSidebar
+                    ? '1px solid var(--vm-primary)'
+                    : '1px solid var(--vm-border-subtle)',
+                  color: showInsightSidebar ? 'var(--vm-primary)' : 'var(--vm-text-muted)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <BarChartOutlined style={{ fontSize: 13 }} />
+              </div>
+            </Tooltip>
+          </div>
+        )}
         {/* Horizontal step columns */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {STEPS.map((step, idx) => {
@@ -246,6 +282,7 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
                     onKernelSelected={onKernelSelected}
                     isActive={isActive}
                     isDisabled={isDisabled}
+                    isAnyUploading={isAnyUploading}
                   />
 
                   {/* Title */}
@@ -351,6 +388,8 @@ interface StepIconButtonProps {
   onKernelSelected?: (kernelName: string) => void;
   isActive: boolean;
   isDisabled: boolean;
+  /** True when any attachment is still being parsed — disables the step-2 build action */
+  isAnyUploading: boolean;
 }
 
 const StepIconButton: React.FC<StepIconButtonProps> = ({
@@ -361,19 +400,24 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
   onKernelSelected,
   isActive,
   isDisabled,
+  isAnyUploading,
 }) => {
+  // Step 2 should also be non-interactive while attachments are still being parsed
+  const step2Blocked = step.num === 2 && isAnyUploading;
+
   const iconBoxStyle: React.CSSProperties = {
     width: '48px',
     height: '48px',
     borderRadius: '10px',
-    border: `1.5px solid ${isActive ? 'var(--vm-primary)' : 'var(--vm-border-mid)'}`,
-    background: isActive ? 'var(--vm-primary-light)' : 'transparent',
+    border: `1.5px solid ${isActive && !step2Blocked ? 'var(--vm-primary)' : 'var(--vm-border-mid)'}`,
+    background: isActive && !step2Blocked ? 'var(--vm-primary-light)' : 'transparent',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.2s',
-    cursor: isActive ? 'pointer' : isDisabled ? 'not-allowed' : 'default',
+    cursor: isActive && !step2Blocked ? 'pointer' : isDisabled || step2Blocked ? 'not-allowed' : 'default',
     pointerEvents: isDisabled ? 'none' : 'auto',
+    opacity: step2Blocked ? 0.45 : 1,
   };
 
   const iconStyle: React.CSSProperties = {
@@ -432,6 +476,17 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
       );
     }
 
+    // Blocked while attachments are still parsing
+    if (step2Blocked) {
+      return (
+        <Tooltip title="请等待文件解析完成">
+          <div style={iconBoxStyle}>
+            <Spin size="small" />
+          </div>
+        </Tooltip>
+      );
+    }
+
     const kernelOptions = getKernelPickerOptions();
 
     // No kernels applied — open blank flow directly
@@ -445,7 +500,7 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
       );
     }
 
-    // Kernels available — show dropdown to pick one (same as ChatPanel "/" command)
+    // Kernels available — show scrollable dropdown (mirrors ChatPanel "/" command UX)
     const menuItems: MenuProps['items'] = [
       ...kernelOptions.map(o => ({
         key: o.kernelName,
@@ -468,6 +523,20 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
         menu={{ items: menuItems, onClick: handleMenuClick }}
         trigger={['click']}
         placement="top"
+        popupRender={(menu) => (
+          <div
+            style={{
+              maxHeight: 280,
+              overflowY: 'auto',
+              borderRadius: 8,
+              boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
+              background: 'var(--vm-bg-card)',
+              border: '1px solid var(--vm-border-mid)',
+            }}
+          >
+            {menu}
+          </div>
+        )}
       >
         <Tooltip title="点击选择分析模板">
           <div className="step-icon-box" style={iconBoxStyle}>

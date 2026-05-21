@@ -1321,6 +1321,8 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
               onToggleAttachmentSelection={handleToggleAttachmentSelection}
               onBuildFlow={() => setShowFlowModal(true)}
               onKernelSelected={handleKernelSelected}
+              showInsightSidebar={showInsightSidebar}
+              onToggleInsight={toggleInsightSidebar}
             />
           ) : (
             <ChatPanel
