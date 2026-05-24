@@ -189,11 +189,8 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
           borderRadius: '12px',
           padding: '20px 24px 16px',
           border: isCardHovered
-            ? '1px solid var(--vm-primary-border)'
+            ? '1px solid var(--vm-primary)'
             : '1px solid var(--vm-border-mid)',
-          boxShadow: isCardHovered
-            ? '0 0 0 3px var(--vm-primary-glow), 0 4px 20px rgba(0,0,0,0.15)'
-            : '0 2px 8px rgba(0,0,0,0.06)',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
