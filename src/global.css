@@ -488,3 +488,23 @@ body {
   padding: 8px 12px !important;
   color: var(--vm-text-primary) !important;
 }
+
+/* ============================================
+   StepGuidePanel — Active Step Pulse Animation
+   Draws user attention to the current active step
+   ============================================ */
+@keyframes vm-step-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--vm-primary-glow); }
+  60%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.vm-step-circle-active {
+  animation: vm-step-pulse 2s ease-out infinite;
+}
+
+/* Hover state for the icon button box */
+.step-icon-box:hover {
+  background: var(--vm-primary-light) !important;
+  border-color: var(--vm-primary) !important;
+}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Upload, Tag, Tooltip, Spin, Dropdown } from 'antd';
 import type { UploadProps } from 'antd';
 import type { MenuProps } from 'antd';
@@ -89,10 +89,11 @@ function resolveColors(state: StepState): {
       };
     case 'disabled':
       return {
-        circleColor: 'var(--vm-text-muted)',
+        // Visible enough to preview upcoming steps (65% brightness), not dead gray
+        circleColor: 'var(--vm-border-mid)',
         circleBg: 'transparent',
-        iconColor: 'var(--vm-text-muted)',
-        labelColor: 'var(--vm-text-muted)',
+        iconColor: 'var(--vm-text-secondary)',
+        labelColor: 'var(--vm-text-secondary)',
       };
   }
 }
@@ -109,6 +110,8 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
   showInsightSidebar = false,
   onToggleInsight,
 }) => {
+  const [isCardHovered, setIsCardHovered] = useState(false);
+
   // True while any attachment is still being parsed — disables the build-flow action
   const isAnyUploading = attachments.some(a => a.status === 'uploading');
   const groupedAttachments = useMemo((): GroupedAttachment[] => {
@@ -148,6 +151,20 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
     return 'disabled';
   };
 
+  /** Returns connector line style based on the state of the step to the left */
+  const getConnectorStyle = (rightStepNum: number): React.CSSProperties => {
+    const leftState = getStepState(rightStepNum - 1);
+    if (leftState === 'completed') {
+      return { background: 'var(--vm-primary)', opacity: 0.75 };
+    }
+    if (leftState === 'active') {
+      return {
+        background: 'linear-gradient(to right, var(--vm-primary-border), var(--vm-border-subtle))',
+      };
+    }
+    return { background: 'var(--vm-border-subtle)' };
+  };
+
   const handleDeleteGroup = (attachmentIds: string[]) => {
     attachmentIds.forEach(id => onDeleteAttachment(id));
   };
@@ -165,15 +182,24 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
       }}
     >
       <div
+        onMouseEnter={() => setIsCardHovered(true)}
+        onMouseLeave={() => setIsCardHovered(false)}
         style={{
           background: 'var(--vm-bg-card)',
           borderRadius: '12px',
           padding: '20px 24px 16px',
-          border: '1px solid var(--vm-border-mid)',
+          border: isCardHovered
+            ? '1px solid var(--vm-primary-border)'
+            : '1px solid var(--vm-border-mid)',
+          boxShadow: isCardHovered
+            ? '0 0 0 3px var(--vm-primary-glow), 0 4px 20px rgba(0,0,0,0.15)'
+            : '0 2px 8px rgba(0,0,0,0.06)',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
           position: 'relative',
+          transition: 'border-color 0.25s, box-shadow 0.25s',
+          cursor: 'default',
         }}
       >
         {/* Card top-right: insight sidebar toggle (visible when insight is open or file ready) */}
@@ -214,16 +240,17 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
 
             return (
               <React.Fragment key={step.num}>
-                {/* Connector line between columns */}
+                {/* Connector line between columns — color adapts to left step state */}
                 {idx > 0 && (
                   <div
                     style={{
                       flex: 1,
-                      height: '1px',
-                      background: 'var(--vm-border-subtle)',
+                      height: '2px',
+                      borderRadius: '1px',
                       margin: '0 8px',
-                      // shift up to align with center of the number circle
                       marginBottom: '40px',
+                      transition: 'background 0.3s',
+                      ...getConnectorStyle(step.num),
                     }}
                   />
                 )}
@@ -236,18 +263,20 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
                     alignItems: 'center',
                     gap: '8px',
                     minWidth: '160px',
-                    opacity: isDisabled ? 0.45 : 1,
+                    // Disabled: 0.65 (still readable/preview-able) instead of 0.45 (dead gray)
+                    opacity: isDisabled ? 0.65 : 1,
                     transition: 'opacity 0.25s',
                     cursor: isDisabled ? 'not-allowed' : 'default',
                   }}
                 >
-                  {/* Number circle */}
+                  {/* Number circle — dashed border for future steps, pulse for active */}
                   <div
+                    className={isActive ? 'vm-step-circle-active' : undefined}
                     style={{
                       width: '44px',
                       height: '44px',
                       borderRadius: '50%',
-                      border: `2px solid ${colors.circleColor}`,
+                      border: `2px ${isDisabled ? 'dashed' : 'solid'} ${colors.circleColor}`,
                       background: colors.circleBg,
                       display: 'flex',
                       alignItems: 'center',
@@ -306,7 +335,6 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
                       fontSize: 11,
                       lineHeight: 1.4,
                       textAlign: 'center',
-                      opacity: isDisabled ? 0.6 : 1,
                     }}
                   >
                     {step.desc}
