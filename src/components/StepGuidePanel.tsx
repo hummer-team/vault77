@@ -199,8 +199,8 @@ const StepGuidePanel: React.FC<StepGuidePanelProps> = ({
           cursor: 'default',
         }}
       >
-        {/* Card top-right: insight sidebar toggle (visible when insight is open or file ready) */}
-        {onToggleInsight && (
+        {/* Card top-right: insight sidebar toggle — only visible when files are loaded or sidebar is open */}
+        {onToggleInsight && (attachments.length > 0 || showInsightSidebar) && (
           <div style={{ position: 'absolute', top: 10, right: 10 }}>
             <Tooltip title={showInsightSidebar ? '隐藏洞察面板' : '打开洞察面板'}>
               <div
