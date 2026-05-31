@@ -235,6 +235,13 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
       inputFields: ['order_id', 'amount', 'cost', 'coupon_amount'],
       outputFields: ['order_id', 'margin', 'discount_rate', 'risk_type'],
       constraints: ['需要成本字段计算毛利'],
+      // reasoning_hints: {
+      //   abnormal_margin_causes: ["营销活动规则冲突", "系统定价配置错误", "优惠券叠加漏洞"],
+      //   correlation_map: {
+      //     low_margin: ["check_coupon_stacking", "verify_cost_basis"],
+      //     high_discount: ["validate_marketing_rule"]
+      //   }
+      // }
     },
   },
 
