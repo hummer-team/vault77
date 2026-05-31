@@ -57,6 +57,7 @@ export enum OperatorType {
   ABNORMAL_AMOUNT = 'abnormal_amount',  // Risk control: order amount anomaly detection
   RFM_PROFILE = 'rfm_profile',  // User growth: RFM customer segmentation via K-Means WASM
   ORDER_CHANNEL_ANALYSIS = 'order_channel_analysis',  // Operations: channel/source/platform ROI attribution
+  ORDER_FUNNEL_ANALYSIS = 'order_funnel_analysis',    // Operations: full-chain order funnel conversion analysis
 }
 
 export enum LogicType {
@@ -281,6 +282,8 @@ export interface SelectNodeData extends BaseNodeData {
   rfmProfileConfig?: RfmProfileConfig;
   /** Config for fn_ecom_order_channel_analysis */
   orderChannelAnalysisConfig?: OrderChannelAnalysisConfig;
+  /** Config for fn_ecom_order_funnel_analysis */
+  orderFunnelAnalysisConfig?: OrderFunnelAnalysisConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -758,6 +761,52 @@ export interface OrderChannelAnalysisConfig {
    * Default: 3.
    */
   topN?: number;
+}
+
+// ============================================================================
+// OrderFunnelAnalysis Types (fn_ecom_order_funnel_analysis)
+// ============================================================================
+
+/**
+ * Identifies each step key in the order funnel.
+ * 'order' is the locked anchor step; others are user-toggleable.
+ */
+export type FunnelStepKey =
+  | 'order'       // 下单 (locked, always ON)
+  | 'pay'         // 支付
+  | 'confirm'     // 审核/确认
+  | 'ship'        // 发货
+  | 'receive'     // 签收
+  | 'review'      // 评价
+  | 'repurchase'; // 复购 (requires userIdCol)
+
+/** Config for a single funnel step — stores the column binding and toggle state */
+export interface FunnelStepConfig {
+  /** Whether this step is included in the funnel (always true for 'order') */
+  enabled: boolean;
+  /** Actual column name in user data representing the timestamp/signal for this step */
+  colName: string;
+}
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_order_funnel_analysis.
+ * Builds a dynamic order-to-repurchase conversion funnel.
+ */
+export interface OrderFunnelAnalysisConfig {
+  /** Order ID column (COUNT DISTINCT for unique order count) */
+  orderIdCol: string;
+  /** Per-step toggle + column binding */
+  steps: Record<FunnelStepKey, FunnelStepConfig>;
+  /**
+   * User ID column — required only when the 'repurchase' step is enabled.
+   * Repurchase = users who placed ≥2 orders.
+   */
+  userIdCol?: string;
+  /**
+   * Comma-separated order_status values to exclude from analysis
+   * (e.g. "cancelled,closed"). Empty string = no filter.
+   */
+  excludeStatuses?: string;
 }
 
 /**

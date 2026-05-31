@@ -486,6 +486,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   // ==========================
   // 运营复盘类（日常高频）
   // ==========================
+  // done
   {
     name: 'fn_ecom_order_channel_analysis',
     displayName: '订单渠道/来源/平台归因分析',
@@ -521,9 +522,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '4s',
     metadata: {
-      inputFields: ['create_time','pay_time','ship_time','receive_time','order_status'],
-      outputFields: ['step','count','conversion_rate','drop_rate'],
-      constraints: ['需要订单各关键时间节点']
+      inputFields: ['order_id','create_time','pay_time','confirm_time','ship_time','receive_time','review_time','order_status','user_id'],
+      outputFields: ['step','count','conversion_rate','drop_rate','abs_conversion_rate'],
+      constraints: ['需要订单各关键时间节点', '复购步骤需要用户ID字段']
     }
   },
   {

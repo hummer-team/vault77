@@ -43,6 +43,8 @@ export enum SelectNodePanelType {
   RFM_PROFILE_DRAWER = 'RFM_PROFILE_DRAWER',
   /** OrderChannelAnalysisDrawer — used for 订单渠道/来源/平台归因分析 */
   ORDER_CHANNEL_ANALYSIS_DRAWER = 'ORDER_CHANNEL_ANALYSIS_DRAWER',
+  /** OrderFunnelAnalysisDrawer — used for 订单全链路漏斗转化分析 */
+  ORDER_FUNNEL_ANALYSIS_DRAWER = 'ORDER_FUNNEL_ANALYSIS_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -76,6 +78,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_abnormal_amount:       SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER,
   fn_ecom_rfm_profile:           SelectNodePanelType.RFM_PROFILE_DRAWER,
   fn_ecom_order_channel_analysis: SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER,
+  fn_ecom_order_funnel_analysis:  SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER,
 };
 
 // ============================================================================

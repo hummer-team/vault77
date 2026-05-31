@@ -232,6 +232,12 @@ export const OPERATOR_CONFIG = {
     icon: '📊',
     color: '#1677ff',
   },
+  order_funnel_analysis: {
+    name: '订单漏斗转化分析',
+    description: '构建下单→支付→发货→签收→复购转化漏斗，识别瓶颈节点与优化方向',
+    icon: '🔽',
+    color: '#fa8c16',
+  },
 };
 
 // ============================================================================
