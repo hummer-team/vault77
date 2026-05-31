@@ -274,10 +274,13 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
       });
     }
 
+    const totalOrderCount = rows.reduce((s, r) => s + Number(r.order_count ?? 0), 0);
+
     const insightsData: OperatorInsightsData = {
       summary: {
         totalRecordCount:       rows.length,
         totalFilterRecordCount: rows.length,
+        totalOrderCount,
       },
       insights,
     };

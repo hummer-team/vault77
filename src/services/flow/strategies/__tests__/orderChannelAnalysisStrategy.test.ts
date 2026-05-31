@@ -359,7 +359,7 @@ describe('OrderChannelAnalysisStrategy', () => {
     expect(result.displayConfig?.defaultSort?.order).toBe('descend');
   });
 
-  it('should include summary with totalRecordCount', async () => {
+  it('should include summary with totalRecordCount and totalOrderCount', async () => {
     strategy.buildSql([createTableNode(), createSelectNode(baseConfig)], []);
 
     const rows = [
@@ -369,6 +369,7 @@ describe('OrderChannelAnalysisStrategy', () => {
     const result = await strategy.postProcess({ data: rows, schema: [] });
 
     expect(result.insightsData?.summary?.totalRecordCount).toBe(2);
+    expect(result.insightsData?.summary?.totalOrderCount).toBe(1800); // 1000 + 800
   });
 
   // ---------- topN ------------------------------------------------------------

@@ -1075,6 +1075,8 @@ export interface InsightSummary {
   failedSkuCount?: number;
   /** [InventoryForecast] SKU id with the highest total predicted demand */
   peakForecastSku?: string;
+  /** [OrderChannel / order-based operators] Sum of order_count across all rows; displayed as "总订单数" */
+  totalOrderCount?: number;
 }
 
 /**

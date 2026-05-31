@@ -88,7 +88,12 @@ const SummaryOverview: React.FC<SummaryOverviewProps> = ({ summary }) => {
   const tiles: Array<{ label: string; value: string; highlight?: boolean }> = [];
 
   // Common fields — always present when summary is defined
-  tiles.push({ label: '总记录数', value: summary.totalRecordCount.toLocaleString('zh-CN') });
+  // When totalOrderCount is present (order-based operators), show "总订单数" instead of "总记录数"
+  if (summary.totalOrderCount !== undefined) {
+    tiles.push({ label: '总订单数', value: summary.totalOrderCount.toLocaleString('zh-CN') });
+  } else {
+    tiles.push({ label: '总记录数', value: summary.totalRecordCount.toLocaleString('zh-CN') });
+  }
   // Per spec 4.3: label is "符合条件记录数"
   tiles.push({ label: '符合条件记录数', value: summary.totalFilterRecordCount.toLocaleString('zh-CN') });
 
