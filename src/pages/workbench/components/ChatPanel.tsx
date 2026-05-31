@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions, Popover } from 'antd';
+import type { MentionsRef } from 'antd/es/mentions';
 import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, WarningFilled, CloseOutlined, ClearOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { Attachment } from '../../../types/workbench.types';
@@ -8,7 +9,8 @@ import { getPersonaById } from '../../../config/personas';
 import { useUserStore } from '../../../status/appStatusManager.ts';
 import { userSkillService } from '../../../services/user-skill/userSkillService';
 import type { TableSkillConfig } from '../../../services/llm/skills/types';
-import { getKernelPickerOptions } from '../../../utils/kernelPickerUtils';
+import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
+import KernelPickerPanel from '../../../components/flow/KernelPickerPanel';
 import { vmConfirm } from '../../../utils/vmDialog';
 
 interface ChatPanelProps {
@@ -136,16 +138,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setError(null);
   }, [setError]);
 
-  // Kernel @ mention: options for dropdown + lookup map for kernelName
-  const [kernelMentionOptions, setKernelMentionOptions] = useState<{ value: string; label: string }[]>([]);
-  const [kernelNameByValue, setKernelNameByValue] = useState<Record<string, string>>({});
-  useEffect(() => {
-    const options = getKernelPickerOptions();
-    setKernelMentionOptions(options.map(o => ({ value: o.value, label: o.label })));
-    const nameMap: Record<string, string> = {};
-    options.forEach(o => { nameMap[o.value] = o.kernelName; });
-    setKernelNameByValue(nameMap);
-  }, []);
+  // Applied kernels for the picker panel — synchronous, no async load needed
+  const appliedKernels = useMemo(() => bizKernelService.getAppliedKernels(), []);
+  const mentionsRef = useRef<MentionsRef>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Callback for when user picks a kernel from KernelPickerPanel
+  const handleKernelPick = useCallback((kernelName: string) => {
+    setPickerOpen(false);
+    onKernelSelected?.(kernelName);
+    form.setFieldsValue({ message: '' });
+    if (setInitialMessage) setInitialMessage('');
+    mentionsRef.current?.focus();
+  }, [onKernelSelected, form, setInitialMessage]);
 
   // Load User Skill configurations and listen for updates
   useEffect(() => {
@@ -426,19 +431,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <div style={{ position: 'relative' }}>
           <Form.Item name="message" noStyle>
             <Mentions
+              ref={mentionsRef}
               prefix="/"
-              options={kernelMentionOptions}
-              onSelect={(option) => {
-                const kernelName = kernelNameByValue[option.value ?? ''];
-                if (kernelName) {
-                  onKernelSelected?.(kernelName);
-                  // Clear the mention text from input — the "/" operator acts as a
-                  // command trigger, not inline text. Leaving it causes stacking on
-                  // repeated selections.
-                  form.setFieldsValue({ message: '' });
-                  if (setInitialMessage) setInitialMessage('');
-                }
+              options={appliedKernels.map((k) => ({ value: k.name, label: k.displayName }))}
+              filterOption={false}
+              styles={{ popup: { display: 'none' } }}
+              onSearch={(_, prefix) => {
+                if (prefix === '/') setPickerOpen(true);
               }}
+              onBlur={() => setTimeout(() => setPickerOpen(false), 150)}
               placeholder={placeholderText}
               disabled={isAnalyzing || isInitializing}
               style={{ minHeight: 120, resize: 'none' }}
@@ -447,6 +448,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               onChange={handleChangeMessage}
             />
           </Form.Item>
+          {/* KernelPickerPanel: shown as absolute overlay when "/" is typed */}
+          {pickerOpen && appliedKernels.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: 0,
+                zIndex: 1050,
+                marginBottom: 6,
+              }}
+              // Prevent blur from firing before click is processed
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <KernelPickerPanel kernels={appliedKernels} onSelect={handleKernelPick} />
+            </div>
+          )}
           {/* Transparent overlay during initialization: blocks input but keeps UI visible */}
           {isInitializing && (
             <div
