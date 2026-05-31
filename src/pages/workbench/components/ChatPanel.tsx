@@ -141,6 +141,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Applied kernels for the picker panel — synchronous, no async load needed
   const appliedKernels = useMemo(() => bizKernelService.getAppliedKernels(), []);
   const mentionsRef = useRef<MentionsRef>(null);
+  // Ref on the picker container — used in onBlur to detect if focus moved INTO the picker
+  const pickerRef = useRef<HTMLDivElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Text typed after "/" in Mentions — used to pre-filter KernelPickerPanel without autoFocus
   const [pickerSearch, setPickerSearch] = useState('');
@@ -447,6 +449,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 }
               }}
               onBlur={() => setTimeout(() => {
+                // Do not close if focus moved into the picker panel (e.g. user clicked the search input)
+                if (pickerRef.current?.contains(document.activeElement)) return;
                 setPickerOpen(false);
                 setPickerSearch('');
               }, 200)}
@@ -461,6 +465,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           {/* KernelPickerPanel: shown as absolute overlay when "/" is typed */}
           {pickerOpen && appliedKernels.length > 0 && (
             <div
+              ref={pickerRef}
               style={{
                 position: 'absolute',
                 bottom: '100%',
@@ -468,7 +473,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 zIndex: 1050,
                 marginBottom: 6,
               }}
-              // Prevent blur from firing before click is processed
+              // Prevent blur from firing before click is processed on non-focusable elements
               onMouseDown={(e) => e.preventDefault()}
             >
               <KernelPickerPanel
