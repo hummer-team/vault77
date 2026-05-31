@@ -201,15 +201,18 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
     ];
 
     for (const key of STEP_ORDER.slice(1)) {
-      if (!steps[key]?.enabled || !steps[key]?.colName) continue;
+      if (!steps[key]?.enabled) continue;
 
       if (key === 'repurchase') {
+        // Repurchase uses userIdCol (no per-step column) — omit colName check
         if (repurchaseEnabled && userIdCol) {
           countExprs.push(
             `(SELECT COUNT(DISTINCT "${userIdCol}") FROM repurchase_users) AS cnt_repurchase`,
           );
         }
       } else {
+        // All other steps require a configured column
+        if (!steps[key]?.colName) continue;
         const col = `"${steps[key].colName}"`;
         countExprs.push(
           `COUNT(DISTINCT CASE WHEN ${col} IS NOT NULL THEN ${oid} END) AS cnt_${key}`,
