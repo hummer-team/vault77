@@ -539,6 +539,7 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
         styles={{ content: { padding: 0 }, root: { padding: 0 } }}
         content={
           <KernelPickerPanel
+            naked
             kernels={appliedKernels}
             onSelect={(kernelName) => {
               setPickerOpen(false);

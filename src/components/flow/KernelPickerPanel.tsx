@@ -5,7 +5,7 @@
  * section, category-grouped list, all filtered in real-time.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Input } from 'antd';
 import { SearchOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import type { BizKernelMetadata } from '../../services/biz-kernels/types';
@@ -19,6 +19,16 @@ interface KernelPickerPanelProps {
   onSelect: (kernelName: string) => void;
   /** Panel width in pixels. Defaults to 280. */
   width?: number;
+  /**
+   * When true, removes the outer container background/border/shadow.
+   * Use when the panel is embedded inside a Popover that already provides the card appearance.
+   */
+  naked?: boolean;
+  /**
+   * External search text driven by the caller (e.g. text typed after "/" in Mentions).
+   * When provided, syncs into the internal search state so the list pre-filters.
+   */
+  externalSearch?: string;
 }
 
 /** Normalize text for case-insensitive substring matching. */
@@ -35,9 +45,22 @@ function matchesSearch(kernel: BizKernelMetadata, search: string): boolean {
 
 const SCROLL_AREA_MAX_HEIGHT = 320;
 
-const KernelPickerPanel: React.FC<KernelPickerPanelProps> = ({ kernels, onSelect, width = 280 }) => {
+const KernelPickerPanel: React.FC<KernelPickerPanelProps> = ({
+  kernels,
+  onSelect,
+  width = 280,
+  naked = false,
+  externalSearch,
+}) => {
   const [searchText, setSearchText] = useState('');
   const { recentKernels, addRecentKernel } = useKernelPickerStore();
+
+  // Sync external search text (e.g. text typed after "/" in Mentions) into local state.
+  useEffect(() => {
+    if (externalSearch !== undefined) {
+      setSearchText(externalSearch);
+    }
+  }, [externalSearch]);
 
   const handleSelect = useCallback(
     (name: string) => {
@@ -79,10 +102,10 @@ const KernelPickerPanel: React.FC<KernelPickerPanelProps> = ({ kernels, onSelect
     <div
       style={{
         width,
-        background: 'var(--vm-bg-base)',
-        border: '1px solid var(--vm-border-mid)',
-        borderRadius: 8,
-        boxShadow: 'var(--vm-flow-shadow-lg)',
+        background: naked ? 'transparent' : 'var(--vm-bg-base)',
+        border: naked ? 'none' : '1px solid var(--vm-border-mid)',
+        borderRadius: naked ? 0 : 8,
+        boxShadow: naked ? 'none' : 'var(--vm-flow-shadow-lg)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -109,7 +132,6 @@ const KernelPickerPanel: React.FC<KernelPickerPanelProps> = ({ kernels, onSelect
             color: 'var(--vm-text-primary)',
             borderRadius: 5,
           }}
-          autoFocus
         />
       </div>
 
@@ -183,6 +205,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ label, icon }) => (
     style={{
       display: 'flex',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 5,
       padding: '6px 12px 3px',
       fontSize: 11,

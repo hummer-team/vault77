@@ -142,10 +142,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const appliedKernels = useMemo(() => bizKernelService.getAppliedKernels(), []);
   const mentionsRef = useRef<MentionsRef>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Text typed after "/" in Mentions — used to pre-filter KernelPickerPanel without autoFocus
+  const [pickerSearch, setPickerSearch] = useState('');
 
   // Callback for when user picks a kernel from KernelPickerPanel
   const handleKernelPick = useCallback((kernelName: string) => {
     setPickerOpen(false);
+    setPickerSearch('');
     onKernelSelected?.(kernelName);
     form.setFieldsValue({ message: '' });
     if (setInitialMessage) setInitialMessage('');
@@ -436,10 +439,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               options={appliedKernels.map((k) => ({ value: k.name, label: k.displayName }))}
               filterOption={false}
               styles={{ popup: { display: 'none' } }}
-              onSearch={(_, prefix) => {
-                if (prefix === '/') setPickerOpen(true);
+              onSearch={(text, prefix) => {
+                if (prefix === '/') {
+                  setPickerOpen(true);
+                  // Pass the text typed after "/" to pre-filter the picker list
+                  setPickerSearch(text);
+                }
               }}
-              onBlur={() => setTimeout(() => setPickerOpen(false), 150)}
+              onBlur={() => setTimeout(() => {
+                setPickerOpen(false);
+                setPickerSearch('');
+              }, 200)}
               placeholder={placeholderText}
               disabled={isAnalyzing || isInitializing}
               style={{ minHeight: 120, resize: 'none' }}
@@ -461,7 +471,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               // Prevent blur from firing before click is processed
               onMouseDown={(e) => e.preventDefault()}
             >
-              <KernelPickerPanel kernels={appliedKernels} onSelect={handleKernelPick} />
+              <KernelPickerPanel
+                kernels={appliedKernels}
+                onSelect={handleKernelPick}
+                externalSearch={pickerSearch}
+              />
             </div>
           )}
           {/* Transparent overlay during initialization: blocks input but keeps UI visible */}
