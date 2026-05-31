@@ -168,6 +168,7 @@ const KernelPickerPanel: React.FC<KernelPickerPanelProps> = ({
                   key={r.name}
                   kernel={meta}
                   onSelect={handleSelect}
+                  showCategory
                 />
               );
             })}
@@ -225,9 +226,11 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ label, icon }) => (
 interface KernelItemProps {
   kernel: BizKernelMetadata;
   onSelect: (name: string) => void;
+  /** When true, prepends "category · " before the display name (used in recent section). */
+  showCategory?: boolean;
 }
 
-const KernelItem: React.FC<KernelItemProps> = ({ kernel, onSelect }) => {
+const KernelItem: React.FC<KernelItemProps> = ({ kernel, onSelect, showCategory = false }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -257,6 +260,19 @@ const KernelItem: React.FC<KernelItemProps> = ({ kernel, onSelect }) => {
           transition: 'color 0.15s',
         }}
       >
+        {showCategory && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 400,
+              color: 'var(--vm-text-muted)',
+              marginRight: 2,
+            }}
+          >
+            {kernel.category}
+            {' · '}
+          </span>
+        )}
         {kernel.displayName}
       </span>
       <span
