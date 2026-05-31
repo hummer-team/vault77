@@ -14,7 +14,6 @@ import {
   Button,
   Collapse,
   Drawer,
-  Input,
   Select,
   Space,
   Switch,
@@ -160,6 +159,14 @@ const Section: React.FC<{
 
 const selectStyle: React.CSSProperties = { width: '100%' };
 
+/** Common order status options (English + Chinese) for the exclude-status selector */
+const STATUS_OPTIONS = [
+  // English statuses
+  'cancelled', 'refunded', 'closed', 'pending', 'failed', 'expired', 'rejected', 'void',
+  // Chinese statuses
+  '已取消', '已退款', '已关闭', '待付款', '待支付', '已失效', '已拒绝', '已作废',
+].map((v) => ({ value: v, label: v }));
+
 // ============================================================================
 // Main component
 // ============================================================================
@@ -180,7 +187,7 @@ export const OrderFunnelAnalysisDrawer: React.FC<OrderFunnelAnalysisDrawerProps>
   const [orderIdCol, setOrderIdCol]       = useState('');
   const [userIdCol, setUserIdCol]         = useState('');
   const [orderStatusCol, setOrderStatusCol] = useState('');
-  const [excludeStatuses, setExcludeStatuses] = useState('cancelled,refunded,closed');
+  const [excludeStatuses, setExcludeStatuses] = useState<string[]>(['cancelled', 'refunded', 'closed']);
 
   // Restore or initialise state whenever drawer opens
   useEffect(() => {
@@ -198,13 +205,17 @@ export const OrderFunnelAnalysisDrawer: React.FC<OrderFunnelAnalysisDrawerProps>
       setOrderIdCol(initialConfig.orderIdCol || autoMatch(columns, 'order_id'));
       setUserIdCol(initialConfig.userIdCol   || autoMatch(columns, 'user_id'));
       setOrderStatusCol(initialConfig.orderStatusCol || autoMatch(columns, 'order_status'));
-      setExcludeStatuses(initialConfig.excludeStatuses ?? 'cancelled,refunded,closed');
+      setExcludeStatuses(
+        initialConfig.excludeStatuses
+          ? initialConfig.excludeStatuses.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['cancelled', 'refunded', 'closed'],
+      );
     } else {
       setStepStates(buildDefaultSteps(columns));
       setOrderIdCol(autoMatch(columns, 'order_id'));
       setUserIdCol(autoMatch(columns, 'user_id'));
       setOrderStatusCol(autoMatch(columns, 'order_status'));
-      setExcludeStatuses('cancelled,refunded,closed');
+      setExcludeStatuses(['cancelled', 'refunded', 'closed']);
     }
   }, [open, initialConfig, columns]);
 
@@ -240,7 +251,7 @@ export const OrderFunnelAnalysisDrawer: React.FC<OrderFunnelAnalysisDrawerProps>
       steps: stepStates as Record<FunnelStepKey, FunnelStepConfig>,
       ...(userIdCol      ? { userIdCol }      : {}),
       ...(orderStatusCol ? { orderStatusCol } : {}),
-      excludeStatuses,
+      excludeStatuses: excludeStatuses.join(','),
     };
     onConfirm(config);
   }, [orderIdCol, stepStates, userIdCol, orderStatusCol, excludeStatuses, messageApi, onConfirm]);
@@ -421,14 +432,19 @@ export const OrderFunnelAnalysisDrawer: React.FC<OrderFunnelAnalysisDrawerProps>
               排除状态
             </Text>
             <div style={{ flex: 1 }}>
-              <Input
+              <Select
+                mode="tags"
+                showSearch
                 size="small"
+                style={selectStyle}
                 value={excludeStatuses}
-                onChange={(e) => setExcludeStatuses(e.target.value)}
-                placeholder="cancelled,refunded,closed"
+                onChange={setExcludeStatuses}
+                options={STATUS_OPTIONS}
+                placeholder="选择或输入要排除的状态值"
+                allowClear
               />
               <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginTop: 3, display: 'block' }}>
-                逗号分隔的状态值，留空则不过滤
+                可选择预设值或直接输入，留空则不过滤
               </Text>
             </div>
           </div>

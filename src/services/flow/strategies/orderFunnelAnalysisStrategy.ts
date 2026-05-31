@@ -261,7 +261,15 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
     ];
 
     for (const key of STEP_ORDER.slice(1)) {
-      if (steps[key]?.enabled && steps[key]?.colName) {
+      if (!steps[key]?.enabled) continue;
+      // repurchase has no per-step colName — uses userIdCol, handled separately in SQL
+      if (key === 'repurchase') {
+        if (cfg.userIdCol && row['cnt_repurchase'] != null) {
+          stats.push({ key, label: STEP_LABELS[key], count: safeNum(row['cnt_repurchase']) });
+        }
+        continue;
+      }
+      if (steps[key]?.colName) {
         stats.push({ key, label: STEP_LABELS[key], count: safeNum(row[`cnt_${key}`]) });
       }
     }
@@ -383,6 +391,15 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
       insights: [bottleneckItem, overallItem, countsItem, optimizeItem],
     };
 
+    // Build schema matching funnelRows columns (not the raw DuckDB counts schema)
+    const tableSchema: { name: string; type: string }[] = [
+      { name: 'step',               type: 'VARCHAR' },
+      { name: 'count',              type: 'INTEGER' },
+      { name: 'conversion_rate',    type: 'DOUBLE'  },
+      { name: 'drop_rate',          type: 'DOUBLE'  },
+      { name: 'abs_conversion_rate', type: 'DOUBLE' },
+    ];
+
     const displayConfig: OperatorDisplayConfig = {
       defaultSort: { column: 'count', order: 'descend' },
       columnTooltips: {
@@ -398,7 +415,7 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
       type: OperatorType.ORDER_FUNNEL_ANALYSIS,
       sql: '',
       data: funnelRows as unknown as Record<string, unknown>[],
-      schema: queryResult.schema as unknown[],
+      schema: tableSchema,
       insightsData,
       displayConfig,
     };
