@@ -25,6 +25,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_abnormal_amount: 'fn_ecom_abnormal_amount',
   fn_ecom_rfm_profile: 'fn_ecom_rfm_profile',
   fn_ecom_order_channel_analysis: 'fn_ecom_order_channel_analysis',
+  fn_ecom_order_funnel_analysis: 'fn_ecom_order_funnel_analysis',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */
