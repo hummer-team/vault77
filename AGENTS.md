@@ -13,7 +13,7 @@
 | Authority | `.github/instructions/rule.instructions.md` | 工作流、权限约束、禁止行为 |
 | Constraints | `.github/copilot-instructions.md` | TypeScript/React 技术规范 |
 | Verification | `.github/instructions/codereview.instructions.md` | 交付验收门控 |
-| Strategy | `.github/instructions/strategy-pattern-rules.md` | 算子策略模式规则（新增算子必读）|
+| Strategy | Skill: `vaultmind-operator`（`.github/skills/vaultmind-operator/SKILL.md`）| 算子策略模式规则 + 代码模板（新增算子时自动触发）|
 | Theme | `.github/instructions/theme.instructions.md` | 主题/颜色规范（UI 开发必读）|
 
 > ⛔ **未完成 Feedforward 检查，禁止开始任何代码修改。**
