@@ -154,6 +154,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER:
     case SelectNodePanelType.RFM_PROFILE_DRAWER:
     case SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER:
+    case SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER:
       actions.openUdfDrawer();
       break;
     default:
