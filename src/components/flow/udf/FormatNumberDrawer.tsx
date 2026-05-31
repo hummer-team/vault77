@@ -106,6 +106,8 @@ export const FormatNumberDrawer: React.FC<FormatNumberDrawerProps> = ({
           value={record.col || undefined}
           onChange={(val) => updateEntry(idx, { col: val })}
           options={numericColumns.map((c) => ({ label: c, value: c }))}
+          showSearch
+          filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
           notFoundContent={<Text type="secondary" style={{ fontSize: 12 }}>未找到数值类型列</Text>}
         />
       ),

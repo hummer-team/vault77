@@ -105,6 +105,8 @@ export const FormatDateDrawer: React.FC<FormatDateDrawerProps> = ({
           value={record.col || undefined}
           onChange={(val) => updateEntry(idx, { col: val })}
           options={columnOptions.map((c) => ({ label: c, value: c }))}
+          showSearch
+          filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
         />
       ),
     },

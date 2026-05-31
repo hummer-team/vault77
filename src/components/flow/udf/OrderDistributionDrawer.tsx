@@ -334,6 +334,7 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {timeColOptions}
         </Select>
@@ -349,6 +350,7 @@ const TimeDistForm: React.FC<TimeDistFormProps> = ({ columns, state, onChange })
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {amountColOptions}
         </Select>
@@ -497,6 +499,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {amountColOptions}
         </Select>
@@ -512,6 +515,7 @@ const AmountDistForm: React.FC<AmountDistFormProps> = ({ columns, state, onChang
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {timeColOptions}
         </Select>
@@ -742,6 +746,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {geoColOptions}
         </Select>
@@ -757,6 +762,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {amountColOptions}
         </Select>
@@ -772,6 +778,7 @@ const GeoDistForm: React.FC<GeoDistFormProps> = ({ columns, state, onChange }) =
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
         >
           {timeColOptions}
         </Select>

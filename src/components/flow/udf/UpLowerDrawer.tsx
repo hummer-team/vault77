@@ -120,6 +120,8 @@ export const UpLowerDrawer: React.FC<UpLowerDrawerProps> = ({
             value={selectedCols}
             onChange={setSelectedCols}
             options={allColumns.map((col) => ({ label: col, value: col }))}
+            showSearch
+            filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             notFoundContent={
               <Text type="secondary" style={{ fontSize: 12 }}>
                 未找到文本类型列

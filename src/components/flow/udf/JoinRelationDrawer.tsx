@@ -698,6 +698,8 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
             style={{ width: '100%' }}
             className={typeError || leftEmpty ? 'join-cond-error' : undefined}
             options={sourceFieldNames.map((f) => ({ label: f, value: f }))}
+            showSearch
+            filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             size="small"
             notFoundContent={
               <span style={{ color: T.textSecondary, fontSize: 11 }}>无字段</span>
@@ -721,6 +723,8 @@ const ConditionRow: React.FC<ConditionRowProps> = ({
             style={{ width: '100%' }}
             className={typeError || rightEmpty ? 'join-cond-error' : undefined}
             options={targetFieldNames.map((f) => ({ label: f, value: f }))}
+            showSearch
+            filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             size="small"
             notFoundContent={
               <span style={{ color: T.textSecondary, fontSize: 11 }}>无字段</span>

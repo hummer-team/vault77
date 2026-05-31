@@ -429,6 +429,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           getPopupContainer={() => document.body}
           popupClassName="nodrag"
           size="small"
+          showSearch
           suffixIcon={
             <DatabaseOutlined style={{ color: TOKEN.textMuted, fontSize: 10 }} />
           }
@@ -857,6 +858,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               }}
               allowClear
               onClear={() => setOutputColumns([])}
+              showSearch
               notFoundContent={
                 <span style={{ fontSize: 11, color: TOKEN.textMuted }}>
                   请先配置数据源和目标列

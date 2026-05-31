@@ -968,6 +968,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                   notFoundContent={
                     <span style={{ fontSize: 11, color: TOKEN.textMuted }}>请先配置统计列</span>
                   }
+                  showSearch
                 >
                   {aliasOptions.map((alias) => (
                     <Select.Option key={alias} value={alias}>
@@ -1083,6 +1084,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                           请先配置统计列或分组列
                         </span>
                       }
+                      showSearch
                     >
                       {sortAvailableCols.map((col) => (
                         <Select.Option key={col} value={col}>

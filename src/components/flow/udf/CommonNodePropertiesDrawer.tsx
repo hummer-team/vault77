@@ -205,7 +205,7 @@ const ConditionNodeForm: React.FC<{
           onChange={(value) => onUpdate(node.id, { tableName: value, field: '' })}
           style={{ width: '100%' }}
           placeholder="选择数据表"
-        >
+          showSearch>
           {tableNodes.map((tableNode) => {
             const tableData = tableNode.data as { tableName: string };
             return (
@@ -234,7 +234,7 @@ const ConditionNodeForm: React.FC<{
           style={{ width: '100%' }}
           placeholder="选择字段"
           disabled={!data.tableName}
-        >
+          showSearch>
           {tableFields.map((field) => (
             <Option key={field.name} value={field.name}>
               {field.name} ({field.type})
@@ -362,7 +362,7 @@ const ConditionGroupRelationNodeForm: React.FC<{
             placeholder="选择要添加的条件"
             style={{ width: '100%' }}
             onChange={(value) => addCondition(value)}
-          >
+            showSearch>
             {availableConditions.map((condition) => {
               const condData = condition.data as ConditionNodeData;
               return (
