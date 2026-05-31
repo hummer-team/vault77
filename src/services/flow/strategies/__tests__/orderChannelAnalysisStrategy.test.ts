@@ -312,6 +312,10 @@ describe('OrderChannelAnalysisStrategy', () => {
     const warningCard = insights.find((i) => i.iconKey === 'warning');
     expect(warningCard).toBeDefined();
     expect(warningCard?.title).toContain('广告'); // lowest ROI
+    // Metrics must include 订单量 in the same order as Top-N cards
+    const metricLabels = warningCard?.metrics?.map((m) => m.label);
+    expect(metricLabels).toEqual(['订单量', '销售额', 'ROI', '退款率']);
+    expect(warningCard?.metrics?.find((m) => m.label === '订单量')?.value).toBe(200);
   });
 
   it('should sort TOP3 by total_amount DESC (not row order)', async () => {

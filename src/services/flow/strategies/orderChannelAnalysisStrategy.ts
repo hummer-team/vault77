@@ -254,6 +254,7 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
       const label = String(lowestRoi.dimension_label ?? '—');
       const roi = Number(lowestRoi.roi);
       const amount = Number(lowestRoi.total_amount);
+      const orderCnt = Number(lowestRoi.order_count);
       const refundRate = Number(lowestRoi.refund_rate);
 
       insights.push({
@@ -265,9 +266,10 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
         description: `ROI 仅 ${(roi * 100).toFixed(1)}%，销售额 ¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}，退款率 ${(refundRate * 100).toFixed(1)}%`,
         suggestion: `「${label}」ROI 在所有${dimLabel}中最低，建议核查该${dimLabel}的获客成本、客单质量与退款原因，考虑压缩预算或优化投放策略。`,
         metrics: [
-          { label: 'ROI',     value: Number((roi * 100).toFixed(1)),        unit: '%',  highlight: true },
-          { label: '销售额',  value: Math.round(amount),                    unit: '元' },
-          { label: '退款率',  value: Number((refundRate * 100).toFixed(1)), unit: '%' },
+          { label: '订单量',  value: orderCnt,                                  unit: '单' },
+          { label: '销售额',  value: Math.round(amount),                        unit: '元' },
+          { label: 'ROI',     value: Number((roi * 100).toFixed(1)),            unit: '%',  highlight: true },
+          { label: '退款率',  value: Number((refundRate * 100).toFixed(1)),     unit: '%' },
         ],
       });
     }
