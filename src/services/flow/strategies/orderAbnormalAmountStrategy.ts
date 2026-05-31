@@ -541,6 +541,7 @@ export class OrderAbnormalAmountStrategy extends BaseStrategy {
       summary: {
         totalRecordCount: totalCount,
         totalFilterRecordCount: abnormalCount,
+        totalOrderCount: totalCount,
         riskRecordCount: highRiskRows.length + mediumRiskRows.length,
         criticalRecordCount: highRiskRows.length,
         estimatedLoss: estimatedLoss > 0 ? estimatedLoss : undefined,

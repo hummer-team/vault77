@@ -296,6 +296,8 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
 
     // Repurchase users: users with order_count >= 2 (have actually re-ordered)
     const repurchaseUsers = rows.filter(r => Number(r.order_count ?? 0) >= 2).length;
+    // Total order count across all users
+    const totalOrderCount = rows.reduce((s, r) => s + Number(r.order_count ?? 0), 0);
     // Average repurchase cycle days across all users with avg_cycle_days data
     const avgDays = rows.reduce((s, r) => s + Number(r.avg_cycle_days ?? 0), 0) / Math.max(rows.length, 1);
     // At-risk users: 预警 or 已流失
@@ -306,6 +308,7 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
       summary: {
         totalRecordCount: rows.length,
         totalFilterRecordCount: repurchaseUsers,
+        totalOrderCount,
         repurchaseUserCount: repurchaseUsers,
         avgRepurchaseDays: Math.round(avgDays),
       },

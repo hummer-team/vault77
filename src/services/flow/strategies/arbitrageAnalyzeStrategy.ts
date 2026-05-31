@@ -845,6 +845,7 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       summary: {
         totalRecordCount: totalOrders,
         totalFilterRecordCount: riskOrders,
+        totalOrderCount: totalOrders,
         riskRecordCount: mediumAndAbove,
         criticalRecordCount: criticalCount,
         estimatedLoss,

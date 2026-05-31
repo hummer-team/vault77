@@ -536,6 +536,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
         summary: {
           totalRecordCount: totalOrderCount,
           totalFilterRecordCount: rows.length,
+          totalOrderCount,
           peakPeriod: peakPeriod || undefined,
         },
         insights: [{
@@ -564,6 +565,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
         summary: {
           totalRecordCount: totalOrderCount,
           totalFilterRecordCount: rows.length,
+          totalOrderCount,
         },
         insights: [{
           id: 'amount-distribution',
@@ -591,6 +593,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
         summary: {
           totalRecordCount: totalOrderCount,
           totalFilterRecordCount: rows.length,
+          totalOrderCount,
           topRegion: topRegion || undefined,
         },
         insights: [{
@@ -613,6 +616,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
         summary: {
           totalRecordCount: totalOrderCount,
           totalFilterRecordCount: rows.length,
+          totalOrderCount,
         },
         insights: [{
           id: 'distribution-overview',

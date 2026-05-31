@@ -314,6 +314,7 @@ describe('ArbitrageAnalyzeStrategy', () => {
     // Summary fields
     expect(id.summary?.totalRecordCount).toBe(4);       // total orders
     expect(id.summary?.totalFilterRecordCount).toBe(3); // risk orders (score > 0)
+    expect(id.summary?.totalOrderCount).toBe(4);        // total order count tile
     expect(id.summary?.riskRecordCount).toBe(3);        // 中+高+严重
     expect(id.summary?.criticalRecordCount).toBe(1);    // 严重 only
 
