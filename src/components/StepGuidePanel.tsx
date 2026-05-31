@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Upload, Tag, Tooltip, Spin, Dropdown } from 'antd';
+import { Upload, Tag, Tooltip, Spin, Popover } from 'antd';
 import type { UploadProps } from 'antd';
-import type { MenuProps } from 'antd';
 import {
   PaperClipOutlined,
   PartitionOutlined,
@@ -13,7 +12,8 @@ import {
 } from '@ant-design/icons';
 import type { Attachment } from '../types/workbench.types';
 import { vmConfirm } from '../utils/vmDialog';
-import { getKernelPickerOptions } from '../utils/kernelPickerUtils';
+import { bizKernelService } from '../services/biz-kernels/bizKernelService';
+import KernelPickerPanel from './flow/KernelPickerPanel';
 
 interface StepGuidePanelProps {
   /** Current active step (1=upload, 2=build flow, 3=insight) */
@@ -427,6 +427,9 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
   isDisabled,
   isAnyUploading,
 }) => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const appliedKernels = useMemo(() => bizKernelService.getAppliedKernels(), []);
+
   // Step 2 should also be non-interactive while attachments are still being parsed
   const step2Blocked = step.num === 2 && isAnyUploading;
 
@@ -512,7 +515,7 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
       );
     }
 
-    const kernelOptions = getKernelPickerOptions();
+    const kernelOptions = appliedKernels;
 
     // No kernels applied — open blank flow directly
     if (kernelOptions.length === 0 || !onKernelSelected) {
@@ -525,50 +528,31 @@ const StepIconButton: React.FC<StepIconButtonProps> = ({
       );
     }
 
-    // Kernels available — show scrollable dropdown (mirrors ChatPanel "/" command UX)
-    const menuItems: MenuProps['items'] = [
-      ...kernelOptions.map(o => ({
-        key: o.kernelName,
-        label: o.label,
-      })),
-      { type: 'divider' as const },
-      { key: '__blank__', label: '空白分析流' },
-    ];
-
-    const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-      if (key === '__blank__') {
-        onBuildFlow();
-      } else {
-        onKernelSelected(key);
-      }
-    };
-
+    // Kernels available — show KernelPickerPanel inside a Popover
     return (
-      <Dropdown
-        menu={{ items: menuItems, onClick: handleMenuClick }}
-        trigger={['click']}
+      <Popover
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        trigger="click"
         placement="top"
-        popupRender={(menu) => (
-          <div
-            style={{
-              maxHeight: 280,
-              overflowY: 'auto',
-              borderRadius: 8,
-              boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
-              background: 'var(--vm-bg-card)',
-              border: '1px solid var(--vm-border-mid)',
+        arrow={false}
+        styles={{ content: { padding: 0 }, root: { padding: 0 } }}
+        content={
+          <KernelPickerPanel
+            kernels={appliedKernels}
+            onSelect={(kernelName) => {
+              setPickerOpen(false);
+              onKernelSelected(kernelName);
             }}
-          >
-            {menu}
-          </div>
-        )}
+          />
+        }
       >
         <Tooltip title="点击选择分析模板">
           <div className="step-icon-box" style={iconBoxStyle}>
             <step.Icon style={iconStyle} />
           </div>
         </Tooltip>
-      </Dropdown>
+      </Popover>
     );
   }
 
