@@ -335,6 +335,38 @@ const SERIES_COLORS = [
   '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc',
 ];
 
+/**
+ * Max category count below which data labels are shown on bar/line charts.
+ * Above these thresholds the chart is too dense and labels would overlap.
+ */
+const LABEL_MAX_BAR  = 15;
+const LABEL_MAX_LINE = 20;
+
+/**
+ * Build a series label config for bar / line charts.
+ * - 'top'    : value above the bar/point — use theme text color
+ * - 'inside' : value inside the bar (stacked) — always white for contrast
+ * hideOverlap: true lets ECharts automatically suppress labels that would collide.
+ */
+function makeSeriesLabel(
+  show: boolean,
+  position: 'top' | 'inside',
+  ec: EChartsColors,
+  thousandsSep: boolean,
+): object {
+  return {
+    show,
+    position,
+    fontSize: 10,
+    fontWeight: 500,
+    color: position === 'inside' ? 'rgba(255,255,255,0.88)' : ec.textPrimary,
+    hideOverlap: true,
+    formatter: thousandsSep
+      ? (p: { value: number | string }) => formatValue(Number(p.value), true)
+      : '{c}',
+  };
+}
+
 function makeTooltip(ec: EChartsColors, thousandsSep: boolean): object {
   return {
     trigger: 'axis',
@@ -467,6 +499,7 @@ export function buildBarOption(
       stack: stacked && !dual ? 'total' : undefined,
       yAxisIndex: dual ? axisIndices[i] : 0,
       itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
+      label: makeSeriesLabel(bins.length <= LABEL_MAX_BAR, stacked ? 'inside' : 'top', ec, thousandsSeparator),
       data: binnedData[i],
     }));
 
@@ -506,6 +539,7 @@ export function buildBarOption(
       stack: stacked && !dual ? 'total' : undefined,
       yAxisIndex: dual ? axisIndices[i] : 0,
       itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
+      label: makeSeriesLabel(xCategories.length <= LABEL_MAX_BAR, stacked ? 'inside' : 'top', ec, thousandsSeparator),
       data: xCategories.map((x) => aggMap[x]),
     };
   });
@@ -568,6 +602,7 @@ export function buildLineOption(
       yAxisIndex: dual ? axisIndices[i] : 0,
       itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
       areaStyle: areaFill ? { opacity: 0.2 } : undefined,
+      label: makeSeriesLabel(xCategories.length <= LABEL_MAX_LINE, 'top', ec, thousandsSeparator),
       data: xCategories.map((x) => aggMap[x]),
     };
   });
@@ -658,7 +693,17 @@ export function buildPieOption(
         radius: ['35%', '65%'],
         center: ['40%', '50%'],
         data: pieData,
-        label: { color: ec.textSecondary, fontSize: 11 },
+        label: {
+          show: true,
+          color: ec.textSecondary,
+          fontSize: 11,
+          formatter: thousandsSeparator
+            ? (p: unknown) => {
+                const param = p as { name: string; value: number; percent: number };
+                return `${param.name}: ${formatValue(param.value, true)} (${param.percent.toFixed(1)}%)`;
+              }
+            : '{b}: {d}%',
+        },
         labelLine: { lineStyle: { color: ec.borderMid } },
       },
     ],
@@ -796,8 +841,20 @@ export function buildFunnelOption(
         type: 'funnel',
         left: '10%',
         width: '80%',
-        label: { color: ec.textPrimary, fontSize: 12 },
-        labelLine: { lineStyle: { color: ec.borderMid } },
+        label: {
+          show: true,
+          position: 'inside',
+          color: 'rgba(255,255,255,0.92)',
+          fontSize: 12,
+          fontWeight: 500,
+          formatter: thousandsSeparator
+            ? (p: unknown) => {
+                const param = p as { name: string; value: number };
+                return `${param.name}: ${formatValue(param.value, true)}`;
+              }
+            : '{b}: {c}',
+        },
+        labelLine: { show: false },
         data: funnelData,
       },
     ],
