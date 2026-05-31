@@ -13,6 +13,7 @@ import {
   Button,
   Collapse,
   Drawer,
+  InputNumber,
   Radio,
   Select,
   Space,
@@ -26,6 +27,7 @@ import {
   FundOutlined,
   InfoCircleOutlined,
   RiseOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import type { OrderChannelAnalysisConfig, ChannelDimension, RefundRateMode } from '../../../services/flow/types';
 import { TOKEN } from '../../../theme';
@@ -63,6 +65,8 @@ const DEFAULT_CONFIG: OrderChannelAnalysisConfig = {
   netAmountCol:    '',
   grossProfitCol:  '',
   refundRateMode:  'count',
+  roiThreshold:    0.3,
+  topN:            3,
 };
 
 const DIMENSION_OPTIONS: { value: ChannelDimension; label: string; hint: string }[] = [
@@ -174,6 +178,8 @@ export const OrderChannelAnalysisDrawer: React.FC<OrderChannelAnalysisDrawerProp
   const [refundRateMode, setRefundRateMode] = useState<RefundRateMode>('count');
   const [isRefundCol, setIsRefundCol]       = useState('');
   const [refundAmountCol, setRefundAmountCol] = useState('');
+  const [roiThreshold, setRoiThreshold]     = useState<number>(0.3);
+  const [topN, setTopN]                     = useState<number>(3);
 
   // Restore / reset on open; auto-match when no prior config
   useEffect(() => {
@@ -184,6 +190,8 @@ export const OrderChannelAnalysisDrawer: React.FC<OrderChannelAnalysisDrawerProp
     setRefundRateMode(cfg.refundRateMode ?? 'count');
     setIsRefundCol(cfg.isRefundCol ?? '');
     setRefundAmountCol(cfg.refundAmountCol ?? '');
+    setRoiThreshold(cfg.roiThreshold ?? 0.3);
+    setTopN(cfg.topN ?? 3);
 
     setDimensionCol(cfg.dimensionCol   || autoMatch(columns, cfg.dimension ?? 'channel'));
     setOrderIdCol(cfg.orderIdCol       || autoMatch(columns, 'orderIdCol'));
@@ -226,13 +234,15 @@ export const OrderChannelAnalysisDrawer: React.FC<OrderChannelAnalysisDrawerProp
       netAmountCol,
       grossProfitCol,
       refundRateMode,
+      roiThreshold,
+      topN,
       ...(isRefundCol    ? { isRefundCol }    : {}),
       ...(refundAmountCol ? { refundAmountCol } : {}),
     };
     onConfirm(config);
   }, [
     dimension, dimensionCol, orderIdCol, netAmountCol, grossProfitCol,
-    refundRateMode, isRefundCol, refundAmountCol,
+    refundRateMode, isRefundCol, refundAmountCol, roiThreshold, topN,
     messageApi, onConfirm,
   ]);
 
@@ -425,7 +435,50 @@ export const OrderChannelAnalysisDrawer: React.FC<OrderChannelAnalysisDrawerProp
           )}
         </Section>
 
-        {/* ── Section 4: Usage tips (collapsible) ─────────────────────── */}
+        {/* ── Section 4: Analysis Preferences ─────────────────────── */}
+        <Section icon={<SettingOutlined />} title="分析偏好">
+          {/* topN: how many top channels to surface */}
+          <div style={rowStyle}>
+            <Text style={labelStyle}>重点渠道数</Text>
+            <Tooltip title="按销售额从高到低，生成前 N 个渠道的分析卡片，聚焦核心渠道表现">
+              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+            </Tooltip>
+            <InputNumber
+              min={1}
+              max={10}
+              value={topN}
+              onChange={(v) => setTopN(v ?? 3)}
+              size="small"
+              style={{ width: 80 }}
+              addonAfter="个"
+            />
+            <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 6 }}>
+              默认展示前 3 名
+            </Text>
+          </div>
+
+          {/* roiThreshold: ROI health baseline */}
+          <div style={rowStyle}>
+            <Text style={labelStyle}>ROI 健康基准</Text>
+            <Tooltip title="ROI 高于此值的渠道，将获得「加大投入」的优化建议；低于此值则提示关注盈利效率">
+              <InfoCircleOutlined style={{ color: TOKEN.textMuted, fontSize: 12 }} />
+            </Tooltip>
+            <InputNumber
+              min={0}
+              max={100}
+              value={Math.round(roiThreshold * 100)}
+              onChange={(v) => setRoiThreshold((v ?? 30) / 100)}
+              size="small"
+              style={{ width: 80 }}
+              addonAfter="%"
+            />
+            <Text style={{ fontSize: 11, color: TOKEN.textMuted, marginLeft: 6 }}>
+              默认 30%
+            </Text>
+          </div>
+        </Section>
+
+        {/* ── Section 5: Usage tips (collapsible) ─────────────────────── */}
         <Collapse
           size="small"
           ghost

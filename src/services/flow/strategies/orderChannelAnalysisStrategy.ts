@@ -10,8 +10,9 @@
  *   final → SELECT * FROM agg ORDER BY roi DESC
  *
  * postProcess:
- *   TOP3 channels by total_amount DESC → 3 InsightItems (iconKey: 'order')
+ *   TOP-N channels (topN, default 3) by total_amount DESC → InsightItems (iconKey: 'order')
  *   1 lowest-efficiency channel by roi ASC → 1 InsightItem (iconKey: 'warning')
+ *   roiThreshold (default 0.3) controls the suggestion tone for Top1 channel
  */
 
 import { BaseStrategy } from '../strategies';
@@ -206,12 +207,14 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
 
     const dimType = this._lastConfig?.dimension ?? 'channel';
     const dimLabel = DIMENSION_LABEL[dimType] ?? '维度';
+    const topN = Math.max(1, Math.min(10, this._lastConfig?.topN ?? 3));
+    const roiThreshold = this._lastConfig?.roiThreshold ?? 0.3;
 
-    // --- TOP3 by total_amount DESC ---
+    // --- TOP-N by total_amount DESC ---
     const byAmount = [...rows].sort(
       (a, b) => Number(b.total_amount) - Number(a.total_amount)
     );
-    const top3 = byAmount.slice(0, 3);
+    const topRows = byAmount.slice(0, topN);
 
     // --- 1 lowest by roi ASC ---
     const byRoi = [...rows].sort(
@@ -221,8 +224,8 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
 
     const insights: InsightItem[] = [];
 
-    // TOP3 insight cards
-    top3.forEach((row, idx) => {
+    // TOP-N insight cards
+    topRows.forEach((row, idx) => {
       const label = String(row.dimension_label ?? '—');
       const amount = Number(row.total_amount);
       const orderCnt = Number(row.order_count);
@@ -236,7 +239,7 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
         title: `${dimLabel}Top${idx + 1}：${label}`,
         sortOrder: idx + 1,
         description: `销售额 ¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}，ROI ${(roi * 100).toFixed(1)}%，退款率 ${(refundRate * 100).toFixed(1)}%`,
-        suggestion: this.buildTopSuggestion(label, amount, roi, idx),
+        suggestion: this.buildTopSuggestion(label, amount, roi, idx, roiThreshold),
         metrics: [
           { label: '订单量',  value: orderCnt,                                  unit: '单',  highlight: idx === 0 },
           { label: '销售额',  value: Math.round(amount),                        unit: '元' },
@@ -304,17 +307,17 @@ export class OrderChannelAnalysisStrategy extends BaseStrategy {
   // Private helpers
   // ============================================================================
 
-  private buildTopSuggestion(label: string, amount: number, roi: number, rank: number): string {
+  private buildTopSuggestion(label: string, amount: number, roi: number, rank: number, roiThreshold: number): string {
     if (rank === 0) {
-      if (roi > 0.3) {
-        return `「${label}」是最高销售额渠道且 ROI 优秀（${(roi * 100).toFixed(1)}%），建议持续加大投入，优先保障该渠道资源。`;
+      if (roi > roiThreshold) {
+        return `「${label}」是最高销售额渠道且 ROI 优秀（${(roi * 100).toFixed(1)}%，超过基准线 ${(roiThreshold * 100).toFixed(0)}%），建议持续加大投入，优先保障该渠道资源。`;
       }
-      return `「${label}」销售额最高，但 ROI 仍有提升空间，建议分析其高流量是否转化为实际利润。`;
+      return `「${label}」销售额最高，但 ROI 仍有提升空间（${(roi * 100).toFixed(1)}%，低于基准线 ${(roiThreshold * 100).toFixed(0)}%），建议分析其高流量是否转化为实际利润。`;
     }
     if (rank === 1) {
       return `「${label}」排名第 2（销售额 ¥${Math.round(amount).toLocaleString()}），建议对标 Top1 渠道寻找增长差距。`;
     }
-    return `「${label}」排名第 3，销售额 ¥${Math.round(amount).toLocaleString()}，可作为潜力渠道重点跟进。`;
+    return `「${label}」排名第 ${rank + 1}，销售额 ¥${Math.round(amount).toLocaleString()}，可作为潜力渠道重点跟进。`;
   }
 
   private buildEmptyResult(queryResult: { data: unknown[]; schema: unknown[] }): AnalysisResult {

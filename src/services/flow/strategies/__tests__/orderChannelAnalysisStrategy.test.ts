@@ -366,4 +366,76 @@ describe('OrderChannelAnalysisStrategy', () => {
 
     expect(result.insightsData?.summary?.totalRecordCount).toBe(2);
   });
+
+  // ---------- topN ------------------------------------------------------------
+
+  it('should produce topN+1 insights when topN=5 and rows >= 6', async () => {
+    const cfg: OrderChannelAnalysisConfig = { ...baseConfig, topN: 5 };
+    strategy.buildSql([createTableNode(), createSelectNode(cfg)], []);
+
+    const rows = Array.from({ length: 6 }, (_, i) => ({
+      dimension_label: `ch${i}`,
+      order_count: 1000 - i * 100,
+      total_amount: 500000 - i * 50000,
+      total_profit: 100000 - i * 10000,
+      avg_order_value: 500,
+      roi: 0.20 - i * 0.01,
+      refund_rate: 0.05,
+    }));
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+
+    const orderCards = result.insightsData!.insights.filter((i) => i.iconKey === 'order');
+    expect(orderCards.length).toBe(5);
+    expect(result.insightsData!.insights.length).toBe(6); // 5 order + 1 warning
+  });
+
+  it('should produce topN=1 order card + 1 warning for 2-channel dataset', async () => {
+    const cfg: OrderChannelAnalysisConfig = { ...baseConfig, topN: 1 };
+    strategy.buildSql([createTableNode(), createSelectNode(cfg)], []);
+
+    const rows = [
+      { dimension_label: '直播', order_count: 1000, total_amount: 500000, total_profit: 150000, avg_order_value: 500, roi: 0.30, refund_rate: 0.05 },
+      { dimension_label: '广告', order_count: 200,  total_amount: 80000,  total_profit: 5000,   avg_order_value: 400, roi: 0.06, refund_rate: 0.20 },
+    ];
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+
+    const orderCards = result.insightsData!.insights.filter((i) => i.iconKey === 'order');
+    const warnCards  = result.insightsData!.insights.filter((i) => i.iconKey === 'warning');
+    expect(orderCards.length).toBe(1);
+    expect(warnCards.length).toBe(1);
+  });
+
+  // ---------- roiThreshold ----------------------------------------------------
+
+  it('should include roiThreshold in suggestion when top1 roi exceeds threshold', async () => {
+    const cfg: OrderChannelAnalysisConfig = { ...baseConfig, roiThreshold: 0.2 };
+    strategy.buildSql([createTableNode(), createSelectNode(cfg)], []);
+
+    const rows = [
+      { dimension_label: '直播', order_count: 1000, total_amount: 500000, total_profit: 150000, avg_order_value: 500, roi: 0.35, refund_rate: 0.05 },
+      { dimension_label: '广告', order_count: 200,  total_amount: 80000,  total_profit: 5000,   avg_order_value: 400, roi: 0.06, refund_rate: 0.20 },
+    ];
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const top1 = result.insightsData!.insights.find((i) => i.id === 'channel-top-1');
+
+    // roi=0.35 > threshold=0.2 → "加大投入" suggestion and threshold mentioned
+    expect(top1?.suggestion).toContain('加大投入');
+    expect(top1?.suggestion).toContain('20%'); // threshold 20%
+  });
+
+  it('should warn about roi below threshold when top1 roi is below threshold', async () => {
+    const cfg: OrderChannelAnalysisConfig = { ...baseConfig, roiThreshold: 0.5 };
+    strategy.buildSql([createTableNode(), createSelectNode(cfg)], []);
+
+    const rows = [
+      { dimension_label: '直播', order_count: 1000, total_amount: 500000, total_profit: 150000, avg_order_value: 500, roi: 0.30, refund_rate: 0.05 },
+      { dimension_label: '广告', order_count: 200,  total_amount: 80000,  total_profit: 5000,   avg_order_value: 400, roi: 0.06, refund_rate: 0.20 },
+    ];
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const top1 = result.insightsData!.insights.find((i) => i.id === 'channel-top-1');
+
+    // roi=0.30 < threshold=0.5 → "仍有提升空间" suggestion
+    expect(top1?.suggestion).toContain('仍有提升空间');
+    expect(top1?.suggestion).toContain('50%'); // threshold 50%
+  });
 });

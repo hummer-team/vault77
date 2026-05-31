@@ -748,6 +748,16 @@ export interface OrderChannelAnalysisConfig {
   isRefundCol?: string;
   /** Column for refund amount — required when refundRateMode = 'amount' */
   refundAmountCol?: string;
+  /**
+   * ROI health baseline (0–1). Channels above this threshold are flagged as "high quality".
+   * Default: 0.3 (30%).
+   */
+  roiThreshold?: number;
+  /**
+   * Number of top channels (by total_amount) to surface as insight cards.
+   * Default: 3.
+   */
+  topN?: number;
 }
 
 /**
