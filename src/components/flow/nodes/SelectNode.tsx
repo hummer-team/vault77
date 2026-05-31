@@ -34,6 +34,7 @@ import type {
   MarketBasketConfig,
   AbnormalAmountConfig,
   RfmProfileConfig,
+  OrderChannelAnalysisConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -56,6 +57,7 @@ import { InventoryForecastDrawer } from '../udf/InventoryForecastDrawer';
 import { MarketBasketDrawer } from '../udf/MarketBasketDrawer';
 import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
 import RfmDrawer from '../udf/RfmDrawer';
+import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -124,6 +126,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_market_basket:                        OperatorType.MARKET_BASKET,
     fn_ecom_abnormal_amount:                      OperatorType.ABNORMAL_AMOUNT,
     fn_ecom_rfm_profile:                          OperatorType.RFM_PROFILE,
+    fn_ecom_order_channel_analysis:               OperatorType.ORDER_CHANNEL_ANALYSIS,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -266,6 +269,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleOrderChannelAnalysisConfirm = useCallback(
+    (config: OrderChannelAnalysisConfig) => {
+      updateNode(id, { orderChannelAnalysisConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -317,6 +328,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.rfmProfileConfig?.userIdColumn &&
                   data.rfmProfileConfig?.orderTimeColumn &&
                   data.rfmProfileConfig?.amountColumn);
+      case SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER:
+        return !!(data.orderChannelAnalysisConfig?.dimensionCol &&
+                  data.orderChannelAnalysisConfig?.orderIdCol);
       default:
         return false;
     }
@@ -723,6 +737,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelCategory={kernelMeta?.category}
               onConfirm={handleRfmProfileConfirm}
               onClose={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER:
+          return (
+            <OrderChannelAnalysisDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.orderChannelAnalysisConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleOrderChannelAnalysisConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
             />
           );
         default:

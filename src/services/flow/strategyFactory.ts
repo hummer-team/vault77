@@ -20,6 +20,7 @@ import { InventoryForecastStrategy } from './strategies/inventoryForecastStrateg
 import { MarketBasketStrategy } from './strategies/marketBasketStrategy';
 import { OrderAbnormalAmountStrategy } from './strategies/orderAbnormalAmountStrategy';
 import { RfmStrategy } from './strategies/rfmStrategy';
+import { OrderChannelAnalysisStrategy } from './strategies/orderChannelAnalysisStrategy';
 
 /**
  * Strategy Factory
@@ -43,6 +44,7 @@ export class StrategyFactory {
     [OperatorType.MARKET_BASKET,      new MarketBasketStrategy()],
     [OperatorType.ABNORMAL_AMOUNT,    new OrderAbnormalAmountStrategy()],
     [OperatorType.RFM_PROFILE,        new RfmStrategy()],
+    [OperatorType.ORDER_CHANNEL_ANALYSIS, new OrderChannelAnalysisStrategy()],
   ]);
 
   /**

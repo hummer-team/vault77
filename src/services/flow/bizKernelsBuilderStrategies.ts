@@ -41,6 +41,8 @@ export enum SelectNodePanelType {
   ABNORMAL_AMOUNT_DRAWER = 'ABNORMAL_AMOUNT_DRAWER',
   /** RfmDrawer — used for 用户增长 · RFM 用户画像分群 */
   RFM_PROFILE_DRAWER = 'RFM_PROFILE_DRAWER',
+  /** OrderChannelAnalysisDrawer — used for 订单渠道/来源/平台归因分析 */
+  ORDER_CHANNEL_ANALYSIS_DRAWER = 'ORDER_CHANNEL_ANALYSIS_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -73,6 +75,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_market_basket:         SelectNodePanelType.MARKET_BASKET_DRAWER,
   fn_ecom_abnormal_amount:       SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER,
   fn_ecom_rfm_profile:           SelectNodePanelType.RFM_PROFILE_DRAWER,
+  fn_ecom_order_channel_analysis: SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER,
 };
 
 // ============================================================================
@@ -147,6 +150,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.MARKET_BASKET_DRAWER:
     case SelectNodePanelType.ABNORMAL_AMOUNT_DRAWER:
     case SelectNodePanelType.RFM_PROFILE_DRAWER:
+    case SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER:
       actions.openUdfDrawer();
       break;
     default:
