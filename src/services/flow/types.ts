@@ -56,6 +56,7 @@ export enum OperatorType {
   MARKET_BASKET = 'market_basket',  // MBA: association rules mining (frequent co-purchase patterns)
   ABNORMAL_AMOUNT = 'abnormal_amount',  // Risk control: order amount anomaly detection
   RFM_PROFILE = 'rfm_profile',  // User growth: RFM customer segmentation via K-Means WASM
+  ORDER_CHANNEL_ANALYSIS = 'order_channel_analysis',  // Operations: channel/source/platform ROI attribution
 }
 
 export enum LogicType {
@@ -278,6 +279,8 @@ export interface SelectNodeData extends BaseNodeData {
   abnormalAmountConfig?: AbnormalAmountConfig;
   /** Config for fn_ecom_rfm_profile */
   rfmProfileConfig?: RfmProfileConfig;
+  /** Config for fn_ecom_order_channel_analysis */
+  orderChannelAnalysisConfig?: OrderChannelAnalysisConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -712,6 +715,39 @@ export interface RfmProfileConfig {
   nClusters: number;
   /** WASM scaling mode: 0=None, 1=MinMax, 2=Standard (recommended). Default: 2 */
   scalingMode: 0 | 1 | 2;
+}
+
+/** Primary dimension to aggregate by in fn_ecom_order_channel_analysis */
+export type ChannelDimension = 'channel' | 'source' | 'platform' | 'live_room';
+
+/** How to calculate refund rate */
+export type RefundRateMode = 'count' | 'amount';
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_order_channel_analysis.
+ * Groups orders by a single chosen dimension and computes per-channel KPIs.
+ */
+export interface OrderChannelAnalysisConfig {
+  /** Primary grouping dimension type (displayed label in drawer) */
+  dimension: ChannelDimension;
+  /** Actual column name in user data for the selected dimension */
+  dimensionCol: string;
+  /** Order ID column — used for COUNT DISTINCT */
+  orderIdCol: string;
+  /** Net sales amount column */
+  netAmountCol: string;
+  /** Gross profit column */
+  grossProfitCol: string;
+  /**
+   * Refund rate calculation mode:
+   *   'count'  → SUM(is_refund=1) / COUNT(order_id)  (default)
+   *   'amount' → SUM(refund_amount) / SUM(net_amount)
+   */
+  refundRateMode: RefundRateMode;
+  /** Column for 0/1 refund flag — required when refundRateMode = 'count' */
+  isRefundCol?: string;
+  /** Column for refund amount — required when refundRateMode = 'amount' */
+  refundAmountCol?: string;
 }
 
 /**

@@ -501,9 +501,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '3s',
     metadata: {
-      inputFields: ['channel','source','platform','order_id','net_amount','gross_profit'],
-      outputFields: ['channel','order_count','total_amount','total_profit','refund_rate'],
-      constraints: ['需要渠道/来源/平台字段']
+      inputFields: ['channel','source','platform','live_room_id','order_id','net_amount','gross_profit','is_refund','refund_amount'],
+      outputFields: ['dimension_label','order_count','total_amount','total_profit','avg_order_value','roi','refund_rate'],
+      constraints: ['需要渠道/来源/平台/直播间维度字段之一', '需要订单ID、销售额、毛利字段', '退款率需 is_refund 或 refund_amount 字段']
     }
   },
   {

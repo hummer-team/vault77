@@ -226,6 +226,12 @@ export const OPERATOR_CONFIG = {
     icon: '👥',
     color: '#722ed1',
   },
+  order_channel_analysis: {
+    name: '渠道归因分析',
+    description: '聚合各渠道订单量、金额、毛利、客单、ROI，识别高价值与低效渠道',
+    icon: '📊',
+    color: '#1677ff',
+  },
 };
 
 // ============================================================================
