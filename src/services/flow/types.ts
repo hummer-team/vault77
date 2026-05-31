@@ -803,6 +803,12 @@ export interface OrderFunnelAnalysisConfig {
    */
   userIdCol?: string;
   /**
+   * Column name containing order status values.
+   * When provided, the strategy uses this column in the exclusion WHERE clause.
+   * Falls back to 'order_status' if omitted.
+   */
+  orderStatusCol?: string;
+  /**
    * Comma-separated order_status values to exclude from analysis
    * (e.g. "cancelled,closed"). Empty string = no filter.
    */

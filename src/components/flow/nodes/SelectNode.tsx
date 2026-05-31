@@ -35,6 +35,7 @@ import type {
   AbnormalAmountConfig,
   RfmProfileConfig,
   OrderChannelAnalysisConfig,
+  OrderFunnelAnalysisConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -58,6 +59,7 @@ import { MarketBasketDrawer } from '../udf/MarketBasketDrawer';
 import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
 import RfmDrawer from '../udf/RfmDrawer';
 import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
+import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -127,6 +129,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_abnormal_amount:                      OperatorType.ABNORMAL_AMOUNT,
     fn_ecom_rfm_profile:                          OperatorType.RFM_PROFILE,
     fn_ecom_order_channel_analysis:               OperatorType.ORDER_CHANNEL_ANALYSIS,
+    fn_ecom_order_funnel_analysis:                OperatorType.ORDER_FUNNEL_ANALYSIS,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -277,6 +280,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleOrderFunnelAnalysisConfirm = useCallback(
+    (config: OrderFunnelAnalysisConfig) => {
+      updateNode(id, { orderFunnelAnalysisConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -331,6 +342,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       case SelectNodePanelType.ORDER_CHANNEL_ANALYSIS_DRAWER:
         return !!(data.orderChannelAnalysisConfig?.dimensionCol &&
                   data.orderChannelAnalysisConfig?.orderIdCol);
+      case SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER:
+        return !!(data.orderFunnelAnalysisConfig?.orderIdCol &&
+                  data.orderFunnelAnalysisConfig?.steps?.order?.colName);
       default:
         return false;
     }
@@ -749,6 +763,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleOrderChannelAnalysisConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER:
+          return (
+            <OrderFunnelAnalysisDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.orderFunnelAnalysisConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleOrderFunnelAnalysisConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

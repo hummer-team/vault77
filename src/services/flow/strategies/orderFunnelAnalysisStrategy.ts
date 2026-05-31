@@ -157,9 +157,10 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
 
     this._lastConfig = cfg;
 
-    const { orderIdCol, steps, userIdCol, excludeStatuses } = cfg;
+    const { orderIdCol, steps, userIdCol, excludeStatuses, orderStatusCol } = cfg;
     const tbl = `"${tableName}"`;
     const oid = `"${orderIdCol}"`;
+    const statusCol = orderStatusCol || 'order_status';
 
     // Build WHERE parts for src CTE
     const whereParts: string[] = [];
@@ -171,7 +172,7 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
         .filter(Boolean);
       if (statusList.length > 0) {
         const quoted = statusList.map((s) => `'${s}'`).join(', ');
-        whereParts.push(`order_status NOT IN (${quoted})`);
+        whereParts.push(`"${statusCol}" NOT IN (${quoted})`);
       }
     }
 
