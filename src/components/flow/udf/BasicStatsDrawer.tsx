@@ -572,6 +572,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           getPopupContainer={() => document.body}
           className="nodrag"
           popupClassName="nodrag"
+          showSearch
           notFoundContent={
             <span style={{ fontSize: 11, color: TOKEN.textMuted }}>无可用列</span>
           }
@@ -810,6 +811,7 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                         getPopupContainer={() => document.body}
                         className="nodrag"
                         popupClassName="nodrag"
+                        showSearch
                       >
                         {groupByAvailableCols.map((c) => (
                           <Select.Option key={c} value={c}>

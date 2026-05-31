@@ -298,6 +298,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
               getPopupContainer={() => document.body}
               className="nodrag"
               popupClassName="nodrag"
+              showSearch
             >
               {colOptions}
             </Select>
@@ -313,6 +314,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
               getPopupContainer={() => document.body}
               className="nodrag"
               popupClassName="nodrag"
+              showSearch
             >
               {colOptions}
             </Select>
@@ -328,6 +330,7 @@ export const RepurchaseCycleDrawer: React.FC<RepurchaseCycleDrawerProps> = ({
               getPopupContainer={() => document.body}
               className="nodrag"
               popupClassName="nodrag"
+              showSearch
             >
               {colOptions}
             </Select>

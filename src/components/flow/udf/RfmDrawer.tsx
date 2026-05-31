@@ -338,6 +338,8 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
               onChange={setUserIdColumn}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
               status={!userIdColumn ? 'error' : undefined}
             />
           </div>
@@ -351,6 +353,8 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
               onChange={setOrderTimeColumn}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
               status={!orderTimeColumn ? 'error' : undefined}
             />
           </div>
@@ -364,6 +368,8 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
               onChange={setAmountColumn}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
               status={!amountColumn ? 'error' : undefined}
             />
           </div>

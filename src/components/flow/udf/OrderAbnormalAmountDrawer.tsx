@@ -146,6 +146,8 @@ const FieldRow: React.FC<{
       placeholder={required ? '必填' : '可选 · 自动推断'}
       onChange={(v) => onChange(v ?? '')}
       options={columns.map((c) => ({ label: c, value: c }))}
+      showSearch
+      filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
       styles={{
         popup: { root: { background: TOKEN.bgBase, borderColor: TOKEN.borderMid } },
       }}

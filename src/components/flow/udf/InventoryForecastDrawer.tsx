@@ -288,6 +288,8 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
               onChange={setSkuCol}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             />
           </div>
           <div style={rowStyle}>
@@ -300,6 +302,8 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
               onChange={setTimeCol}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             />
           </div>
           <div style={rowStyle}>
@@ -312,6 +316,8 @@ export const InventoryForecastDrawer: React.FC<InventoryForecastDrawerProps> = (
               onChange={setDemandCol}
               size="small"
               allowClear
+              showSearch
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
             />
           </div>
         </Section>

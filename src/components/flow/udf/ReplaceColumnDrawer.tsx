@@ -461,6 +461,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           size="small"
           disabled={!rule.sourceTable}
           maxTagCount={0}
+          showSearch
           maxTagPlaceholder={() => {
             const cols = rule.targetColumn;
             if (cols.length === 0) return null;
