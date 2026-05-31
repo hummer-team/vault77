@@ -184,60 +184,6 @@ const labelStyle: React.CSSProperties = {
 const selectStyle: React.CSSProperties = { width: '100%' };
 
 // ============================================================================
-// ColumnRow — label + Select + auto-detected badge
-// ============================================================================
-
-interface ColumnRowProps {
-  label: string;
-  value: string;
-  autoValue: string;      // The column name auto-detected by regex
-  options: { value: string; label: string }[];
-  placeholder: string;
-  onChange: (v: string) => void;
-}
-
-const ColumnRow: React.FC<ColumnRowProps> = ({ label, value, autoValue, options, placeholder, onChange }) => {
-  const isAutoFilled = !!autoValue && value === autoValue;
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={labelStyle}>{label}</span>
-        {isAutoFilled && (
-          <span
-            style={{
-              fontSize: 10,
-              padding: '1px 5px',
-              borderRadius: 3,
-              background: 'var(--vm-primary-light)',
-              color: 'var(--vm-primary)',
-              border: '1px solid var(--vm-primary-border)',
-              lineHeight: 1.6,
-              flexShrink: 0,
-            }}
-          >
-            自动识别
-          </span>
-        )}
-      </div>
-      <Select
-        style={selectStyle}
-        placeholder={placeholder}
-        value={value || undefined}
-        options={options}
-        onChange={onChange}
-        size="small"
-        allowClear
-        showSearch
-        filterOption={(input, opt) =>
-          String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
-        }
-        status={!value ? 'error' : undefined}
-      />
-    </div>
-  );
-};
-
-// ============================================================================
 // nClusters options (2–10)
 // ============================================================================
 
@@ -382,30 +328,45 @@ const RfmDrawer: React.FC<RfmDrawerProps> = ({
       >
         {/* ---- Section 1: Column mapping ---- */}
         <Section icon={<UserOutlined />} title="数据列配置" required>
-          <ColumnRow
-            label="用户ID列"
-            value={userIdColumn}
-            autoValue={autoDetected.userId}
-            options={colOptions}
-            placeholder="选择用户/客户标识列"
-            onChange={setUserIdColumn}
-          />
-          <ColumnRow
-            label="下单时间列"
-            value={orderTimeColumn}
-            autoValue={autoDetected.orderTime}
-            options={colOptions}
-            placeholder="选择订单时间 / 日期列"
-            onChange={setOrderTimeColumn}
-          />
-          <ColumnRow
-            label="金额列"
-            value={amountColumn}
-            autoValue={autoDetected.amount}
-            options={colOptions}
-            placeholder="选择订单金额 / 消费列"
-            onChange={setAmountColumn}
-          />
+          <div style={rowStyle}>
+            <span style={labelStyle}>用户ID列</span>
+            <Select
+              style={selectStyle}
+              placeholder="选择用户/客户标识列"
+              value={userIdColumn || undefined}
+              options={colOptions}
+              onChange={setUserIdColumn}
+              size="small"
+              allowClear
+              status={!userIdColumn ? 'error' : undefined}
+            />
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>下单时间列</span>
+            <Select
+              style={selectStyle}
+              placeholder="选择订单时间 / 日期列"
+              value={orderTimeColumn || undefined}
+              options={colOptions}
+              onChange={setOrderTimeColumn}
+              size="small"
+              allowClear
+              status={!orderTimeColumn ? 'error' : undefined}
+            />
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>金额列</span>
+            <Select
+              style={selectStyle}
+              placeholder="选择订单金额 / 消费列"
+              value={amountColumn || undefined}
+              options={colOptions}
+              onChange={setAmountColumn}
+              size="small"
+              allowClear
+              status={!amountColumn ? 'error' : undefined}
+            />
+          </div>
         </Section>
 
         {/* ---- Section 2: Algorithm parameters ---- */}
