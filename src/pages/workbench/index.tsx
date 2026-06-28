@@ -1346,7 +1346,6 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
               isLlmReady={isLlmReady}
               showInsightSidebar={showInsightSidebar}
               onToggleInsight={toggleInsightSidebar}
-              onToggleFlow={() => setShowFlowModal(true)}
               onKernelSelected={handleKernelSelected}
               kernelFlowHint={kernelFlowHint}
               selectedAttachmentIds={selectedAttachmentIds}

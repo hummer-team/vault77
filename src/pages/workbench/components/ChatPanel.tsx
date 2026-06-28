@@ -41,8 +41,6 @@ interface ChatPanelProps {
   // BI Sidebar control
   showInsightSidebar?: boolean;
   onToggleInsight?: () => void;
-  // Flow button control
-  onToggleFlow?: () => void;
   // Kernel @ mention
   onKernelSelected?: (kernelName: string) => void;
   kernelFlowHint?: string | null;
@@ -81,7 +79,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   isLlmReady = true,
   showInsightSidebar = false,
   onToggleInsight,
-  onToggleFlow,
   onKernelSelected,
   kernelFlowHint,
   selectedAttachmentIds = [],
@@ -137,6 +134,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setErrorBubbleOpen(false);
     setError(null);
   }, [setError]);
+
+  // Flow Popover state — controls the kernel picker popover on the Analysis Flow button
+  const [flowPickerOpen, setFlowPickerOpen] = useState(false);
 
   // Applied kernels for the picker panel — synchronous, no async load needed
   const appliedKernels = useMemo(() => bizKernelService.getAppliedKernels(), []);
@@ -546,22 +546,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               <Upload {...uploadProps}>
                 <Button icon={<PaperClipOutlined />} disabled={isAnalyzing} />
               </Upload>
-              {/* Flow Button - show always but disabled when no attachments */}
-              {onToggleFlow && (
-                  <Tooltip title={
-                    attachments.length === 0
-                        ? "Please upload a file first"
-                        : "Analysis Flow"
-                  }>
-                    <Button
-                        icon={<PartitionOutlined />}
-                        disabled={isAnalyzing || attachments.length === 0}
-                        onClick={onToggleFlow}
-                        type="default"
-                    >
-                    </Button>
-                  </Tooltip>
-              )}
+              {/* Flow Button - Popover with kernel picker, always rendered */}
+              <Popover
+                open={flowPickerOpen}
+                onOpenChange={setFlowPickerOpen}
+                trigger="click"
+                placement="top"
+                arrow={false}
+                styles={{ content: { padding: 0 }, root: { padding: 0 } }}
+                content={
+                  <KernelPickerPanel
+                    naked
+                    kernels={appliedKernels}
+                    onSelect={(kernelName) => {
+                      setFlowPickerOpen(false);
+                      onKernelSelected?.(kernelName);
+                    }}
+                  />
+                }
+              >
+                <Tooltip title={
+                  attachments.length === 0
+                    ? "Please upload a file first"
+                    : "Analysis Flow"
+                }>
+                  <Button
+                    icon={<PartitionOutlined />}
+                    disabled={isAnalyzing || attachments.length === 0}
+                    type="default"
+                    onMouseDown={(e) => e.preventDefault()}
+                  />
+                </Tooltip>
+              </Popover>
               {/* Data Insight Button - show always but disabled when no attachments */}
               {onToggleInsight && (
                 <Tooltip title={
