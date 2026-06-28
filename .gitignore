@@ -23,13 +23,11 @@ design/conditions.md
 design/suanzi.md
 design/*.md
 .qoder
-refactor-plan.md
 .gemini
 GEMINI.md.bak
 CODEBUDDY.md
-TS_INTEGRATION.md
 design/wasm.anomaly.md
-insight-action-plan-final.md
+docs/insight-action-plan-final.md
 docs
 .qoderignore
 design/udf.md
@@ -37,3 +35,4 @@ design/udf_3.md
 prompts/
 *.md
 AGENTS_bak
+.opencode

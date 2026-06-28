@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "skill": {
+      "*": "allow",
+      "pr-review": "allow",
+      "internal-log-view": "ask",
+      "internal-docs-index": "ask",
+      "internal-*": "deny",
+      "experimental-*": "ask"
+    }
+  },
+  "instructions": [
+    ".instructions/rule.instructions.md"
+  ]
+}
