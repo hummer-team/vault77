@@ -9,8 +9,5 @@
       "internal-*": "deny",
       "experimental-*": "ask"
     }
-  },
-  "instructions": [
-    ".instructions/rule.instructions.md"
-  ]
+  }
 }

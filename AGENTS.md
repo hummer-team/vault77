@@ -11,10 +11,6 @@
 |----|------|------|
 | Intent | `AGENTS.md`（本文件）| 项目架构与模块边界 |
 | Authority | `.github/instructions/rule.instructions.md` | 工作流、权限约束、禁止行为 |
-| Constraints | `.github/copilot-instructions.md` | TypeScript/React 技术规范 |
-| Verification | `.github/instructions/codereview.instructions.md` | 交付验收门控 |
-| Strategy | Skill: `vaultmind-operator`（`.github/skills/vaultmind-operator/SKILL.md`）| 算子策略模式规则 + 代码模板（新增算子时自动触发）|
-| Theme | `.github/instructions/theme.instructions.md` | 主题/颜色规范（UI 开发必读）|
 
 > ⛔ **未完成 Feedforward 检查，禁止开始任何代码修改。**
 
@@ -81,21 +77,73 @@ DuckDB WASM Worker（design/udf.sql 注册 MACRO）
 
 ```
 src/
-├── components/         # 通用 UI 组件（flow 节点、抽屉、面板）
-├── pages/              # 页面级组件（workbench、settings）
-├── hooks/              # React Hooks（useDuckDB、useFileParsing 等）
+├── main.tsx                    # Chrome Extension 入口
+├── background.ts               # Service Worker（MV3 Background）
+├── content-script.ts           # Content Script 注入
+├── global.css                  # 全局样式 & CSS 变量
+├── sandbox.ts                  # 沙箱隔离逻辑
+│
+├── components/
+│   ├── chart/                  # ECharts 图表组件（Container/Widget/ConfigPanel）
+│   ├── common/                 # 通用组件（VmDialog 弹窗体系）
+│   ├── flow/                   # 流程画布核心（Canvas/节点/边/抽屉/hooks）
+│   │   ├── nodes/              # 流程节点组件（DataSource/Merge/Join/UDF 等）
+│   │   ├── edges/              # 自定义边（JoinEdge/DeletableEdge）
+│   │   ├── udf/                # UDF 算子配置抽屉
+│   │   ├── controls/           # 画布工具栏
+│   │   ├── hooks/              # useMergeActions / useUpstreamJoinedTables
+│   │   └── contexts/           # FlowAttachmentsContext
+│   ├── insight/                # 洞察可视化组件（热力图/散点图/雷达图/汇总表）
+│   └── layout/                 # 全局布局（AppLayout/Sandbox/ThemeSwitcher）
+│
+├── pages/
+│   ├── workbench/              # 主工作台（ChatPanel/FileDropzone/ResultsDisplay）
+│   ├── biz-kernel-market/      # 业务算子市场
+│   ├── insight/                # 洞察结果页
+│   ├── settings/               # 设置页（Profile）
+│   ├── asset-center/           # 资产中心（模板列表）
+│   ├── session/                # 会话列表
+│   ├── subscription/           # 订阅页
+│   └── feedback/               # 反馈抽屉
+│
+├── hooks/                      # React Hooks（useDuckDB/useFileParsing/useLLMAgent/useAnomaly 等）
+│   └── insight/                # useInsight
+│
 ├── services/
-│   ├── llm/            # Agent 运行时、Skills、PromptManager
-│   ├── flow/           # 算子策略（strategies.ts + strategies/）
-│   ├── userSkill/      # User Skill 持久化与校验
-│   ├── flags/          # 行业功能开关
-│   └── tools/          # LLM 工具（sql_query_tool）
-├── workers/            # DuckDB WASM Worker（受保护）
-├── theme/              # 三主题定义 + useEChartsTheme hook
-├── prompts/            # 行业 system prompt（ecommerce/finance/retail）
-└── store/              # Zustand stores
-
-design/                 # 设计文档与 SQL（udf.sql 算子 MACRO 定义）
+│   ├── llm/                    # Agent 核心（AgentExecutor/AgentRuntime/PromptManager）
+│   │   ├── skills/             # Skill 体系（builtin/core/entities/router/adapters）
+│   │   └── industry/           # 行业 metrics 定义（ecommerce 等）
+│   ├── flow/                   # 流程引擎（strategies.ts + strategies/ + validator）
+│   │   └── strategies/         # 业务算子策略 + UDF 数据清洗策略
+│   ├── insight/                # 洞察服务（聚合/分箱/列推断/上下文构建/报告生成）
+│   │   └── strategies/         # 洞察 Action 策略（Anomaly/Clustering）
+│   ├── anomaly/                # 异常检测服务
+│   ├── clustering/             # 聚类分析服务（含 RFM）
+│   ├── rfm/                    # RFM 聚类专项服务
+│   ├── biz-kernels/            # 业务算子元数据与检索
+│   ├── tools/                  # LLM 工具（duckdbTools/sqlPolicy）
+│   ├── flags/                  # 行业功能开关（featureFlags）
+│   ├── user-skill/             # User Skill 持久化与校验
+│   └── __tests__/              # 服务层测试
+│
+├── workers/
+│   ├── duckdb.worker.ts        # DuckDB WASM Worker（受保护）
+│   ├── anomaly.worker.ts       # 异常检测 Worker
+│   └── clustering.worker.ts    # 聚类分析 Worker
+│
+├── stores/                     # Zustand stores（flowStore/kernelPickerStore）
+├── theme/                      # 三主题定义 + useEChartsTheme hook
+│   └── themes/                 # cyanDark / lightOrange / orangeDark
+├── prompts/                    # 行业 system prompt（ecommerce/finance/retail）
+│   ├── insight/                # 洞察 Action prompt（anomaly/clustering/regression）
+│   └── skills/                 # Skill prompt 模板
+├── types/                      # TypeScript 类型定义（anomaly/clustering/insight/workbench）
+├── config/                     # Persona 配置（personas/personaSuggestions）
+├── constants/                  # 业务常量（anomaly/clustering）
+├── contexts/                   # React Context（DuckDBContext）
+├── utils/                      # 工具函数（arrow/chart/file/csv/logger/tableAnalytics）
+├── status/                     # 应用状态管理（appStatusManager）
+└── test/                       # 测试基础设施（setup）
 ```
 
 ---
