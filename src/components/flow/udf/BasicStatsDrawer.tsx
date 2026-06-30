@@ -23,6 +23,7 @@ import {
   GroupOutlined,
   FilterOutlined,
   SortAscendingOutlined,
+  StarFilled,
 } from '@ant-design/icons';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -219,21 +220,21 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
       }
       setGroupByGranularities(completeGranularities);
       
-      // Initialize columnPrecision: fill missing values with default
+      // Initialize columnPrecision: fill missing values with default (skip * — COUNT(*) needs no precision)
       const precision = initialConfig.columnPrecision ?? {};
       const completePrecision = { ...precision };
       for (const field of initialConfig.aggFields) {
-        if (completePrecision[field.column] === undefined) {
+        if (field.column !== '*' && completePrecision[field.column] === undefined) {
           completePrecision[field.column] = 4;
         }
       }
       setColumnPrecision(completePrecision);
       
-      // Initialize columnPrecisionStrategy: fill missing values with default
+      // Initialize columnPrecisionStrategy: fill missing values with default (skip *)
       const strategy = initialConfig.columnPrecisionStrategy ?? {};
       const completeStrategy = { ...strategy };
       for (const field of initialConfig.aggFields) {
-        if (completeStrategy[field.column] === undefined) {
+        if (field.column !== '*' && completeStrategy[field.column] === undefined) {
           completeStrategy[field.column] = 'ROUND';
         }
       }
@@ -270,12 +271,12 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
           id: uuidv4(),
           column: c,
           func: 'COUNT' as AggFunction,
-          alias: defaultAlias('COUNT', c),
+          alias: c === '*' ? 'row_count' : defaultAlias('COUNT', c),
           distinct: false,
         }));
       
-      // Initialize precision and strategy for new fields
-      const newFieldCols = newFields.map((f) => f.column);
+      // Initialize precision and strategy for new fields (skip * — COUNT(*) needs no precision)
+      const newFieldCols = newFields.filter((f) => f.column !== '*').map((f) => f.column);
       if (newFieldCols.length > 0) {
         setColumnPrecision((prev) => {
           const updated = { ...prev };
@@ -577,6 +578,18 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
             <span style={{ fontSize: 11, color: TOKEN.textMuted }}>无可用列</span>
           }
         >
+          {/* Synthetic * option — fixed first item */}
+          <Select.Option key="*" value="*">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <StarFilled style={{ fontSize: 10, color: TOKEN.primary }} />
+              <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600 }}>*</span>
+              <span style={{ fontSize: 11, color: TOKEN.textMuted }}>(所有行 / count all rows)</span>
+            </div>
+          </Select.Option>
+          {/* Divider via disabled option */}
+          <Select.Option key="__divider__" value="__divider__" disabled>
+            <div style={{ borderTop: `1px solid ${TOKEN.borderSubtle}`, margin: '2px 0' }} />
+          </Select.Option>
           {columns.map((col) => (
             <Select.Option key={col} value={col}>
               <span style={{ fontSize: 12, fontFamily: 'monospace' }}>{col}</span>
@@ -615,7 +628,9 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
               ))}
             </div>
 
-            {aggFields.map((field) => (
+            {aggFields.map((field) => {
+              const isStarCol = field.column === '*';
+              return (
               <div
                 key={field.id}
                 style={{
@@ -624,12 +639,12 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                   gap: 6,
                   alignItems: 'center',
                   padding: '4px 6px',
-                  background: TOKEN.bgRow,
+                  background: isStarCol ? 'var(--vm-surface-lighter)' : TOKEN.bgRow,
                   borderRadius: TOKEN.radius,
                   border: `1px solid ${TOKEN.borderSubtle}`,
                 }}
               >
-                {/* Column name */}
+                {/* Column name — with ★ prefix for * column */}
                 <Text
                   style={{
                     fontSize: 12,
@@ -638,16 +653,21 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
                 >
+                  {isStarCol && <StarFilled style={{ fontSize: 10, color: TOKEN.primary, flexShrink: 0 }} />}
                   {field.column}
                 </Text>
 
-                {/* Agg function dropdown */}
+                {/* Agg function dropdown — locked to COUNT for * column */}
                 <Select
                   value={field.func}
                   onChange={(val: AggFunction) => updateAggField(field.id, { func: val })}
                   size="small"
+                  disabled={field.column === '*'}
                   getPopupContainer={() => document.body}
                   className="nodrag"
                   popupClassName="nodrag"
@@ -660,12 +680,13 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                   ))}
                 </Select>
 
-                {/* DISTINCT checkbox */}
+                {/* DISTINCT checkbox — disabled for * column (COUNT DISTINCT * has no SQL meaning) */}
                 <Checkbox
                   checked={field.distinct ?? false}
                   onChange={(e) =>
                     updateAggField(field.id, { distinct: e.target.checked })
                   }
+                  disabled={field.column === '*'}
                   style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                 />
 
@@ -726,7 +747,8 @@ export const BasicStatsDrawer: React.FC<BasicStatsDrawerProps> = ({
                   <span style={{ fontSize: 10, color: TOKEN.textMuted }}>-</span>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>
