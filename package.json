@@ -17,6 +17,7 @@
     "@duckdb/duckdb-wasm": "^1.33.1-dev20.0",
     "@mlc-ai/web-llm": "^0.2.80",
     "@xyflow/react": "^12.10.0",
+    "agentation": "^3.0.2",
     "antd": "^6.1.3",
     "apache-arrow": "^21.1.0",
     "echarts": "^6.0.0",
