@@ -140,7 +140,7 @@ const InitialWelcomeView: React.FC = () => (
           fontStyle: 'italic',
           textTransform: 'uppercase',
           padding: '0 8px'
-        }} className="neon-glow-text">You Private BI</span> Buddy.
+        }} className="neon-glow-text">You Private Data Analysis</span> Buddy.
       </Typography.Title>
       <Typography.Text style={{ 
         fontSize: 12, 
@@ -174,6 +174,9 @@ const InitialWelcomeView: React.FC = () => (
       </span>
       <span className="capability-tag">
         <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> AI Report Gen
+      </span>
+      <span className="capability-tag">
+        <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> decision
       </span>
     </Space>
   </div>

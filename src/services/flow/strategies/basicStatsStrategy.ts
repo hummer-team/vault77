@@ -197,7 +197,7 @@ export class BasicStatsStrategy extends BaseStrategy {
       
       // Match numeric aggregation patterns: *_count, *_sum, *_avg, *_min, *_max, *_stddev
       if (colName.includes('_count') || colName === 'count') {
-        columnFormatters[col.name] = { type: 'duration_days' as const, unit: '个' };
+        columnFormatters[col.name] = { type: 'duration_days' as const, unit: '' };
         columnTooltips[col.name] = '该分组的记录数或计数值';
       } else if (colName.includes('_sum') || colName === 'sum') {
         columnFormatters[col.name] = { type: 'currency_signed' as const, unit: '元', precision: 2 };
