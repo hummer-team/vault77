@@ -173,10 +173,7 @@ const InitialWelcomeView: React.FC = () => (
         <BulbOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Data Insight
       </span>
       <span className="capability-tag">
-        <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> AI Report Gen
-      </span>
-      <span className="capability-tag">
-        <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> decision
+        <StarOutlined style={{ color: 'var(--vm-primary)', fontSize: 14 }} /> Decision
       </span>
     </Space>
   </div>
