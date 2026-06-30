@@ -99,6 +99,11 @@ export class BasicStatsStrategy extends BaseStrategy {
 
     // Helper: build aggregation expression (with precision if applicable)
     const getAggExpr = (f: typeof config.aggFields[0]): string => {
+      // Special case: COUNT(*) — no column quoting, no DISTINCT, no precision wrapping
+      if (f.column === '*') {
+        return 'COUNT(*)';
+      }
+
       const aggExpr = `${f.func}(${f.distinct ? 'DISTINCT ' : ''}"${f.column}")`;
       
       // Apply precision for numeric result columns

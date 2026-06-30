@@ -252,6 +252,114 @@ describe('BasicStatsStrategy', () => {
     expect(sql).not.toContain('ROUND');
   });
 
+  // ── COUNT(*) special-case tests ──────────────────────────────────────────
+
+  it('should generate COUNT(*) (not COUNT("*")) for column === "*"', () => {
+    const nodes: FlowNode[] = [
+      createTableNode([
+        { name: 'category', type: 'VARCHAR' },
+        { name: 'amount', type: 'DECIMAL' },
+      ]),
+      createSelectNode({
+        tableName: 'orders',
+        aggFields: [
+          { id: '1', column: '*', func: 'COUNT', alias: 'row_count', distinct: false },
+        ],
+        groupByColumns: [],
+        havingFilters: [],
+        sortConfigs: [],
+      }),
+    ];
+
+    const sql = strategy.buildSql(nodes, []);
+
+    expect(sql).toContain('COUNT(*) AS "row_count"');
+    expect(sql).not.toContain('COUNT("*")');
+    expect(sql).not.toContain('DISTINCT');
+    expect(sql).not.toContain('ROUND(COUNT(*)');
+  });
+
+  it('should handle * and regular columns coexisting in the same query', () => {
+    const nodes: FlowNode[] = [
+      createTableNode([
+        { name: 'col1', type: 'VARCHAR' },
+        { name: 'amount', type: 'DECIMAL' },
+      ]),
+      createSelectNode({
+        tableName: 'orders',
+        aggFields: [
+          { id: '1', column: '*', func: 'COUNT', alias: 'row_count', distinct: false },
+          { id: '2', column: 'col1', func: 'COUNT', alias: 'count_col1', distinct: false },
+        ],
+        groupByColumns: [],
+        havingFilters: [],
+        sortConfigs: [],
+      }),
+    ];
+
+    const sql = strategy.buildSql(nodes, []);
+
+    expect(sql).toContain('COUNT(*) AS "row_count"');
+    expect(sql).toContain('COUNT("col1") AS "count_col1"');
+  });
+
+  it('should preserve GROUP BY structure when using COUNT(*)', () => {
+    const nodes: FlowNode[] = [
+      createTableNode([
+        { name: 'category', type: 'VARCHAR' },
+        { name: 'amount', type: 'DECIMAL' },
+      ]),
+      createSelectNode({
+        tableName: 'orders',
+        aggFields: [
+          { id: '1', column: '*', func: 'COUNT', alias: 'row_count', distinct: false },
+          { id: '2', column: 'amount', func: 'SUM', alias: 'total_amount', distinct: false },
+        ],
+        groupByColumns: ['category'],
+        columnPrecision: { amount: 2 },
+        havingFilters: [],
+        sortConfigs: [],
+      }),
+    ];
+
+    const sql = strategy.buildSql(nodes, []);
+
+    expect(sql).toContain('COUNT(*) AS "row_count"');
+    expect(sql).toContain('ROUND(SUM("amount"), 2) AS "total_amount"');
+    expect(sql).toContain('GROUP BY "category"');
+    // Verify GROUP BY is not broken by * column
+    const lines = sql.split('\n');
+    const groupByLine = lines.find((l) => l.includes('GROUP BY'));
+    expect(groupByLine).toBeDefined();
+    expect(groupByLine).not.toContain('*');
+  });
+
+  it('should not regress: regular column aggregation SQL unchanged', () => {
+    const nodes: FlowNode[] = [
+      createTableNode([
+        { name: 'category', type: 'VARCHAR' },
+        { name: 'amount', type: 'DECIMAL' },
+      ]),
+      createSelectNode({
+        tableName: 'orders',
+        aggFields: [
+          { id: '1', column: 'amount', func: 'SUM', alias: 'total_amount', distinct: false },
+          { id: '2', column: 'amount', func: 'AVG', alias: 'avg_amount', distinct: false },
+        ],
+        groupByColumns: ['category'],
+        columnPrecision: { amount: 2 },
+        havingFilters: [],
+        sortConfigs: [],
+      }),
+    ];
+
+    const sql = strategy.buildSql(nodes, []);
+
+    expect(sql).toContain('ROUND(SUM("amount"), 2) AS "total_amount"');
+    expect(sql).toContain('ROUND(AVG("amount"), 2) AS "avg_amount"');
+    expect(sql).not.toContain('COUNT(*)');
+  });
+
   it('should include WHERE clause from condition nodes', () => {
     const nodes: FlowNode[] = [
       createTableNode([
