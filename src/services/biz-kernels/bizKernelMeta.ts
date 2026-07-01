@@ -355,7 +355,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     estimatedTime: '5s',
     metadata: {
       inputFields: ['order_id', 'pay_time', 'ship_time', 'receive_time', 'region', 'carrier'],
-      outputFields: ['region', 'carrier', 'avg_pay_to_ship', 'avg_ship_to_receive'],
+      outputFields: ['region', 'carrier','order_count', 'avg_pay_to_ship', 'avg_ship_to_receive','on_time_delivery_rate','pay_to_ship_compliance_rate','ship_to_receive_compliance_rate'],
       constraints: ['需要支付、发货、签收时间'],
     },
   },
