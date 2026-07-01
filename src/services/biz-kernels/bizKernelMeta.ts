@@ -151,7 +151,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     name: 'fn_ecom_order_distribution',
     displayName: '订单分布分析',
     industry: '电商/订单',
-    category: '基础洞察',
+    category: '运营复盘',
     version: '1.0.0',
     description: '分析订单在时间趋势、金额区间、地域三个维度的分布，支持同比/环比对比',
     detailedDescription:
