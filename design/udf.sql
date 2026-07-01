@@ -374,3 +374,28 @@ CREATE OR REPLACE MACRO ts_to_epoch_ms(val) AS (
             epoch_ms(TRY_CAST(val AS TIMESTAMP))
     END
 );
+
+-- 1. General time difference macro: supports second / minute / hour
+--    Usage: time_diff('hour', pay_time, ship_time)
+CREATE OR REPLACE MACRO time_diff(unit, start_time, end_time) AS
+  CASE
+    WHEN unit = 'second' THEN date_diff('second', start_time, end_time)
+    WHEN unit = 'minute' THEN date_diff('second', start_time, end_time) / 60.0
+    WHEN unit = 'hour'   THEN date_diff('second', start_time, end_time) / 3600.0
+    ELSE NULL
+END;
+
+-- 2. Convenience macros: directly return hours / minutes / seconds (recommended)
+--    Usage: diff_hours(pay_time, ship_time)
+CREATE OR REPLACE MACRO diff_hours(start_time, end_time) AS
+  date_diff('second', start_time, end_time) / 3600.0;
+
+-- 2. Convenience macros: directly return hours / minutes / seconds (recommended)
+--    Usage: diff_hours(pay_time, ship_time)
+CREATE OR REPLACE MACRO diff_minutes(start_time, end_time) AS
+  date_diff('second', start_time, end_time) / 60.0;
+
+-- 2. Convenience macros: directly return hours / minutes / seconds (recommended)
+--    Usage: diff_hours(pay_time, ship_time)
+CREATE OR REPLACE MACRO diff_seconds(start_time, end_time) AS
+  date_diff('second', start_time, end_time);
