@@ -58,6 +58,7 @@ export enum OperatorType {
   RFM_PROFILE = 'rfm_profile',  // User growth: RFM customer segmentation via K-Means WASM
   ORDER_CHANNEL_ANALYSIS = 'order_channel_analysis',  // Operations: channel/source/platform ROI attribution
   ORDER_FUNNEL_ANALYSIS = 'order_funnel_analysis',    // Operations: full-chain order funnel conversion analysis
+  FULFILLMENT_EFFICIENCY = 'fulfillment_efficiency',  // Operations: pay→ship→receive fulfillment time analysis
 }
 
 export enum LogicType {
@@ -284,6 +285,8 @@ export interface SelectNodeData extends BaseNodeData {
   orderChannelAnalysisConfig?: OrderChannelAnalysisConfig;
   /** Config for fn_ecom_order_funnel_analysis */
   orderFunnelAnalysisConfig?: OrderFunnelAnalysisConfig;
+  /** Config for fn_ecom_fulfillment_efficiency */
+  fulfillmentEfficiencyConfig?: FulfillmentEfficiencyConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -813,6 +816,36 @@ export interface OrderFunnelAnalysisConfig {
    * (e.g. "cancelled,closed"). Empty string = no filter.
    */
   excludeStatuses?: string;
+}
+
+// ============================================================================
+// FulfillmentEfficiency Types (fn_ecom_fulfillment_efficiency)
+// ============================================================================
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_fulfillment_efficiency.
+ * Analyses the full-chain fulfillment time from pay → ship → receive,
+ * grouped by region and carrier, with configurable on-time thresholds.
+ */
+export interface FulfillmentEfficiencyConfig {
+  /** Source table name */
+  tableName: string;
+  /** Column name for payment timestamp */
+  payTimeColumn: string;
+  /** Column name for shipping/dispatch timestamp */
+  shipTimeColumn: string;
+  /** Column name for receive/delivery timestamp */
+  receiveTimeColumn: string;
+  /** Column name for region/area grouping */
+  regionColumn: string;
+  /** Column name for carrier/logistics provider grouping */
+  carrierColumn: string;
+  /** Max hours from pay to ship considered on-time (default 24) */
+  payToShipThreshold: number;
+  /** Max hours from ship to receive considered on-time (default 48) */
+  shipToReceiveThreshold: number;
+  /** Max hours from pay to receive considered on-time overall (default 72) */
+  onTimeThreshold: number;
 }
 
 /**

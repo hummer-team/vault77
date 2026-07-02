@@ -238,6 +238,12 @@ export const OPERATOR_CONFIG = {
     icon: '🔽',
     color: '#fa8c16',
   },
+  fulfillment_efficiency: {
+    name: '履约时效分析',
+    description: '拆解支付→发货→签收全链路时长，按区域与物流商聚合达标率与平均时效',
+    icon: '⏱️',
+    color: '#13c2c2',
+  },
 };
 
 // ============================================================================
