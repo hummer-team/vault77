@@ -36,6 +36,7 @@ import type {
   RfmProfileConfig,
   OrderChannelAnalysisConfig,
   OrderFunnelAnalysisConfig,
+  FulfillmentEfficiencyConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -60,6 +61,7 @@ import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
 import RfmDrawer from '../udf/RfmDrawer';
 import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
 import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
+import { FulfillmentEfficiencyDrawer } from '../fulfillmentEfficiency/FulfillmentEfficiencyDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -130,6 +132,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_rfm_profile:                          OperatorType.RFM_PROFILE,
     fn_ecom_order_channel_analysis:               OperatorType.ORDER_CHANNEL_ANALYSIS,
     fn_ecom_order_funnel_analysis:                OperatorType.ORDER_FUNNEL_ANALYSIS,
+    fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -288,6 +291,14 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleFulfillmentEfficiencyConfirm = useCallback(
+    (config: FulfillmentEfficiencyConfig) => {
+      updateNode(id, { fulfillmentEfficiencyConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -345,6 +356,10 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       case SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER:
         return !!(data.orderFunnelAnalysisConfig?.orderIdCol &&
                   data.orderFunnelAnalysisConfig?.steps?.order?.colName);
+      case SelectNodePanelType.FULFILLMENT_EFFICIENCY_DRAWER:
+        return !!(data.fulfillmentEfficiencyConfig?.payTimeColumn &&
+                  data.fulfillmentEfficiencyConfig?.shipTimeColumn &&
+                  data.fulfillmentEfficiencyConfig?.receiveTimeColumn);
       default:
         return false;
     }
@@ -776,6 +791,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleOrderFunnelAnalysisConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.FULFILLMENT_EFFICIENCY_DRAWER:
+          return (
+            <FulfillmentEfficiencyDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.fulfillmentEfficiencyConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleFulfillmentEfficiencyConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
