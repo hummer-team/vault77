@@ -403,3 +403,11 @@ CREATE OR REPLACE MACRO diff_seconds(start_time, end_time) AS
 -- is le_hours
 CREATE OR REPLACE MACRO is_le_hours(start_time, end_time, threshold) AS
   diff_hours(start_time, end_time) <= threshold;
+
+-- is le_second
+CREATE OR REPLACE MACRO is_le_second(start_time, end_time, threshold) AS
+  diff_seconds(start_time, end_time) <= threshold;
+
+-- is le_minutes
+CREATE OR REPLACE MACRO is_le_minutes(start_time, end_time, threshold) AS
+  diff_minutes(start_time, end_time) <= threshold;
