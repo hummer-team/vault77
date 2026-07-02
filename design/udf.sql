@@ -399,3 +399,7 @@ CREATE OR REPLACE MACRO diff_minutes(start_time, end_time) AS
 --    Usage: diff_hours(pay_time, ship_time)
 CREATE OR REPLACE MACRO diff_seconds(start_time, end_time) AS
   date_diff('second', start_time, end_time);
+
+-- is le_hours
+CREATE OR REPLACE MACRO is_le_hours(start_time, end_time, threshold) AS
+  diff_hours(start_time, end_time) <= threshold;
