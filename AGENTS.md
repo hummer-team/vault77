@@ -7,10 +7,10 @@
 
 ## ⚡ Harness Feedforward 检查（按顺序读取）
 
-| 层 | 文件 | 目的 |
-|----|------|------|
-| Intent | `AGENTS.md`（本文件）| 项目架构与模块边界 |
-| Authority | `.github/instructions/rule.instructions.md` | 工作流、权限约束、禁止行为 |
+| 层 | 文件               | 目的 |
+|----|------------------|------|
+| Intent | `AGENTS.md`（本文件） | 项目架构与模块边界 |
+| Authority | `@.opencode/references/rule.md`              | 工作流、权限约束、禁止行为 |
 
 > ⛔ **未完成 Feedforward 检查，禁止开始任何代码修改。**
 
