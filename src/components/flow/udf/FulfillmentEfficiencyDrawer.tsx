@@ -24,8 +24,8 @@ import {
   ClockCircleOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import type { FulfillmentEfficiencyConfig } from '../../../services/flow/types';
-import { FIELD_MATCH_PATTERNS } from '../../../services/flow/strategies/fulfillmentEfficiencyStrategy';
+import type { FulfillmentEfficiencyConfig } from '../../../services/flow/types.ts';
+import { FIELD_MATCH_PATTERNS } from '../../../services/flow/strategies/fulfillmentEfficiencyStrategy.ts';
 import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;

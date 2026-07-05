@@ -62,7 +62,7 @@ import { OrderAbnormalAmountDrawer } from '../udf/OrderAbnormalAmountDrawer';
 import RfmDrawer from '../udf/RfmDrawer';
 import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
 import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
-import { FulfillmentEfficiencyDrawer } from '../fulfillmentEfficiency/FulfillmentEfficiencyDrawer';
+import { FulfillmentEfficiencyDrawer } from '../udf/FulfillmentEfficiencyDrawer.tsx';
 import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
