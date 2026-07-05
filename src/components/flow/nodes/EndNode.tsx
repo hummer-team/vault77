@@ -98,6 +98,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_order_channel_analysis:               OperatorType.ORDER_CHANNEL_ANALYSIS,
     fn_ecom_order_funnel_analysis:                OperatorType.ORDER_FUNNEL_ANALYSIS,
     fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
+    fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {

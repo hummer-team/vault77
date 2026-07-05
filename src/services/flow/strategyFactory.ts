@@ -23,6 +23,7 @@ import { RfmStrategy } from './strategies/rfmStrategy';
 import { OrderChannelAnalysisStrategy } from './strategies/orderChannelAnalysisStrategy';
 import { OrderFunnelAnalysisStrategy } from './strategies/orderFunnelAnalysisStrategy';
 import { FulfillmentEfficiencyStrategy } from './strategies/fulfillmentEfficiencyStrategy';
+import { OrderNetAmountCalcStrategy } from './strategies/orderNetAmountCalcStrategy';
 
 /**
  * Strategy Factory
@@ -49,6 +50,7 @@ export class StrategyFactory {
     [OperatorType.ORDER_CHANNEL_ANALYSIS, new OrderChannelAnalysisStrategy()],
     [OperatorType.ORDER_FUNNEL_ANALYSIS,  new OrderFunnelAnalysisStrategy()],
     [OperatorType.FULFILLMENT_EFFICIENCY, new FulfillmentEfficiencyStrategy()],
+    [OperatorType.NET_AMOUNT_CALC, new OrderNetAmountCalcStrategy()],
   ]);
 
   /**

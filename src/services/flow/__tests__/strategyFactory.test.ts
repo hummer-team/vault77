@@ -41,7 +41,7 @@ describe('StrategyFactory', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(18);
+      expect(strategies).toHaveLength(20);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);

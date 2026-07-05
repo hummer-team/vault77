@@ -37,6 +37,7 @@ import type {
   OrderChannelAnalysisConfig,
   OrderFunnelAnalysisConfig,
   FulfillmentEfficiencyConfig,
+  NetAmountCalcConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -62,6 +63,7 @@ import RfmDrawer from '../udf/RfmDrawer';
 import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
 import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
 import { FulfillmentEfficiencyDrawer } from '../fulfillmentEfficiency/FulfillmentEfficiencyDrawer';
+import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -133,6 +135,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_order_channel_analysis:               OperatorType.ORDER_CHANNEL_ANALYSIS,
     fn_ecom_order_funnel_analysis:                OperatorType.ORDER_FUNNEL_ANALYSIS,
     fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
+    fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -299,6 +302,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleNetAmountCalcConfirm = useCallback(
+    (config: NetAmountCalcConfig) => {
+      updateNode(id, { netAmountCalcConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      // Propagate operatorType to EndNode
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.NET_AMOUNT_CALC } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -360,6 +376,11 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         return !!(data.fulfillmentEfficiencyConfig?.payTimeColumn &&
                   data.fulfillmentEfficiencyConfig?.shipTimeColumn &&
                   data.fulfillmentEfficiencyConfig?.receiveTimeColumn);
+      case SelectNodePanelType.NET_AMOUNT_CALC_DRAWER:
+        return !!(data.netAmountCalcConfig?.fieldMapping?.payAmountCol &&
+                  data.netAmountCalcConfig?.fieldMapping?.refundAmountCol &&
+                  data.netAmountCalcConfig?.fieldMapping?.rejectionAmountCol &&
+                  data.netAmountCalcConfig?.fieldMapping?.orderStatusCol);
       default:
         return false;
     }
@@ -804,6 +825,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleFulfillmentEfficiencyConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.NET_AMOUNT_CALC_DRAWER:
+          return (
+            <OrderNetAmountCalcDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.netAmountCalcConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleNetAmountCalcConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

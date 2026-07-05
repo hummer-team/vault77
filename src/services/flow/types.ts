@@ -59,6 +59,7 @@ export enum OperatorType {
   ORDER_CHANNEL_ANALYSIS = 'order_channel_analysis',  // Operations: channel/source/platform ROI attribution
   ORDER_FUNNEL_ANALYSIS = 'order_funnel_analysis',    // Operations: full-chain order funnel conversion analysis
   FULFILLMENT_EFFICIENCY = 'fulfillment_efficiency',  // Operations: pay→ship→receive fulfillment time analysis
+  NET_AMOUNT_CALC = 'net_amount_calc',  // Order accounting: net amount after refund/rejection
 }
 
 export enum LogicType {
@@ -287,6 +288,8 @@ export interface SelectNodeData extends BaseNodeData {
   orderFunnelAnalysisConfig?: OrderFunnelAnalysisConfig;
   /** Config for fn_ecom_fulfillment_efficiency */
   fulfillmentEfficiencyConfig?: FulfillmentEfficiencyConfig;
+  /** Config for fn_ecom_order_net_amount_calc */
+  netAmountCalcConfig?: NetAmountCalcConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -846,6 +849,53 @@ export interface FulfillmentEfficiencyConfig {
   shipToReceiveThreshold: number;
   /** Max hours from pay to receive considered on-time overall (default 72) */
   onTimeThreshold: number;
+}
+
+// ============================================================================
+// NetAmountCalc Types (fn_ecom_order_net_amount_calc)
+// ============================================================================
+
+/**
+ * A single formula slot: operator (+/-) and column name.
+ * Used in the structured formula builder for net amount calculation.
+ */
+export interface FormulaSlot {
+  operator: '+' | '-';
+  column: string;
+}
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_order_net_amount_calc.
+ * Row-level atomic calculation: net_amount = pay_amount - refund_amount - rejection_amount.
+ * When order_status is in excludedStatuses, net_amount is forced to 0.
+ */
+export interface NetAmountCalcConfig {
+  fieldMapping: {
+    /** Required: actual payment amount column */
+    payAmountCol: string;
+    /** Required: refund amount column */
+    refundAmountCol: string;
+    /** Required: rejection amount column */
+    rejectionAmountCol: string;
+    /** Required: order status column */
+    orderStatusCol: string;
+    /** Optional: order ID column for downstream grouping */
+    orderIdCol?: string;
+    /** Optional: user ID column for downstream grouping */
+    userIdCol?: string;
+    /** Optional: SKU ID column for downstream grouping */
+    skuIdCol?: string;
+    /** Optional: order time column for downstream grouping */
+    orderTimeCol?: string;
+  };
+  /** Structured formula: 3 slots with operator */
+  formulaSlots: {
+    slot1: FormulaSlot;
+    slot2: FormulaSlot;
+    slot3: FormulaSlot;
+  };
+  /** Comma-separated excluded statuses, default 'CANCELLED' */
+  excludedStatuses: string;
 }
 
 /**
