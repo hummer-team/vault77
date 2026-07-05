@@ -433,8 +433,13 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
         'sku_id',
         'order_time',
         'net_amount',
+        'net_amount_rounded',
+        'refund_rate',
+        'refund_rate_percent',
+        'refund_risk_tag',
         'is_valid',
-        'refund_rate'
+        'is_abnormal',
+        'order_status_cn'
       ],
       constraints: [
         '必须同时传入实付金额(pay_amount)、退款金额(refund_amount)、拒签金额(rejection_amount)和订单状态(order_status)。',
