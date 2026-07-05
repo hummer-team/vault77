@@ -4,14 +4,14 @@
  * Builds DuckDB SQL for fn_ecom_order_net_amount_calc (订单净额计算 — 退款后实收).
  *
  * SQL pipeline (CTE):
- *   base_calc → per-row net_amount + refund_rate with COALESCE + excluded status handling
+ *   src        → filtered source table (userWhere injected here)
+ *   base_calc  → per-row net_amount + refund_rate with COALESCE + excluded status handling
  *   SELECT * FROM base_calc
  *
  * postProcess:
- *   Enriches 5 derived fields + generates 3 InsightItem cards.
+ *   Enriches 5 derived fields (net_amount_rounded, refund_rate_percent,
+ *   refund_risk_tag, is_abnormal, order_status_cn) + generates 3 InsightItem cards.
  *   Empty result → warning InsightItem.
- *
- * Phase 0 stub — full implementation in Phase 1.
  */
 
 import { BaseStrategy } from '../strategies';
@@ -28,6 +28,7 @@ import {
   type NetAmountCalcConfig,
   type ValidationError,
 } from '../types';
+import { logger } from '../../../utils/logger';
 
 // ============================================================================
 // Field match patterns — exported for Drawer auto-match
@@ -108,6 +109,9 @@ export class OrderNetAmountCalcStrategy extends BaseStrategy {
   readonly type = OperatorType.NET_AMOUNT_CALC;
   readonly name = '订单净额计算（退款后实收）';
 
+  /** Shared config between buildOperatorSql and postProcess (strategy-pattern-rules §三) */
+  private _lastConfig: NetAmountCalcConfig | null = null;
+
   getRequiredNodes(): FlowNodeType[] {
     return [FlowNodeType.TABLE];
   }
@@ -168,9 +172,12 @@ export class OrderNetAmountCalcStrategy extends BaseStrategy {
       ?.netAmountCalcConfig;
 
     if (!tableName || !cfg) {
-      console.warn(`[${this.name}.buildOperatorSql] missing table or config — returning empty`);
+      logger.warn(`[${this.name}.buildOperatorSql] missing table or config — returning empty`);
       return 'SELECT 1 WHERE false';
     }
+
+    // Store config for postProcess (strategy-pattern-rules §三)
+    this._lastConfig = cfg;
 
     const tbl = `"${tableName}"`;
     const fm = cfg.fieldMapping;
@@ -249,6 +256,10 @@ ${optionalColsStr}    ${payCol} AS pay_amount,
     if (rows.length === 0) {
       return this._buildEmptyResult(queryResult);
     }
+
+    // Retrieve config stored by buildOperatorSql (strategy-pattern-rules §三)
+    const _cfg = this._lastConfig ?? DEFAULT_NET_AMOUNT_CONFIG;
+    logger.debug(`[${this.name}.postProcess] processing ${rows.length} rows, excludedStatuses=${_cfg.excludedStatuses}`);
 
     // Safe number conversion
     const safeNum = (v: number | bigint | null | undefined): number => {
