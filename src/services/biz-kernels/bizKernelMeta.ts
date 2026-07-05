@@ -427,7 +427,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
         'rejection_amount',
         'order_status'
       ],
-      'outputFields': [
+      outputFields: [
         'order_id',
         'user_id',
         'sku_id',
