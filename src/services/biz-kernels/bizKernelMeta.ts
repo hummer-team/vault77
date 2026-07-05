@@ -339,6 +339,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
   },
 
   // 运营细节 - 履约时效
+  // done
   {
     name: 'fn_ecom_fulfillment_efficiency',
     displayName: '履约时效分析',
@@ -407,19 +408,42 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     displayName: '订单净额计算（退款后实收）',
     industry: '电商/订单',
     category: '订单核算',
-    version: '1.0.0',
+    version: '1.0.1',
     description: '自动计算退款/取消后真实营收净额',
-    detailedDescription:
-        '按电商标准口径计算：订单净额 = 实付金额 - 退款金额 - 拒签金额，自动剔除取消订单，支持按订单/用户/商品三级汇总，解决财务与运营口径不一致问题。',
+    detailedDescription: '原子型行级计算：订单净额 = 实付金额 - 退款金额 - 拒签金额。当订单状态为已取消时强制归零，不做内部聚合，通过透传维度ID支持下游订单/用户/商品三级汇总。',
     author: 'official',
     likes: 320,
     credits: 180,
     dataVolume: '10w order',
     estimatedTime: '2s',
     metadata: {
-      inputFields: ['order_id','pay_amount','refund_amount','cancel_status','order_status'],
-      outputFields: ['order_id','net_amount','is_valid','refund_rate'],
-      constraints: ['需要实付金额、退款金额、订单状态字段']
+      inputFields: [
+        'order_id',
+        'user_id',
+        'sku_id',
+        'order_time',
+        'pay_amount',
+        'refund_amount',
+        'rejection_amount',
+        'order_status'
+      ],
+      'outputFields': [
+        'order_id',
+        'user_id',
+        'sku_id',
+        'order_time',
+        'net_amount',
+        'is_valid',
+        'refund_rate'
+      ],
+      constraints: [
+        '必须同时传入实付金额(pay_amount)、退款金额(refund_amount)、拒签金额(rejection_amount)和订单状态(order_status)。',
+        'order_status 仅保留单一枚举状态（如：PAID / CANCELLED / REFUNDED / DELIVERED），不再使用 cancel_status，避免状态逻辑互斥。',
+        '原子计算逻辑：当 order_status = CANCELLED 时，net_amount 强制返回 0；否则 net_amount = pay_amount - refund_amount - rejection_amount。',
+        'refund_rate 计算必须做除零保护：若 pay_amount <= 0，则 refund_rate 返回 0，否则返回 refund_amount / pay_amount。',
+        'user_id、sku_id、order_time 为透传维度（不参与净额计算），用于下游引擎按用户/商品/时间维度进行分组聚合分析。',
+        '该算法为行级原子操作，严禁在内部执行 GROUP BY 或跨行汇总。'
+      ]
     }
   },
   {
@@ -636,60 +660,60 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     }
   },
   {
-    "name": "fn_ecom_traffic_conversion_funnel",
-    "displayName": "流量转化漏斗分析（曝光→下单）",
-    "industry": "电商/流量",
-    "category": "运营复盘",
-    "version": "1.0.0",
-    "description": "全链路转化漏斗：曝光→点击→加购→下单→支付成功",
-    "detailedDescription": "自动统计各渠道/页面的流量漏斗转化率，包括曝光量、点击量、加购量、下单量、支付成功量。支持按日/小时维度输出，自动标记流失最严重的环节（如加购未支付、支付失败），帮助运营快速定位转化瓶颈。",
-    "author": "official",
-    "likes": 0,
-    "credits": 200,
-    "dataVolume": "10w 用户行为",
-    "estimatedTime": "5s",
-    "metadata": {
-      "inputFields": ["user_id", "session_id", "event_type", "event_time", "page_url", "product_id", "amount"],
-      "outputFields": ["date", "channel", "impression", "click", "add_to_cart", "order_created", "order_paid", "click_rate", "cart_rate", "order_rate", "payment_rate"],
-      "constraints": ["需要埋点事件类型（impression/click/add_to_cart/create_order/pay_success）"]
+    name: 'fn_ecom_traffic_conversion_funnel',
+    displayName: '流量转化漏斗分析（曝光→下单）',
+    industry: '电商/流量',
+    category: '运营复盘',
+    version: '1.0.0',
+    description: '全链路转化漏斗：曝光→点击→加购→下单→支付成功',
+    detailedDescription: '自动统计各渠道/页面的流量漏斗转化率，包括曝光量、点击量、加购量、下单量、支付成功量。支持按日/小时维度输出，自动标记流失最严重的环节（如加购未支付、支付失败），帮助运营快速定位转化瓶颈。',
+    author: 'official',
+    likes: 0,
+    credits: 200,
+    dataVolume: '10w 用户行为',
+    estimatedTime: '5s',
+    metadata: {
+      inputFields: ['user_id', 'session_id', 'event_type', 'event_time', 'page_url', 'product_id', 'amount'],
+      outputFields: ['date', 'channel', 'impression', 'click', 'add_to_cart', 'order_created', 'order_paid', 'click_rate', 'cart_rate', 'order_rate', 'payment_rate'],
+      constraints: ['需要埋点事件类型（impression/click/add_to_cart/create_order/pay_success）']
     }
   },
   {
-    "name": "fn_ecom_inventory_turnover",
-    "displayName": "库存周转与滞销预警",
-    "industry": "电商/商品",
-    "category": "经营决策",
-    "version": "1.0.0",
-    "description": "计算SKU/类目的库存周转天数、库龄分布、滞销品自动标记",
-    "detailedDescription": "基于销售出库数据和当前库存，自动计算各SKU/类目的库存周转天数（销售成本/平均库存）、库龄分布（30/60/90天以上未动销）。输出滞销品清单（如>60天无销售），并给出清仓建议优先级。帮助运营减少资金占用，优化补货决策。",
-    "author": "official",
-    "likes": 0,
-    "credits": 180,
-    "dataVolume": "10w 订单明细 + 库存快照",
-    "estimatedTime": "6s",
-    "metadata": {
-      "inputFields": ["product_id", "sku_id", "category", "current_stock", "cost_price", "last_sale_date", "daily_sales_qty_30d", "stock_age_days"],
-      "outputFields": ["product_id", "turnover_days", "stock_age_bucket", "is_slow_moving", "slow_moving_days", "suggested_action"],
-      "constraints": ["需要当前库存、最近销售日期或近30天日均销量"]
+    name: 'fn_ecom_inventory_turnover',
+    displayName: '库存周转与滞销预警',
+    industry: '电商/商品',
+    category: '经营决策',
+    version: '1.0.0',
+    description: '计算SKU/类目的库存周转天数、库龄分布、滞销品自动标记',
+    detailedDescription: '基于销售出库数据和当前库存，自动计算各SKU/类目的库存周转天数（销售成本/平均库存）、库龄分布（30/60/90天以上未动销）。输出滞销品清单（如>60天无销售），并给出清仓建议优先级。帮助运营减少资金占用，优化补货决策。',
+    author: 'official',
+    likes: 0,
+    credits: 180,
+    dataVolume: '10w 订单明细 + 库存快照',
+    estimatedTime: '6s',
+    metadata: {
+      inputFields: ['product_id', 'sku_id', 'category', 'current_stock', 'cost_price', 'last_sale_date', 'daily_sales_qty_30d', 'stock_age_days'],
+      outputFields: ['product_id', 'turnover_days', 'stock_age_bucket', 'is_slow_moving', 'slow_moving_days', 'suggested_action'],
+      constraints: ['需要当前库存、最近销售日期或近30天日均销量']
     }
   },
   {
-    "name": "fn_ecom_user_lifecycle_stage",
-    "displayName": "用户生命周期阶段划分",
-    "industry": "电商/用户",
-    "category": "用户增长",
-    "version": "1.0.0",
-    "description": "将用户自动划分为新客、活跃、沉睡、流失、高价值等阶段",
-    "detailedDescription": "基于用户最近下单时间、累计订单金额、购买频次，按照行业标准规则（可自定义阈值）将用户划分为：新客（首单30天内）、活跃（近30天有复购）、普通（30-90天未购）、沉睡（90-180天未购）、流失（>180天未购）、高价值（累计金额Top 10%）。输出各阶段人数、贡献销售额占比，并推荐运营动作（如发送唤醒券）。",
-    "author": "official",
-    "likes": 0,
-    "credits": 150,
-    "dataVolume": "5w 用户",
-    "estimatedTime": "4s",
-    "metadata": {
-      "inputFields": ["user_id", "first_order_time", "last_order_time", "total_amount", "order_count", "avg_order_interval"],
-      "outputFields": ["user_id", "lifecycle_stage", "days_since_last_order", "stage_suggested_action", "is_high_value"],
-      "constraints": ["需要用户首次/末次下单时间、累计金额、订单频次"]
+    name: 'fn_ecom_user_lifecycle_stage',
+    displayName: '用户生命周期阶段划分',
+    industry: '电商/用户',
+    category: '用户增长',
+    version: '1.0.0',
+    description: '将用户自动划分为新客、活跃、沉睡、流失、高价值等阶段',
+    detailedDescription: '基于用户最近下单时间、累计订单金额、购买频次，按照行业标准规则（可自定义阈值）将用户划分为：新客（首单30天内）、活跃（近30天有复购）、普通（30-90天未购）、沉睡（90-180天未购）、流失（>180天未购）、高价值（累计金额Top 10%）。输出各阶段人数、贡献销售额占比，并推荐运营动作（如发送唤醒券）。',
+    author: 'official',
+    likes: 0,
+    credits: 150,
+    dataVolume: '5w 用户',
+    estimatedTime: '4s',
+    metadata: {
+      inputFields: ['user_id', 'first_order_time', 'last_order_time', 'total_amount', 'order_count', 'avg_order_interval'],
+      outputFields: ['user_id', 'lifecycle_stage', 'days_since_last_order', 'stage_suggested_action', 'is_high_value'],
+      constraints: ['需要用户首次/末次下单时间、累计金额、订单频次']
     }
   }
 ];

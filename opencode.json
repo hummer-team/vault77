@@ -9,5 +9,15 @@
       "internal-*": "deny",
       "experimental-*": "ask"
     }
+  },
+  "agent": {
+    "code-review-agent": {
+      "mode": "subagent",
+      "task_budget": 3
+    },
+    "develop-agent": {
+      "mode": "subagent",
+      "task_budget": 3
+    }
   }
 }
