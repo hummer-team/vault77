@@ -398,11 +398,25 @@ ${optionalColsStr}    ${payCol} AS pay_amount,
       },
     };
 
+    // Enrich schema with 9 JS-computed columns
+    const enrichedSchema = [
+      ...(queryResult.schema as { name: string; type: string }[]),
+      { name: 'net_amount', type: 'DOUBLE' },
+      { name: 'net_amount_rounded', type: 'DOUBLE' },
+      { name: 'refund_rate', type: 'DOUBLE' },
+      { name: 'refund_rate_percent', type: 'VARCHAR' },
+      { name: 'refund_risk_tag', type: 'VARCHAR' },
+      { name: 'refund_risk_label', type: 'VARCHAR' },
+      { name: 'is_valid_label', type: 'VARCHAR' },
+      { name: 'is_abnormal', type: 'BOOLEAN' },
+      { name: 'order_status_cn', type: 'VARCHAR' },
+    ];
+
     return {
       type: OperatorType.NET_AMOUNT_CALC,
       sql: '',
       data: enrichedRows as unknown as Record<string, unknown>[],
-      schema: queryResult.schema as unknown[],
+      schema: enrichedSchema as unknown[],
       insightsData,
       displayConfig,
     };
@@ -422,11 +436,25 @@ ${optionalColsStr}    ${payCol} AS pay_amount,
       description: '未查询到有效的订单数据，请检查数据源或筛选条件',
     };
 
+    // Enrich schema with 9 JS-computed columns (consistent with main path)
+    const enrichedSchema = [
+      ...(queryResult.schema as { name: string; type: string }[]),
+      { name: 'net_amount', type: 'DOUBLE' },
+      { name: 'net_amount_rounded', type: 'DOUBLE' },
+      { name: 'refund_rate', type: 'DOUBLE' },
+      { name: 'refund_rate_percent', type: 'VARCHAR' },
+      { name: 'refund_risk_tag', type: 'VARCHAR' },
+      { name: 'refund_risk_label', type: 'VARCHAR' },
+      { name: 'is_valid_label', type: 'VARCHAR' },
+      { name: 'is_abnormal', type: 'BOOLEAN' },
+      { name: 'order_status_cn', type: 'VARCHAR' },
+    ];
+
     return {
       type: OperatorType.NET_AMOUNT_CALC,
       sql: '',
       data: [],
-      schema: queryResult.schema as unknown[],
+      schema: enrichedSchema as unknown[],
       insightsData: { insights: [warningItem] },
       displayConfig: {},
     };

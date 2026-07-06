@@ -506,6 +506,70 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect((fmt?.refund_risk_label as { type: string })?.type).toBe('risk_badge');
   });
 
+  // ---------- postProcess: schema enrichment ----------------------------------
+
+  it('should return enriched schema with all 9 JS-computed columns in postProcess', async () => {
+    const duckdbSchema = [
+      { name: 'order_id', type: 'VARCHAR' },
+      { name: 'pay_amount', type: 'DOUBLE' },
+      { name: 'refund_amount', type: 'DOUBLE' },
+      { name: 'rejection_amount', type: 'DOUBLE' },
+      { name: 'order_status', type: 'VARCHAR' },
+      { name: 'net_amount_raw', type: 'DOUBLE' },
+      { name: 'refund_rate_raw', type: 'DOUBLE' },
+      { name: 'is_valid', type: 'BOOLEAN' },
+    ];
+
+    const rows = [
+      { order_status: 'PAID', net_amount_raw: 100, refund_rate_raw: 0.1, is_valid: true },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: duckdbSchema });
+    const schema = result.schema as Array<{ name: string; type: string }>;
+
+    // DuckDB columns preserved
+    expect(schema.some((s) => s.name === 'pay_amount')).toBe(true);
+    expect(schema.some((s) => s.name === 'net_amount_raw')).toBe(true);
+
+    // 9 JS-computed columns appended
+    const jsColumns = [
+      'net_amount', 'net_amount_rounded', 'refund_rate', 'refund_rate_percent',
+      'refund_risk_tag', 'refund_risk_label', 'is_valid_label', 'is_abnormal', 'order_status_cn',
+    ];
+    for (const col of jsColumns) {
+      expect(schema.some((s) => s.name === col)).toBe(true);
+    }
+
+    // Total = 8 DuckDB + 9 JS = 17
+    expect(schema).toHaveLength(17);
+  });
+
+  it('should return enriched schema with JS-computed columns in _buildEmptyResult', async () => {
+    const duckdbSchema = [
+      { name: 'order_id', type: 'VARCHAR' },
+      { name: 'pay_amount', type: 'DOUBLE' },
+    ];
+
+    const result = await strategy.postProcess({ data: [], schema: duckdbSchema });
+    const schema = result.schema as Array<{ name: string; type: string }>;
+
+    // DuckDB columns preserved
+    expect(schema.some((s) => s.name === 'order_id')).toBe(true);
+    expect(schema.some((s) => s.name === 'pay_amount')).toBe(true);
+
+    // 9 JS-computed columns present
+    const jsColumns = [
+      'net_amount', 'net_amount_rounded', 'refund_rate', 'refund_rate_percent',
+      'refund_risk_tag', 'refund_risk_label', 'is_valid_label', 'is_abnormal', 'order_status_cn',
+    ];
+    for (const col of jsColumns) {
+      expect(schema.some((s) => s.name === col)).toBe(true);
+    }
+
+    // Total = 2 DuckDB + 9 JS = 11
+    expect(schema).toHaveLength(11);
+  });
+
   // ---------- postProcess: raw SQL field preservation -------------------------
 
   it('should preserve raw SQL fields in enrichedRows', async () => {
