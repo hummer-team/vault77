@@ -480,6 +480,23 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect(result.displayConfig?.columnTooltips?.refund_rate).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.is_valid).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.is_valid_label).toBeDefined();
+    expect(result.displayConfig?.columnTooltips?.net_amount_raw).toBeDefined();
+    expect(result.displayConfig?.columnTooltips?.refund_rate_raw).toBeDefined();
+  });
+
+  it('should include columnFormatters for net_amount_raw and refund_rate_raw', async () => {
+    const rows = [
+      { order_status: 'PAID', net_amount_raw: 100, refund_rate_raw: 0.1, is_valid: true },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const fmt = result.displayConfig?.columnFormatters;
+
+    expect(fmt?.net_amount_raw).toBeDefined();
+    expect((fmt?.net_amount_raw as { type: string })?.type).toBe('currency_signed');
+
+    expect(fmt?.refund_rate_raw).toBeDefined();
+    expect((fmt?.refund_rate_raw as { type: string })?.type).toBe('percent_signed');
   });
 
   // ---------- postProcess: raw SQL field preservation -------------------------
