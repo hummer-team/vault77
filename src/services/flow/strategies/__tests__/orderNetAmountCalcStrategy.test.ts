@@ -323,6 +323,7 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect(data[0].refund_rate_percent).toBe('30.00%');
     expect(data[0].refund_risk_tag).toBe('medium');
     expect(data[0].is_valid).toBe(true);
+    expect(data[0].is_valid_label).toBe('有效');
     expect(data[0].is_abnormal).toBe(false);
     expect(data[0].order_status_cn).toBe('已支付');
   });
@@ -357,6 +358,7 @@ describe('OrderNetAmountCalcStrategy', () => {
     const data = result.data as Array<Record<string, unknown>>;
 
     expect(data[0].is_valid).toBe(false);
+    expect(data[0].is_valid_label).toBe('无效');
     expect(data[0].net_amount).toBe(0);
     expect(data[0].order_status_cn).toBe('已取消');
   });
@@ -477,6 +479,7 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect(result.displayConfig?.columnTooltips?.net_amount).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.refund_rate).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.is_valid).toBeDefined();
+    expect(result.displayConfig?.columnTooltips?.is_valid_label).toBeDefined();
   });
 
   // ---------- postProcess: raw SQL field preservation -------------------------

@@ -444,6 +444,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
         'refund_rate_percent',
         'refund_risk_tag',
         'is_valid',
+        'is_valid_label',
         'is_abnormal',
         'order_status_cn'
       ],
