@@ -279,6 +279,7 @@ ${optionalColsStr}    ${payCol} AS pay_amount,
       const orderStatusCn = ORDER_STATUS_CN_MAP[row.order_status?.toUpperCase()] ?? row.order_status ?? '';
 
       return {
+        ...row,
         ...(row.order_id != null ? { order_id: row.order_id } : {}),
         ...(row.user_id != null ? { user_id: row.user_id } : {}),
         ...(row.sku_id != null ? { sku_id: row.sku_id } : {}),
