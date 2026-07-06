@@ -373,7 +373,7 @@ ${optionalColsStr}    ${payCol} AS pay_amount,
       defaultSort: { column: 'net_amount', order: 'descend' },
       columnFormatters: {
         net_amount: { type: 'currency_signed', unit: '元', precision: 2 },
-        net_amount_raw: { type: 'currency_signed', unit: '元', precision: 2 },
+        net_amount_raw: { type: 'currency_signed', unit: '', precision: 2 },
         refund_rate: { type: 'ratio_to_fold', precision: 2 },
         refund_rate_raw: { type: 'percent_signed', precision: 2 },
         refund_risk_label: { type: 'risk_badge' },

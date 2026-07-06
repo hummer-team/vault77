@@ -498,6 +498,7 @@ describe('OrderNetAmountCalcStrategy', () => {
 
     expect(fmt?.net_amount_raw).toBeDefined();
     expect((fmt?.net_amount_raw as { type: string })?.type).toBe('currency_signed');
+    expect((fmt?.net_amount_raw as { unit: string })?.unit).toBe('');
 
     expect(fmt?.refund_rate_raw).toBeDefined();
     expect((fmt?.refund_rate_raw as { type: string })?.type).toBe('percent_signed');
