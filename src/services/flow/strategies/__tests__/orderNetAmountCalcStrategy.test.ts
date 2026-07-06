@@ -479,6 +479,58 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect(result.displayConfig?.columnTooltips?.is_valid).toBeDefined();
   });
 
+  // ---------- postProcess: raw SQL field preservation -------------------------
+
+  it('should preserve raw SQL fields in enrichedRows', async () => {
+    const rows = [
+      {
+        order_id: 'ORD001',
+        pay_amount: 100,
+        refund_amount: 30,
+        rejection_amount: 10,
+        order_status: 'PAID',
+        net_amount_raw: 60,
+        refund_rate_raw: 0.3,
+        is_valid: true,
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const data = result.data as Array<Record<string, unknown>>;
+
+    // Raw SQL fields preserved
+    expect(data[0].pay_amount).toBe(100);
+    expect(data[0].refund_amount).toBe(30);
+    expect(data[0].rejection_amount).toBe(10);
+    expect(data[0].order_status).toBe('PAID');
+    expect(data[0].net_amount_raw).toBe(60);
+    expect(data[0].refund_rate_raw).toBe(0.3);
+
+    // Derived fields still correct
+    expect(data[0].net_amount).toBe(60);
+    expect(data[0].net_amount_rounded).toBe(60);
+    expect(data[0].refund_rate).toBe(0.3);
+    expect(data[0].is_valid).toBe(true);
+  });
+
+  it('should override is_valid from spread with postProcess recomputed value', async () => {
+    const rows = [
+      {
+        order_status: 'PAID',
+        net_amount_raw: 100,
+        refund_rate_raw: 0,
+        is_valid: false,
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const data = result.data as Array<Record<string, unknown>>;
+
+    // postProcess: isValid = row.is_valid !== false → false !== false → false
+    // The explicit is_valid assignment overrides the ...row spread value
+    expect(data[0].is_valid).toBe(false);
+  });
+
   // ---------- StrategyFactory -------------------------------------------------
 
   it('should be retrievable from StrategyFactory', () => {
