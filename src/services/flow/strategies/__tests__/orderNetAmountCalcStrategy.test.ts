@@ -339,8 +339,11 @@ describe('OrderNetAmountCalcStrategy', () => {
     const data = result.data as Array<Record<string, unknown>>;
 
     expect(data[0].refund_risk_tag).toBe('high');
+    expect(data[0].refund_risk_label).toBe('高');
     expect(data[1].refund_risk_tag).toBe('medium');
+    expect(data[1].refund_risk_label).toBe('中');
     expect(data[2].refund_risk_tag).toBe('low');
+    expect(data[2].refund_risk_label).toBe('低');
   });
 
   it('should mark CANCELLED status as is_valid=false and net_amount=0', async () => {
@@ -482,6 +485,7 @@ describe('OrderNetAmountCalcStrategy', () => {
     expect(result.displayConfig?.columnTooltips?.is_valid_label).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.net_amount_raw).toBeDefined();
     expect(result.displayConfig?.columnTooltips?.refund_rate_raw).toBeDefined();
+    expect(result.displayConfig?.columnTooltips?.refund_risk_label).toBeDefined();
   });
 
   it('should include columnFormatters for net_amount_raw and refund_rate_raw', async () => {
@@ -497,6 +501,9 @@ describe('OrderNetAmountCalcStrategy', () => {
 
     expect(fmt?.refund_rate_raw).toBeDefined();
     expect((fmt?.refund_rate_raw as { type: string })?.type).toBe('percent_signed');
+
+    expect(fmt?.refund_risk_label).toBeDefined();
+    expect((fmt?.refund_risk_label as { type: string })?.type).toBe('risk_badge');
   });
 
   // ---------- postProcess: raw SQL field preservation -------------------------
