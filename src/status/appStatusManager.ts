@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logger } from '../utils/logger';
 import { settingsService, UserProfile } from '../services/settingsService.ts';
 
 interface UserState {
@@ -13,13 +14,13 @@ export const useUserStore = create<UserState>((set) => ({
     try {
       const profile = await settingsService.getUserProfile();
       set({ userProfile: profile });
-      console.log('[UserStore] User profile loaded:', profile);
+      logger.info('[UserStore] User profile loaded:', profile);
     } catch (error) {
-      console.error('[UserStore] Failed to fetch user profile:', error);
+      logger.error('[UserStore] Failed to fetch user profile:', error);
     }
   },
   setUserProfile: (profile: UserProfile) => {
     set({ userProfile: profile });
-    console.log('[UserStore] User profile updated:', profile);
+    logger.info('[UserStore] User profile updated:', profile);
   },
 }));

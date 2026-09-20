@@ -1,4 +1,5 @@
-console.log("VaultMind Service Worker: Script loading and running.");
+import { logger } from './utils/logger';
+logger.info("VaultMind Service Worker: Script loading and running.");
 
 /**
  * Opens Vaultmind in a new tab (same window)
@@ -7,7 +8,7 @@ async function openInNewTab(): Promise<void> {
     await chrome.tabs.create({
         url: chrome.runtime.getURL('index.html')
     });
-    console.log('[openInNewTab] New tab opened successfully');
+    logger.info('[openInNewTab] New tab opened successfully');
 }
 
 /**
@@ -20,7 +21,7 @@ async function openInNewWindow(): Promise<void> {
         width: 1400,
         height: 900,
     });
-    console.log('[openInNewWindow] New window opened successfully');
+    logger.info('[openInNewWindow] New window opened successfully');
 }
 
 /**
@@ -34,7 +35,7 @@ const VAULTMIND_CONFIG: { mode: 'new_tab' | 'new_window' } = {
 };
 
 chrome.action.onClicked.addListener(async () => {
-    console.log(`[action.onClicked] Opening Vaultmind with mode: ${VAULTMIND_CONFIG.mode}`);
+    logger.info(`[action.onClicked] Opening Vaultmind with mode: ${VAULTMIND_CONFIG.mode}`);
 
     try {
         // Use switch to handle different open modes
@@ -48,21 +49,21 @@ chrome.action.onClicked.addListener(async () => {
                 break;
         }
     } catch (error) {
-        console.error('[action.onClicked] Error opening Vaultmind:', error);
+        logger.error('[action.onClicked] Error opening Vaultmind:', error);
     }
 });
 
 // Add listener to handle messages from the side panel (e.g., close requests)
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'CLOSE_SIDEBAR') {
-        console.log(`Background script received CLOSE_SIDEBAR message from side panel.`);
+        logger.info(`Background script received CLOSE_SIDEBAR message from side panel.`);
 
         // Query for the active tab in the current window
         chrome.tabs.query({active: true, currentWindow: true})
             .then(async (tabs) => {
                 if (tabs.length > 0 && tabs[0].id !== undefined) {
                     const activeTabId = tabs[0].id;
-                    console.log(`Found active tab ID: ${activeTabId}. Visually closing and disabling side panel.`);
+                    logger.info(`Found active tab ID: ${activeTabId}. Visually closing and disabling side panel.`);
 
                     // Then disable the panel as per official docs
                     await chrome.sidePanel.setOptions({
@@ -71,14 +72,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                         path: 'empty.html'
                     });
 
-                    console.log(`Side panel visually closed and disabled for tab ID: ${activeTabId}.`);
+                    logger.info(`Side panel visually closed and disabled for tab ID: ${activeTabId}.`);
                     sendResponse({status: 'success'});
                 } else {
                     throw new Error("No active tab found or tab ID is missing.");
                 }
             })
             .catch((error) => {
-                console.error(`Error processing CLOSE_SIDEBAR message:`, error);
+                logger.error(`Error processing CLOSE_SIDEBAR message:`, error);
                 sendResponse({status: 'error', message: error.message});
             });
 

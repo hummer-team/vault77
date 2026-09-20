@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   Card,
   Form,
@@ -129,7 +130,7 @@ const ProfilePage: React.FC = () => {
         setLlmConfigs(configs);
       } catch (error) {
         vmMessage.error('Failed to load LLM configurations.');
-        console.error('[ProfilePage] Error loading LLM configs:', error);
+        logger.error('[ProfilePage] Error loading LLM configs:', error);
       }
     };
     loadLlmConfigs();
@@ -141,9 +142,9 @@ const ProfilePage: React.FC = () => {
       try {
         const config = await userSkillService.loadUserSkill();
         setUserSkillConfig(config);
-        console.log('[ProfilePage] User Skill config loaded:', config);
+        logger.info('[ProfilePage] User Skill config loaded:', config);
       } catch (error) {
-        console.error('[ProfilePage] Error loading user skill config:', error);
+        logger.error('[ProfilePage] Error loading user skill config:', error);
       }
     };
     loadUserSkillConfig();
@@ -158,10 +159,10 @@ const ProfilePage: React.FC = () => {
           if (result.schemaCache && typeof result.schemaCache === 'object') {
             const tables = Object.keys(result.schemaCache);
             setAvailableTables(tables);
-            console.log('[ProfilePage] Available tables from session:', tables);
+            logger.info('[ProfilePage] Available tables from session:', tables);
           } else {
             // No schema cache - use mock data for development
-            console.log('[ProfilePage] No schema cache found, using mock data');
+            logger.info('[ProfilePage] No schema cache found, using mock data');
             setAvailableTables(['orders_table', 'users_table']); // Mock tables
           }
         });
@@ -180,7 +181,7 @@ const ProfilePage: React.FC = () => {
         changes: { [key: string]: chrome.storage.StorageChange }
       ) => {
         if (changes.schemaCache) {
-          console.log('[ProfilePage] schemaCache updated, reloading tables');
+          logger.info('[ProfilePage] schemaCache updated, reloading tables');
           loadAvailableTables();
         }
       };
@@ -201,10 +202,10 @@ const ProfilePage: React.FC = () => {
     // Load existing config for this table if available
     if (userSkillConfig?.tables[tableName]) {
       setCurrentTableConfig(userSkillConfig.tables[tableName]);
-      console.log('[ProfilePage] Loaded config for table:', tableName, userSkillConfig.tables[tableName]);
+      logger.info('[ProfilePage] Loaded config for table:', tableName, userSkillConfig.tables[tableName]);
     } else {
       setCurrentTableConfig(null);
-      console.log('[ProfilePage] No existing config for table:', tableName);
+      logger.info('[ProfilePage] No existing config for table:', tableName);
     }
   };
 
@@ -225,16 +226,16 @@ const ProfilePage: React.FC = () => {
           if (schemaCache[selectedTable]) {
             const columns = schemaCache[selectedTable].map((col: { name: string }) => col.name);
             setAvailableColumns(columns);
-            console.log('[ProfilePage] Loaded columns from schema cache:', columns);
+            logger.info('[ProfilePage] Loaded columns from schema cache:', columns);
             return;
           }
         }
         
         // Fallback to mock data for development
         setAvailableColumns(['order_id', 'user_id', 'order_time', 'amount', 'status', 'product_name']);
-        console.log('[ProfilePage] Using mock columns for development');
+        logger.info('[ProfilePage] Using mock columns for development');
       } catch (error) {
-        console.warn('[ProfilePage] Failed to load schema cache, using mock columns:', error);
+        logger.warn('[ProfilePage] Failed to load schema cache, using mock columns:', error);
         setAvailableColumns(['order_id', 'user_id', 'order_time', 'amount', 'status', 'product_name']);
       }
     };
@@ -385,7 +386,7 @@ const ProfilePage: React.FC = () => {
       setIsFilterModalVisible(false);
       filterForm.resetFields();
     } catch (error) {
-      console.error('[ProfilePage] Filter validation failed:', error);
+      logger.error('[ProfilePage] Filter validation failed:', error);
     }
   };
 
@@ -448,7 +449,7 @@ const ProfilePage: React.FC = () => {
       setIsMetricModalVisible(false);
       metricForm.resetFields();
     } catch (error) {
-      console.error('[ProfilePage] Metric validation failed:', error);
+      logger.error('[ProfilePage] Metric validation failed:', error);
     }
   };
 
@@ -474,10 +475,10 @@ const ProfilePage: React.FC = () => {
       setUserSkillConfig(updatedConfig);
       
       vmMessage.success(`Configuration saved for table: ${selectedTable}`);
-      console.log('[ProfilePage] Saved configuration:', currentTableConfig);
+      logger.info('[ProfilePage] Saved configuration:', currentTableConfig);
     } catch (error) {
       vmMessage.error('Failed to save configuration. Check console for details.');
-      console.error('[ProfilePage] Save configuration error:', error);
+      logger.error('[ProfilePage] Save configuration error:', error);
     }
   };
 
@@ -493,10 +494,10 @@ const ProfilePage: React.FC = () => {
       setCurrentTableConfig(null);
       
       vmMessage.success(`Configuration reset for table: ${selectedTable}`);
-      console.log('[ProfilePage] Reset configuration for table:', selectedTable);
+      logger.info('[ProfilePage] Reset configuration for table:', selectedTable);
     } catch (error) {
       vmMessage.error('Failed to reset configuration');
-      console.error('[ProfilePage] Reset configuration error:', error);
+      logger.error('[ProfilePage] Reset configuration error:', error);
     }
   };
 
@@ -511,10 +512,10 @@ const ProfilePage: React.FC = () => {
       setSelectedTable(null);
       
       vmMessage.success('All configurations reset');
-      console.log('[ProfilePage] Reset all configurations');
+      logger.info('[ProfilePage] Reset all configurations');
     } catch (error) {
       vmMessage.error('Failed to reset all configurations');
-      console.error('[ProfilePage] Reset all error:', error);
+      logger.error('[ProfilePage] Reset all error:', error);
     }
   };
 
@@ -533,7 +534,7 @@ const ProfilePage: React.FC = () => {
       setUserProfile(updatedProfile);
     } catch (error) {
       vmMessage.error('Failed to update profile.');
-      console.error('[ProfilePage] Error updating profile:', error);
+      logger.error('[ProfilePage] Error updating profile:', error);
     }
   };
 
@@ -565,7 +566,7 @@ const ProfilePage: React.FC = () => {
         return;
       }
       vmMessage.error('Failed to save LLM config.');
-      console.error('[ProfilePage] Error saving LLM config:', error);
+      logger.error('[ProfilePage] Error saving LLM config:', error);
     }
   };
 

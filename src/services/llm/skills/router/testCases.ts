@@ -7,6 +7,7 @@
  */
 
 import { BusinessEntityType } from '../entities';
+import { logger } from '../../../../utils/logger';
 import { recognizeIntent, recommendSkills } from './intentRecognizer';
 
 /**
@@ -259,33 +260,33 @@ export function runIntentTests(): {
  * Print test results to console.
  */
 export function printTestResults(): void {
-  console.log('\n=== Intent Recognition Test Results ===\n');
+  logger.info('\n=== Intent Recognition Test Results ===\n');
 
   const { passed, failed, accuracy, details } = runIntentTests();
 
-  console.log(`Total Tests: ${INTENT_TEST_CASES.length}`);
-  console.log(`Passed: ${passed}`);
-  console.log(`Failed: ${failed}`);
-  console.log(`Accuracy: ${accuracy.toFixed(2)}%`);
-  console.log(`Target: ≥95%`);
-  console.log(`Status: ${accuracy >= 95 ? '✅ PASS' : '❌ FAIL'}\n`);
+  logger.info(`Total Tests: ${INTENT_TEST_CASES.length}`);
+  logger.info(`Passed: ${passed}`);
+  logger.info(`Failed: ${failed}`);
+  logger.info(`Accuracy: ${accuracy.toFixed(2)}%`);
+  logger.info(`Target: ≥95%`);
+  logger.info(`Status: ${accuracy >= 95 ? '✅ PASS' : '❌ FAIL'}\n`);
 
   // Print failed cases
   if (failed > 0) {
-    console.log('Failed Cases:\n');
+    logger.info('Failed Cases:\n');
     details
       .filter((r) => !r.passed)
       .forEach((r) => {
-        console.log(`[${r.testCase.id}] ${r.testCase.input}`);
-        console.log(`  Expected: ${r.testCase.expectedEntity} (confidence ${r.testCase.expectedConfidence.min}-${r.testCase.expectedConfidence.max})`);
-        console.log(`  Actual: ${r.actual.entityType} (confidence ${r.actual.confidence.toFixed(2)})`);
-        console.log(`  Matched: ${r.actual.matchedKeywords.slice(0, 5).join(', ')}${r.actual.matchedKeywords.length > 5 ? '...' : ''}`);
-        console.log(`  Reason: ${r.reason}\n`);
+        logger.info(`[${r.testCase.id}] ${r.testCase.input}`);
+        logger.info(`  Expected: ${r.testCase.expectedEntity} (confidence ${r.testCase.expectedConfidence.min}-${r.testCase.expectedConfidence.max})`);
+        logger.info(`  Actual: ${r.actual.entityType} (confidence ${r.actual.confidence.toFixed(2)})`);
+        logger.info(`  Matched: ${r.actual.matchedKeywords.slice(0, 5).join(', ')}${r.actual.matchedKeywords.length > 5 ? '...' : ''}`);
+        logger.info(`  Reason: ${r.reason}\n`);
       });
   }
 
   // Print skill recommendation samples
-  console.log('Skill Recommendation Samples:\n');
+  logger.info('Skill Recommendation Samples:\n');
   const samples = [
     INTENT_TEST_CASES[0], // ORDER
     INTENT_TEST_CASES[4], // USER
@@ -295,8 +296,8 @@ export function printTestResults(): void {
   samples.forEach((testCase) => {
     const intent = recognizeIntent(testCase.input);
     const recommendation = recommendSkills(intent);
-    console.log(`[${testCase.id}] ${testCase.input}`);
-    console.log(`  Primary: ${recommendation.primary}`);
-    console.log(`  Related: ${recommendation.related.join(', ')}\n`);
+    logger.info(`[${testCase.id}] ${testCase.input}`);
+    logger.info(`  Primary: ${recommendation.primary}`);
+    logger.info(`  Related: ${recommendation.related.join(', ')}\n`);
   });
 }

@@ -8,6 +8,7 @@ import type {
   AggregatedFeatures, 
   AlgorithmType 
 } from '../../../types/insight-action.types';
+import { logger } from '../../../utils/logger';
 import type { ClusteringAnalysisOutput } from '../../../types/clustering.types';
 import { ActionStrategy, type QueryExecutor } from './BaseActionStrategy';
 import { buildInsightContext } from '../contextBuilder';
@@ -29,7 +30,7 @@ export class ClusteringActionStrategy implements ActionStrategy {
     tableName: string;
     analysisResult: ClusteringAnalysisOutput;
   }): Promise<InsightContext> {
-    console.log('[ClusteringActionStrategy] Building context for table:', params.tableName);
+    logger.info('[ClusteringActionStrategy] Building context for table:', params.tableName);
     
     const context = await buildInsightContext(params.executeQuery, params.tableName);
     
@@ -39,7 +40,7 @@ export class ClusteringActionStrategy implements ActionStrategy {
       algorithmType: 'clustering',
     };
     
-    console.log('[ClusteringActionStrategy] Context built:', {
+    logger.info('[ClusteringActionStrategy] Context built:', {
       domain: clusteringContext.businessDomain,
       columns: clusteringContext.tableMetadata.columnCount,
       totalCustomers: params.analysisResult.totalCustomers,
@@ -58,7 +59,7 @@ export class ClusteringActionStrategy implements ActionStrategy {
     analysisResult: ClusteringAnalysisOutput;
     context: InsightContext;
   }): Promise<AggregatedFeatures> {
-    console.log('[ClusteringActionStrategy] Aggregating cluster data:', {
+    logger.info('[ClusteringActionStrategy] Aggregating cluster data:', {
       totalCustomers: params.analysisResult.totalCustomers,
       numClusters: params.analysisResult.clusters.length,
       gpuUsed: params.analysisResult.metadata.gpuUsed,
@@ -71,7 +72,7 @@ export class ClusteringActionStrategy implements ActionStrategy {
       params.context,
     );
     
-    console.log('[ClusteringActionStrategy] Data aggregated:', {
+    logger.info('[ClusteringActionStrategy] Data aggregated:', {
       totalCustomers: aggregated.totalCustomers,
       numClusters: aggregated.clusters?.length || 0,
       hasRFMStats: !!(aggregated.rfmStats),
@@ -84,11 +85,11 @@ export class ClusteringActionStrategy implements ActionStrategy {
    * Build LLM prompt with Few-Shot examples and structured output
    */
   buildPrompt(context: InsightContext, aggregated: AggregatedFeatures): string {
-    console.log('[ClusteringActionStrategy] Building prompt...');
+    logger.info('[ClusteringActionStrategy] Building prompt...');
     
     const prompt = buildClusteringActionPrompt(context, aggregated);
     
-    console.log('[ClusteringActionStrategy] Prompt built:', {
+    logger.info('[ClusteringActionStrategy] Prompt built:', {
       length: prompt.length,
       hasContext: prompt.includes('业务背景'),
       hasFewShot: prompt.includes('Few-Shot'),

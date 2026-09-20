@@ -17,6 +17,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -66,7 +67,7 @@ function getAnomalyWorker(): Worker {
       new URL('../../../workers/anomaly.worker.ts', import.meta.url),
       { type: 'module' }
     );
-    console.log('[OrderAbnormalAmountStrategy] Anomaly worker created');
+    logger.info('[OrderAbnormalAmountStrategy] Anomaly worker created');
   }
   return _anomalyWorker;
 }
@@ -327,7 +328,7 @@ export class OrderAbnormalAmountStrategy extends BaseStrategy {
     const usedDim = resolveDimension(actualDim);
     const usedKeys = featureKeys.slice(0, usedDim);
 
-    console.log(
+    logger.info(
       `[OrderAbnormalAmountStrategy] Feature dim: ${actualDim} available → ${usedDim} used (${usedKeys.join(', ')})`
     );
 
@@ -368,7 +369,7 @@ export class OrderAbnormalAmountStrategy extends BaseStrategy {
       isAbnormal = result.payload.isAbnormal;
     } catch (err) {
       // Fallback: use |amount_z_score| normalized as proxy for anomaly score
-      console.error(
+      logger.error(
         '[OrderAbnormalAmountStrategy] Worker failed, falling back to z_score ranking:',
         err
       );

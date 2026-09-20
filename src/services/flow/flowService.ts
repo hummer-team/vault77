@@ -4,6 +4,7 @@
  */
 
 import type { Field, FieldType, TableSchema, FlowNode, FlowEdge, JoinEdgeData, TableNodeData } from './types';
+import { logger } from '../../utils/logger';
 import { PLACEHOLDER_CONSTANTS } from './constants';
 
 /**
@@ -25,17 +26,17 @@ export async function getAvailableTables(
 
     return result.data.map((row: { table_name: string }) => row.table_name);
   } catch (error) {
-    console.error('[FlowService] Failed to get tables from information_schema:', error);
+    logger.error('[FlowService] Failed to get tables from information_schema:', error);
     // Fallback: try to get all tables using SHOW TABLES
     try {
       const result = await executeQuery(`SHOW TABLES`);
-      console.log('[FlowService] SHOW TABLES result:', result);
+      logger.info('[FlowService] SHOW TABLES result:', result);
       // Handle different possible column names
       return result.data.map((row: any) => {
         return row.name || row.table_name || row.table || row[Object.keys(row)[0]];
       }).filter((name: string) => name && name.includes('main_table_'));
     } catch (fallbackError) {
-      console.error('[FlowService] Fallback also failed:', fallbackError);
+      logger.error('[FlowService] Fallback also failed:', fallbackError);
       return [];
     }
   }
@@ -65,7 +66,7 @@ export async function getTableSchema(
       fields,
     };
   } catch (error) {
-    console.error(`[FlowService] Failed to get schema for ${tableName}:`, error);
+    logger.error(`[FlowService] Failed to get schema for ${tableName}:`, error);
     return {
       tableName,
       fields: [],
@@ -129,7 +130,7 @@ export async function tableExists(
 
     return result.data[0]?.count > 0;
   } catch (error) {
-    console.error(`[FlowService] Failed to check if table exists: ${tableName}`, error);
+    logger.error(`[FlowService] Failed to check if table exists: ${tableName}`, error);
     return false;
   }
 }
@@ -150,7 +151,7 @@ export async function getTableSample(
       SELECT * FROM "${tableName}" LIMIT ${limit}
     `);
   } catch (error) {
-    console.error(`[FlowService] Failed to get sample from ${tableName}:`, error);
+    logger.error(`[FlowService] Failed to get sample from ${tableName}:`, error);
     return { data: [], schema: [] };
   }
 }
@@ -170,7 +171,7 @@ export async function getTableRowCount(
     `);
     return result.data[0]?.count || 0;
   } catch (error) {
-    console.error(`[FlowService] Failed to get row count for ${tableName}:`, error);
+    logger.error(`[FlowService] Failed to get row count for ${tableName}:`, error);
     return 0;
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import type { InsightActionOutput } from '../../types/insight-action.types';
+import { logger } from '../../utils/logger';
 import { generateZip, type ZipContent } from './zipGenerator';
 
 /**
@@ -118,7 +119,7 @@ export async function downloadReport(input: ReportGenerationInput): Promise<void
   const { tableName, anomalyData } = input;
   const timestamp = Date.now();
   
-  console.log('[ReportGenerator] Starting report generation:', {
+  logger.info('[ReportGenerator] Starting report generation:', {
     tableName,
     anomalyCount: anomalyData.length,
   });
@@ -126,11 +127,11 @@ export async function downloadReport(input: ReportGenerationInput): Promise<void
   try {
     // Generate Markdown report
     const markdown = generateMarkdownReport(input);
-    console.log('[ReportGenerator] Markdown report generated, length:', markdown.length);
+    logger.info('[ReportGenerator] Markdown report generated, length:', markdown.length);
     
     // Generate CSV from anomaly data
     const csv = arrayToCSV(anomalyData);
-    console.log('[ReportGenerator] CSV generated, length:', csv.length);
+    logger.info('[ReportGenerator] CSV generated, length:', csv.length);
     
     // Prepare ZIP contents
     const files: ZipContent[] = [
@@ -148,10 +149,10 @@ export async function downloadReport(input: ReportGenerationInput): Promise<void
     const zipFilename = `${tableName}_anomaly_report_${timestamp}.zip`;
     await generateZip(files, zipFilename);
     
-    console.log('[ReportGenerator] Report download complete');
+    logger.info('[ReportGenerator] Report download complete');
     
   } catch (error) {
-    console.error('[ReportGenerator] Failed to generate report:', error);
+    logger.error('[ReportGenerator] Failed to generate report:', error);
     throw new Error(`Report generation failed: ${(error as Error).message}`);
   }
 }

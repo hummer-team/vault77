@@ -30,6 +30,7 @@ import {
   type ReplaceRule,
   type TableNodeData,
 } from '../types';
+import { logger } from '../../../utils/logger';
 import { UdfBaseStrategy } from './udfBaseStrategy';
 import { escapeSql, buildJoinSubquery } from './udfShared';
 import { getCanvasJoinedTables } from '../flowService';
@@ -48,7 +49,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
   // --------------------------------------------------------------------------
   validate(nodes: FlowNode[], _edges: FlowEdge[]): ValidationError[] {
     const nodeTypes = nodes.map((n) => n.type).join(', ');
-    console.log(`[${this.name}.validate] nodes=[${nodeTypes}]`);
+    logger.info(`[${this.name}.validate] nodes=[${nodeTypes}]`);
 
     const errors: ValidationError[] = [];
 
@@ -56,7 +57,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     if (!udfNode) {
       const msg = '缺少 UDF 配置节点，请在画布中完成算子配置';
       errors.push({ nodeId: 'flow', nodeType: FlowNodeType.END, message: msg, severity: ValidationSeverity.ERROR });
-      console.warn(`[${this.name}.validate] ${msg}`);
+      logger.warn(`[${this.name}.validate] ${msg}`);
       return errors;
     }
 
@@ -89,9 +90,9 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
     }
 
     if (errors.length > 0) {
-      console.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
+      logger.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
     } else {
-      console.log(`[${this.name}.validate] OK — node=${udfNode.id}, rules=${nodeData.replacementRules?.length ?? 0}`);
+      logger.info(`[${this.name}.validate] OK — node=${udfNode.id}, rules=${nodeData.replacementRules?.length ?? 0}`);
     }
     return errors;
   }
@@ -130,7 +131,7 @@ export class UdfReplaceColumnStrategy extends UdfBaseStrategy {
    */
   protected buildUdfSql(nodes: FlowNode[], edges: FlowEdge[], placeholderValues?: Record<string, unknown>): string {
     const nodeTypes = nodes.map((n) => n.type).join(', ');
-    console.log(`[${this.name}.buildUdfSql] nodes=[${nodeTypes}]`);
+    logger.info(`[${this.name}.buildUdfSql] nodes=[${nodeTypes}]`);
 
     const udfNode = this._findUdfConfigNode(nodes);
     if (!udfNode) {

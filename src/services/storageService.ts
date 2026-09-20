@@ -5,6 +5,7 @@
  * This service should not contain any business-specific logic.
  */
 
+import { logger } from '../utils/logger';
 const USE_REMOTE_API = false; // Switch to toggle between local and remote storage
 
 class StorageService {
@@ -21,10 +22,10 @@ class StorageService {
       //   const response = await api.get(`/storage/${key}`);
       //   return response.data.value;
       // } catch (error) {
-      //   console.error(`[StorageService] Failed to get remote item for key: ${key}`, error);
+      //   logger.error(`[StorageService] Failed to get remote item for key: ${key}`, error);
       //   return defaultValue;
       // }
-      console.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
+      logger.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
     }
     
     try {
@@ -32,7 +33,7 @@ class StorageService {
       const value = result[key];
       return value === undefined ? defaultValue : (value as T);
     } catch (error) {
-      console.error(`[StorageService] Failed to get local item for key: ${key}`, error);
+      logger.error(`[StorageService] Failed to get local item for key: ${key}`, error);
       return defaultValue;
     }
   }
@@ -50,16 +51,16 @@ class StorageService {
       //   await api.post(`/storage/${key}`, { value });
       //   return;
       // } catch (error) {
-      //   console.error(`[StorageService] Failed to set remote item for key: ${key}`, error);
+      //   logger.error(`[StorageService] Failed to set remote item for key: ${key}`, error);
       //   // Fallback to local storage or handle error appropriately
       // }
-      console.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
+      logger.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
     }
 
     try {
       await chrome.storage.local.set({ [key]: value });
     } catch (error) {
-      console.error(`[StorageService] Failed to set local item for key: ${key}`, error);
+      logger.error(`[StorageService] Failed to set local item for key: ${key}`, error);
     }
   }
 
@@ -75,15 +76,15 @@ class StorageService {
       //   await api.delete(`/storage/${key}`);
       //   return;
       // } catch (error) {
-      //   console.error(`[StorageService] Failed to remove remote item for key: ${key}`, error);
+      //   logger.error(`[StorageService] Failed to remove remote item for key: ${key}`, error);
       // }
-       console.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
+       logger.warn('[StorageService] Remote storage is enabled but not implemented. Falling back to local storage.');
     }
 
     try {
       await chrome.storage.local.remove(key);
     } catch (error){
-      console.error(`[StorageService] Failed to remove local item for key: ${key}`, error);
+      logger.error(`[StorageService] Failed to remove local item for key: ${key}`, error);
     }
   }
 }

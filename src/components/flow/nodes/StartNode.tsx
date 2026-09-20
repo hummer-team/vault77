@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Spin } from 'antd';
 import { DatabaseOutlined } from '@ant-design/icons';
@@ -34,26 +35,26 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
   // Load available tables when DB is ready or when refreshKey changes (modal reopened)
   useEffect(() => {
     const loadTables = async () => {
-      console.log('[StartNode] loadTables called, isDBReady:', isDBReady, 'refreshKey:', refreshKey);
+      logger.info('[StartNode] loadTables called, isDBReady:', isDBReady, 'refreshKey:', refreshKey);
       if (!isDBReady) {
-        console.log('[StartNode] DB not ready, skipping table load');
+        logger.info('[StartNode] DB not ready, skipping table load');
         return;
       }
 
       setLoading(true);
       try {
-        console.log('[StartNode] Loading tables...');
+        logger.info('[StartNode] Loading tables...');
         const tableNames = await getAvailableTables(executeQuery);
-        console.log('[StartNode] Loaded tables:', tableNames);
+        logger.info('[StartNode] Loaded tables:', tableNames);
 
         const tableOptions = tableNames.map((name) => ({
           value: name,
           label: name,
         }));
-        console.log('[StartNode] Setting table options:', tableOptions);
+        logger.info('[StartNode] Setting table options:', tableOptions);
         setTables(tableOptions);
       } catch (error) {
-        console.error('[StartNode] Failed to load tables:', error);
+        logger.error('[StartNode] Failed to load tables:', error);
       } finally {
         setLoading(false);
       }
@@ -64,7 +65,7 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
 
   // Debug: log tables state changes
   useEffect(() => {
-    console.log('[StartNode] tables state changed:', tables);
+    logger.info('[StartNode] tables state changed:', tables);
   }, [tables]);
 
   // Handle table selection (multi-select)
@@ -96,9 +97,9 @@ export const StartNode: React.FC<StartNodeProps> = ({ id, data, selected }) => {
         try {
           const schema = await getTableSchema(tableName, executeQuery);
           tableFields = schema.fields;
-          console.log('[StartNode] Loaded table fields:', tableName, tableFields);
+          logger.info('[StartNode] Loaded table fields:', tableName, tableFields);
         } catch (error) {
-          console.error('[StartNode] Failed to load table schema:', error);
+          logger.error('[StartNode] Failed to load table schema:', error);
         }
 
         // Get current table count for positioning

@@ -14,6 +14,7 @@
  */
 
 import type { LLMConfig } from '../llmClient';
+import { logger } from '../../../utils/logger';
 import { LlmClient } from '../llmClient';
 import { getFeatureFlags } from '../../flags/featureFlags';
 import type { SkillContext, SkillDefinition } from './types';
@@ -320,7 +321,7 @@ Return JSON only.`;
       method: 'llm'
     };
   } catch (error) {
-    console.error('[QueryTypeRouter] LLM classification failed:', error);
+    logger.error('[QueryTypeRouter] LLM classification failed:', error);
     // Fallback to unknown with low confidence
     return {
       queryType: 'unknown',
@@ -349,7 +350,7 @@ export async function classifyQueryType(
   // Phase 1: Fast keyword matching
   const keywordResult = classifyByKeywords(userInput, industry);
   
-  console.log('[QueryTypeRouter] Keyword result:', keywordResult);
+  logger.info('[QueryTypeRouter] Keyword result:', keywordResult);
   
   // If confidence is high enough, return immediately
   if (keywordResult.confidence >= 0.7 || !llmConfig) {
@@ -357,7 +358,7 @@ export async function classifyQueryType(
   }
   
   // Phase 2: LLM classification fallback
-  console.log('[QueryTypeRouter] Low confidence, falling back to LLM classification');
+  logger.info('[QueryTypeRouter] Low confidence, falling back to LLM classification');
   
   const llmResult = await classifyByLLM(
     llmConfig,
@@ -365,7 +366,7 @@ export async function classifyQueryType(
     schemaDigest || ''
   );
   
-  console.log('[QueryTypeRouter] LLM result:', llmResult);
+  logger.info('[QueryTypeRouter] LLM result:', llmResult);
   
   // Return LLM result if it has higher confidence
   if (llmResult.confidence > keywordResult.confidence) {

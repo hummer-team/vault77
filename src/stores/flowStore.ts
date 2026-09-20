@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { logger } from '../utils/logger';
 import { immer } from 'zustand/middleware/immer';
 import {
   FlowNodeType,
@@ -120,7 +121,7 @@ export const useFlowStore = create<FlowState>()(
       // Check if node can be safely removed (Q16)
       const removalValidation = validateNodeRemoval(id, state.nodes);
       if (!removalValidation.canRemove) {
-        console.warn('[FlowStore] Cannot remove node:', removalValidation.error);
+        logger.warn('[FlowStore] Cannot remove node:', removalValidation.error);
         // Add error to validation errors
         const targetNode = state.nodes.find((n) => n.id === id);
         const newError: ValidationError = {
@@ -254,11 +255,11 @@ export const useFlowStore = create<FlowState>()(
 
     // Placeholder value actions
     setPlaceholderValue: (placeholder: string, value: unknown) => {
-      console.log('[FlowStore] setPlaceholderValue called:', placeholder, '=', value);
+      logger.info('[FlowStore] setPlaceholderValue called:', placeholder, '=', value);
       set((state) => {
         state.placeholderValues[placeholder] = value;
       });
-      console.log('[FlowStore] Current placeholderValues:', get().placeholderValues);
+      logger.info('[FlowStore] Current placeholderValues:', get().placeholderValues);
     },
 
     getPlaceholderValue: (placeholder: string) => {

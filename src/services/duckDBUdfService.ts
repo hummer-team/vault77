@@ -5,6 +5,7 @@
  */
 
 import udfSql from '../../design/udf.sql?raw';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // Kernel → UDF Function Mapping
@@ -49,16 +50,16 @@ class DuckDBUdfService {
    */
   public async initializeUdfs(queryFn: (sql: string) => Promise<unknown>): Promise<void> {
     if (this._initialized) {
-      console.log('[DuckDBUdfService] UDFs already initialized, skipping.');
+      logger.info('[DuckDBUdfService] UDFs already initialized, skipping.');
       return;
     }
 
-    console.log('[DuckDBUdfService] Initializing UDF MACROs from udf.sql...');
+    logger.info('[DuckDBUdfService] Initializing UDF MACROs from udf.sql...');
 
     // Split SQL into individual statements and execute each one.
     // DuckDB WASM does not support multi-statement execution in one query() call.
     const statements = this._splitSqlStatements(udfSql);
-    console.log(`[DuckDBUdfService] Found ${statements.length} UDF statements to execute.`);
+    logger.info(`[DuckDBUdfService] Found ${statements.length} UDF statements to execute.`);
 
     for (const stmt of statements) {
       try {
@@ -66,12 +67,12 @@ class DuckDBUdfService {
       } catch (err) {
         // Log but do not abort — partial failure should not crash the app.
         // Individual UDF availability can be verified at call time.
-        console.error('[DuckDBUdfService] Failed to register UDF statement:', stmt.slice(0, 80), err);
+        logger.error('[DuckDBUdfService] Failed to register UDF statement:', stmt.slice(0, 80), err);
       }
     }
 
     this._initialized = true;
-    console.log('[DuckDBUdfService] UDF initialization complete.');
+    logger.info('[DuckDBUdfService] UDF initialization complete.');
   }
 
   /**

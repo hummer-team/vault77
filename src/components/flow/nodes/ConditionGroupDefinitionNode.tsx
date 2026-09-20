@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, Select, Input, Radio } from 'antd';
 import {
@@ -102,7 +103,7 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
           : tables.filter((n) => allowedTableNames.includes(n));
         setAvailableTables(filtered);
       } catch (error) {
-        console.error('[ConditionGroupDefinitionNode] Failed to load tables:', error);
+        logger.error('[ConditionGroupDefinitionNode] Failed to load tables:', error);
       } finally {
         setIsLoadingTables(false);
       }
@@ -125,7 +126,7 @@ export const ConditionGroupDefinitionNode: React.FC<ConditionGroupDefinitionNode
         const schema = await getTableSchema(data.tableName, executeQuery);
         setTableFields(schema.fields);
       } catch (error) {
-        console.error('[ConditionGroupDefinitionNode] Failed to load fields:', error);
+        logger.error('[ConditionGroupDefinitionNode] Failed to load fields:', error);
       } finally {
         setIsLoadingFields(false);
       }

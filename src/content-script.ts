@@ -10,10 +10,11 @@
 // Example: Listen for a message from the side panel to highlight text
 // chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 //   if (message.type === 'HIGHLIGHT_TEXT') {
-//     console.log('Content script received HIGHLIGHT_TEXT message.');
+//     logger.info('Content script received HIGHLIGHT_TEXT message.');
 //     // Implement text highlighting logic here
 //     sendResponse({ status: 'highlighted' });
 //   }
 // });
 
-console.log('Vaultmind content script loaded (sidePanel mode).');
+import { logger } from './utils/logger';
+logger.info('Vaultmind content script loaded (sidePanel mode).');

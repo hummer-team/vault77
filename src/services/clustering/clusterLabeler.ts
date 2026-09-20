@@ -17,6 +17,7 @@
  */
 
 import type { ClusterMetadata } from '../../types/clustering.types';
+import { logger } from '../../utils/logger';
 
 /**
  * RFM customer classification with metadata
@@ -262,7 +263,7 @@ export function labelCluster(
   const archetypeKey = mapScoresToArchetype(scores.R, scores.F, scores.M);
   const classification = RFM_ARCHETYPES[archetypeKey];
 
-  console.log(
+  logger.info(
     `[ClusterLabeler] Cluster ${cluster.clusterId}: R=${scores.R} F=${scores.F} M=${scores.M} → ${classification.label}`
   );
 

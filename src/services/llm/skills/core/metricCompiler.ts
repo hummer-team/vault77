@@ -5,6 +5,7 @@
  */
 
 import type { MetricDefinition } from '../types';
+import { logger } from '../../../../utils/logger';
 import { compileFilters } from './filterCompiler';
 
 /**
@@ -87,7 +88,7 @@ export function compileMetrics(
     try {
       return compileMetric(metric, name);
     } catch (error) {
-      console.error(`[MetricCompiler] Failed to compile metric "${name}":`, metric, error);
+      logger.error(`[MetricCompiler] Failed to compile metric "${name}":`, metric, error);
       throw error;
     }
   });

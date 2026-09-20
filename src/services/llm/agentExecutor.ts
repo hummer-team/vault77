@@ -1,4 +1,5 @@
 import { PromptManager } from './promptManager.ts';
+import { logger } from '../../utils/logger';
 import { tools, toolSchemas, MissingColumnError, IndustryNotEnabledError } from '../tools/duckdbTools.ts';
 import { LlmClient, LLMConfig } from './llmClient.ts';
 import { Attachment } from '../../types/workbench.types';
@@ -48,7 +49,7 @@ export class AgentExecutor {
         .filter((name) => name.length > 0);
     }
 
-    console.log('[AgentExecutor] Fetched tables:', tableNames);
+    logger.info('[AgentExecutor] Fetched tables:', tableNames);
 
     if (tableNames.length === 0) {
       try {
@@ -93,7 +94,7 @@ export class AgentExecutor {
 
         return `Table: ${tableName}${sheetNameHint}\nColumns:\n${schemaString}`;
       } catch (error) {
-        console.error(`Failed to get schema for table ${tableName}:`, error);
+        logger.error(`Failed to get schema for table ${tableName}:`, error);
         return `// Failed to retrieve schema for table: ${tableName}`;
       }
     });
@@ -140,7 +141,7 @@ export class AgentExecutor {
           (typeof parsedContent.thought === 'string' ? parsedContent.thought : '') ||
           (typeof parsedContent.action?.args?.explanation === 'string' ? parsedContent.action.args.explanation : '');
       } catch (e) {
-        console.error(
+        logger.error(
           '[AgentExecutor] Failed to parse message.content as JSON and no regex match:',
           e,
           'Raw content:',
@@ -212,7 +213,7 @@ export class AgentExecutor {
         const enabledIndustries = getEnabledIndustries();
         const error = new IndustryNotEnabledError(industry, enabledIndustries);
         
-        console.warn(`[AgentExecutor] Industry validation failed: ${error.message}`);
+        logger.warn(`[AgentExecutor] Industry validation failed: ${error.message}`);
         
         emitAgentEvent({
           type: 'agent.error',
@@ -237,7 +238,7 @@ export class AgentExecutor {
         throw error;
       }
       
-      console.log(`[AgentExecutor] Industry validation passed: ${industry}`);
+      logger.info(`[AgentExecutor] Industry validation passed: ${industry}`);
       
       const allTableSchemas = await this._getAllTableSchemas();
       if (!allTableSchemas) {
@@ -285,18 +286,18 @@ export class AgentExecutor {
           // Append digest rather than replacing, to minimize prompt changes.
           effectiveSchemaString = `${allTableSchemas}\n\n// SchemaDigest (discovered)\n${digest}`;
         } catch (e) {
-          console.warn('[AgentExecutor] Schema discovery failed, fallback to existing schemas:', e);
+          logger.warn('[AgentExecutor] Schema discovery failed, fallback to existing schemas:', e);
         }
       }
 
-      console.log('[AgentExecutor] Fetched all table schemas:\n', effectiveSchemaString);
+      logger.info('[AgentExecutor] Fetched all table schemas:\n', effectiveSchemaString);
       // Get persona information
       const personaId = options?.persona || 'business_user';
       const persona = getPersonaById(personaId);
 
       // Use validated industry (already checked above)
       const role = industry;
-      console.log(`[AgentExecutor] Using validated role/industry: ${role}`);
+      logger.info(`[AgentExecutor] Using validated role/industry: ${role}`);
       
       const userPromptTemplate = await this.promptManager.getToolSelectionPrompt(
         industry,
@@ -315,7 +316,7 @@ export class AgentExecutor {
 
       let response: unknown;
       if (this.llmConfig.mockEnabled) {
-        console.warn('[AgentExecutor] LLM Mock is ENABLED. Returning mock response.');
+        logger.warn('[AgentExecutor] LLM Mock is ENABLED. Returning mock response.');
         response = {
           choices: [
             {
@@ -412,10 +413,10 @@ export class AgentExecutor {
               },
             };
             thought = parsedContent.thought || thought;
-            console.log('[AgentExecutor] Extracted tool call from message content.');
+            logger.info('[AgentExecutor] Extracted tool call from message content.');
           }
         } catch (_e) {
-          console.warn(
+          logger.warn(
             '[AgentExecutor] Message content is not a valid JSON for tool call, will be handled by !toolCall check.'
           );
         }
@@ -551,7 +552,7 @@ export class AgentExecutor {
             // Merge debug explanation into thought (UI-friendly)
             thought = `${thought}\n\n[Auto SQL Debug]\n${debugResult.explanation}`;
           } catch (repairErr) {
-            console.warn('[AgentExecutor] Auto SQL debug failed, fallback to original error:', repairErr);
+            logger.warn('[AgentExecutor] Auto SQL debug failed, fallback to original error:', repairErr);
             // Attach timing then rethrow original error
             if (err instanceof Error) {
               (err as unknown as { llmDurationMs?: number; queryDurationMs?: number }).llmDurationMs = llmDurationMs;
@@ -642,7 +643,7 @@ export class AgentExecutor {
 
       // If already emitted events in inner blocks, do not duplicate too much.
       const message = err instanceof Error ? err.message : 'Unknown error.';
-      console.error('[AgentExecutor] execute failed:', err);
+      logger.error('[AgentExecutor] execute failed:', err);
 
       // Ensure the thrown error carries timings.
       if (err instanceof Error) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import { Spin, Typography, Space, Drawer, Modal } from 'antd';
 import { 
   CodeOutlined, 
@@ -197,7 +198,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   // Notify parent when DuckDB is ready
   useEffect(() => {
     if (isDBReady && onDuckDBReady) {
-      console.log('[Workbench] DuckDB ready, notifying parent with executeQuery');
+      logger.info('[Workbench] DuckDB ready, notifying parent with executeQuery');
       onDuckDBReady(executeQuery, isDBReady);
     }
   }, [isDBReady, executeQuery, onDuckDBReady]);
@@ -354,7 +355,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
   // Callback for when no valid columns found (stabilized with useCallback)
   const handleNoValidColumns = useCallback(() => {
-    console.log('[Workbench] No valid columns, closing sidebar');
+    logger.info('[Workbench] No valid columns, closing sidebar');
     setShowInsightSidebar(false);
   }, []);
 
@@ -362,7 +363,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleAnomalyThresholdChange = useCallback(async (newThreshold: number) => {
     if (!insightTableName || !isDBReady) return;
 
-    console.log('[Workbench] Re-detecting anomalies with new threshold:', newThreshold);
+    logger.info('[Workbench] Re-detecting anomalies with new threshold:', newThreshold);
     
     try {
       await anomalyDetection.detectAnomalies({
@@ -371,9 +372,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         featureColumns: [], // Auto-infer
         threshold: newThreshold,
       });
-      console.log('[Workbench] Anomaly re-detection completed');
+      logger.info('[Workbench] Anomaly re-detection completed');
     } catch (error) {
-      console.error('[Workbench] Anomaly re-detection failed:', error);
+      logger.error('[Workbench] Anomaly re-detection failed:', error);
       vmMessage.error('Failed to re-detect anomalies with new threshold');
     }
   }, [insightTableName, isDBReady, anomalyDetection]);
@@ -382,7 +383,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleKValueChange = useCallback(async (newK: number) => {
     if (!insightTableName || !isDBReady) return;
 
-    console.log('[Workbench] Re-running clustering with new K value:', newK);
+    logger.info('[Workbench] Re-running clustering with new K value:', newK);
     
     try {
       await clusteringAnalysis.performClustering({
@@ -392,9 +393,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         orderAmountColumn: '', // Auto-detect
         nClusters: newK,
       });
-      console.log('[Workbench] Clustering re-run completed');
+      logger.info('[Workbench] Clustering re-run completed');
     } catch (error) {
-      console.error('[Workbench] Clustering re-run failed:', error);
+      logger.error('[Workbench] Clustering re-run failed:', error);
       vmMessage.error('Failed to re-run clustering with new K value');
     }
   }, [insightTableName, isDBReady, clusteringAnalysis]);
@@ -405,7 +406,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
 
     // Only run if clustering hasn't been executed yet
     if (clusteringAnalysis.result === null && !clusteringAnalysis.isClustering && !clusteringAnalysis.error) {
-      console.log('[Workbench] Auto-triggering clustering analysis for table:', insightTableName);
+      logger.info('[Workbench] Auto-triggering clustering analysis for table:', insightTableName);
       
       // Async trigger (non-blocking UI)
       clusteringAnalysis.performClustering({
@@ -415,7 +416,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         orderAmountColumn: '', // Auto-detect
         nClusters: DEFAULT_K_VALUE,
       }).catch((error) => {
-        console.error('[Workbench] Auto-clustering failed:', error);
+        logger.error('[Workbench] Auto-clustering failed:', error);
         // Don't show error message here - InsightPage will handle it with retry button
       });
     }
@@ -427,7 +428,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       throw new Error('Database not ready or no order IDs provided');
     }
 
-    console.log('[Workbench] Fetching full order data for download:', orderIds.length);
+    logger.info('[Workbench] Fetching full order data for download:', orderIds.length);
 
     // Build SQL to fetch full order data
     const orderIdList = orderIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
@@ -446,7 +447,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       throw new Error('Database not ready or no order IDs provided');
     }
 
-    console.log('[Workbench] Viewing anomalies in analysis panel:', orderIds.length);
+    logger.info('[Workbench] Viewing anomalies in analysis panel:', orderIds.length);
 
     // Limit to prevent timeout
     const limitedOrderIds = orderIds.slice(0, 10000);
@@ -500,7 +501,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     postProcessFn?: (raw: { data: unknown[]; schema: unknown[] }) => Promise<import('../../services/flow/types').AnalysisResult>,
     operatorMeta?: { category: string; displayName: string }
   ) => {
-    console.log('[Workbench] Flow SQL validated, executing query:', sql);
+    logger.info('[Workbench] Flow SQL validated, executing query:', sql);
     
     // Close Flow Modal
     setShowFlowModal(false);
@@ -532,7 +533,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       const result = await executeQuery(sql);
       const queryDuration = performance.now() - startTime;
 
-      console.log('[Workbench] Flow query executed, rows:', result.data.length);
+      logger.info('[Workbench] Flow query executed, rows:', result.data.length);
 
       // Call postProcessFn if available to enrich result with displayConfig and insightsData
       let displayConfig: OperatorDisplayConfig | undefined;
@@ -552,7 +553,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
             tableSchema = processedResult.schema as unknown[];
           }
         } catch (processError) {
-          console.error('[Workbench] postProcess failed:', processError);
+          logger.error('[Workbench] postProcess failed:', processError);
           // Fallback: continue with raw result, no displayConfig or insightsData
         }
       }
@@ -588,7 +589,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         }
       }, 100);
     } catch (error) {
-      console.error('[Workbench] Flow query execution failed:', error);
+      logger.error('[Workbench] Flow query execution failed:', error);
       // vmMessage.error(`Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [isDBReady, executeQuery, attachments, appendAnalysisRecord, pendingKernelTemplate, selectedAttachmentIds, allowedTableNames]);
@@ -629,7 +630,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       throw new Error('Database not ready or no customer IDs provided');
     }
 
-    console.log('[Workbench] Viewing customers RFM analysis:', customerIds.length);
+    logger.info('[Workbench] Viewing customers RFM analysis:', customerIds.length);
 
     // Use clustering result data directly (customer-level RFM)
     if (!clusteringAnalysis.result) {
@@ -654,7 +655,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       };
     });
 
-    console.log('[Workbench] Built RFM customer records:', rfmData.length);
+    logger.info('[Workbench] Built RFM customer records:', rfmData.length);
 
     // Create schema for ResultsDisplay
     const schema = [
@@ -771,9 +772,9 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         status: att.status,
       }));
       await chrome.storage.session.set({ attachments: serializable });
-      console.log('[Workbench] Persisted attachments:', serializable.length);
+      logger.info('[Workbench] Persisted attachments:', serializable.length);
     } catch (error) {
-      console.error('[Workbench] Failed to persist attachments:', error);
+      logger.error('[Workbench] Failed to persist attachments:', error);
     }
   };
 
@@ -787,7 +788,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       const initial = getPersonaSuggestions(personaId);
       if (initial && initial.length > 0) setSuggestions(initial);
     } catch (e) {
-      console.warn('[Workbench] Failed to load initial suggestions:', e);
+      logger.warn('[Workbench] Failed to load initial suggestions:', e);
     }
   }, [userProfile]);
 
@@ -826,7 +827,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
     },
     onFileLoaded: (tableName: string) => {
       // Auto-show insight sidebar after file loaded
-      console.log('[Workbench] Auto-showing insight for table:', tableName);
+      logger.info('[Workbench] Auto-showing insight for table:', tableName);
       handleShowInsight(tableName);
       
       // Auto-trigger anomaly detection (async, non-blocking)
@@ -834,17 +835,17 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         try {
           const settings = await settingsService.getAnomalyDetectionSettings();
           if (settings.autoRun && isDBReady) {
-            console.log('[Workbench] Auto-triggering anomaly detection for:', tableName);
+            logger.info('[Workbench] Auto-triggering anomaly detection for:', tableName);
             await anomalyDetection.detectAnomalies({
               tableName,
               orderIdColumn: '', // Auto-infer
               featureColumns: [], // Auto-infer
               threshold: settings.threshold, // Use default threshold from settings
             });
-            console.log('[Workbench] Anomaly detection completed');
+            logger.info('[Workbench] Anomaly detection completed');
           }
         } catch (error) {
-          console.error('[Workbench] Anomaly detection failed:', error);
+          logger.error('[Workbench] Anomaly detection failed:', error);
           // Non-blocking: don't show error to user, just log
         }
       })();
@@ -894,7 +895,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         setLlmConfig(config);
         setIsLlmReady(isReady);
       } catch (error) {
-        console.error('[Workbench] Failed to resolve active LLM config:', error);
+        logger.error('[Workbench] Failed to resolve active LLM config:', error);
         if (!isMounted) return;
         setIsLlmReady(false);
       }
@@ -923,7 +924,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   useEffect(() => {
     if (isSandboxReady) {
       initializeDuckDB().catch((err) => {
-        console.error('DuckDB initialization failed:', err);
+        logger.error('DuckDB initialization failed:', err);
         setUiState('error');
       });
     }
@@ -1017,7 +1018,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       const effectivePersonaId = inferredPersonaId || profilePersonaId || 'business_user';
       const effectivePersona = getPersonaById(effectivePersonaId);
 
-      console.log('[Workbench] Persona inference:', {
+      logger.info('[Workbench] Persona inference:', {
         profile: profilePersonaId,
         inferred: inferredPersonaId,
         effective: effectivePersonaId
@@ -1129,7 +1130,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
         )
       );
     } catch (error: any) {
-      console.error('Analysis failed, updating record with error:', error);
+      logger.error('Analysis failed, updating record with error:', error);
       setAnalysisHistory((prev) =>
         prev.map((rec) =>
           rec.id === newRecordId ? { ...rec, status: 'resultsReady', data: { error: error.message }, schema: null } : rec
@@ -1155,7 +1156,7 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
       // success toast removed, UI 已足够明确
       // vmMessage.success('提示词已复制到剪贴板');
     } catch (e) {
-      console.error('复制失败:', e);
+      logger.error('复制失败:', e);
       vmMessage.error('复制失败，请手动复制');
     }
   };
@@ -1163,24 +1164,24 @@ const Workbench: React.FC<WorkbenchProps> = ({ setIsFeedbackDrawerOpen, onDuckDB
   const handleCancelAnalysis = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      console.log('[Workbench] Analysis cancellation requested.');
+      logger.info('[Workbench] Analysis cancellation requested.');
     }
   };
 
   const handleUpvote = (query: string) => {
-    console.log(`Upvoted query: "${query}". Backend call would be here.`);
+    logger.info(`Upvoted query: "${query}". Backend call would be here.`);
     // 非关键 success 提示移除，避免打断
     // vmMessage.success('Thanks for your feedback!');
     return Promise.resolve({ status: 'success' });
   };
 
   const handleDownvote = (query: string) => {
-    console.log(`Downvoted query: "${query}". Opening feedback drawer.`);
+    logger.info(`Downvoted query: "${query}". Opening feedback drawer.`);
     setIsFeedbackDrawerOpen(true);
   };
 
   const handleRetry = (query: string) => {
-    console.log(`Retrying query: "${query}".`);
+    logger.info(`Retrying query: "${query}".`);
     handleStartAnalysis(query);
   };
 

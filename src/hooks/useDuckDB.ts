@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
+import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { getDuckDBResources } from '../utils/duckDBEngineDefineUtils.ts';
 
@@ -85,7 +86,7 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
             const id = uuidv4();
             iframeRef.current.contentWindow.postMessage({ ...message, id }, '*');
           } catch (e) {
-            console.warn('[useDuckDB] Failed to post message without reply:', e);
+            logger.warn('[useDuckDB] Failed to post message without reply:', e);
           }
         }
       },
@@ -148,10 +149,10 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
         });
       }
 
-      console.log('[useDuckDB] Sandbox ready. Getting DuckDB resources...');
+      logger.info('[useDuckDB] Sandbox ready. Getting DuckDB resources...');
       const DUCKDB_RESOURCES = await getDuckDBResources();
       const extensionOrigin = chrome.runtime.getURL('/');
-      console.log('[useDuckDB] Sending DUCKDB_INIT to sandbox...');
+      logger.info('[useDuckDB] Sending DUCKDB_INIT to sandbox...');
       
       const messageToSend = { type: 'DUCKDB_INIT', resources: JSON.parse(JSON.stringify(DUCKDB_RESOURCES)), extensionOrigin };
       
@@ -167,7 +168,7 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
     if (!_unloadHandlerRegistered) {
       _unloadHandlerRegistered = true;
       window.addEventListener('unload', () => {
-        shutdownDuckDB().catch(err => console.warn('[useDuckDB] shutdown on unload failed:', err));
+        shutdownDuckDB().catch(err => logger.warn('[useDuckDB] shutdown on unload failed:', err));
       });
     }
 
@@ -205,7 +206,7 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
 
   const getAllUserTables = useCallback(async (): Promise<string[]> => {
     if (!isDBReady) {
-      console.warn('[useDuckDB] DB not ready, returning empty table list.');
+      logger.warn('[useDuckDB] DB not ready, returning empty table list.');
       return [];
     }
     try {
@@ -213,7 +214,7 @@ export const useDuckDB = (iframeRef: React.RefObject<HTMLIFrameElement>) => {
       const tableData = result.data || [];
       return tableData.map((row: any) => row.table_name);
     } catch (error) {
-      console.error('[useDuckDB] Failed to get all user tables:', error);
+      logger.error('[useDuckDB] Failed to get all user tables:', error);
       return [];
     }
   }, [executeQuery, isDBReady]);

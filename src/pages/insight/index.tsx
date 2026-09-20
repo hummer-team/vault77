@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import { Spin, Alert, Divider, Typography, Space, Button, Tag, Card, Row, Col, Statistic, Slider, Dropdown, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
@@ -123,7 +124,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     // Check if auto-generation is enabled
     const settings = await settingsService.getInsightActionSettings();
     if (!settings.autoGenerate) {
-      console.log('[InsightPage] Insight action auto-generation disabled');
+      logger.info('[InsightPage] Insight action auto-generation disabled');
       return;
     }
 
@@ -134,7 +135,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       // Create service with DuckDB query executor
       const insightService = createInsightActionService(executeQuery);
 
-      console.log('[InsightPage] Generating insights for', anomalyResult.anomalyCount, 'anomalies');
+      logger.info('[InsightPage] Generating insights for', anomalyResult.anomalyCount, 'anomalies');
 
       const output = await insightService.generateInsight(
         {
@@ -146,11 +147,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       );
 
       setInsightAction(output);
-      console.log('[InsightPage] Insights generated:', output);
+      logger.info('[InsightPage] Insights generated:', output);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setInsightError(`Failed to generate insights: ${errorMsg}`);
-      console.error('[InsightPage] Insight generation failed:', error);
+      logger.error('[InsightPage] Insight generation failed:', error);
     } finally {
       setInsightLoading(false);
     }
@@ -169,7 +170,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
    * Retry insight generation (manual trigger)
    */
   const handleRetryInsight = React.useCallback(() => {
-    console.log('[InsightPage] Manual retry triggered');
+    logger.info('[InsightPage] Manual retry triggered');
     generateLLMInsights();
   }, [generateLLMInsights]);
 
@@ -186,7 +187,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     // Check if auto-generation is enabled
     const settings = await settingsService.getInsightActionSettings();
     if (!settings.autoGenerate) {
-      console.log('[InsightPage] Clustering insight auto-generation disabled');
+      logger.info('[InsightPage] Clustering insight auto-generation disabled');
       return;
     }
 
@@ -196,7 +197,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
     try {
       const insightService = createInsightActionService(executeQuery);
 
-      console.log('[InsightPage] Generating clustering insights for', clusteringResult.totalCustomers, 'customers');
+      logger.info('[InsightPage] Generating clustering insights for', clusteringResult.totalCustomers, 'customers');
 
       const output = await insightService.generateInsight(
         {
@@ -208,11 +209,11 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       );
 
       setClusteringInsightAction(output);
-      console.log('[InsightPage] Clustering insights generated:', output);
+      logger.info('[InsightPage] Clustering insights generated:', output);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setClusteringInsightError(`Failed to generate clustering insights: ${errorMsg}`);
-      console.error('[InsightPage] Clustering insight generation failed:', error);
+      logger.error('[InsightPage] Clustering insight generation failed:', error);
     } finally {
       setClusteringInsightLoading(false);
     }
@@ -230,7 +231,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
    * Retry clustering insight generation (manual trigger)
    */
   const handleRetryClusteringInsight = React.useCallback(() => {
-    console.log('[InsightPage] Manual clustering retry triggered');
+    logger.info('[InsightPage] Manual clustering retry triggered');
     generateClusteringInsights();
   }, [generateClusteringInsights]);
 
@@ -278,7 +279,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       loadingMsg();
     } catch (error) {
       vmMessage.error('Failed to download anomalies: ' + (error as Error).message);
-      console.error('[InsightPage] Download failed:', error);
+      logger.error('[InsightPage] Download failed:', error);
     }
   };
 
@@ -301,7 +302,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       loadingMsg();
     } catch (error) {
       vmMessage.error('Failed to view anomalies: ' + (error as Error).message);
-      console.error('[InsightPage] View failed:', error);
+      logger.error('[InsightPage] View failed:', error);
     }
   };
 
@@ -334,7 +335,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
       // Silent success - no message popup
     } catch (error) {
       vmMessage.error('Failed to download report: ' + (error as Error).message);
-      console.error('[InsightPage] Report download failed:', error);
+      logger.error('[InsightPage] Report download failed:', error);
     }
   }, [anomalyResult, insightAction, onDownloadAnomalies, tableName]);
 
@@ -791,7 +792,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
 
             {/* Clustering Statistics */}
             {(() => {
-              // console.log('[InsightPage] Clustering data:', {
+              // logger.info('[InsightPage] Clustering data:', {
               //   totalCustomers: clusteringResult.totalCustomers,
               //   clustersCount: clusteringResult.clusters.length,
               //   customersCount: clusteringResult.customers.length,
@@ -967,7 +968,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
             {/* Visualizations */}
             <ClusteringErrorBoundary
               onReset={() => {
-                console.log('[InsightPage] Clustering error boundary reset');
+                logger.info('[InsightPage] Clustering error boundary reset');
                 if (onKValueChange) {
                   onKValueChange(kValue);
                 }
@@ -1002,9 +1003,9 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                       height={400}
                       selectedCluster={selectedCluster}
                       onClusterClick={(clusterId) => {
-                        console.log('[InsightPage] onClusterClick received clusterId:', clusterId);
+                        logger.info('[InsightPage] onClusterClick received clusterId:', clusterId);
                         setSelectedCluster(clusterId);
-                        console.log('[InsightPage] selectedCluster set to:', clusterId);
+                        logger.info('[InsightPage] selectedCluster set to:', clusterId);
                       }}
                       onDataSampled={(display, total) => {
                         setScatterSamplingInfo({ display, total });
@@ -1055,7 +1056,7 @@ export const InsightPage: React.FC<InsightPageProps> = ({
                     a.click();
                     URL.revokeObjectURL(url);
                   } catch (error) {
-                    console.error('[InsightPage] Failed to download clustering report:', error);
+                    logger.error('[InsightPage] Failed to download clustering report:', error);
                     vmMessage.error('下载失败');
                   }
                 }}

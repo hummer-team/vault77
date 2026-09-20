@@ -6,6 +6,7 @@
  * - This module is intentionally framework-agnostic.
  */
 
+import { logger } from '../../utils/logger';
 export type AgentErrorCategory =
   | 'QUERY_MISUNDERSTOOD'
   | 'SCHEMA_INSUFFICIENT'
@@ -104,6 +105,6 @@ export const emitAgentEvent = (event: AgentEvent): void => {
     currentListener(event);
   } catch (err) {
     // Do not throw from telemetry.
-    console.warn('[AgentEvents] Listener threw an error:', err);
+    logger.warn('[AgentEvents] Listener threw an error:', err);
   }
 };

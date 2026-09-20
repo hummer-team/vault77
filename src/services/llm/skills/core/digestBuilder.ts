@@ -12,6 +12,7 @@ import type {
   FieldMapping,
   DigestBudget,
 } from '../types';
+import { logger } from '../../../../utils/logger';
 import { DEFAULT_DIGEST_BUDGET } from '../types';
 
 /**
@@ -195,7 +196,7 @@ export function buildUserSkillDigest(
   const maxChars = opts.budget.userSkillDigestMaxChars;
   if (digest.length > maxChars) {
     digest = digest.slice(0, maxChars) + '\n... (truncated)';
-    console.warn(
+    logger.warn(
       `[DigestBuilder] User skill digest truncated from ${digest.length} to ${maxChars} chars`
     );
   }

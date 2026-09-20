@@ -17,6 +17,7 @@ import type {
   ClusteringRequest,
   ClusteringResult,
 } from '../../types/clustering.types';
+import { logger } from '../../utils/logger';
 import { isClusteringSuccess, isClusteringError } from '../../types/clustering.types';
 
 // ============================================================================
@@ -50,7 +51,7 @@ function getWorker(): Worker {
       new URL('../../workers/clustering.worker.ts', import.meta.url),
       { type: 'module' }
     );
-    console.log('[RfmClusteringService] Worker instance created');
+    logger.info('[RfmClusteringService] Worker instance created');
   }
   return workerInstance;
 }
@@ -90,7 +91,7 @@ function sendMessage(
     worker.addEventListener('message', onMessage);
     worker.addEventListener('error', onError);
     worker.postMessage(message);
-    console.log(`[RfmClusteringService] Sent CLUSTERING_SEGMENT: ${message.payload.customerIds.length} users, k=${message.payload.nClusters}`);
+    logger.info(`[RfmClusteringService] Sent CLUSTERING_SEGMENT: ${message.payload.customerIds.length} users, k=${message.payload.nClusters}`);
   });
 }
 
@@ -140,7 +141,7 @@ export async function segmentRfmCustomers(
     throw new Error('[RfmClusteringService] Unexpected worker response type');
   }
 
-  console.log(
+  logger.info(
     `[RfmClusteringService] Done — ${result.payload.customerIds.length} users, ` +
     `gpuUsed=${result.payload.gpuUsed}, ${result.payload.durationMs.toFixed(1)}ms`
   );

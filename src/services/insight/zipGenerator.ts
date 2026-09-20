@@ -4,6 +4,7 @@
  */
 
 import JSZip from 'jszip';
+import { logger } from '../../utils/logger';
 
 /**
  * Content for a file to be added to ZIP
@@ -27,7 +28,7 @@ export async function generateZip(
     throw new Error('[generateZip] No files to zip');
   }
   
-  console.log(`[generateZip] Creating ZIP with ${files.length} files:`, 
+  logger.info(`[generateZip] Creating ZIP with ${files.length} files:`, 
     files.map(f => f.filename));
   
   try {
@@ -45,7 +46,7 @@ export async function generateZip(
       compressionOptions: { level: 6 },
     });
     
-    console.log(`[generateZip] ZIP generated, size: ${(blob.size / 1024).toFixed(2)} KB`);
+    logger.info(`[generateZip] ZIP generated, size: ${(blob.size / 1024).toFixed(2)} KB`);
     
     // Trigger browser download
     const url = URL.createObjectURL(blob);
@@ -60,10 +61,10 @@ export async function generateZip(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    console.log(`[generateZip] Download triggered: ${zipFilename}`);
+    logger.info(`[generateZip] Download triggered: ${zipFilename}`);
     
   } catch (error) {
-    console.error('[generateZip] Failed to generate ZIP:', error);
+    logger.error('[generateZip] Failed to generate ZIP:', error);
     throw new Error(`ZIP generation failed: ${(error as Error).message}`);
   }
 }

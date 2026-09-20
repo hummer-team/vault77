@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { logger } from '../utils/logger';
 import { useDuckDB } from './useDuckDB';
 
 interface SchemaColumn {
@@ -24,14 +25,14 @@ export const useTableSchema = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
   const cacheTableSchema = useCallback(
     async (tableName: string): Promise<void> => {
       if (!isDBReady) {
-        console.warn('[useTableSchema] DuckDB not ready, cannot cache schema');
+        logger.warn('[useTableSchema] DuckDB not ready, cannot cache schema');
         return;
       }
 
       try {
         const schemaResult = await getTableSchema(tableName);
         if (!schemaResult || !Array.isArray(schemaResult.data)) {
-          console.warn(`[useTableSchema] Invalid schema result for table: ${tableName}`);
+          logger.warn(`[useTableSchema] Invalid schema result for table: ${tableName}`);
           return;
         }
 
@@ -54,12 +55,12 @@ export const useTableSchema = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
 
         // Write back to session storage
         await chrome.storage.session.set({ schemaCache: updatedCache });
-        console.log(
+        logger.info(
           `[useTableSchema] Cached schema for table: ${tableName}, columns:`,
           columns.map((c) => c.name).join(', ')
         );
       } catch (error) {
-        console.error(`[useTableSchema] Failed to cache schema for table: ${tableName}`, error);
+        logger.error(`[useTableSchema] Failed to cache schema for table: ${tableName}`, error);
       }
     },
     [getTableSchema, isDBReady]
@@ -75,9 +76,9 @@ export const useTableSchema = (iframeRef: React.RefObject<HTMLIFrameElement>) =>
       const existingCache = (result.schemaCache as SchemaCache | undefined) || {};
       const { [tableName]: removed, ...updatedCache } = existingCache;
       await chrome.storage.session.set({ schemaCache: updatedCache });
-      console.log(`[useTableSchema] Removed schema cache for table: ${tableName}`);
+      logger.info(`[useTableSchema] Removed schema cache for table: ${tableName}`);
     } catch (error) {
-      console.warn(`[useTableSchema] Failed to remove schema cache for table: ${tableName}`, error);
+      logger.warn(`[useTableSchema] Failed to remove schema cache for table: ${tableName}`, error);
     }
   }, []);
 

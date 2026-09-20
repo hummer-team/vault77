@@ -6,6 +6,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -188,7 +189,7 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
       ?.repurchaseCycleConfig;
 
     if (!config) {
-      console.warn(`[${this.name}.buildOperatorSql] repurchaseCycleConfig missing — falling back to SELECT *`);
+      logger.warn(`[${this.name}.buildOperatorSql] repurchaseCycleConfig missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
@@ -198,7 +199,7 @@ export class RepurchaseCycleStrategy extends BaseStrategy {
         ? buildRepurchaseSummarySql(tableName, config, userWhere)
         : buildRepurchaseDetailSql(tableName, config, userWhere);
 
-    console.log(`[${this.name}.buildOperatorSql] outputMode=${config.outputMode} sql=\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] outputMode=${config.outputMode} sql=\n${sql}`);
     return sql;
   }
 

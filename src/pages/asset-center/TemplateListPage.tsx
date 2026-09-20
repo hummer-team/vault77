@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '../../utils/logger';
 import { TOKEN } from '../../theme';
 import { Card, Table, Typography, Collapse, Space, Tooltip } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
@@ -138,7 +139,7 @@ const TemplateListPage: React.FC = () => {
       },
       (err) => {
         vmMessage.error('Failed to copy prompt.');
-        console.error('Could not copy text: ', err);
+        logger.error('Could not copy text: ', err);
       }
     );
   };

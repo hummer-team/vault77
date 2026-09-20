@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useState, useMemo } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Space, Tooltip, Popover, notification } from 'antd';
 import {
@@ -190,7 +191,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
 
         return { success: true };
       } catch (error) {
-        console.error('Execute flow error:', error);
+        logger.error('Execute flow error:', error);
         const message = error instanceof Error ? error.message : '执行失败';
         updateNode(id, {
           ...data,
@@ -244,7 +245,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
       const raw = result.data[0]?.__count ?? Object.values(result.data[0] ?? {})[0];
       return raw !== undefined && raw !== null ? Number(raw) : null;
     } catch (error) {
-      console.error('[EndNode] Preview failed:', error);
+      logger.error('[EndNode] Preview failed:', error);
       return null;
     }
   }, [executeQuery, storeNodes, edges, getAllPlaceholderValues, resolvedOperatorType]);
@@ -253,7 +254,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const handleSave = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     // Save is disabled for now
-    console.log('Save flow (disabled)');
+    logger.info('Save flow (disabled)');
   }, []);
 
   // Handle delete
@@ -279,7 +280,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   const errorCount = data.errors?.length || 0;
   const hasErrors = errorCount > 0;
   if (hasErrors) {
-    console.warn(`[EndNode] Node ${id} has ${data.operatorType} errors:`, data.errors);
+    logger.warn(`[EndNode] Node ${id} has ${data.operatorType} errors:`, data.errors);
   }
   return (
     <div

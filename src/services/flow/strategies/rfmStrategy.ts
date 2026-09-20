@@ -15,6 +15,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -137,7 +138,7 @@ export class RfmStrategy extends BaseStrategy {
       ?.rfmProfileConfig;
 
     if (!cfg || !tableName) {
-      console.warn(`[${this.name}.buildOperatorSql] config or tableName missing — falling back`);
+      logger.warn(`[${this.name}.buildOperatorSql] config or tableName missing — falling back`);
       return `SELECT * FROM "${tableName || 'tbl'}" LIMIT 0`;
     }
 
@@ -160,7 +161,7 @@ export class RfmStrategy extends BaseStrategy {
       `GROUP BY "${userIdColumn}"`,
     ].join('\n');
 
-    console.log(`[${this.name}.buildOperatorSql] tableName=${tableName} userIdCol=${userIdColumn}\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] tableName=${tableName} userIdCol=${userIdColumn}\n${sql}`);
     return sql;
   }
 
@@ -199,7 +200,7 @@ export class RfmStrategy extends BaseStrategy {
         scalingMode
       );
     } catch (err) {
-      console.error(`[${this.name}.postProcess] WASM call failed`, err);
+      logger.error(`[${this.name}.postProcess] WASM call failed`, err);
       return this.buildErrorResult(
         queryResult,
         err instanceof Error ? err.message : String(err)

@@ -5,6 +5,7 @@
  */
 
 import { storageService } from './storageService.ts';
+import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { AnomalyDetectionSettings } from '../types/anomaly.types';
 import { InsightActionSettings } from '../types/insight-action.types';
@@ -68,7 +69,7 @@ class SettingsService {
       try {
         listener();
       } catch (error) {
-        console.error('[SettingsService] LLM config change listener failed:', error);
+        logger.error('[SettingsService] LLM config change listener failed:', error);
       }
     }
   }
@@ -85,7 +86,7 @@ class SettingsService {
   }
 
   public async saveUserProfile(profile: UserProfile): Promise<void> {
-    console.log('[SettingsService] Saving user profile:', profile);
+    logger.info('[SettingsService] Saving user profile:', profile);
     await storageService.setItem(USER_PROFILE_KEY, profile);
   }
 
@@ -111,7 +112,7 @@ class SettingsService {
     const newConfig: LLMProviderConfig = { ...config, id: uuidv4() };
     const updatedConfigs = [...configs, newConfig];
     await storageService.setItem(LLM_CONFIGS_KEY, updatedConfigs);
-    console.log('[SettingsService] Added new LLM config:', newConfig);
+    logger.info('[SettingsService] Added new LLM config:', newConfig);
     this.emitLlmConfigChanged();
     return updatedConfigs;
   }
@@ -134,7 +135,7 @@ class SettingsService {
 
     const updatedConfigs = configs.map(c => (c.id === configId ? { ...c, ...updates } : c));
     await storageService.setItem(LLM_CONFIGS_KEY, updatedConfigs);
-    console.log(`[SettingsService] Updated LLM config with ID: ${configId}`, updates);
+    logger.info(`[SettingsService] Updated LLM config with ID: ${configId}`, updates);
     this.emitLlmConfigChanged();
     return updatedConfigs;
   }
@@ -143,7 +144,7 @@ class SettingsService {
     const configs = await this.getLlmConfigs();
     const updatedConfigs = configs.filter(c => c.id !== configId);
     await storageService.setItem(LLM_CONFIGS_KEY, updatedConfigs);
-    console.log(`[SettingsService] Deleted LLM config with ID: ${configId}`);
+    logger.info(`[SettingsService] Deleted LLM config with ID: ${configId}`);
     this.emitLlmConfigChanged();
     return updatedConfigs;
   }
@@ -156,7 +157,7 @@ class SettingsService {
     try {
       return localStorage.getItem(USER_PERSONA_KEY);
     } catch (error) {
-      console.error('[SettingsService] Failed to get user persona:', error);
+      logger.error('[SettingsService] Failed to get user persona:', error);
       return null;
     }
   }
@@ -168,9 +169,9 @@ class SettingsService {
   public saveUserPersona(personaId: string): void {
     try {
       localStorage.setItem(USER_PERSONA_KEY, personaId);
-      console.log('[SettingsService] User persona saved:', personaId);
+      logger.info('[SettingsService] User persona saved:', personaId);
     } catch (error) {
-      console.error('[SettingsService] Failed to save user persona:', error);
+      logger.error('[SettingsService] Failed to save user persona:', error);
     }
   }
 
@@ -201,7 +202,7 @@ class SettingsService {
     try {
       sessionStorage.setItem(PERSONA_PROMPT_DISMISSED_KEY, 'true');
     } catch (error) {
-      console.error('[SettingsService] Failed to dismiss persona prompt:', error);
+      logger.error('[SettingsService] Failed to dismiss persona prompt:', error);
     }
   }
 

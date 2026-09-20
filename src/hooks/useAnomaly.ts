@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { logger } from '../utils/logger';
 import { analyzeAnomalies, cleanup as cleanupWorker } from '../services/anomaly/anomalyService';
 import type {
   AnomalyAnalysisInput,
@@ -65,7 +66,7 @@ export function useAnomaly(
     async (input: AnomalyAnalysisInput) => {
       if (!isMountedRef.current) return;
 
-      console.log('[useAnomaly] Starting anomaly detection:', input);
+      logger.info('[useAnomaly] Starting anomaly detection:', input);
       setStatus('detecting');
       setError(null);
 
@@ -77,13 +78,13 @@ export function useAnomaly(
         if (isMountedRef.current) {
           setResult(analysisResult);
           setStatus('success');
-          console.log('[useAnomaly] Detection successful:', {
+          logger.info('[useAnomaly] Detection successful:', {
             anomalyCount: analysisResult.anomalyCount,
             anomalyRate: (analysisResult.anomalyRate * 100).toFixed(2) + '%',
           });
         }
       } catch (err) {
-        console.error('[useAnomaly] Detection failed:', err);
+        logger.error('[useAnomaly] Detection failed:', err);
         
         // Update state if still mounted
         if (isMountedRef.current) {

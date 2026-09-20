@@ -8,6 +8,7 @@ import type {
   AggregatedFeatures, 
   AlgorithmType 
 } from '../../../types/insight-action.types';
+import { logger } from '../../../utils/logger';
 import type { AnomalyAnalysisOutput } from '../../../types/anomaly.types';
 import { ActionStrategy, type QueryExecutor } from './BaseActionStrategy';
 import { buildInsightContext } from '../contextBuilder';
@@ -29,11 +30,11 @@ export class AnomalyActionStrategy implements ActionStrategy {
     tableName: string;
     analysisResult: AnomalyAnalysisOutput;
   }): Promise<InsightContext> {
-    console.log('[AnomalyActionStrategy] Building context for table:', params.tableName);
+    logger.info('[AnomalyActionStrategy] Building context for table:', params.tableName);
     
     const context = await buildInsightContext(params.executeQuery, params.tableName);
     
-    console.log('[AnomalyActionStrategy] Context built:', {
+    logger.info('[AnomalyActionStrategy] Context built:', {
       domain: context.businessDomain,
       columns: context.tableMetadata.columnCount,
       features: Object.keys(context.featureDefinitions).length,
@@ -51,7 +52,7 @@ export class AnomalyActionStrategy implements ActionStrategy {
     analysisResult: AnomalyAnalysisOutput;
     context: InsightContext;
   }): Promise<AggregatedFeatures> {
-    console.log('[AnomalyActionStrategy] Aggregating anomaly data:', {
+    logger.info('[AnomalyActionStrategy] Aggregating anomaly data:', {
       totalAnomalies: params.analysisResult.anomalies.length,
       threshold: params.analysisResult.metadata.threshold,
     });
@@ -64,7 +65,7 @@ export class AnomalyActionStrategy implements ActionStrategy {
       params.analysisResult.metadata.orderIdColumn || 'order_id', // Use actual column name or fallback
     );
     
-    console.log('[AnomalyActionStrategy] Data aggregated:', {
+    logger.info('[AnomalyActionStrategy] Data aggregated:', {
       totalAnomalies: aggregated.totalAnomalies,
       averageScore: aggregated.averageScore,
       numericFeatures: Object.keys(aggregated.numericFeatures || {}).length,
@@ -80,11 +81,11 @@ export class AnomalyActionStrategy implements ActionStrategy {
    * Build LLM prompt with Few-Shot examples and structured output
    */
   buildPrompt(context: InsightContext, aggregated: AggregatedFeatures): string {
-    console.log('[AnomalyActionStrategy] Building prompt...');
+    logger.info('[AnomalyActionStrategy] Building prompt...');
     
     const prompt = buildAnomalyActionPrompt(context, aggregated);
     
-    console.log('[AnomalyActionStrategy] Prompt built:', {
+    logger.info('[AnomalyActionStrategy] Prompt built:', {
       length: prompt.length,
       hasContext: prompt.includes('业务背景'),
       hasFewShot: prompt.includes('Few-Shot'),

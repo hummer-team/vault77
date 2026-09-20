@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { logger } from '../../../utils/logger';
 import { Button, Tooltip } from 'antd';
 import { DeleteOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useReactFlow, Position } from '@xyflow/react';
@@ -111,13 +112,13 @@ export const CanvasToolbar: React.FC = () => {
     if (currentNodes.length <= 1) return;
 
     // eslint-disable-next-line no-console
-    console.log('[CanvasToolbar] Before layout:', currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })));
+    logger.info('[CanvasToolbar] Before layout:', currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })));
 
     // Calculate layouted positions
     const { nodes: layoutedNodes } = getLayoutedElements(currentNodes, currentEdges, 'LR');
 
     // eslint-disable-next-line no-console
-    console.log('[CanvasToolbar] After layout:', layoutedNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })));
+    logger.info('[CanvasToolbar] After layout:', layoutedNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })));
 
     // Update React Flow nodes directly with new positions
     // Force update by creating completely new node objects

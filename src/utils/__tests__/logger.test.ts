@@ -1,4 +1,5 @@
 import { describe, test, expect, spyOn, beforeEach, afterEach } from 'bun:test';
+import { logger } from '../../utils/logger';
 import { logger } from '../logger';
 
 describe('logger', () => {
@@ -29,7 +30,7 @@ describe('logger', () => {
     expect(logStr).toContain('test message');
   });
 
-  test('warn should call console.warn (not console.info)', () => {
+  test('warn should call logger.warn(not console.info)', () => {
     logger.warn('warning message');
     expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
     expect(consoleInfoSpy).not.toHaveBeenCalled();
@@ -38,7 +39,7 @@ describe('logger', () => {
     expect(logStr).toContain('warning message');
   });
 
-  test('error should call console.error (not console.info)', () => {
+  test('error should call logger.error(not console.info)', () => {
     logger.error('error message');
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     expect(consoleInfoSpy).not.toHaveBeenCalled();

@@ -3,6 +3,7 @@
  * Intelligently selects binning strategy based on data distribution characteristics
  */
 
+import { logger } from '../../utils/logger';
 export interface ColumnStatistics {
   min: number;
   max: number;
@@ -33,7 +34,7 @@ export class AutoBinningStrategy {
     const dynamicRange = max / Math.max(min, 1);
 
     if (dynamicRange > this.WIDE_RANGE_THRESHOLD) {
-      console.log(`[AutoBinningStrategy] ${columnName}: LOGARITHMIC (range: ${min.toFixed(2)} - ${max.toFixed(2)})`);
+      logger.info(`[AutoBinningStrategy] ${columnName}: LOGARITHMIC (range: ${min.toFixed(2)} - ${max.toFixed(2)})`);
       return {
         strategy: 'logarithmic',
         sql: `pow(10, floor(log10(NULLIF(GREATEST("${columnName}", 1), 0))))`,
@@ -42,7 +43,7 @@ export class AutoBinningStrategy {
 
     if (max > upperFence * this.OUTLIER_MULTIPLIER) {
       const binWidth = this.calculateOptimalBinWidth(iqr, rowCount);
-      console.log(`[AutoBinningStrategy] ${columnName}: CLIPPED (fence: ${upperFence.toFixed(2)}, binWidth: ${binWidth})`);
+      logger.info(`[AutoBinningStrategy] ${columnName}: CLIPPED (fence: ${upperFence.toFixed(2)}, binWidth: ${binWidth})`);
       return {
         strategy: 'clipped',
         sql: `CASE WHEN "${columnName}" > ${upperFence} THEN ${upperFence} ELSE floor("${columnName}" / ${binWidth}) * ${binWidth} END`,
@@ -51,7 +52,7 @@ export class AutoBinningStrategy {
     }
 
     const binWidth = this.calculateOptimalBinWidth(iqr, rowCount);
-    console.log(`[AutoBinningStrategy] ${columnName}: LINEAR (binWidth: ${binWidth})`);
+    logger.info(`[AutoBinningStrategy] ${columnName}: LINEAR (binWidth: ${binWidth})`);
     return {
       strategy: 'linear',
       sql: `floor("${columnName}" / ${binWidth}) * ${binWidth}`,

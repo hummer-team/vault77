@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
+import { logger } from '../../../utils/logger';
 import { Button, Form, Tag, Space, Upload, FloatButton, Typography, Spin, Tooltip, Mentions, Popover } from 'antd';
 import type { MentionsRef } from 'antd/es/mentions';
 import { PaperClipOutlined, DownOutlined, CloseCircleFilled, StopOutlined, FileExcelOutlined, UserOutlined, BarChartOutlined, SendOutlined, PartitionOutlined, WarningFilled, CloseOutlined, ClearOutlined } from '@ant-design/icons';
@@ -164,10 +165,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const config = await userSkillService.loadUserSkill();
         if (config) {
           setUserSkillConfigs(config.tables);
-          console.log('[ChatPanel] User Skill configs loaded:', Object.keys(config.tables));
+          logger.info('[ChatPanel] User Skill configs loaded:', Object.keys(config.tables));
         }
       } catch (error) {
-        console.error('[ChatPanel] Failed to load user skill configs:', error);
+        logger.error('[ChatPanel] Failed to load user skill configs:', error);
       }
     };
     
@@ -181,7 +182,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ) => {
         // Check if userSkillConfig has changed
         if (changes.userSkillConfig) {
-          console.log('[ChatPanel] User Skill config updated, reloading');
+          logger.info('[ChatPanel] User Skill config updated, reloading');
           loadUserSkills();
         }
       };

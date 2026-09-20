@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '../../utils/logger';
 import { Drawer, Form, Input, Button, Radio, Upload } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import { vmMessage } from '../../utils/vmDialog';
@@ -12,7 +13,7 @@ const FeedbackDrawer: React.FC<FeedbackDrawerProps> = ({ open, onClose }) => {
   const [form] = Form.useForm();
 
   const onFinish = (values: any) => {
-    console.log('Feedback submitted:', values);
+    logger.info('Feedback submitted:', values);
     vmMessage.success('感谢您的反馈，我们会尽快处理！');
     form.resetFields();
     onClose();

@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Select, Tag, Spin, Tooltip } from 'antd';
 import { DatabaseOutlined } from '@ant-design/icons';
@@ -50,17 +51,17 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
   // Load available tables when DB is ready or when refreshKey changes (modal reopened)
   useEffect(() => {
     const loadTables = async () => {
-      console.log('[DataSourceNode] loadTables called, isDBReady:', isDBReady, 'refreshKey:', refreshKey);
+      logger.info('[DataSourceNode] loadTables called, isDBReady:', isDBReady, 'refreshKey:', refreshKey);
       if (!isDBReady) {
-        console.log('[DataSourceNode] DB not ready, skipping table load');
+        logger.info('[DataSourceNode] DB not ready, skipping table load');
         return;
       }
 
       setLoading(true);
       try {
-        console.log('[DataSourceNode] Loading tables...');
+        logger.info('[DataSourceNode] Loading tables...');
         const tableNames = await getAvailableTables(executeQuery);
-        console.log('[DataSourceNode] Loaded tables:', tableNames);
+        logger.info('[DataSourceNode] Loaded tables:', tableNames);
 
         // Filter to only show tables from selected attachments.
         // undefined = no filter; [] = no attachments selected (show none).
@@ -79,10 +80,10 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
             fullName: displayName,
           };
         });
-        console.log('[DataSourceNode] Setting table options:', tableOptions);
+        logger.info('[DataSourceNode] Setting table options:', tableOptions);
         setTables(tableOptions);
       } catch (error) {
-        console.error('[DataSourceNode] Failed to load tables:', error);
+        logger.error('[DataSourceNode] Failed to load tables:', error);
       } finally {
         setLoading(false);
       }
@@ -93,7 +94,7 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
 
   // Debug: log tables state changes
   useEffect(() => {
-    console.log('[DataSourceNode] tables state changed:', tables);
+    logger.info('[DataSourceNode] tables state changed:', tables);
   }, [tables]);
 
   // Handle table selection (multi-select): create TableNodes for newly selected tables
@@ -120,9 +121,9 @@ export const DataSourceNode: React.FC<DataSourceNodeProps> = ({ id, data, select
         try {
           const schema = await getTableSchema(tableName, executeQuery);
           tableFields = schema.fields;
-          console.log('[DataSourceNode] Loaded table fields:', tableName, tableFields);
+          logger.info('[DataSourceNode] Loaded table fields:', tableName, tableFields);
         } catch (error) {
-          console.error('[DataSourceNode] Failed to load table schema:', error);
+          logger.error('[DataSourceNode] Failed to load table schema:', error);
         }
 
         const currentTableCount = nodes.filter((n) => n.type === FlowNodeType.TABLE).length;

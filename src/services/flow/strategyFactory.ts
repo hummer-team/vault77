@@ -4,6 +4,7 @@
  */
 
 import { OperatorType, type FlowStrategy } from './types';
+import { logger } from '../../utils/logger';
 import { AssociationStrategy } from './strategies/associationStrategy';
 import { AnomalyStrategy }     from './strategies/anomalyStrategy';
 import { ClusteringStrategy }  from './strategies/clusteringStrategy';
@@ -59,10 +60,10 @@ export class StrategyFactory {
   static getStrategy(type: OperatorType): FlowStrategy {
     const strategy = this.strategies.get(type);
     if (!strategy) {
-      console.error(`[StrategyFactory.getStrategy] Unknown operator type: ${type}`);
+      logger.error(`[StrategyFactory.getStrategy] Unknown operator type: ${type}`);
       throw new Error(`Unknown operator type: ${type}`);
     }
-    console.log(`[StrategyFactory.getStrategy] type=${type} → "${strategy.name}"`);
+    logger.info(`[StrategyFactory.getStrategy] type=${type} → "${strategy.name}"`);
     return strategy;
   }
 

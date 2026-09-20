@@ -5,6 +5,7 @@
  */
 
 import * as arrow from 'apache-arrow';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // WASM Column Name Mapping
@@ -133,10 +134,10 @@ export async function serializeToArrowIPC(
     const writer = arrow.RecordBatchStreamWriter.writeAll([recordBatch]);
     const arrowData = await writer.toUint8Array();
 
-    console.log(`[ArrowUtils] Serialized ${rowCount} rows x ${featureCount} features (${arrowData.byteLength} bytes)`);
+    logger.info(`[ArrowUtils] Serialized ${rowCount} rows x ${featureCount} features (${arrowData.byteLength} bytes)`);
     return new Uint8Array(arrowData);
   } catch (error) {
-    console.error('[ArrowUtils] Arrow IPC serialization failed:', error);
+    logger.error('[ArrowUtils] Arrow IPC serialization failed:', error);
     throw new Error(`Arrow serialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -191,10 +192,10 @@ export function deserializeFromArrowIPC<T extends Record<string, any>>(
       result[colName] = Array.from(column.toArray());
     }
 
-    console.log(`[ArrowUtils] Deserialized ${result.ids.length} rows with ${expectedColumns.length} columns`);
+    logger.info(`[ArrowUtils] Deserialized ${result.ids.length} rows with ${expectedColumns.length} columns`);
     return result as T & { ids: string[] };
   } catch (error) {
-    console.error('[ArrowUtils] Arrow IPC deserialization failed:', error);
+    logger.error('[ArrowUtils] Arrow IPC deserialization failed:', error);
     throw new Error(`Arrow deserialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

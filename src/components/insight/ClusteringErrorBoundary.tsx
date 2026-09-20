@@ -4,6 +4,7 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { logger } from '../../utils/logger';
 import { Alert, Button, Space } from 'antd';
 import { ReloadOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
@@ -36,7 +37,7 @@ export class ClusteringErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('[ClusteringErrorBoundary] Caught error:', error, errorInfo);
+    logger.error('[ClusteringErrorBoundary] Caught error:', error, errorInfo);
     this.setState({
       error,
       errorInfo,

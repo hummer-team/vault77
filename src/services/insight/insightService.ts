@@ -5,6 +5,7 @@
  */
 
 import { ColumnInferService } from './columnInferService';
+import { logger } from '../../utils/logger';
 import { AutoBinningStrategy, ColumnStatistics } from './binningStrategyService';
 import type {
   InsightConfig,
@@ -47,7 +48,7 @@ export class InsightService {
     const columns = await columnInfer.inferColumns(tableName, executeQuery);
     
     if (columns.length === 0) {
-      console.warn('[InsightService] No valid columns found, skipping insights');
+      logger.warn('[InsightService] No valid columns found, skipping insights');
       return null;
     }
 
@@ -72,11 +73,11 @@ export class InsightService {
     const hasValidColumns = sortedNumeric.length > 0 || statusColumns.length > 0 || categoryColumns.length > 0;
     
     if (!hasValidColumns) {
-      console.warn('[InsightService] No amount/status/category columns found, skipping insights');
+      logger.warn('[InsightService] No amount/status/category columns found, skipping insights');
       return null;
     }
 
-    console.log(`[InsightService] Valid insight columns: ${sortedNumeric.length} amount, ${statusColumns.length} status, ${categoryColumns.length} category`);
+    logger.info(`[InsightService] Valid insight columns: ${sortedNumeric.length} amount, ${statusColumns.length} status, ${categoryColumns.length} category`);
 
     return {
       tableName,
@@ -120,7 +121,7 @@ export class InsightService {
       return false;
     });
 
-    console.log(`[InsightService] Global Summary filtered: ${filteredColumns.length}/${columns.length} columns`);
+    logger.info(`[InsightService] Global Summary filtered: ${filteredColumns.length}/${columns.length} columns`);
     return { columns: filteredColumns };
   }
 
@@ -136,11 +137,11 @@ export class InsightService {
     const sampling = config.enableSampling ? `USING SAMPLE ${config.samplingRate * 100}%` : '';
 
     if (topColumns.length === 0) {
-      console.log('[InsightService] No numeric columns found for distribution');
+      logger.info('[InsightService] No numeric columns found for distribution');
       return { xAxis: [], series: [] };
     }
 
-    console.log(`[InsightService] Generating distributions for ${topColumns.length} columns:`, topColumns.map(c => c.name));
+    logger.info(`[InsightService] Generating distributions for ${topColumns.length} columns:`, topColumns.map(c => c.name));
 
     const allSeries: Array<{ columnName: string; data: number[]; bins: number[] }> = [];
     
@@ -164,10 +165,10 @@ export class InsightService {
           sampling
         );
         
-        console.log(`[InsightService] Binning query for ${column.name}:`, sql);
+        logger.info(`[InsightService] Binning query for ${column.name}:`, sql);
         
         const result = await executeQuery(sql);
-        console.log(`[InsightService] Got ${result.data.length} bins for ${column.name}`);
+        logger.info(`[InsightService] Got ${result.data.length} bins for ${column.name}`);
         
         if (result.data && result.data.length > 0) {
           const bins = result.data
@@ -187,11 +188,11 @@ export class InsightService {
           }
         }
       } catch (error) {
-        console.error(`[InsightService] Failed to generate distribution for ${column.name}:`, error);
+        logger.error(`[InsightService] Failed to generate distribution for ${column.name}:`, error);
       }
     }
 
-    console.log(`[InsightService] Successfully generated ${allSeries.length} distributions`);
+    logger.info(`[InsightService] Successfully generated ${allSeries.length} distributions`);
 
     const xAxis = allSeries.length > 0 ? allSeries[0].bins : [];
     
@@ -230,9 +231,9 @@ export class InsightService {
     status: CategoricalResult[];
     category: CategoricalResult[];
   }> {
-    console.log('[InsightService] Generating categorical data...');
-    console.log(`[InsightService] Status columns: ${config.statusColumns.length}`, config.statusColumns.map(c => c.name));
-    console.log(`[InsightService] Category columns: ${config.categoryColumns.length}`, config.categoryColumns.map(c => c.name));
+    logger.info('[InsightService] Generating categorical data...');
+    logger.info(`[InsightService] Status columns: ${config.statusColumns.length}`, config.statusColumns.map(c => c.name));
+    logger.info(`[InsightService] Category columns: ${config.categoryColumns.length}`, config.categoryColumns.map(c => c.name));
     
     const status: CategoricalResult[] = [];
     const category: CategoricalResult[] = [];
@@ -262,11 +263,11 @@ export class InsightService {
         ? `${cteClause}\n${statusQueries.join('\nUNION ALL\n')}`
         : statusQueries.join('\nUNION ALL\n');
       
-      console.log(`[InsightService] Batched status SQL (${config.statusColumns.length} columns):`, batchedStatusSQL);
+      logger.info(`[InsightService] Batched status SQL (${config.statusColumns.length} columns):`, batchedStatusSQL);
       
       try {
         const result = await executeQuery(batchedStatusSQL);
-        console.log(`[InsightService] Batched status result rows: ${result.data.length}`);
+        logger.info(`[InsightService] Batched status result rows: ${result.data.length}`);
         
         // Group results by column_name
         const groupedResults = new Map<string, any[]>();
@@ -283,7 +284,7 @@ export class InsightService {
           status.push(this.transformCategoricalResult(column.name, columnData));
         }
       } catch (error) {
-        console.error(`[InsightService] Failed to generate batched status:`, error);
+        logger.error(`[InsightService] Failed to generate batched status:`, error);
       }
     }
 
@@ -304,11 +305,11 @@ export class InsightService {
         ? `${cteClause}\n${categoryQueries.join('\nUNION ALL\n')}`
         : categoryQueries.join('\nUNION ALL\n');
       
-      console.log(`[InsightService] Batched category SQL (${config.categoryColumns.length} columns):`, batchedCategorySQL);
+      logger.info(`[InsightService] Batched category SQL (${config.categoryColumns.length} columns):`, batchedCategorySQL);
       
       try {
         const result = await executeQuery(batchedCategorySQL);
-        console.log(`[InsightService] Batched category result rows: ${result.data.length}`);
+        logger.info(`[InsightService] Batched category result rows: ${result.data.length}`);
         
         // Group results by column_name
         const groupedResults = new Map<string, any[]>();
@@ -325,11 +326,11 @@ export class InsightService {
           category.push(this.transformCategoricalResult(column.name, columnData));
         }
       } catch (error) {
-        console.error(`[InsightService] Failed to generate batched category:`, error);
+        logger.error(`[InsightService] Failed to generate batched category:`, error);
       }
     }
 
-    console.log(`[InsightService] Generated ${status.length} status + ${category.length} category results`);
+    logger.info(`[InsightService] Generated ${status.length} status + ${category.length} category results`);
     
     return { status, category };
   }

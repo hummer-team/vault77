@@ -4,6 +4,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import { logger } from '../../../../../utils/logger';
 import { analysisV1Skill } from '../analysis.v1';
 import type { SkillContext, UserSkillConfig } from '../../types';
 import type { LLMConfig } from '../../../llmClient';
@@ -70,7 +71,7 @@ describe('analysis.v1 Skill - M10.4 Phase 3', () => {
       const result = await analysisV1Skill.run(ctx);
 
       if (result.stopReason !== 'SUCCESS') {
-        console.log('[TEST] Failed result:', result);
+        logger.info('[TEST] Failed result:', result);
       }
       expect(result.stopReason).toBe('SUCCESS');
       expect(result.tool).toBe('sql_query_tool');

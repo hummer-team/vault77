@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import JSZip from 'jszip';
 import { Attachment } from '../types/workbench.types';
@@ -252,7 +253,7 @@ export const useFileManager = ({
           status: 'uploading',
         };
         setAttachments((prev) => [...prev, newAttachment]);
-        console.log('[useFileManager] Loading file into DuckDB:', file.name);
+        logger.info('[useFileManager] Loading file into DuckDB:', file.name);
         await loadFileInDuckDB(file, newAttachment.tableName);
 
         setAttachments((prev) => {
@@ -274,12 +275,12 @@ export const useFileManager = ({
 
         // Trigger insight generation automatically
         if (onFileLoaded) {
-          console.log('[useFileManager] Triggering insight generation for table:', newAttachment.tableName);
+          logger.info('[useFileManager] Triggering insight generation for table:', newAttachment.tableName);
           onFileLoaded(newAttachment.tableName);
         }
         onFilesLoaded?.([newAttachment.id]);
       } catch (error: any) {
-        console.error(`[useFileManager] Error during file upload process:`, error);
+        logger.error(`[useFileManager] Error during file upload process:`, error);
         setUiState('error');
         setChatError(`Failed to load file: ${error.message}`);
       }
@@ -315,7 +316,7 @@ export const useFileManager = ({
       setUiState('parsing');
 
       try {
-        console.log('[useFileManager] Loading sheets:', selectedSheets);
+        logger.info('[useFileManager] Loading sheets:', selectedSheets);
         const loadedAttachments = await loadSheetsInDuckDB(fileToLoad, selectedSheets, attachments.length);
         setAttachments((prev) => {
           const updated = [...prev, ...loadedAttachments];
@@ -339,14 +340,14 @@ export const useFileManager = ({
 
         // Trigger insight generation for the first loaded sheet automatically
         if (onFileLoaded && loadedAttachments.length > 0) {
-          console.log('[useFileManager] Triggering insight generation for first sheet:', loadedAttachments[0].tableName);
+          logger.info('[useFileManager] Triggering insight generation for first sheet:', loadedAttachments[0].tableName);
           onFileLoaded(loadedAttachments[0].tableName);
         }
         if (loadedAttachments.length > 0) {
           onFilesLoaded?.(loadedAttachments.map((a) => a.id));
         }
       } catch (error: any) {
-        console.error(`[useFileManager] Error loading sheets:`, error);
+        logger.error(`[useFileManager] Error loading sheets:`, error);
         setUiState('error');
         setChatError(`Failed to load sheets`);
         setSheetsToSelect(null);
@@ -388,11 +389,11 @@ export const useFileManager = ({
       if (attachmentToDelete.status === 'success') {
         try {
           await dropTable(attachmentToDelete.tableName);
-          console.log(`[useFileManager] Dropped table: ${attachmentToDelete.tableName}`);
+          logger.info(`[useFileManager] Dropped table: ${attachmentToDelete.tableName}`);
 
           await removeTableSchemaFromCache(attachmentToDelete.tableName);
         } catch (error) {
-          console.error(`[useFileManager] Failed to drop table ${attachmentToDelete.tableName}:`, error);
+          logger.error(`[useFileManager] Failed to drop table ${attachmentToDelete.tableName}:`, error);
         }
       }
     },

@@ -8,6 +8,7 @@ import {
   ColumnType,
   SemanticType,
 } from '../../types/insight.types.ts';
+import { logger } from '../../utils/logger';
 
 /**
  * Column name patterns for semantic type matching
@@ -105,36 +106,36 @@ export class ColumnInferService {
     const schemaResult = await executeQuery(`DESCRIBE ${tableName}`);
     const rawColumns = schemaResult.data as Array<{ column_name: string; column_type: string }>;
     
-    console.log(`[ColumnInferService] Found ${rawColumns.length} columns in ${tableName}`);
+    logger.info(`[ColumnInferService] Found ${rawColumns.length} columns in ${tableName}`);
     
     // Step 2: Early filtering - validate column names and match semantic types
     const validColumns = rawColumns.filter(col => {
       // Filter 1: Check if column name is valid for SQL (reject special characters)
       if (!this.isValidColumnName(col.column_name)) {
-        console.warn(`[ColumnInferService] Skipping column with invalid characters: "${col.column_name}"`);
+        logger.warn(`[ColumnInferService] Skipping column with invalid characters: "${col.column_name}"`);
         return false;
       }
       
       // Filter 2: Check if column has meaningful semantic type
       const semanticType = this.matchSemanticType(col.column_name);
       if (!semanticType) {
-        console.log(`[ColumnInferService] Skipping non-business column: "${col.column_name}" (no semantic type)`);
+        logger.info(`[ColumnInferService] Skipping non-business column: "${col.column_name}" (no semantic type)`);
         return false;
       }
       
       // Filter 3: Skip ID columns (they're not useful for insights)
       if (semanticType === 'id') {
-        console.log(`[ColumnInferService] Skipping ID column: "${col.column_name}"`);
+        logger.info(`[ColumnInferService] Skipping ID column: "${col.column_name}"`);
         return false;
       }
       
       return true;
     });
     
-    console.log(`[ColumnInferService] After filtering: ${validColumns.length}/${rawColumns.length} columns remain`);
+    logger.info(`[ColumnInferService] After filtering: ${validColumns.length}/${rawColumns.length} columns remain`);
     
     if (validColumns.length === 0) {
-      console.warn('[ColumnInferService] No valid business columns found');
+      logger.warn('[ColumnInferService] No valid business columns found');
       return [];
     }
 

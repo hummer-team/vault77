@@ -5,6 +5,7 @@
  */
 
 import { storageService } from '../storageService';
+import { logger } from '../../utils/logger';
 import {
   userSkillConfigSchema,
   type UserSkillConfig,
@@ -41,21 +42,21 @@ class UserSkillService {
       const raw = await storageService.getItem<unknown>(USER_SKILL_CONFIG_KEY, null);
       
       if (!raw) {
-        console.log('[UserSkillService] No user skill configuration found');
+        logger.info('[UserSkillService] No user skill configuration found');
         return null;
       }
 
       // Validate with zod schema
       const validated = userSkillConfigSchema.parse(raw);
-      console.log('[UserSkillService] User skill configuration loaded and validated');
+      logger.info('[UserSkillService] User skill configuration loaded and validated');
       return validated;
     } catch (error) {
       if (error instanceof Error && error.name === 'ZodError') {
-        console.error('[UserSkillService] User skill configuration validation failed:', error);
+        logger.error('[UserSkillService] User skill configuration validation failed:', error);
         // Return null instead of throwing to allow graceful degradation
         return null;
       }
-      console.error('[UserSkillService] Failed to load user skill configuration:', error);
+      logger.error('[UserSkillService] Failed to load user skill configuration:', error);
       return null;
     }
   }
@@ -70,7 +71,7 @@ class UserSkillService {
       // Validate before saving
       const validated = userSkillConfigSchema.parse(config);
       await storageService.setItem(USER_SKILL_CONFIG_KEY, validated);
-      console.log('[UserSkillService] User skill configuration saved');
+      logger.info('[UserSkillService] User skill configuration saved');
     } catch (error) {
       if (error instanceof Error && error.name === 'ZodError') {
         throw new UserSkillValidationError(
@@ -119,7 +120,7 @@ class UserSkillService {
 
     // Save back
     await this.saveUserSkill(config);
-    console.log(`[UserSkillService] Table skill updated for: ${tableName}`);
+    logger.info(`[UserSkillService] Table skill updated for: ${tableName}`);
   }
 
   /**
@@ -134,7 +135,7 @@ class UserSkillService {
 
     delete config.tables[tableName];
     await this.saveUserSkill(config);
-    console.log(`[UserSkillService] Table skill deleted for: ${tableName}`);
+    logger.info(`[UserSkillService] Table skill deleted for: ${tableName}`);
   }
 
   /**
@@ -148,7 +149,7 @@ class UserSkillService {
       if (config && config.tables[tableName]) {
         delete config.tables[tableName];
         await this.saveUserSkill(config);
-        console.log(`[UserSkillService] Table skill reset for: ${tableName}`);
+        logger.info(`[UserSkillService] Table skill reset for: ${tableName}`);
       }
     } else {
       // Reset all
@@ -157,7 +158,7 @@ class UserSkillService {
         tables: {},
       };
       await this.saveUserSkill(emptyConfig);
-      console.log('[UserSkillService] All user skill configuration reset to default');
+      logger.info('[UserSkillService] All user skill configuration reset to default');
     }
   }
 }

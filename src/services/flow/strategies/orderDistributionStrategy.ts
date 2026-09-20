@@ -6,6 +6,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -402,7 +403,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
       ?.orderDistConfig;
 
     if (!config) {
-      console.warn(`[${this.name}.buildOperatorSql] orderDistConfig missing — falling back to SELECT *`);
+      logger.warn(`[${this.name}.buildOperatorSql] orderDistConfig missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
@@ -411,7 +412,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
     switch (config.subType) {
       case 'time_dist':
         if (!config.timeDist) {
-          console.warn(`[${this.name}.buildOperatorSql] timeDist config missing`);
+          logger.warn(`[${this.name}.buildOperatorSql] timeDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
         sql = buildTimeDistSql(tableName, config.timeDist, userWhere);
@@ -419,7 +420,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
 
       case 'amount_dist':
         if (!config.amountDist) {
-          console.warn(`[${this.name}.buildOperatorSql] amountDist config missing`);
+          logger.warn(`[${this.name}.buildOperatorSql] amountDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
         sql = buildAmountDistSql(tableName, config.amountDist, userWhere);
@@ -427,7 +428,7 @@ export class OrderDistributionStrategy extends BaseStrategy {
 
       case 'geo_dist':
         if (!config.geoDist) {
-          console.warn(`[${this.name}.buildOperatorSql] geoDist config missing`);
+          logger.warn(`[${this.name}.buildOperatorSql] geoDist config missing`);
           return `SELECT *\nFROM "${tableName}"`;
         }
         sql = buildGeoDistSql(tableName, config.geoDist, userWhere);
@@ -435,12 +436,12 @@ export class OrderDistributionStrategy extends BaseStrategy {
 
       default: {
         const _exhaustive: never = config.subType;
-        console.warn(`[${this.name}.buildOperatorSql] unknown subType: ${_exhaustive as string}`);
+        logger.warn(`[${this.name}.buildOperatorSql] unknown subType: ${_exhaustive as string}`);
         return `SELECT *\nFROM "${tableName}"`;
       }
     }
 
-    console.log(`[${this.name}.buildOperatorSql] subType=${config.subType} sql=\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] subType=${config.subType} sql=\n${sql}`);
     return sql;
   }
 

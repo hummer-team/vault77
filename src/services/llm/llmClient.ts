@@ -1,5 +1,6 @@
 // --- CRITICAL CHANGE: Use the official 'openai' package ---
 import OpenAI from 'openai';
+import { logger } from '../../utils/logger';
 
 // This file no longer depends on 'ai' or '@ai-sdk/openai'
 // We define our own types, which makes this client self-contained.
@@ -19,7 +20,7 @@ export class LlmClient {
   public readonly modelName: string;
 
   constructor(config: LLMConfig) {
-    console.log(`[LLMClient] Creating official OpenAI client for provider: ${config.provider}`);
+    logger.info(`[LLMClient] Creating official OpenAI client for provider: ${config.provider}`);
 
     // Directly instantiate the official OpenAI client, as per the official example.
     // This will correctly construct the URL and request body.
@@ -33,7 +34,7 @@ export class LlmClient {
 
     this.modelName = config.modelName;
 
-    console.log(`[LLMClient] Official OpenAI client for model "${config.modelName}" created successfully.`);
+    logger.info(`[LLMClient] Official OpenAI client for model "${config.modelName}" created successfully.`);
   }
 
   // Method to call chat completions with AbortSignal support

@@ -1,4 +1,5 @@
 import { ExecuteQueryFunc } from '../llm/agentExecutor.ts';
+import { logger } from '../../utils/logger';
 import { validateAndNormalizeSql, SqlPolicyError } from './sqlPolicy.ts';
 
 // --- Custom Error Types ---
@@ -60,24 +61,24 @@ export const sql_query_tool = async (
     });
     normalizedSql = policy.normalizedSql;
     if (policy.warnings.length > 0) {
-      console.log('[sql_query_tool] SQL policy warnings:', policy.warnings);
+      logger.info('[sql_query_tool] SQL policy warnings:', policy.warnings);
     }
   } catch (err: unknown) {
     if (err instanceof SqlPolicyError) {
-      console.warn('[sql_query_tool] Policy denied:', err.message);
+      logger.warn('[sql_query_tool] Policy denied:', err.message);
       // rethrow for upper layer to categorize as POLICY_DENIED
       throw err;
     }
     throw err;
   }
 
-  console.log(`[sql_query_tool] Executing query:`, normalizedSql);
+  logger.info(`[sql_query_tool] Executing query:`, normalizedSql);
   try {
     const result = await executeQuery(normalizedSql);
-    console.log(`[sql_query_tool] Query result:`, result);
+    logger.info(`[sql_query_tool] Query result:`, result);
     return result;
   } catch (error: unknown) {
-    console.error(`[sql_query_tool] Error executing query:`, error);
+    logger.error(`[sql_query_tool] Error executing query:`, error);
 
     if (error instanceof Error) {
       const columnNotFoundMatch =
@@ -97,7 +98,7 @@ export const sql_query_tool = async (
  * Used by the LLM when it determines it cannot answer the question based on the available data.
  */
 export const cannot_answer_tool = async (_executeQuery: ExecuteQueryFunc, { explanation }: { explanation: string }): Promise<any> => {
-  console.log(`[cannot_answer_tool] LLM determined it cannot answer. Explanation: ${explanation}`);
+  logger.info(`[cannot_answer_tool] LLM determined it cannot answer. Explanation: ${explanation}`);
   throw new CannotAnswerError(explanation);
 };
 

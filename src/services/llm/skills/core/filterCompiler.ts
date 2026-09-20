@@ -5,6 +5,7 @@
  */
 
 import type { FilterExpr, RelativeTimeValue, LiteralValue } from '../types';
+import { logger } from '../../../../utils/logger';
 
 /**
  * Check if value is a relative time expression.
@@ -154,7 +155,7 @@ export function compileFilters(
     try {
       return compileFilter(filter);
     } catch (error) {
-      console.error('[FilterCompiler] Failed to compile filter:', filter, error);
+      logger.error('[FilterCompiler] Failed to compile filter:', filter, error);
       throw error;
     }
   });

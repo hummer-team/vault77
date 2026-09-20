@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import { Typography, Card } from 'antd';
 import SearchBar from './components/SearchBar';
 import CategoryFilter from './components/CategoryFilter';
@@ -61,7 +62,7 @@ const BizKernelMarketPage: React.FC = () => {
         setCategories(allCategories);
         setAppliedKernelNames(new Set(applied.map((k: BizKernelMetadata) => k.name)));
       } catch (error) {
-        console.error('[BizKernelMarketPage] Failed to initialize:', error);
+        logger.error('[BizKernelMarketPage] Failed to initialize:', error);
         vmMessage.error('算子加载失败，请重试');
       } finally {
         setLoading(false);
@@ -91,7 +92,7 @@ const BizKernelMarketPage: React.FC = () => {
         // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
-        console.error('[BizKernelMarketPage] Search failed:', error);
+        logger.error('[BizKernelMarketPage] Search failed:', error);
       } finally {
         setLoading(false);
       }
@@ -118,7 +119,7 @@ const BizKernelMarketPage: React.FC = () => {
         // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
-        console.error('[BizKernelMarketPage] Filter failed:', error);
+        logger.error('[BizKernelMarketPage] Filter failed:', error);
       } finally {
         setLoading(false);
       }
@@ -145,7 +146,7 @@ const BizKernelMarketPage: React.FC = () => {
         // Order: category (ascending) -> likes (descending)
         setKernels(results);
       } catch (error) {
-        console.error('[BizKernelMarketPage] Filter failed:', error);
+        logger.error('[BizKernelMarketPage] Filter failed:', error);
       } finally {
         setLoading(false);
       }
@@ -159,7 +160,7 @@ const BizKernelMarketPage: React.FC = () => {
       await bizKernelService.applyKernel(name);
       setAppliedKernelNames((prev) => new Set([...prev, name]));
     } catch (error) {
-      console.error('[BizKernelMarketPage] Apply failed:', error);
+      logger.error('[BizKernelMarketPage] Apply failed:', error);
       vmMessage.error('算子应用失败');
     }
   }, []);
@@ -181,7 +182,7 @@ const BizKernelMarketPage: React.FC = () => {
             return next;
           });
         } catch (error) {
-          console.error('[BizKernelMarketPage] Cancel failed:', error);
+          logger.error('[BizKernelMarketPage] Cancel failed:', error);
           vmMessage.error('取消应用失败');
         }
       },

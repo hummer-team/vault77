@@ -9,6 +9,7 @@ import type {
   InsightActionSettings,
   AlgorithmType,
 } from '../../types/insight-action.types';
+import { logger } from '../../utils/logger';
 import { getStrategy, type QueryExecutor } from './strategies';
 import { LlmClient } from '../llm/llmClient';
 import { resolveActiveLlmConfig } from '../llm/runtimeLlmConfig';
@@ -38,7 +39,7 @@ export class InsightActionService {
     input: InsightActionInput,
     settings: InsightActionSettings,
   ): Promise<InsightActionOutput> {
-    console.log('[InsightActionService] Starting insight generation:', {
+    logger.info('[InsightActionService] Starting insight generation:', {
       algorithm: input.algorithmType,
       table: input.tableName,
       autoGenerate: settings.autoGenerate,
@@ -49,7 +50,7 @@ export class InsightActionService {
     try {
       // Step 1: Get strategy for algorithm
       const strategy = getStrategy(input.algorithmType);
-      console.log('[InsightActionService] Strategy selected:', strategy.algorithmType);
+      logger.info('[InsightActionService] Strategy selected:', strategy.algorithmType);
       
       // Step 2: Build semantic context
       const context = await strategy.buildContext({
@@ -57,7 +58,7 @@ export class InsightActionService {
         tableName: input.tableName,
         analysisResult: input.analysisResult,
       });
-      console.log('[InsightActionService] Context built:', {
+      logger.info('[InsightActionService] Context built:', {
         domain: context.businessDomain,
         features: Object.keys(context.featureDefinitions).length,
         rows: context.tableMetadata.rowCount,
@@ -70,7 +71,7 @@ export class InsightActionService {
         analysisResult: input.analysisResult,
         context,
       });
-      console.log('[InsightActionService] Data aggregated:', {
+      logger.info('[InsightActionService] Data aggregated:', {
         totalAnomalies: aggregated.totalAnomalies,
         averageScore: aggregated.averageScore?.toFixed(3),
         numericFeatures: Object.keys(aggregated.numericFeatures || {}).length,
@@ -78,24 +79,24 @@ export class InsightActionService {
       
       // Step 4: Build LLM prompt
       const prompt = strategy.buildPrompt(context, aggregated);
-      console.log('[InsightActionService] Prompt built, length:', prompt.length, 'chars');
+      logger.info('[InsightActionService] Prompt built, length:', prompt.length, 'chars');
       
       // Step 5: Call LLM
       const llmResponse = await this.callLLM(prompt);
-      console.log('[InsightActionService] LLM response received, length:', llmResponse.length, 'chars');
+      logger.info('[InsightActionService] LLM response received, length:', llmResponse.length, 'chars');
       
       // Step 6: Parse and validate response
       const parsedOutput = this.parseResponse(llmResponse, input.algorithmType);
       
       const duration = performance.now() - startTime;
-      console.log('[InsightActionService] ✅ Insight generated successfully in', 
+      logger.info('[InsightActionService] ✅ Insight generated successfully in', 
         duration.toFixed(0), 'ms');
       
       return parsedOutput;
       
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error('[InsightActionService] ❌ Failed to generate insight after', 
+      logger.error('[InsightActionService] ❌ Failed to generate insight after', 
         duration.toFixed(0), 'ms:', error);
       throw new Error(`Insight generation failed: ${(error as Error).message}`);
     }
@@ -110,7 +111,7 @@ export class InsightActionService {
   private async callLLM(prompt: string): Promise<string> {
     // Lazy initialization of LLM client
     if (!this.llmClient) {
-      console.log('[InsightActionService] Initializing LLM client...');
+      logger.info('[InsightActionService] Initializing LLM client...');
       const { config, isReady } = await resolveActiveLlmConfig();
       
       if (!config || !isReady) {
@@ -118,14 +119,14 @@ export class InsightActionService {
       }
       
       this.llmClient = new LlmClient(config);
-      console.log('[InsightActionService] LLM client initialized:', {
+      logger.info('[InsightActionService] LLM client initialized:', {
         provider: config.provider,
         model: config.modelName,
       });
     }
     
     try {
-      console.log('[InsightActionService] Calling LLM API...');
+      logger.info('[InsightActionService] Calling LLM API...');
       const startTime = performance.now();
       
       const response = await this.llmClient.chatCompletions({
@@ -136,7 +137,7 @@ export class InsightActionService {
       });
       
       const duration = performance.now() - startTime;
-      console.log('[InsightActionService] LLM API call completed in', duration.toFixed(0), 'ms');
+      logger.info('[InsightActionService] LLM API call completed in', duration.toFixed(0), 'ms');
       
       const content = response.choices[0]?.message?.content;
       if (!content) {
@@ -146,7 +147,7 @@ export class InsightActionService {
       return content;
       
     } catch (error) {
-      console.error('[InsightActionService] LLM call failed:', error);
+      logger.error('[InsightActionService] LLM call failed:', error);
       throw new Error(`LLM call failed: ${(error as Error).message}`);
     }
   }
@@ -199,7 +200,7 @@ export class InsightActionService {
         }
       }
       
-      console.log('[InsightActionService] Response parsed successfully:', {
+      logger.info('[InsightActionService] Response parsed successfully:', {
         diagnosis: parsed.diagnosis.substring(0, 50) + '...',
         keyPatterns: parsed.keyPatterns?.length || 0,
         recommendations: recommendations.length,
@@ -216,8 +217,8 @@ export class InsightActionService {
       };
       
     } catch (error) {
-      console.error('[InsightActionService] Failed to parse LLM response:', error);
-      console.error('[InsightActionService] Response preview:', response.substring(0, 500));
+      logger.error('[InsightActionService] Failed to parse LLM response:', error);
+      logger.error('[InsightActionService] Response preview:', response.substring(0, 500));
       
       // Fallback: return graceful degradation with low confidence
       return {

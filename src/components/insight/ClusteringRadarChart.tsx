@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import * as echarts from 'echarts';
 import type { ClusterMetadata } from '../../types/clustering.types';
 import { RADAR_DIMENSIONS } from '../../constants/clustering.constants';
@@ -66,13 +67,13 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
   ];
 
   useEffect(() => {
-    console.log('[RadarChart] useEffect triggered, selectedCluster:', selectedCluster);
-    console.log('[RadarChart] Clusters radarValues:', clusters.map(c => ({
+    logger.info('[RadarChart] useEffect triggered, selectedCluster:', selectedCluster);
+    logger.info('[RadarChart] Clusters radarValues:', clusters.map(c => ({
       clusterId: c.clusterId,
       label: c.label,
       radarValues: c.radarValues
     })));
-    console.log('[RadarChart] DimensionMaxValues:', dimensionMaxValues);
+    logger.info('[RadarChart] DimensionMaxValues:', dimensionMaxValues);
     
     if (!chartRef.current || clusters.length === 0 || availableDimensions.length === 0) return;
 
@@ -92,7 +93,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
     // Prepare series - each cluster is a separate series
     const series = clusters.map((cluster, idx) => {
       const isSelected = selectedCluster === null || selectedCluster === cluster.clusterId;
-      console.log('[RadarChart] Cluster', cluster.clusterId, ':', { 
+      logger.info('[RadarChart] Cluster', cluster.clusterId, ':', { 
         isSelected, 
         lineWidth: isSelected ? 3 : 1,
         lineOpacity: isSelected ? 1 : 0.15, 
@@ -108,15 +109,15 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
         if (dim.inverted) {
           const maxValue = dimensionMaxValues[dim.key];
           const invertedValue = maxValue - rawValue;
-          console.log(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: raw=${rawValue}, max=${maxValue}, inverted=${invertedValue}`);
+          logger.info(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: raw=${rawValue}, max=${maxValue}, inverted=${invertedValue}`);
           return invertedValue;
         }
         
-        console.log(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: value=${rawValue}`);
+        logger.info(`[RadarChart] Cluster ${cluster.clusterId} dim ${dim.key}: value=${rawValue}`);
         return rawValue;
       });
       
-      console.log(`[RadarChart] Cluster ${cluster.clusterId} final values:`, values);
+      logger.info(`[RadarChart] Cluster ${cluster.clusterId} final values:`, values);
       
       return {
         name: cluster.label || `Cluster ${cluster.clusterId}`,
@@ -230,8 +231,8 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
       series,  // Multiple series, one per cluster
     };
 
-    console.log('[RadarChart] Setting option with series count:', series.length);
-    console.log('[RadarChart] Series styles:', series.map(s => ({
+    logger.info('[RadarChart] Setting option with series count:', series.length);
+    logger.info('[RadarChart] Series styles:', series.map(s => ({
       name: s.name,
       lineStyle: s.lineStyle,
       areaStyle: s.areaStyle,
@@ -241,7 +242,7 @@ export const ClusteringRadarChart: React.FC<ClusteringRadarChartProps> = ({
     // Use replaceMerge instead of notMerge for better incremental update
     chartInstance.setOption(option, { replaceMerge: ['series'] });
     
-    console.log('[RadarChart] Option set complete');
+    logger.info('[RadarChart] Option set complete');
 
     // Handle resize
     const handleResize = () => {

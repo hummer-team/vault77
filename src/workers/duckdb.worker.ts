@@ -1,6 +1,7 @@
-console.log('[DB Worker] Script execution started.'); // <-- Added this log
+logger.info('[DB Worker] Script execution started.'); // <-- Added this log
 
 import { DuckDBService } from '../services/duckDBService.ts';
+import { logger } from '../utils/logger';
 // xlsx-wasm-parser@0.1.2 does not export init(); parsing functions handle wasm internally.
 import * as duckdb from '@duckdb/duckdb-wasm';
 
@@ -26,7 +27,7 @@ self.onmessage = async (event: MessageEvent) => {
 
     switch (type) {
       case 'DUCKDB_INIT': {
-        console.log('[DB Worker] Received DUCKDB_INIT with resources (absolute URLs):', resources);
+        logger.info('[DB Worker] Received DUCKDB_INIT with resources (absolute URLs):', resources);
         if (!resources) throw new Error('Missing resources for DUCKDB_INIT');
         const DUCKDB_BUNDLES: any = {
           eh: {
@@ -43,16 +44,16 @@ self.onmessage = async (event: MessageEvent) => {
 
         let coreWorker: Worker | null = null;
         try {
-          console.log('[DB Worker] Manually creating Core DuckDB worker from URL:', bundle.mainWorker);
+          logger.info('[DB Worker] Manually creating Core DuckDB worker from URL:', bundle.mainWorker);
           coreWorker = new Worker(bundle.mainWorker as string, { type: 'module' });
           createdCoreWorker = coreWorker; // track it so shutdown can terminate
-          console.log('[DB Worker] Manually created Core DuckDB worker instance:', coreWorker);
+          logger.info('[DB Worker] Manually created Core DuckDB worker instance:', coreWorker);
           await duckDBService.initialize(bundle, coreWorker);
-          console.log('[DB Worker] duckDBService.initialize completed successfully.');
+          logger.info('[DB Worker] duckDBService.initialize completed successfully.');
           result = true;
         } catch (initError) {
-          console.error('[DB Worker] Error during duckDBService.initialize:', initError);
-          console.error('[DB Worker] Full error details:', initError instanceof Error ? initError.stack : initError);
+          logger.error('[DB Worker] Error during duckDBService.initialize:', initError);
+          logger.error('[DB Worker] Full error details:', initError instanceof Error ? initError.stack : initError);
           throw initError;
         } finally {
           // Do not terminate the coreWorker here, it's needed by the service.
@@ -62,20 +63,20 @@ self.onmessage = async (event: MessageEvent) => {
       }
 
       case 'DUCKDB_SHUTDOWN': {
-        console.log('[DB Worker] Received DUCKDB_SHUTDOWN request.');
+        logger.info('[DB Worker] Received DUCKDB_SHUTDOWN request.');
         try {
           await duckDBService.shutdown();
           if (createdCoreWorker) {
             try {
               createdCoreWorker.terminate();
             } catch (e) {
-              console.warn('[DB Worker] Error terminating core worker:', e);
+              logger.warn('[DB Worker] Error terminating core worker:', e);
             }
             createdCoreWorker = null;
           }
           self.postMessage({ type: 'DUCKDB_SHUTDOWN_SUCCESS', id, result: true });
         } catch (e: any) {
-          console.error('[DB Worker] Error during shutdown:', e);
+          logger.error('[DB Worker] Error during shutdown:', e);
           self.postMessage({ type: 'DUCKDB_SHUTDOWN_ERROR', id, error: e?.message || String(e) });
         }
         break;
@@ -87,7 +88,7 @@ self.onmessage = async (event: MessageEvent) => {
           throw new Error('Missing required parameters for LOAD_FILE');
         }
         
-        console.log(`[DB Worker] Received LOAD_FILE for '${fileName}' into table '${tableName}'`);
+        logger.info(`[DB Worker] Received LOAD_FILE for '${fileName}' into table '${tableName}'`);
         
         // Step 1: Register file (only once per fileName)
         if (!registeredFiles.has(fileName)) {
@@ -95,7 +96,7 @@ self.onmessage = async (event: MessageEvent) => {
           const fileObj = file as File | undefined;
           
           if (USE_FILE_HANDLE && fileObj) {
-            console.log(`[DB Worker] Registering '${fileName}' via File handle (mode: handle)`);
+            logger.info(`[DB Worker] Registering '${fileName}' via File handle (mode: handle)`);
             await duckDBService.registerFileHandle(fileName, fileObj);
           } else {
             // Fallback: read buffer from file if not provided
@@ -103,28 +104,28 @@ self.onmessage = async (event: MessageEvent) => {
               if (!fileObj) {
                 throw new Error('Either buffer or file object is required for LOAD_FILE');
               }
-              console.log(`[DB Worker] Reading file '${fileName}' into buffer...`);
+              logger.info(`[DB Worker] Reading file '${fileName}' into buffer...`);
               const arrayBuffer = await fileObj.arrayBuffer();
               buffer = new Uint8Array(arrayBuffer);
             }
             
             const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
-            console.log(`[DB Worker] Registering '${fileName}' via buffer (mode: buffer), bytes=${u8.byteLength}`);
+            logger.info(`[DB Worker] Registering '${fileName}' via buffer (mode: buffer), bytes=${u8.byteLength}`);
             await duckDBService.registerFileBuffer(fileName, u8);
           }
           
           const duration = performance.now() - startTime;
-          console.log(`[DB Worker] File '${fileName}' registered in ${duration.toFixed(2)}ms`);
+          logger.info(`[DB Worker] File '${fileName}' registered in ${duration.toFixed(2)}ms`);
           registeredFiles.add(fileName);
         } else {
-          console.log(`[DB Worker] File '${fileName}' already registered, skipping registration.`);
+          logger.info(`[DB Worker] File '${fileName}' already registered, skipping registration.`);
         }
         
         // Step 2: Create table from registered file
         const tableStartTime = performance.now();
         await duckDBService.createTableFromFile(tableName, fileName, sheetName);
         const tableDuration = performance.now() - tableStartTime;
-        console.log(`[DB Worker] Table '${tableName}' created in ${tableDuration.toFixed(2)}ms`);
+        logger.info(`[DB Worker] Table '${tableName}' created in ${tableDuration.toFixed(2)}ms`);
         
         result = true;
         break;
@@ -143,7 +144,7 @@ self.onmessage = async (event: MessageEvent) => {
       }
       case 'GET_TABLE_SCHEMA': {
         if (!tableName) throw new Error('Missing tableName for GET_TABLE_SCHEMA');
-        console.log(`[DB Worker] Getting schema for table: ${tableName}`);
+        logger.info(`[DB Worker] Getting schema for table: ${tableName}`);
         result = await duckDBService.getTableSchema(tableName);
         break;
       }
@@ -152,10 +153,10 @@ self.onmessage = async (event: MessageEvent) => {
     }
     self.postMessage({ type: `${type}_SUCCESS`, id, result }, transfer as any);
   } catch (error: any) {
-    console.error(`[DB Worker] Error processing ${type}:`, error);
+    logger.error(`[DB Worker] Error processing ${type}:`, error);
     self.postMessage({ type: `${type}_ERROR`, id, error: error.message });
   }
 };
 
-console.log('[DB Worker] self.onmessage handler assigned.'); // <-- Added this log
-console.log('[DB Worker] Worker script started and listening for messages.');
+logger.info('[DB Worker] self.onmessage handler assigned.'); // <-- Added this log
+logger.info('[DB Worker] Worker script started and listening for messages.');

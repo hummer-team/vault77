@@ -5,6 +5,7 @@
  */
 
 import { storageService } from '../storageService';
+import { logger } from '../../utils/logger';
 import { getAllKernels } from './bizKernelMeta.ts';
 import type { BizKernelMetadata, UserBizKernel, KernelFilter } from './types';
 import { CATEGORY_SORT_ORDER } from './types';
@@ -34,18 +35,18 @@ class BizKernelService {
       return;
     }
 
-    console.log('[BizKernelService] Initializing...');
+    logger.info('[BizKernelService] Initializing...');
 
     // Load kernel metadata from hardcoded source
     this.kernels = getAllKernels();
-    console.log(`[BizKernelService] Loaded ${this.kernels.length} kernels`);
+    logger.info(`[BizKernelService] Loaded ${this.kernels.length} kernels`);
 
     // Load user applied kernels from storage
     await this.loadUserKernels();
     await this.loadKernelUdfMapping();
 
     this.initialized = true;
-    console.log('[BizKernelService] Initialization complete');
+    logger.info('[BizKernelService] Initialization complete');
   }
 
   /**
@@ -57,11 +58,11 @@ class BizKernelService {
         USER_KERNELS_KEY,
         []
       );
-      console.log(
+      logger.info(
         `[BizKernelService] Loaded ${this.userKernels.length} user kernels`
       );
     } catch (error) {
-      console.error('[BizKernelService] Failed to load user kernels:', error);
+      logger.error('[BizKernelService] Failed to load user kernels:', error);
       this.userKernels = [];
     }
   }
@@ -72,9 +73,9 @@ class BizKernelService {
   private async saveUserKernels(): Promise<void> {
     try {
       await storageService.setItem(USER_KERNELS_KEY, this.userKernels);
-      console.log('[BizKernelService] Saved user kernels');
+      logger.info('[BizKernelService] Saved user kernels');
     } catch (error) {
-      console.error('[BizKernelService] Failed to save user kernels:', error);
+      logger.error('[BizKernelService] Failed to save user kernels:', error);
       throw error;
     }
   }
@@ -88,9 +89,9 @@ class BizKernelService {
         KERNEL_UDF_MAPPING_KEY,
         {}
       );
-      console.log('[BizKernelService] Loaded kernel-UDF mapping:', Object.keys(this.kernelUdfMapping).length, 'entries');
+      logger.info('[BizKernelService] Loaded kernel-UDF mapping:', Object.keys(this.kernelUdfMapping).length, 'entries');
     } catch (error) {
-      console.error('[BizKernelService] Failed to load kernel-UDF mapping:', error);
+      logger.error('[BizKernelService] Failed to load kernel-UDF mapping:', error);
       this.kernelUdfMapping = {};
     }
   }
@@ -102,7 +103,7 @@ class BizKernelService {
     try {
       await storageService.setItem(KERNEL_UDF_MAPPING_KEY, this.kernelUdfMapping);
     } catch (error) {
-      console.error('[BizKernelService] Failed to save kernel-UDF mapping:', error);
+      logger.error('[BizKernelService] Failed to save kernel-UDF mapping:', error);
     }
   }
 
@@ -240,7 +241,7 @@ class BizKernelService {
 
     // Check if already applied
     if (this.isKernelApplied(name)) {
-      console.log(`[BizKernelService] Kernel ${name} is already applied`);
+      logger.info(`[BizKernelService] Kernel ${name} is already applied`);
       return;
     }
 
@@ -257,10 +258,10 @@ class BizKernelService {
     if (udfFunctionName) {
       this.kernelUdfMapping[name] = udfFunctionName;
       await this.saveKernelUdfMapping();
-      console.log(`[BizKernelService] Saved UDF mapping: ${name} → ${udfFunctionName}`);
+      logger.info(`[BizKernelService] Saved UDF mapping: ${name} → ${udfFunctionName}`);
     }
 
-    console.log(`[BizKernelService] Applied kernel: ${name}`);
+    logger.info(`[BizKernelService] Applied kernel: ${name}`);
   }
 
   /**
@@ -287,7 +288,7 @@ class BizKernelService {
 
     this.userKernels.splice(index, 1);
     await this.saveUserKernels();
-    console.log(`[BizKernelService] Cancelled kernel: ${name}`);
+    logger.info(`[BizKernelService] Cancelled kernel: ${name}`);
   }
 
   /**
@@ -358,7 +359,7 @@ class BizKernelService {
   public async resetUserKernels(): Promise<void> {
     this.userKernels = [];
     await this.saveUserKernels();
-    console.log('[BizKernelService] Reset user kernels');
+    logger.info('[BizKernelService] Reset user kernels');
   }
 
   /**

@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { logger } from '../utils/logger';
 import { analyzeCustomerClustering } from '../services/clustering/clusteringService';
 import type {
   ClusteringAnalysisInput,
@@ -114,14 +115,14 @@ export function useClustering(
       // Check cache first
       const cached = getCachedResult(input.tableName, k);
       if (cached) {
-        console.log('[useClustering] Using cached result for K =', k);
+        logger.info('[useClustering] Using cached result for K =', k);
         setResult(cached);
         setStatus('success');
         setCurrentKValue(k);
         return;
       }
 
-      console.log('[useClustering] Starting clustering analysis:', input);
+      logger.info('[useClustering] Starting clustering analysis:', input);
       setStatus('clustering');
       setError(null);
 
@@ -138,7 +139,7 @@ export function useClustering(
           // Cache result
           setCachedResult(input.tableName, analysisResult.metadata.nClusters, analysisResult);
           
-          console.log('[useClustering] Clustering successful:', {
+          logger.info('[useClustering] Clustering successful:', {
             totalCustomers: analysisResult.totalCustomers,
             numClusters: analysisResult.clusters.length,
             gpuUsed: analysisResult.metadata.gpuUsed,
@@ -146,7 +147,7 @@ export function useClustering(
           });
         }
       } catch (err) {
-        console.error('[useClustering] Clustering failed:', err);
+        logger.error('[useClustering] Clustering failed:', err);
         
         // Update state if still mounted
         if (isMountedRef.current) {
@@ -168,12 +169,12 @@ export function useClustering(
       
       // Validate K value
       if (k < 2 || k > 10) {
-        console.error('[useClustering] Invalid K value:', k);
+        logger.error('[useClustering] Invalid K value:', k);
         setError(`Invalid K value: ${k}. Must be between 2 and 10.`);
         return;
       }
 
-      console.log('[useClustering] Adjusting K value to:', k);
+      logger.info('[useClustering] Adjusting K value to:', k);
       
       // Re-run clustering with new K value, preserving other input params
       await performClustering({
@@ -200,7 +201,7 @@ export function useClustering(
    */
   const exportClusters = useCallback((): string => {
     if (!result) {
-      console.warn('[useClustering] No result to export');
+      logger.warn('[useClustering] No result to export');
       return '';
     }
     

@@ -12,6 +12,7 @@
  */
 
 import init, { predict_inventory_demand_batch } from '../../../../wasm/fast_insight_engine.js';
+import { logger } from '../../../utils/logger';
 import * as arrow from 'apache-arrow';
 import { BaseStrategy } from '../strategies';
 import {
@@ -256,7 +257,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
       ?.inventoryForecastConfig;
 
     if (!cfg || !tableName) {
-      console.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
+      logger.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
@@ -277,7 +278,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
       `ORDER BY "${skuCol}", ${timeTrunc}`,
     ].join('\n');
 
-    console.log(`[${this.name}.buildOperatorSql] granularity=${granularity} sql=\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] granularity=${granularity} sql=\n${sql}`);
     return sql;
   }
 
@@ -324,7 +325,7 @@ export class InventoryForecastStrategy extends BaseStrategy {
       await this.ensureWasm();
 
       const inputBytes = await serializeToArrowIPC(rawRows);
-      console.log(`[${this.name}.postProcess] Calling predict_inventory_demand_batch: rows=${rawRows.length}`);
+      logger.info(`[${this.name}.postProcess] Calling predict_inventory_demand_batch: rows=${rawRows.length}`);
 
       const { predictSteps, predictionMode } = this._lastConfig ?? {
         predictSteps: 7,
@@ -340,9 +341,9 @@ export class InventoryForecastStrategy extends BaseStrategy {
       );
 
       forecastRows = deserializeFromArrowIPC(resultBytes);
-      console.log(`[${this.name}.postProcess] Wasm returned ${forecastRows.length} rows`);
+      logger.info(`[${this.name}.postProcess] Wasm returned ${forecastRows.length} rows`);
     } catch (err) {
-      console.error(`[${this.name}.postProcess] Wasm call failed`, err);
+      logger.error(`[${this.name}.postProcess] Wasm call failed`, err);
       return this.buildErrorResult(queryResult, err instanceof Error ? err.message : String(err));
     }
 

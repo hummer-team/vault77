@@ -20,6 +20,7 @@
  */
 
 import init, { find_association_patterns } from '../../../../wasm/fast_insight_engine.js';
+import { logger } from '../../../utils/logger';
 import * as arrow from 'apache-arrow';
 import { BaseStrategy } from '../strategies';
 import {
@@ -247,7 +248,7 @@ export class MarketBasketStrategy extends BaseStrategy {
     this._lastConfig = cfg;
 
     if (!tableName) {
-      console.warn(`[${this.name}.buildOperatorSql] no table found — falling back to empty`);
+      logger.warn(`[${this.name}.buildOperatorSql] no table found — falling back to empty`);
       return 'SELECT 1 WHERE false';
     }
 
@@ -459,7 +460,7 @@ INNER JOIN valid_orders v ON f.order_id = v.order_id
     const supportCol = table.getChild('support');
 
     if (!patternCol || !supportCol) {
-      console.warn('[MarketBasketStrategy] Missing pattern or support column in Wasm output');
+      logger.warn('[MarketBasketStrategy] Missing pattern or support column in Wasm output');
       return [];
     }
 

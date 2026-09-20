@@ -38,6 +38,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -709,7 +710,7 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
       ?.arbitrageAnalyzeConfig;
 
     if (!cfg || !tableName) {
-      console.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
+      logger.warn(`[${this.name}.buildOperatorSql] config missing — falling back to SELECT *`);
       return `SELECT *\nFROM "${tableName}"`;
     }
 
@@ -740,7 +741,7 @@ export class ArbitrageAnalyzeStrategy extends BaseStrategy {
     const colList = outputCols.map((c) => `  "${c}"`).join(',\n');
     const sql = `SELECT\n${colList}\nFROM (\n${innerSql}\n)`;
 
-    console.log(`[${this.name}.buildOperatorSql] generated SQL (${sql.length} chars), output cols: [${outputCols.join(', ')}], userWhere="${userWhere}"`);
+    logger.info(`[${this.name}.buildOperatorSql] generated SQL (${sql.length} chars), output cols: [${outputCols.join(', ')}], userWhere="${userWhere}"`);
     return sql;
   }
 

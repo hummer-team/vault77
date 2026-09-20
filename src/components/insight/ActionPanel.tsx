@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { logger } from '../../utils/logger';
 import { Card, Button, Space, Typography, Tag, Alert, Spin } from 'antd';
 import { CopyOutlined, DownloadOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { InsightAction } from '../../types/insight-action.types';
@@ -78,7 +79,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       await navigator.clipboard.writeText(content);
     } catch (err) {
       vmMessage.error('Failed to copy to clipboard');
-      console.error('[ActionPanel] Copy failed:', err);
+      logger.error('[ActionPanel] Copy failed:', err);
     }
   };
 
@@ -97,7 +98,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       // Silent success - no message popup (browser will show download)
     } catch (err) {
       vmMessage.error('Failed to download report');
-      console.error('[ActionPanel] Download failed:', err);
+      logger.error('[ActionPanel] Download failed:', err);
     } finally {
       setIsDownloading(false);
     }

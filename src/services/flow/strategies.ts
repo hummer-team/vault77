@@ -21,6 +21,7 @@ import {
   type ConditionGroupRelationNodeData,
   type ConditionItem,
 } from './types';
+import { logger } from '../../utils/logger';
 import { VALIDATION_MESSAGES } from './constants';
 import { LogicType, FieldType } from './types';
 
@@ -104,7 +105,7 @@ export abstract class BaseStrategy implements FlowStrategy {
 
   validate(nodes: FlowNode[], edges: FlowEdge[]): ValidationError[] {
     const nodeTypes = nodes.map((n) => n.type).join(', ');
-    console.log(`[${this.name}.validate] nodes=[${nodeTypes}]`);
+    logger.info(`[${this.name}.validate] nodes=[${nodeTypes}]`);
 
     const errors: ValidationError[] = [
       ...this._validateStructure(nodes, edges),
@@ -112,9 +113,9 @@ export abstract class BaseStrategy implements FlowStrategy {
     ];
 
     if (errors.length > 0) {
-      console.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
+      logger.warn(`[${this.name}.validate] ${errors.length} error(s):`, errors.map((e) => e.message));
     } else {
-      console.log(`[${this.name}.validate] OK — no errors`);
+      logger.info(`[${this.name}.validate] OK — no errors`);
     }
     return errors;
   }

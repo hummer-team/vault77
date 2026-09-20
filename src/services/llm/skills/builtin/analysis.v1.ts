@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { logger } from '../../../../utils/logger';
 import type { SkillContext, SkillDefinition, SkillResult } from '../types';
 import { AgentExecutor } from '../../agentExecutor';
 import { classifyQueryType } from '../queryTypeRouter';
@@ -158,18 +159,18 @@ export const analysisV1Skill: SkillDefinition = {
       );
       let queryType = classification.queryType as QueryType;
       
-      console.log(`[analysis.v1] Query classified as: ${queryType} (confidence: ${classification.confidence})${classification.topN ? `, topN: ${classification.topN}` : ''}`);
+      logger.info(`[analysis.v1] Query classified as: ${queryType} (confidence: ${classification.confidence})${classification.topN ? `, topN: ${classification.topN}` : ''}`);
 
       // Step 2: Get table config and field mapping (Phase 3)
       const tableName = ctx.activeTable ?? 'main_table_1';
       const tableConfig = ctx.userSkillConfig?.tables[tableName];
       const fieldMapping = tableConfig?.fieldMapping;
 
-      console.log(`[analysis.v1] Using table: ${tableName}, has config: ${!!tableConfig}`);
+      logger.info(`[analysis.v1] Using table: ${tableName}, has config: ${!!tableConfig}`);
 
       // Extract maxRows: use topN if available, otherwise use ctx.maxRows
       const maxRows = classification.topN ?? ctx.maxRows;
-      console.log(`[analysis.v1] Using maxRows: ${maxRows}${classification.topN ? ' (from user input)' : ' (default)'}`);
+      logger.info(`[analysis.v1] Using maxRows: ${maxRows}${classification.topN ? ' (from user input)' : ' (default)'}`);
 
       // Step 3: Use Field Mapping with fallback to guessing
       const timeColumn = fieldMapping?.timeColumn 
@@ -189,7 +190,7 @@ export const analysisV1Skill: SkillDefinition = {
         ) ?? undefined;
       }
 
-      console.log(`[analysis.v1] Columns: time=${timeColumn}, metric=${metricColumn}, dimension=${dimensionColumn}`);
+      logger.info(`[analysis.v1] Columns: time=${timeColumn}, metric=${metricColumn}, dimension=${dimensionColumn}`);
 
       // If time-related query but no time column, ask for clarification.
       if (queryType === 'trend_time' && !timeColumn) {
@@ -206,7 +207,7 @@ export const analysisV1Skill: SkillDefinition = {
       const whereClause = defaultFilters ? compileWhereClause(defaultFilters) : undefined;
       
       if (whereClause) {
-        console.log(`[analysis.v1] Applying default filters: ${whereClause}`);
+        logger.info(`[analysis.v1] Applying default filters: ${whereClause}`);
       }
 
       // Step 5: Build SQL with where clause
@@ -220,7 +221,7 @@ export const analysisV1Skill: SkillDefinition = {
 
       // If we can't produce a safe template, fall back to nl2sql.
       if (!sql || queryType === 'comparison') {
-        console.log(`[analysis.v1] Falling back to nl2sql for queryType: ${queryType}`);
+        logger.info(`[analysis.v1] Falling back to nl2sql for queryType: ${queryType}`);
         // Fallback: existing executor path (nl2sql) already includes rewrite/sql-debug/policy.
         const res = await executor.execute(ctx.userInput, ctx.runtime.signal, {
           persona: ctx.personaId,
@@ -244,7 +245,7 @@ export const analysisV1Skill: SkillDefinition = {
         };
       }
 
-      console.log(`[analysis.v1] Executing SQL:\n${sql}`);
+      logger.info(`[analysis.v1] Executing SQL:\n${sql}`);
 
       const queryStart = performance.now();
       const queryRes = await ctx.runtime.executeQuery(sql);

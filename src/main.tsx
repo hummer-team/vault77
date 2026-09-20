@@ -1,4 +1,5 @@
 import React, { useState, Suspense } from 'react';
+import { logger } from './utils/logger';
 import ReactDOM from 'react-dom/client';
 import { App as AntdApp, MenuProps, Spin } from 'antd';
 import { ThemeProvider } from './theme';
@@ -21,7 +22,7 @@ const App = () => {
 
   // Make the function async to use await
   const handleMenuClick: MenuProps['onClick'] = async (e) => {
-    console.log('Menu clicked:', e.key);
+    logger.info('Menu clicked:', e.key);
     if (e.key === 'feedback') {
       setIsFeedbackDrawerOpen(true);
       return;
@@ -34,12 +35,12 @@ const App = () => {
           // Then, open in a new tab
           chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
         } catch (error) {
-          console.error("Error during fullscreen action:", error);
+          logger.error("Error during fullscreen action:", error);
           // Fallback: still open the new tab even if closing fails
           chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
         }
       } else {
-        console.warn('Chrome APIs not available for fullscreen action.');
+        logger.warn('Chrome APIs not available for fullscreen action.');
       }
       return;
     }
@@ -65,7 +66,7 @@ const App = () => {
               setIsFeedbackDrawerOpen={setIsFeedbackDrawerOpen}
               onNavigateToInsight={() => {
                 // No longer used - insights are shown in sidebar
-                console.log('[App] onNavigateToInsight called but using sidebar now');
+                logger.info('[App] onNavigateToInsight called but using sidebar now');
               }}
               onDuckDBReady={() => {
                 // No longer needed in main.tsx - DuckDB is managed within Workbench

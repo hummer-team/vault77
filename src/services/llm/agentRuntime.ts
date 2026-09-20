@@ -8,6 +8,7 @@
  */
 
 import type { Attachment } from '../../types/workbench.types';
+import { logger } from '../../utils/logger';
 import type { ExecuteQueryFunc } from './agentExecutor.ts';
 import { ensureSkillsRegistered } from './skills/index.ts';
 import { resolveSkill } from './skills/queryTypeRouter.ts';
@@ -109,20 +110,20 @@ export const runAgent = async (
   let userSkillConfig: import('./skills/types').UserSkillConfig | undefined;
   try {
     userSkillConfig = await userSkillService.loadUserSkill() ?? undefined;
-    console.log('[agentRuntime] Loaded user skill config:', !!userSkillConfig);
+    logger.info('[agentRuntime] Loaded user skill config:', !!userSkillConfig);
   } catch (error) {
-    console.warn('[agentRuntime] Failed to load user skill config:', error);
+    logger.warn('[agentRuntime] Failed to load user skill config:', error);
     // Continue without config (non-blocking)
   }
 
   // M10.4 Phase 4: Determine active table (single table for now)
   const activeTable = runtime.attachments?.[0]?.tableName ?? 'main_table_1';
-  console.log('[agentRuntime] Active table:', activeTable);
+  logger.info('[agentRuntime] Active table:', activeTable);
 
   // M10.4 Phase 4: Extract industry from table config
   const tableConfig = userSkillConfig?.tables[activeTable];
   const industry = tableConfig?.industry;
-  console.log('[agentRuntime] Industry:', industry, 'Has table config:', !!tableConfig);
+  logger.info('[agentRuntime] Industry:', industry, 'Has table config:', !!tableConfig);
 
   // M10.5 Phase 1: Calculate user skill digest chars
   const userSkillApplied = !!userSkillConfig && !!tableConfig;
@@ -132,9 +133,9 @@ export const runAgent = async (
       const { buildUserSkillDigest } = await import('./skills/core/digestBuilder');
       const digest = buildUserSkillDigest(userSkillConfig ?? null, activeTable);
       userSkillDigestChars = digest.length;
-      console.log('[agentRuntime] User skill digest chars:', userSkillDigestChars);
+      logger.info('[agentRuntime] User skill digest chars:', userSkillDigestChars);
     } catch (error) {
-      console.warn('[agentRuntime] Failed to calculate digest chars:', error);
+      logger.warn('[agentRuntime] Failed to calculate digest chars:', error);
     }
   }
 
@@ -145,7 +146,7 @@ export const runAgent = async (
     defaultFilters: tableConfig.defaultFilters,
     metrics: tableConfig.metrics,
   } : undefined;
-  console.log('[agentRuntime] Effective settings prepared:', !!effectiveSettings);
+  logger.info('[agentRuntime] Effective settings prepared:', !!effectiveSettings);
 
   // M10: register skills once (lightweight)
   ensureSkillsRegistered();
@@ -337,7 +338,7 @@ const buildSchemaDigest = async (executeQuery: ExecuteQueryFunc): Promise<string
 
     return chunks.join('\n\n').slice(0, 4000);
   } catch (e) {
-    console.warn('[agentRuntime] Failed to build schemaDigest:', e);
+    logger.warn('[agentRuntime] Failed to build schemaDigest:', e);
     return '';
   }
 };

@@ -20,6 +20,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -151,7 +152,7 @@ export class OrderFunnelAnalysisStrategy extends BaseStrategy {
       ?.orderFunnelAnalysisConfig;
 
     if (!tableName || !cfg) {
-      console.warn(`[${this.name}.buildOperatorSql] missing table or config — returning empty`);
+      logger.warn(`[${this.name}.buildOperatorSql] missing table or config — returning empty`);
       return 'SELECT 1 WHERE false';
     }
 

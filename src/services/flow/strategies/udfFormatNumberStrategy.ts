@@ -21,6 +21,7 @@ import {
   type ValidationError,
   type UdfConfigNodeData,
 } from '../types';
+import { logger } from '../../../utils/logger';
 import { UdfBaseStrategy } from './udfBaseStrategy';
 import { escapeSql } from './udfShared';
 
@@ -90,7 +91,7 @@ export class UdfFormatNumberStrategy extends UdfBaseStrategy {
     const outputColumns = (udfNode.data as UdfConfigNodeData).outputColumns ?? [];
     const selectClause = this.buildUdfSelectClause(outputColumns, columnAliasMap);
     const sql = `${selectClause}\nFROM udf_format_number(\n${params.join(',\n')}\n)`;
-    console.log(`[${this.name}.buildUdfSql] sql=\n${sql}`);
+    logger.info(`[${this.name}.buildUdfSql] sql=\n${sql}`);
     return sql;
   }
 

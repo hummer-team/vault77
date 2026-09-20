@@ -5,6 +5,7 @@
  */
 
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -146,7 +147,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     
     // Debug: log all nodes
     const nodeTypes = nodes.map(n => n.type).join(', ');
-    console.log(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
+    logger.info(`[${this.name}.buildSql] nodes=[${nodeTypes}]`);
 
     // GROUP BY: use the same expressions as in SELECT (positional or full expressions)
     if (config.groupByColumns.length > 0) {
@@ -180,7 +181,7 @@ export class BasicStatsStrategy extends BaseStrategy {
     }
 
     const sql = parts.join('\n');
-    console.log(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
     return sql;
   }
 

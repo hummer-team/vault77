@@ -4,6 +4,7 @@
  */
 
 import { CacheEntry, CacheMetadata } from '../../types/insight.types.ts';
+import { logger } from '../../utils/logger';
 
 const CACHE_KEY_PREFIX = 'insight:';
 const METADATA_KEY = 'insight:metadata';
@@ -39,7 +40,7 @@ export class CacheService {
       const entry = result[fullKey] as CacheEntry | undefined;
 
       if (!entry) {
-        console.log(`[CacheService] Cache miss: ${key}`);
+        logger.info(`[CacheService] Cache miss: ${key}`);
         return null;
       }
 
@@ -47,10 +48,10 @@ export class CacheService {
       entry.lastAccessAt = Date.now();
       await chrome.storage.session.set({ [fullKey]: entry });
 
-      console.log(`[CacheService] Cache hit: ${key}`);
+      logger.info(`[CacheService] Cache hit: ${key}`);
       return entry.data as T;
     } catch (error) {
-      console.error('[CacheService] Failed to get cache entry:', error);
+      logger.error('[CacheService] Failed to get cache entry:', error);
       return null;
     }
   }
@@ -87,9 +88,9 @@ export class CacheService {
       // Update metadata
       await this.updateMetadata(estimatedSize, 1);
 
-      console.log(`[CacheService] Cached entry: ${key}, size: ${estimatedSize} bytes`);
+      logger.info(`[CacheService] Cached entry: ${key}, size: ${estimatedSize} bytes`);
     } catch (error) {
-      console.error('[CacheService] Failed to set cache entry:', error);
+      logger.error('[CacheService] Failed to set cache entry:', error);
       throw error;
     }
   }
@@ -106,7 +107,7 @@ export class CacheService {
       return;
     }
 
-    console.log('[CacheService] Cache size limit exceeded, starting eviction...');
+    logger.info('[CacheService] Cache size limit exceeded, starting eviction...');
 
     // Get all cache entries
     const allItems = await chrome.storage.session.get(null);
@@ -146,9 +147,9 @@ export class CacheService {
     if (keysToRemove.length > 0) {
       await chrome.storage.session.remove(keysToRemove);
       await this.updateMetadata(-evictedSize, -evictedCount);
-      console.log(`[CacheService] Evicted ${evictedCount} entries, freed ${evictedSize} bytes`);
+      logger.info(`[CacheService] Evicted ${evictedCount} entries, freed ${evictedSize} bytes`);
     } else {
-      console.warn('[CacheService] No entries eligible for eviction (all accessed recently)');
+      logger.warn('[CacheService] No entries eligible for eviction (all accessed recently)');
     }
   }
 
@@ -166,7 +167,7 @@ export class CacheService {
         entryCount: 0,
       };
     } catch (error) {
-      console.error('[CacheService] Failed to get metadata:', error);
+      logger.error('[CacheService] Failed to get metadata:', error);
       return {
         totalSize: 0,
         maxSize: MAX_CACHE_SIZE,
@@ -188,7 +189,7 @@ export class CacheService {
 
       await chrome.storage.session.set({ [METADATA_KEY]: metadata });
     } catch (error) {
-      console.error('[CacheService] Failed to update metadata:', error);
+      logger.error('[CacheService] Failed to update metadata:', error);
     }
   }
 
@@ -208,9 +209,9 @@ export class CacheService {
       }
 
       await chrome.storage.session.remove(keysToRemove);
-      console.log(`[CacheService] Cleared ${keysToRemove.length} cache entries`);
+      logger.info(`[CacheService] Cleared ${keysToRemove.length} cache entries`);
     } catch (error) {
-      console.error('[CacheService] Failed to clear cache:', error);
+      logger.error('[CacheService] Failed to clear cache:', error);
       throw error;
     }
   }

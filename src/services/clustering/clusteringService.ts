@@ -4,6 +4,7 @@
  */
 
 import { detectRFMColumns, validateRFMColumns } from './rfmColumnDetector';
+import { logger } from '../../utils/logger';
 import { generateRFMSql, generateCustomerCountSql, validateCustomerCount } from './rfmSqlGenerator';
 import { labelCluster } from './clusterLabeler';
 import { buildInsightContext } from '../insight/contextBuilder';
@@ -40,7 +41,7 @@ function getWorker(): Worker {
       new URL('../../workers/clustering.worker.ts', import.meta.url),
       { type: 'module' }
     );
-    console.log('[ClusteringService] Worker instance created');
+    logger.info('[ClusteringService] Worker instance created');
   }
   return workerInstance;
 }
@@ -80,7 +81,7 @@ function sendMessageToWorker(
     worker.addEventListener('error', handleError);
     
     worker.postMessage(message);
-    console.log('[ClusteringService] Posted message to worker');
+    logger.info('[ClusteringService] Posted message to worker');
   });
 }
 
@@ -98,11 +99,11 @@ async function fetchRFMFeatures(
 ): Promise<{ rfmFeatures: RFMFeatures[]; isSampled: boolean; sampleSize: number }> {
   try {
     // Step 1: Detect RFM columns
-    console.log('[ClusteringService] Detecting RFM columns from metadata...');
-    console.log('[ClusteringService] Available columns:', tableMetadata.columns.map(c => c.name).join(', '));
+    logger.info('[ClusteringService] Detecting RFM columns from metadata...');
+    logger.info('[ClusteringService] Available columns:', tableMetadata.columns.map(c => c.name).join(', '));
     
     const rfmColumns = detectRFMColumns(tableMetadata);
-    console.log('[ClusteringService] Detected columns:', {
+    logger.info('[ClusteringService] Detected columns:', {
       customerId: rfmColumns.customerId,
       orderDate: rfmColumns.orderDate,
       orderAmount: rfmColumns.orderAmount,
@@ -116,19 +117,19 @@ async function fetchRFMFeatures(
     const countSql = generateCustomerCountSql(tableName, rfmColumns);
     const countResult = await executeQuery(countSql);
     const customerCount = countResult.data[0]?.customer_count || 0;
-    console.log(`[ClusteringService] Total customers: ${customerCount}`);
+    logger.info(`[ClusteringService] Total customers: ${customerCount}`);
 
     validateCustomerCount(customerCount);
 
     // Step 3: Generate and execute RFM SQL
     const rfmSqlResult = generateRFMSql({ tableName, rfmColumns });
-    console.log(`[ClusteringService] RFM SQL (precomputed: ${rfmSqlResult.isPrecomputed}, sampled: ${rfmSqlResult.isSampled})`);
+    logger.info(`[ClusteringService] RFM SQL (precomputed: ${rfmSqlResult.isPrecomputed}, sampled: ${rfmSqlResult.isSampled})`);
     
     const rfmResult = await executeQuery(rfmSqlResult.sql);
-    console.log(`[ClusteringService] RFM query returned ${rfmResult.data?.length || 0} rows`);
+    logger.info(`[ClusteringService] RFM query returned ${rfmResult.data?.length || 0} rows`);
 
     if (!rfmResult.data || rfmResult.data.length === 0) {
-      console.error('[ClusteringService] No RFM data returned from query');
+      logger.error('[ClusteringService] No RFM data returned from query');
       throw new Error('No RFM data returned from query');
     }
 
@@ -142,14 +143,14 @@ async function fetchRFMFeatures(
 
       // Validate values
       if (isNaN(recency) || isNaN(frequency) || isNaN(monetary)) {
-        console.warn(`[ClusteringService] Invalid RFM values for customer ${customerId}, skipping`);
+        logger.warn(`[ClusteringService] Invalid RFM values for customer ${customerId}, skipping`);
         continue;
       }
 
       rfmFeatures.push({ customerId, recency, frequency, monetary });
     }
 
-    console.log(`[ClusteringService] Fetched ${rfmFeatures.length} valid RFM records`);
+    logger.info(`[ClusteringService] Fetched ${rfmFeatures.length} valid RFM records`);
 
     return {
       rfmFeatures,
@@ -157,7 +158,7 @@ async function fetchRFMFeatures(
       sampleSize: rfmSqlResult.sampleSize,
     };
   } catch (error) {
-    console.error('[ClusteringService] RFM fetch failed:', error);
+    logger.error('[ClusteringService] RFM fetch failed:', error);
     throw new Error(`RFM fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -180,7 +181,7 @@ function computeClusterMetadata(
     acc[c.clusterId] = (acc[c.clusterId] || 0) + 1;
     return acc;
   }, {} as Record<number, number>);
-  console.log('[ClusteringService] Cluster distribution:', clusterDistribution);
+  logger.info('[ClusteringService] Cluster distribution:', clusterDistribution);
 
   for (let clusterId = 0; clusterId < nClusters; clusterId++) {
     const clusterCustomers = customers.filter(c => c.clusterId === clusterId);
@@ -253,14 +254,14 @@ export async function analyzeCustomerClustering(
   const startTime = performance.now();
 
   try {
-    console.log('[ClusteringService] Starting clustering analysis:', input);
+    logger.info('[ClusteringService] Starting clustering analysis:', input);
 
     // Step 1: Build table context
     const context = await buildInsightContext(executeQuery, input.tableName);
     const tableMetadata = context.tableMetadata;
     
     // Debug: Log table columns
-    console.log('[ClusteringService] Table columns:', tableMetadata.columns.map(c => c.name).join(', '));
+    logger.info('[ClusteringService] Table columns:', tableMetadata.columns.map(c => c.name).join(', '));
 
     // Step 2: Fetch RFM features
     const { rfmFeatures, isSampled, sampleSize } = await fetchRFMFeatures(
@@ -277,7 +278,7 @@ export async function analyzeCustomerClustering(
     let nClusters = input.nClusters ?? DEFAULT_K_VALUE;
     if (rfmFeatures.length < nClusters) {
       nClusters = Math.max(MIN_K_VALUE_FOR_SMALL_DATASET, Math.floor(rfmFeatures.length / 3));
-      console.log(`[ClusteringService] Adjusted K to ${nClusters} due to small dataset (${rfmFeatures.length} customers)`);
+      logger.info(`[ClusteringService] Adjusted K to ${nClusters} due to small dataset (${rfmFeatures.length} customers)`);
     }
 
     // Step 4: Prepare data for WASM
@@ -302,13 +303,13 @@ export async function analyzeCustomerClustering(
     };
 
     const result = await sendMessageToWorker(request);
-    console.log('[ClusteringService] Worker response received:', {
+    logger.info('[ClusteringService] Worker response received:', {
       type: result.type,
       hasPayload: !!result.payload,
     });
 
     if (isClusteringError(result)) {
-      console.error('[ClusteringService] Worker error:', result.payload.error);
+      logger.error('[ClusteringService] Worker error:', result.payload.error);
       throw new Error(result.payload.error);
     }
 
@@ -329,18 +330,18 @@ export async function analyzeCustomerClustering(
         churnRisk: 0,  // Will be computed in metadata
       };
     });
-    console.log(`[ClusteringService] Built ${customerRecords.length} customer records`);
-    console.log('[ClusteringService] Sample customer record:', customerRecords[0]);
+    logger.info(`[ClusteringService] Built ${customerRecords.length} customer records`);
+    logger.info('[ClusteringService] Sample customer record:', customerRecords[0]);
 
     // Step 8: Compute cluster metadata
     const clusterMetadata = computeClusterMetadata(customerRecords, nClusters);
 
     // Step 8.5: Assign business-meaningful labels to clusters
-    console.log('[ClusteringService] Assigning RFM business labels to clusters...');
+    logger.info('[ClusteringService] Assigning RFM business labels to clusters...');
     clusterMetadata.forEach((cluster) => {
       const classification = labelCluster(cluster, clusterMetadata);
       cluster.label = classification.label;
-      console.log(`[ClusteringService] Cluster ${cluster.clusterId}: "${cluster.label}" (${classification.labelCn})`);
+      logger.info(`[ClusteringService] Cluster ${cluster.clusterId}: "${cluster.label}" (${classification.labelCn})`);
     });
 
     // Step 9: Build output
@@ -361,10 +362,10 @@ export async function analyzeCustomerClustering(
       },
     };
 
-    console.log(`[ClusteringService] Analysis complete: ${output.totalCustomers} customers in ${nClusters} clusters (${totalDuration.toFixed(2)}ms)`);
+    logger.info(`[ClusteringService] Analysis complete: ${output.totalCustomers} customers in ${nClusters} clusters (${totalDuration.toFixed(2)}ms)`);
     return output;
   } catch (error) {
-    console.error('[ClusteringService] Analysis failed:', error);
+    logger.error('[ClusteringService] Analysis failed:', error);
     throw new Error(`Clustering analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

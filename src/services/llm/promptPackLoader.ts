@@ -7,6 +7,7 @@
 /**
  * Prompt pack content structure.
  */
+import { logger } from '../../utils/logger';
 export interface PromptPack {
   industryId: string;
   version: string;
@@ -49,7 +50,7 @@ class PromptPackLoader {
     // Check cache first
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey)!;
-      console.log(`[PromptPackLoader] Using cached pack: ${cacheKey}`);
+      logger.info(`[PromptPackLoader] Using cached pack: ${cacheKey}`);
       return cached;
     }
 
@@ -78,11 +79,11 @@ class PromptPackLoader {
 
       // Cache the loaded pack
       this.cache.set(cacheKey, pack);
-      console.log(`[PromptPackLoader] Loaded pack: ${cacheKey}, size: ${content.length} chars`);
+      logger.info(`[PromptPackLoader] Loaded pack: ${cacheKey}, size: ${content.length} chars`);
 
       return pack;
     } catch (error) {
-      console.error(`[PromptPackLoader] Failed to load pack: ${cacheKey}`, error);
+      logger.error(`[PromptPackLoader] Failed to load pack: ${cacheKey}`, error);
       throw new Error(`Failed to load prompt pack: ${industryId} ${version}`);
     }
   }
@@ -97,7 +98,7 @@ class PromptPackLoader {
   public async loadFromRemote(industryId: string, version = 'v1'): Promise<PromptPack> {
     // TODO: Implement remote API loading in future
     // This is a placeholder for M10.2 verification
-    console.warn('[PromptPackLoader] Remote loading not yet implemented, returning mock');
+    logger.warn('[PromptPackLoader] Remote loading not yet implemented, returning mock');
 
     // Return mock data for testing
     return {
@@ -134,11 +135,11 @@ class PromptPackLoader {
     try {
       return await this.loadLocal(industryId, version);
     } catch (localError) {
-      console.warn(`[PromptPackLoader] Local load failed, trying remote:`, localError);
+      logger.warn(`[PromptPackLoader] Local load failed, trying remote:`, localError);
       try {
         return await this.loadFromRemote(industryId, version);
       } catch (remoteError) {
-        console.error(`[PromptPackLoader] Both local and remote loading failed:`, remoteError);
+        logger.error(`[PromptPackLoader] Both local and remote loading failed:`, remoteError);
         throw localError; // Throw original local error
       }
     }
@@ -174,10 +175,10 @@ class PromptPackLoader {
     if (industryId && version) {
       const cacheKey = `${industryId}:${version}`;
       this.cache.delete(cacheKey);
-      console.log(`[PromptPackLoader] Cache cleared: ${cacheKey}`);
+      logger.info(`[PromptPackLoader] Cache cleared: ${cacheKey}`);
     } else {
       this.cache.clear();
-      console.log('[PromptPackLoader] All cache cleared');
+      logger.info('[PromptPackLoader] All cache cleared');
     }
   }
 
@@ -193,7 +194,7 @@ class PromptPackLoader {
     }
 
     const trimmed = pack.content.slice(0, maxChars);
-    console.warn(
+    logger.warn(
       `[PromptPackLoader] Pack content trimmed from ${pack.content.length} to ${maxChars} chars`
     );
     return trimmed + '\n\n... (content truncated to fit budget)';

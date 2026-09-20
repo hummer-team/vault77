@@ -7,6 +7,7 @@
  * Order ID column patterns (from intentRecognizer.ts ORDER entity)
  * Includes both Chinese and English patterns for maximum compatibility
  */
+import { logger } from '../../utils/logger';
 const ORDER_ID_PATTERNS = [
   // English patterns
   /order.*id/i,
@@ -86,7 +87,7 @@ export async function identifyAnomalyColumns(
       type: col.column_type.toUpperCase(),
     }));
 
-  console.log('[AnomalyColumnIdentifier] Schema retrieved:', {
+  logger.info('[AnomalyColumnIdentifier] Schema retrieved:', {
     tableName,
     columnCount: allColumns.length,
     columns: allColumns.map(c => `${c.name}(${c.type})`).join(', '),
@@ -100,7 +101,7 @@ export async function identifyAnomalyColumns(
     for (const pattern of ORDER_ID_PATTERNS) {
       if (pattern.test(col.name)) {
         orderIdColumn = col.name;
-        console.log('[AnomalyColumnIdentifier] Order ID column matched by pattern:', {
+        logger.info('[AnomalyColumnIdentifier] Order ID column matched by pattern:', {
           column: col.name,
           pattern: pattern.toString(),
         });
@@ -117,7 +118,7 @@ export async function identifyAnomalyColumns(
     );
     if (textColumn) {
       orderIdColumn = textColumn.name;
-      console.log('[AnomalyColumnIdentifier] Order ID column inferred (first text column):', textColumn.name);
+      logger.info('[AnomalyColumnIdentifier] Order ID column inferred (first text column):', textColumn.name);
     }
   }
 
@@ -129,7 +130,7 @@ export async function identifyAnomalyColumns(
     col.name !== orderIdColumn  // Exclude order ID column
   );
 
-  console.log('[AnomalyColumnIdentifier] Numeric columns found:', numericColumns.length);
+  logger.info('[AnomalyColumnIdentifier] Numeric columns found:', numericColumns.length);
 
   // Step 4: Prioritize feature columns by pattern matching
   const rankedFeatures = numericColumns.map(col => {
@@ -150,7 +151,7 @@ export async function identifyAnomalyColumns(
 
   const featureColumns = rankedFeatures.map(f => f.name);
 
-  console.log('[AnomalyColumnIdentifier] Feature columns ranked:', {
+  logger.info('[AnomalyColumnIdentifier] Feature columns ranked:', {
     total: featureColumns.length,
     top3: featureColumns.slice(0, 3),
     scores: rankedFeatures.slice(0, 3).map(f => `${f.name}(${f.score})`),
@@ -181,7 +182,7 @@ export function validateColumnIdentification(result: ColumnIdentificationResult)
     );
   }
 
-  console.log('[AnomalyColumnIdentifier] Validation passed:', {
+  logger.info('[AnomalyColumnIdentifier] Validation passed:', {
     orderIdColumn: result.orderIdColumn,
     featureCount: result.featureColumns.length,
   });

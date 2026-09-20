@@ -3,6 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import { logger } from '../../../../utils/logger';
 import { classifyByKeywords } from '../queryTypeRouter';
 
 describe('QueryTypeRouter - Keyword Classification', () => {
@@ -198,14 +199,14 @@ describe('QueryTypeRouter - Accuracy Test (20 cases)', () => {
 
     const accuracy = correctCount / testCases.length;
     
-    console.log('\n=== Query Type Router Accuracy Test ===');
-    console.log(`Total cases: ${testCases.length}`);
-    console.log(`Correct: ${correctCount}`);
-    console.log(`Accuracy: ${(accuracy * 100).toFixed(1)}%`);
-    console.log('\nFailed cases:');
+    logger.info('\n=== Query Type Router Accuracy Test ===');
+    logger.info(`Total cases: ${testCases.length}`);
+    logger.info(`Correct: ${correctCount}`);
+    logger.info(`Accuracy: ${(accuracy * 100).toFixed(1)}%`);
+    logger.info('\nFailed cases:');
     results.filter(r => !r.correct).forEach(r => {
-      console.log(`  - "${r.input}"`);
-      console.log(`    Expected: ${r.expected}, Got: ${r.actual}`);
+      logger.info(`  - "${r.input}"`);
+      logger.info(`    Expected: ${r.expected}, Got: ${r.actual}`);
     });
 
     expect(accuracy).toBeGreaterThanOrEqual(0.7); // 70% threshold
@@ -224,7 +225,7 @@ describe('QueryTypeRouter - Performance', () => {
     const end = performance.now();
     const avgTime = (end - start) / 100;
     
-    console.log(`\nAverage classification time: ${avgTime.toFixed(2)}ms`);
+    logger.info(`\nAverage classification time: ${avgTime.toFixed(2)}ms`);
     
     expect(avgTime).toBeLessThan(50);
   });

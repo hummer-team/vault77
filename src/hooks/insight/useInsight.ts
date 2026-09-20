@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { logger } from '../../utils/logger';
 import { CacheService } from '../../services/insight/cacheService';
 import { InsightService } from '../../services/insight/insightService';
 import type {
@@ -104,7 +105,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
       try {
         const cached = await cacheService.get<SummaryResult>(cacheKey);
         if (cached) {
-          console.log('[useInsight] Summary cache hit');
+          logger.info('[useInsight] Summary cache hit');
           setState(prev => ({
             ...prev,
             cacheHit: { ...prev.cacheHit, summary: true },
@@ -112,7 +113,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
           return cached;
         }
       } catch (error) {
-        console.warn('[useInsight] Cache read failed, continuing without cache:', error);
+        logger.warn('[useInsight] Cache read failed, continuing without cache:', error);
       }
 
       // Generate summary (columns already inferred in config)
@@ -122,7 +123,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
       try {
         await cacheService.set(cacheKey, summary);
       } catch (error) {
-        console.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
+        logger.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
       }
 
       return summary;
@@ -141,7 +142,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
       try {
         const cached = await cacheService.get<MultiLineChartData>(cacheKey);
         if (cached) {
-          console.log('[useInsight] Distribution cache hit');
+          logger.info('[useInsight] Distribution cache hit');
           setState(prev => ({
             ...prev,
             cacheHit: { ...prev.cacheHit, distribution: true },
@@ -149,7 +150,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
           return cached;
         }
       } catch (error) {
-        console.warn('[useInsight] Cache read failed, continuing without cache:', error);
+        logger.warn('[useInsight] Cache read failed, continuing without cache:', error);
       }
 
       // Generate distributions using HISTOGRAM
@@ -159,7 +160,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
       try {
         await cacheService.set(cacheKey, distribution);
       } catch (error) {
-        console.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
+        logger.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
       }
 
       return distribution;
@@ -183,7 +184,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
           category: CategoricalResult[];
         }>(cacheKey);
         if (cached) {
-          console.log('[useInsight] Categorical cache hit');
+          logger.info('[useInsight] Categorical cache hit');
           setState(prev => ({
             ...prev,
             cacheHit: { ...prev.cacheHit, categorical: true },
@@ -191,7 +192,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
           return cached;
         }
       } catch (error) {
-        console.warn('[useInsight] Cache read failed, continuing without cache:', error);
+        logger.warn('[useInsight] Cache read failed, continuing without cache:', error);
       }
 
       // Generate categorical
@@ -201,7 +202,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
       try {
         await cacheService.set(cacheKey, categorical);
       } catch (error) {
-        console.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
+        logger.warn('[useInsight] Cache write failed (quota exceeded?), continuing:', error);
       }
 
       return categorical;
@@ -217,12 +218,12 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
 
     try {
       // Step 1: Build config (includes column inference)
-      console.log('[useInsight] Building insight config for table:', tableName);
+      logger.info('[useInsight] Building insight config for table:', tableName);
       const config = await insightService.buildConfig(tableName, executeQuery);
       
       // Check if config is valid
       if (!config) {
-        console.warn('[useInsight] No valid columns for insights, skipping generation');
+        logger.warn('[useInsight] No valid columns for insights, skipping generation');
         const errorMessage = 'No amount/status/category columns found in this dataset. Insights are not available for this data structure.';
         
         setState(prev => ({ 
@@ -232,30 +233,30 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
         }));
         
         // Notify parent component to navigate back (with delay for user to see error)
-        console.log('[useInsight] onNoValidColumns callback exists?', !!onNoValidColumns);
+        logger.info('[useInsight] onNoValidColumns callback exists?', !!onNoValidColumns);
         if (onNoValidColumns) {
-          console.log('[useInsight] Scheduling navigation back in 1.5 seconds, callback type:', typeof onNoValidColumns);
+          logger.info('[useInsight] Scheduling navigation back in 1.5 seconds, callback type:', typeof onNoValidColumns);
           
           // Clear any existing timeout
           if (navigationTimeoutRef.current) {
-            console.log('[useInsight] Clearing existing timeout');
+            logger.info('[useInsight] Clearing existing timeout');
             clearTimeout(navigationTimeoutRef.current);
           }
           
           navigationTimeoutRef.current = setTimeout(() => {
-            console.log('[useInsight] Timeout fired! Executing navigation callback now');
+            logger.info('[useInsight] Timeout fired! Executing navigation callback now');
             try {
               onNoValidColumns();
-              console.log('[useInsight] Navigation callback executed successfully');
+              logger.info('[useInsight] Navigation callback executed successfully');
             } catch (err) {
-              console.error('[useInsight] Error executing navigation callback:', err);
+              logger.error('[useInsight] Error executing navigation callback:', err);
             }
             navigationTimeoutRef.current = null;
           }, 1500);
           
-          console.log('[useInsight] Timeout scheduled with ID:', navigationTimeoutRef.current);
+          logger.info('[useInsight] Timeout scheduled with ID:', navigationTimeoutRef.current);
         } else {
-          console.warn('[useInsight] onNoValidColumns callback is not provided!');
+          logger.warn('[useInsight] onNoValidColumns callback is not provided!');
         }
         
         return;
@@ -274,7 +275,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
         const distribution = await generateDistribution(config);
         setState(prev => ({ ...prev, distribution, loadingDistribution: false }));
       } else {
-        console.log('[useInsight] No numeric columns found, skipping distribution');
+        logger.info('[useInsight] No numeric columns found, skipping distribution');
       }
 
       // Step 4: Generate categorical (only if status/category columns exist)
@@ -283,12 +284,12 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
         const categorical = await generateCategorical(config);
         setState(prev => ({ ...prev, categorical, loadingCategorical: false }));
       } else {
-        console.log('[useInsight] No status/category columns found, skipping categorical');
+        logger.info('[useInsight] No status/category columns found, skipping categorical');
       }
 
-      console.log('[useInsight] All insights generated successfully');
+      logger.info('[useInsight] All insights generated successfully');
     } catch (error) {
-      console.error('[useInsight] Failed to generate insights:', error);
+      logger.error('[useInsight] Failed to generate insights:', error);
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -318,7 +319,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
   const clearCache = useCallback(async () => {
     try {
       await cacheService.clear();
-      console.log('[useInsight] Cache cleared');
+      logger.info('[useInsight] Cache cleared');
 
       // Reset cache hit flags
       setState(prev => ({
@@ -326,7 +327,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
         cacheHit: { summary: false, distribution: false, categorical: false },
       }));
     } catch (error) {
-      console.error('[useInsight] Failed to clear cache:', error);
+      logger.error('[useInsight] Failed to clear cache:', error);
     }
   }, [cacheService]);
 
@@ -352,11 +353,11 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
    * Reset state when table name changes (e.g., uploading a new file)
    */
   useEffect(() => {
-    console.log('[useInsight] Table name changed, resetting state');
+    logger.info('[useInsight] Table name changed, resetting state');
     
     // Clear any pending navigation timeout
     if (navigationTimeoutRef.current) {
-      console.log('[useInsight] Clearing pending navigation timeout');
+      logger.info('[useInsight] Clearing pending navigation timeout');
       clearTimeout(navigationTimeoutRef.current);
       navigationTimeoutRef.current = null;
     }
@@ -381,7 +382,7 @@ export function useInsight(options: UseInsightOptions): UseInsightReturn {
   useEffect(() => {
     return () => {
       if (navigationTimeoutRef.current) {
-        console.log('[useInsight] Component unmounting, clearing timeout');
+        logger.info('[useInsight] Component unmounting, clearing timeout');
         clearTimeout(navigationTimeoutRef.current);
       }
     };

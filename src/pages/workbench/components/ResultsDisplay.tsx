@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { logger } from '../../../utils/logger';
 import ReactDOM from 'react-dom';
 import { Card, Empty, Typography, Table, Tag, Space, Divider, Spin, Alert, Button, Collapse, Avatar, Popconfirm, Tooltip, Tabs, Input, Select, InputNumber, Checkbox, DatePicker, Dropdown } from 'antd';
 import { LikeOutlined, DislikeOutlined, RedoOutlined, LikeFilled, DeleteOutlined, EditOutlined, CopyOutlined, DownloadOutlined, FileExcelOutlined, DownOutlined, UpOutlined, SearchOutlined, SettingOutlined, BarChartOutlined } from '@ant-design/icons';
@@ -801,7 +802,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
         schema: safeSchema,
       });
     } catch (e) {
-      console.error('Failed to export CSV:', e);
+      logger.error('Failed to export CSV:', e);
       vmMessage.error('导出失败，请稍后重试');
     }
   };
@@ -816,7 +817,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ query, status, data, sc
     try {
       exportTableToCsv({ data: selectedData as any[], schema: safeSchema });
     } catch (e) {
-      console.error('Failed to export selected rows:', e);
+      logger.error('Failed to export selected rows:', e);
       vmMessage.error('导出失败，请稍后重试');
     }
   };

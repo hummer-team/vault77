@@ -5,6 +5,7 @@
  */
 
 import type { TableMetadata } from '../../types/insight-action.types';
+import { logger } from '../../utils/logger';
 import { COLUMN_PATTERNS } from '../insight/contextBuilder';
 
 /**
@@ -138,7 +139,7 @@ export function detectRFMColumns(tableMetadata: TableMetadata): RFMColumns {
   
   // If all RFM columns exist, return early
   if (result.precomputedRFM.recency && result.precomputedRFM.frequency && result.precomputedRFM.monetary) {
-    console.log('[RFMDetector] Pre-computed RFM columns detected:', result.precomputedRFM);
+    logger.info('[RFMDetector] Pre-computed RFM columns detected:', result.precomputedRFM);
     return result;
   }
   
@@ -196,21 +197,21 @@ export function detectRFMColumns(tableMetadata: TableMetadata): RFMColumns {
   );
   
   if (preciseAmountMatch) {
-    console.log('[RFMDetector] Level 1: Precise amount match:', preciseAmountMatch);
+    logger.info('[RFMDetector] Level 1: Precise amount match:', preciseAmountMatch);
     result.orderAmount = preciseAmountMatch;
     result.confidence.orderAmount = 1.0;
     return result;
   }
   
   // === LEVEL 2: Fuzzy Matching + Exclusion (Fallback) ===
-  console.log('[RFMDetector] Level 1 failed, trying Level 2 (fuzzy match + exclusion)');
+  logger.info('[RFMDetector] Level 1 failed, trying Level 2 (fuzzy match + exclusion)');
   
   // First find all columns that match amount patterns
   const allAmountMatches = columns.filter(col => 
     COLUMN_PATTERNS.amount.some(pattern => pattern.test(col))
   );
   
-  console.log('[RFMDetector] Columns matching amount patterns:', allAmountMatches.join(', '));
+  logger.info('[RFMDetector] Columns matching amount patterns:', allAmountMatches.join(', '));
   
   // Then filter out non-monetary columns using comprehensive exclusion rules
   const amountCandidates = allAmountMatches.filter(col => {
@@ -251,21 +252,21 @@ export function detectRFMColumns(tableMetadata: TableMetadata): RFMColumns {
                    : isMethodTypeColumn ? '(Method/Type)'
                    : isStatusColumn ? '(Status)'
                    : '(Time/Date)';
-      console.log('[RFMDetector] Level 2: Excluding non-monetary column:', col, reason);
+      logger.info('[RFMDetector] Level 2: Excluding non-monetary column:', col, reason);
     }
     
     return !shouldExclude;
   });
   
-  console.log('[RFMDetector] Level 2: Amount candidates after filtering:', amountCandidates.join(', '));
+  logger.info('[RFMDetector] Level 2: Amount candidates after filtering:', amountCandidates.join(', '));
   
   if (amountCandidates.length > 0) {
     result.orderAmount = amountCandidates[0];
     result.confidence.orderAmount = 0.8; // Lower confidence for fuzzy match
-    console.log('[RFMDetector] Level 2: Selected amount column:', result.orderAmount);
+    logger.info('[RFMDetector] Level 2: Selected amount column:', result.orderAmount);
   } else {
     // === LEVEL 3: No Match Found ===
-    console.log('[RFMDetector] Level 3: No amount column detected (all levels failed)');
+    logger.info('[RFMDetector] Level 3: No amount column detected (all levels failed)');
     result.orderAmount = null;
     result.confidence.orderAmount = 0;
   }

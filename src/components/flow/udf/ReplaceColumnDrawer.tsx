@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { logger } from '../../../utils/logger';
 import {
   Drawer,
   Button,
@@ -182,7 +183,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
         const tables = await getAvailableTables(executeQuery);
         setAvailableTables(tables);
       } catch (err) {
-        console.error('[ReplaceColumnDrawer] Failed to load tables:', err);
+        logger.error('[ReplaceColumnDrawer] Failed to load tables:', err);
       }
     };
     load();
@@ -266,7 +267,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
           [tableName]: schema.fields.map((f) => f.name),
         }));
       } catch (err) {
-        console.error(`[ReplaceColumnDrawer] Failed to load columns for ${tableName}:`, err);
+        logger.error(`[ReplaceColumnDrawer] Failed to load columns for ${tableName}:`, err);
       }
     },
     [executeQuery, tableColumns]
@@ -286,7 +287,7 @@ const ReplaceColumnDrawer: React.FC<ReplaceColumnDrawerProps> = ({
               [t]: schema.fields.map((f) => f.name),
             }));
           })
-          .catch((err) => console.error(`[ReplaceColumnDrawer] Eager load failed for ${t}:`, err));
+          .catch((err) => logger.error(`[ReplaceColumnDrawer] Eager load failed for ${t}:`, err));
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

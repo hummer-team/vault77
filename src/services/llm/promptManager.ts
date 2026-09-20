@@ -1,4 +1,5 @@
 import { ecommercePrompts } from '../../prompts/ecommerce';
+import { logger } from '../../utils/logger';
 import { financePrompts } from '../../prompts/finance';
 import { retailPrompts } from '../../prompts/retail';
 import { Attachment } from '../../types/workbench.types';
@@ -39,7 +40,7 @@ export class PromptManager {
     // Fallback to role-based suggestions
     const prompts = promptSets[role.toLowerCase()];
     if (!prompts) {
-      console.warn(`No prompt template found for role: ${role}`);
+      logger.warn(`No prompt template found for role: ${role}`);
       return [];
     }
     return prompts.suggestions;
@@ -70,7 +71,7 @@ export class PromptManager {
     let prompts = promptSets[role.toLowerCase()];
     if (!prompts) {
       // Fallback to ecommerce if role not found
-      console.warn(`[PromptManager] Prompt set for role "${role}" not found. Falling back to ecommerce.`);
+      logger.warn(`[PromptManager] Prompt set for role "${role}" not found. Falling back to ecommerce.`);
       prompts = promptSets['ecommerce'];
       if (!prompts) {
         throw new Error(`Prompt set for role "ecommerce" (fallback) not found.`);
@@ -83,9 +84,9 @@ export class PromptManager {
       try {
         const pack = await promptPackLoader.load(industry, 'v1_compact');
         systemSkillPack = promptPackLoader.trimToBudget(pack, 2000);
-        console.log(`[PromptManager] Loaded System Skill Pack: ${industry} (${systemSkillPack.length} chars)`);
+        logger.info(`[PromptManager] Loaded System Skill Pack: ${industry} (${systemSkillPack.length} chars)`);
       } catch (error) {
-        console.warn(`[PromptManager] Failed to load System Skill Pack for ${industry}:`, error);
+        logger.warn(`[PromptManager] Failed to load System Skill Pack for ${industry}:`, error);
         // Continue without skill pack (non-blocking)
       }
     }
@@ -95,9 +96,9 @@ export class PromptManager {
     if (userSkillConfig && activeTable) {
       try {
         userSkillDigest = buildUserSkillDigest(userSkillConfig, activeTable);
-        console.log(`[PromptManager] Built User Skill Digest for ${activeTable} (${userSkillDigest.length} chars)`);
+        logger.info(`[PromptManager] Built User Skill Digest for ${activeTable} (${userSkillDigest.length} chars)`);
       } catch (error) {
-        console.warn(`[PromptManager] Failed to build User Skill Digest:`, error);
+        logger.warn(`[PromptManager] Failed to build User Skill Digest:`, error);
         // Continue without digest (non-blocking)
       }
     }
@@ -166,8 +167,8 @@ export class PromptManager {
     fullPrompt = fullPrompt.replace('{userInput}', userInput);
     fullPrompt = fullPrompt.replace('{tableSchema}', tableSchema);
 
-    console.log("[PromptManager] Constructed Full Prompt:", fullPrompt.slice(0, 500) + '...'); // Log first 500 chars
-    console.log(`[PromptManager] Total prompt length: ${fullPrompt.length} chars`);
+    logger.info("[PromptManager] Constructed Full Prompt:", fullPrompt.slice(0, 500) + '...'); // Log first 500 chars
+    logger.info(`[PromptManager] Total prompt length: ${fullPrompt.length} chars`);
     return fullPrompt;
   }
 }

@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position } from '@xyflow/react';
 import { PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFlowStore } from '../../../stores/flowStore';
@@ -203,7 +204,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           ],
         },
       };
-      console.log('[MergeNode] Adding condition definition node:', conditionDefNode);
+      logger.info('[MergeNode] Adding condition definition node:', conditionDefNode);
       addNode(conditionDefNode as unknown as Parameters<typeof addNode>[0]);
 
       // Connect merge to condition definition
@@ -230,7 +231,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       });
 
       if (!existingNextMerge) {
-        console.log('[MergeNode] Creating first "定义节点关系" merge node');
+        logger.info('[MergeNode] Creating first "定义节点关系" merge node');
         // Auto-create next merge node for relation (only once)
         const nextMergeNodeId = `merge_${Date.now()}`;
         const nextMergeNode = {
@@ -253,7 +254,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         };
         addEdge(nextEdge as unknown as Parameters<typeof addEdge>[0]);
       } else {
-        console.log('[MergeNode] Reusing existing "定义节点关系" merge node:', existingNextMerge.id);
+        logger.info('[MergeNode] Reusing existing "定义节点关系" merge node:', existingNextMerge.id);
         // Connect to existing merge node
         const nextEdge = {
           id: `e_${conditionDefNodeId}_${existingNextMerge.id}`,
@@ -285,7 +286,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         (n) => (n.data as ConditionGroupDefinitionNodeData).refId
       );
 
-      console.log('[MergeNode] Auto-selecting conditions:', conditionIds);
+      logger.info('[MergeNode] Auto-selecting conditions:', conditionIds);
 
       const relationNodeId = `relation_${timestamp}`;
       const relationNode = {
@@ -297,7 +298,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           conditionIds: conditionIds,
         },
       };
-      console.log('[MergeNode] Adding relation node:', relationNode);
+      logger.info('[MergeNode] Adding relation node:', relationNode);
       addNode(relationNode as unknown as Parameters<typeof addNode>[0]);
 
       // Connect merge to relation
@@ -334,11 +335,11 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           position: { x: mergeX + 450, y: mergeY },
           data: { tableCount: 1 },
         };
-        console.log('[MergeNode] Creating new end merge node:', endMergeNodeId);
+        logger.info('[MergeNode] Creating new end merge node:', endMergeNodeId);
         addNode(endMergeNode as unknown as Parameters<typeof addNode>[0]);
       } else {
         endMergeNodeId = existingEndMerge.id;
-        console.log('[MergeNode] Reusing existing end merge node:', endMergeNodeId);
+        logger.info('[MergeNode] Reusing existing end merge node:', endMergeNodeId);
       }
 
       // Connect relation to end merge
@@ -362,7 +363,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
       // Check if END node already exists in the flow
       const existingEnd = nodes.find((n) => n.type === FlowNodeType.END);
       if (existingEnd) {
-        console.log('[MergeNode] End node already exists:', existingEnd.id);
+        logger.info('[MergeNode] End node already exists:', existingEnd.id);
         // Connect current merge to existing end node
         const edge = {
           id: `e_${id}_${existingEnd.id}`,
@@ -390,7 +391,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
           triggerSource,
         },
       };
-      console.log('[MergeNode] Adding end node:', endNode);
+      logger.info('[MergeNode] Adding end node:', endNode);
       addNode(endNode as unknown as Parameters<typeof addNode>[0]);
 
       // Connect merge to end
@@ -412,16 +413,16 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
   const handleDirectExecute = useCallback(() => {
     const mergeNode = nodes.find((n) => n.id === id);
     if (!mergeNode) return;
-    console.log('[MergeNode] Direct execute: connecting to EndNode from:', id);
+    logger.info('[MergeNode] Direct execute: connecting to EndNode from:', id);
     createEndNode(mergeNode.position.x, mergeNode.position.y, EndNodeTriggerSource.DIRECT);
   }, [id, nodes, createEndNode]);
 
   const handleCreateNextNode = useCallback(
     () => {
-      console.log('[MergeNode] Creating next node from merge:', id);
+      logger.info('[MergeNode] Creating next node from merge:', id);
       const mergeNode = nodes.find((n) => n.id === id);
       if (!mergeNode) {
-        console.log('[MergeNode] Merge node not found:', id);
+        logger.info('[MergeNode] Merge node not found:', id);
         return;
       }
 
@@ -439,7 +440,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
         case FlowNodeType.CONDITION_GROUP_DEFINITION:
           // After condition definition, create a new relation node every time (support multiple)
           // Each relation node will be auto-connected to the "执行OR保存" merge node
-          console.log('[MergeNode] Creating new relation node from condition definition');
+          logger.info('[MergeNode] Creating new relation node from condition definition');
           createRelationNode(mergeX, mergeY);
           break;
 
@@ -455,7 +456,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
             // Check if select node already exists
             const existingSelect = nodes.find((n) => n.type === FlowNodeType.SELECT);
             if (existingSelect) {
-              console.log('[MergeNode] Select node already exists:', existingSelect.id);
+              logger.info('[MergeNode] Select node already exists:', existingSelect.id);
               return;
             }
 
@@ -470,7 +471,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
                 selectAll: true, // Default to selecting all columns
               },
             };
-            console.log('[MergeNode] Adding select node:', selectNode);
+            logger.info('[MergeNode] Adding select node:', selectNode);
             addNode(selectNode as unknown as Parameters<typeof addNode>[0]);
 
             // Connect merge to select with arrow marker
@@ -483,13 +484,13 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
               markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
             };
-            console.log('[MergeNode] Adding edge:', edge);
+            logger.info('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
           } else {
             // Default: create OPERATOR node (only one allowed)
             const existingOperator = nodes.find((n) => n.type === FlowNodeType.OPERATOR);
             if (existingOperator) {
-              console.log('[MergeNode] Operator node already exists:', existingOperator.id);
+              logger.info('[MergeNode] Operator node already exists:', existingOperator.id);
               return;
             }
 
@@ -502,7 +503,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
                 operatorType: undefined,
               },
             };
-            console.log('[MergeNode] Adding operator node:', operatorNode);
+            logger.info('[MergeNode] Adding operator node:', operatorNode);
             addNode(operatorNode as unknown as Parameters<typeof addNode>[0]);
 
             // Connect merge to operator with arrow marker
@@ -515,7 +516,7 @@ export const MergeNode: React.FC<MergeNodeProps> = ({ id, data, selected }) => {
               style: { stroke: 'var(--vm-flow-edge)', strokeWidth: 1.5 },
               markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'var(--vm-flow-edge)' },
             };
-            console.log('[MergeNode] Adding edge:', edge);
+            logger.info('[MergeNode] Adding edge:', edge);
             addEdge(edge as unknown as Parameters<typeof addEdge>[0]);
           }
       }

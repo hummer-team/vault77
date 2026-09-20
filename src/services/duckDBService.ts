@@ -1,4 +1,5 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { logger } from '../utils/logger';
 import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 import { duckDBUdfService } from './duckDBUdfService';
 import { buildCsvReadSql } from './duckdbCsvReadSql';
@@ -28,36 +29,36 @@ export class DuckDBService {
 
   public async initialize(bundle: duckdb.DuckDBBundle, workerInstance: Worker): Promise<void> {
     if (this.db) {
-      console.log('[DuckDBService] DB already initialized, skipping.');
+      logger.info('[DuckDBService] DB already initialized, skipping.');
       return;
     }
 
-    console.log('[DuckDBService] Initializing DuckDB...');
+    logger.info('[DuckDBService] Initializing DuckDB...');
     this._createDbInstance(workerInstance);
 
     this._assertSharedArrayBufferAvailable();
 
-    console.log('[DuckDBService] Attempting to instantiate DuckDB with bundle...');
+    logger.info('[DuckDBService] Attempting to instantiate DuckDB with bundle...');
     await this._instantiateDb(bundle);
 
-    console.log('[DuckDBService] Attempting to connect for loading extensions...');
+    logger.info('[DuckDBService] Attempting to connect for loading extensions...');
     await this._loadExtensions();
 
-    console.log('DuckDB extensions loaded.');
+    logger.info('DuckDB extensions loaded.');
   }
 
   private _createDbInstance(workerInstance: Worker): void {
     this.db = new duckdb.AsyncDuckDB(this.logger, workerInstance);
-    console.log('[DuckDBService] AsyncDuckDB instance created with CoreWorker instance.');
+    logger.info('[DuckDBService] AsyncDuckDB instance created with CoreWorker instance.');
   }
 
   private _assertSharedArrayBufferAvailable(): void {
     if (typeof SharedArrayBuffer === 'undefined') {
       const errorMessage = 'SharedArrayBuffer is not available. Cross-origin isolation (COOP/COEP headers) is likely not configured correctly for the environment.';
-      console.error(`[DuckDBService] ${errorMessage}`);
+      logger.error(`[DuckDBService] ${errorMessage}`);
       throw new Error(errorMessage);
     }
-    console.log('[DuckDBService] SharedArrayBuffer is available. Proceeding with instantiation.');
+    logger.info('[DuckDBService] SharedArrayBuffer is available. Proceeding with instantiation.');
   }
 
   private async _instantiateDb(bundle: duckdb.DuckDBBundle): Promise<void> {
@@ -68,9 +69,9 @@ export class DuckDBService {
         setTimeout(() => reject(new Error('DuckDB instantiation timed out after 120 seconds.')), 120000)
       );
       await Promise.race([instantiationPromise, timeoutPromise]);
-      console.log('[DuckDBService] this.db.instantiate completed successfully.');
+      logger.info('[DuckDBService] this.db.instantiate completed successfully.');
     } catch (e) {
-      console.error('[DuckDBService] Error during DuckDB instantiation:', e);
+      logger.error('[DuckDBService] Error during DuckDB instantiation:', e);
       throw e;
     }
   }
@@ -80,42 +81,42 @@ export class DuckDBService {
 
     const c = await this.db.connect();
     try {
-      console.log('[DuckDBService] Executing INSTALL excel;');
+      logger.info('[DuckDBService] Executing INSTALL excel;');
       await c.query('INSTALL excel;');
       await c.query('LOAD excel;');
-      console.log('[DuckDBService] Excel extension loaded successfully.');
+      logger.info('[DuckDBService] Excel extension loaded successfully.');
 
-      console.log('[DuckDBService] Executing LOAD arrow;');
+      logger.info('[DuckDBService] Executing LOAD arrow;');
       await c.query('INSTALL arrow from community;');
       await c.query('LOAD arrow;');
-      console.log('[DuckDBService] LOAD arrow; executed successfully.');
+      logger.info('[DuckDBService] LOAD arrow; executed successfully.');
 
       // Cap buffer pool to prevent unbounded growth on full-table-scan queries (e.g. COUNT(*)).
       // DuckDB will evict cached pages when approaching the limit rather than failing queries.
       await c.query("SET memory_limit='800MB';");
-      console.log('[DuckDBService] memory_limit set to 800MB.');
+      logger.info('[DuckDBService] memory_limit set to 800MB.');
 
       const res = await c.query(
         "SELECT name, value FROM duckdb_settings() WHERE name like  '%threads%' or name like '%memory%';"
       );
       const settings = this._extractData(res);
-      console.log('[DuckDBService] sys settings: ', settings);
+      logger.info('[DuckDBService] sys settings: ', settings);
 
       // Register UDF MACRO functions for data-cleaning operators.
       // Uses CREATE OR REPLACE MACRO so it is safe to re-run on reconnect.
       await duckDBUdfService.initializeUdfs((sql) => c.query(sql));
     } catch (e) {
-      console.error('[DuckDBService] Error loading extensions:', e);
+      logger.error('[DuckDBService] Error loading extensions:', e);
       throw new Error('duckdb init fail.');
     } finally {
       await c.close();
-      console.log('[DuckDBService] Connection closed after loading extensions.');
+      logger.info('[DuckDBService] Connection closed after loading extensions.');
     }
   }
 
   public async registerFileBuffer(fileName: string, buffer: Uint8Array): Promise<void> {
     if (!this.db) throw new Error('DuckDB not initialized.');
-    console.log(`[DuckDBService] Registering file '${fileName}' with buffer size: ${buffer.byteLength}`);
+    logger.info(`[DuckDBService] Registering file '${fileName}' with buffer size: ${buffer.byteLength}`);
     
     // Register buffer directly with DuckDB
     // Note: Buffer ownership may be transferred to DuckDB, but this is safe because:
@@ -123,7 +124,7 @@ export class DuckDBService {
     // 2. No subsequent code in Worker needs to access this buffer after registration
     await this.db.registerFileBuffer(fileName, buffer);
     
-    console.log(`[DuckDBService] File '${fileName}' registered successfully via buffer.`);
+    logger.info(`[DuckDBService] File '${fileName}' registered successfully via buffer.`);
   }
 
   /**
@@ -136,21 +137,21 @@ export class DuckDBService {
     if (!this.db) throw new Error('DuckDB not initialized.');
     
     try {
-      console.log(`[DuckDBService] Attempting to register file '${fileName}' via File handle (size: ${file.size} bytes)`);
+      logger.info(`[DuckDBService] Attempting to register file '${fileName}' via File handle (size: ${file.size} bytes)`);
       
       // Use BROWSER_FILEREADER protocol for File objects
       // directIO=false for better compatibility with Chrome Extension environment
       await this.db.registerFileHandle(fileName, file, DuckDBDataProtocol.BROWSER_FILEREADER, true);
       
-      console.log(`[DuckDBService] File '${fileName}' registered successfully via File handle.`);
+      logger.info(`[DuckDBService] File '${fileName}' registered successfully via File handle.`);
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[DuckDBService] Failed to register file '${fileName}' via File handle, falling back to buffer strategy.`,
         error
       );
       
       // Fallback: read file into buffer and use buffer-based registration
-      console.log(`[DuckDBService] Reading file '${fileName}' into buffer for fallback registration...`);
+      logger.info(`[DuckDBService] Reading file '${fileName}' into buffer for fallback registration...`);
       const arrayBuffer = await file.arrayBuffer();
       const buffer = new Uint8Array(arrayBuffer);
       
@@ -215,9 +216,9 @@ export class DuckDBService {
   ): Promise<void> {
     const sheetArg = sheetName ? `, sheet=${this._escapeStringLiteral(sheetName)}` : '';
     const sql = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_xlsx(${safeFileName}${sheetArg});`;
-    console.log(`[DuckDBService] Loading Excel via read_xlsx: ${fileName}${sheetName ? ` (sheet=${sheetName})` : ''}`);
+    logger.info(`[DuckDBService] Loading Excel via read_xlsx: ${fileName}${sheetName ? ` (sheet=${sheetName})` : ''}`);
     await conn.query(sql);
-    console.log(`[DuckDBService] Table ${safeTableName} created via read_xlsx, cost ${Date.now() - startTimeMs} ms.`);
+    logger.info(`[DuckDBService] Table ${safeTableName} created via read_xlsx, cost ${Date.now() - startTimeMs} ms.`);
   }
 
   private async _createTableFromCsv(
@@ -228,9 +229,9 @@ export class DuckDBService {
     startTimeMs: number
   ): Promise<void> {
     const sql = buildCsvReadSql(safeTableName, safeFileName);
-    console.log(`[DuckDBService] Loading CSV via read_csv_auto: ${fileName}`);
+    logger.info(`[DuckDBService] Loading CSV via read_csv_auto: ${fileName}`);
     await conn.query(sql);
-    console.log(`[DuckDBService] Table ${safeTableName} created via read_csv_auto, cost ${Date.now() - startTimeMs} ms.`);
+    logger.info(`[DuckDBService] Table ${safeTableName} created via read_csv_auto, cost ${Date.now() - startTimeMs} ms.`);
   }
 
   private async _createTableFromParquet(
@@ -241,9 +242,9 @@ export class DuckDBService {
     startTimeMs: number
   ): Promise<void> {
     const sql = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_parquet(${safeFileName});`;
-    console.log(`[DuckDBService] Loading Parquet via read_parquet: ${fileName}`);
+    logger.info(`[DuckDBService] Loading Parquet via read_parquet: ${fileName}`);
     await conn.query(sql);
-    console.log(`[DuckDBService] Table ${safeTableName} created via read_parquet, cost ${Date.now() - startTimeMs} ms.`);
+    logger.info(`[DuckDBService] Table ${safeTableName} created via read_parquet, cost ${Date.now() - startTimeMs} ms.`);
   }
 
   private _escapeIdentifier(identifier: string): string {
@@ -266,7 +267,7 @@ export class DuckDBService {
       await c.close();
     }
 
-    console.log(`Data loaded into table '${tableName}' from Arrow IPC stream.`);
+    logger.info(`Data loaded into table '${tableName}' from Arrow IPC stream.`);
   }
 
   public async executeQuery(sql: string): Promise<{ data: any[]; schema: any[] }> {
@@ -279,7 +280,7 @@ export class DuckDBService {
       const schema = this._extractSchema(rawResult, data);
       this._normalizeTimeFields(data, schema);
       this._normalizeBigIntFields(data); // Convert BigInt to Number for JSON serialization
-      console.log('[DuckDBService] Standardized query result:', { data, schema });
+      logger.info('[DuckDBService] Standardized query result:', { data, schema });
       return { data, schema };
     } finally {
       // Release Arrow Table WASM heap memory explicitly.
@@ -356,13 +357,13 @@ export class DuckDBService {
             selectClauses.push(`APPROX_COUNT_DISTINCT("${columnName}") as ${this._sanitizeAlias(columnName)}_cardinality`);
             break;
           default:
-            console.warn(`[DuckDBService] Unknown stat type: ${stat}`);
+            logger.warn(`[DuckDBService] Unknown stat type: ${stat}`);
         }
       }
     }
 
     const sql = `SELECT ${selectClauses.join(',\n       ')} FROM ${tableName} ${sampling}`;
-    console.log('[DuckDBService] summaryStatistics SQL:', sql);
+    logger.info('[DuckDBService] summaryStatistics SQL:', sql);
     return this.executeQuery(sql);
   }
 
@@ -397,11 +398,11 @@ export class DuckDBService {
     // Execute histogram query for each column
     for (const columnName of columns) {
       const sql = `SELECT HISTOGRAM("${columnName}") FROM ${tableName} ${sampling}`;
-      console.log(`[DuckDBService] insightsDataDistribution SQL for ${columnName}:`, sql);
+      logger.info(`[DuckDBService] insightsDataDistribution SQL for ${columnName}:`, sql);
       try {
         results[columnName] = await this.executeQuery(sql);
       } catch (error) {
-        console.error(`[DuckDBService] Failed to generate histogram for ${columnName}:`, error);
+        logger.error(`[DuckDBService] Failed to generate histogram for ${columnName}:`, error);
         // Continue with other columns
       }
     }
@@ -458,7 +459,7 @@ export class DuckDBService {
       `.trim();
     }
 
-    console.log('[DuckDBService] insightsCategorical SQL:', sql);
+    logger.info('[DuckDBService] insightsCategorical SQL:', sql);
     return this.executeQuery(sql);
   }
 
@@ -474,7 +475,7 @@ export class DuckDBService {
     try {
       return await conn.query(sql);
     } catch (err) {
-      console.error('[DuckDBService] Query failed:', err, 'SQL:', sql);
+      logger.error('[DuckDBService] Query failed:', err, 'SQL:', sql);
       throw err;
     }
   }
@@ -650,12 +651,12 @@ export class DuckDBService {
             await asAny.close();
           }
         } catch (e) {
-          console.warn('[DuckDBService] Error while calling underlying shutdown on AsyncDuckDB:', e);
+          logger.warn('[DuckDBService] Error while calling underlying shutdown on AsyncDuckDB:', e);
         }
         this.db = null;
       }
     } catch (e) {
-      console.error('[DuckDBService] Error during shutdown:', e);
+      logger.error('[DuckDBService] Error during shutdown:', e);
     }
   }
 }

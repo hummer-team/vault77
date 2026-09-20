@@ -4,6 +4,7 @@
  */
 
 import { identifyAnomalyColumns, validateColumnIdentification } from './columnIdentifier';
+import { logger } from '../../utils/logger';
 import { settingsService } from '../settingsService';
 import type {
   AnomalyAnalysisInput,
@@ -30,7 +31,7 @@ function getWorker(): Worker {
       new URL('../../workers/anomaly.worker.ts', import.meta.url),
       { type: 'module' }
     );
-    console.log('[AnomalyService] Worker instance created');
+    logger.info('[AnomalyService] Worker instance created');
   }
   return workerInstance;
 }
@@ -76,7 +77,7 @@ function sendMessageToWorker(
     // Note: Our worker doesn't use ArrayBuffer transfer (data is in orderIds/features)
     // But we still avoid unnecessary copies by using structured clone
     worker.postMessage(message);
-    console.log('[AnomalyService] Posted message to worker');
+    logger.info('[AnomalyService] Posted message to worker');
   });
 }
 
@@ -109,7 +110,7 @@ async function inferFeatureColumns(
     const result = await identifyAnomalyColumns(tableName, executeQuery);
     validateColumnIdentification(result);
 
-    console.log('[AnomalyService] Column identification complete:', {
+    logger.info('[AnomalyService] Column identification complete:', {
       orderIdColumn: result.orderIdColumn,
       featureCount: result.featureColumns.length,
       featureColumns: result.featureColumns.slice(0, 5),  // Show first 5
@@ -120,7 +121,7 @@ async function inferFeatureColumns(
       featureColumns: result.featureColumns,
     };
   } catch (error) {
-    console.error('[AnomalyService] Column identification failed:', error);
+    logger.error('[AnomalyService] Column identification failed:', error);
     throw error;  // Re-throw with original error message
   }
 }
@@ -159,8 +160,8 @@ async function fetchData(
       ${samplingClause}
     `.trim();
 
-    console.log(`[AnomalyService] Sampling: ${shouldSample ? 'YES' : 'NO'}, clause: "${samplingClause}"`);
-    console.log('[AnomalyService] Executing query:', sql);
+    logger.info(`[AnomalyService] Sampling: ${shouldSample ? 'YES' : 'NO'}, clause: "${samplingClause}"`);
+    logger.info('[AnomalyService] Executing query:', sql);
     const result = await executeQuery(sql);
 
     if (!result.data || result.data.length === 0) {
@@ -181,7 +182,7 @@ async function fetchData(
       } else if (typeof row.order_id === 'bigint') {
         orderId = row.order_id.toString();
       } else {
-        console.warn('[AnomalyService] Invalid order_id type:', typeof row.order_id, row.order_id);
+        logger.warn('[AnomalyService] Invalid order_id type:', typeof row.order_id, row.order_id);
         continue; // Skip invalid rows
       }
 
@@ -195,7 +196,7 @@ async function fetchData(
       features.push(featureValues);
     }
 
-    console.log(`[AnomalyService] Fetched ${orderIds.length} orders with ${featureColumns.length} features`);
+    logger.info(`[AnomalyService] Fetched ${orderIds.length} orders with ${featureColumns.length} features`);
 
     return {
       orderIds,
@@ -203,7 +204,7 @@ async function fetchData(
       actualSamplingRate: samplingRate,
     };
   } catch (error) {
-    console.error('[AnomalyService] Data fetch failed:', error);
+    logger.error('[AnomalyService] Data fetch failed:', error);
     throw new Error(`Data fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -222,7 +223,7 @@ export async function analyzeAnomalies(
   const startTime = performance.now();
 
   try {
-    console.log('[AnomalyService] Starting anomaly analysis:', input);
+    logger.info('[AnomalyService] Starting anomaly analysis:', input);
 
     // Step 1: Load settings
     const settings = await settingsService.getAnomalyDetectionSettings();
@@ -231,7 +232,7 @@ export async function analyzeAnomalies(
 
     // Step 2: Get row count
     const rowsTotal = await getRowCount(input.tableName, executeQuery);
-    console.log(`[AnomalyService] Total rows: ${rowsTotal}`);
+    logger.info(`[AnomalyService] Total rows: ${rowsTotal}`);
 
     if (rowsTotal === 0) {
       throw new Error('Table is empty');
@@ -252,7 +253,7 @@ export async function analyzeAnomalies(
     }
 
     const estimatedRows = Math.floor(rowsTotal * samplingRate);
-    console.log(
+    logger.info(
       `[AnomalyService] Sampling: ${shouldSample ? 'YES' : 'NO'}, ` +
       `rate: ${(samplingRate * 100).toFixed(1)}%, ` +
       `target rows: ${estimatedRows} (from ${rowsTotal})`
@@ -263,7 +264,7 @@ export async function analyzeAnomalies(
     let featureColumns = input.featureColumns;
 
     if (!orderIdColumn || featureColumns.length === 0) {
-      console.log('[AnomalyService] Columns not provided, inferring...');
+      logger.info('[AnomalyService] Columns not provided, inferring...');
       const inferred = await inferFeatureColumns(input.tableName, executeQuery);
       
       if (!inferred.orderIdColumn) {
@@ -287,14 +288,14 @@ export async function analyzeAnomalies(
     );
 
     const rowsProcessed = orderIds.length;
-    console.log(`[AnomalyService] Processing ${rowsProcessed} rows (sampled from ${rowsTotal}, rate: ${actualSamplingRate})`);
+    logger.info(`[AnomalyService] Processing ${rowsProcessed} rows (sampled from ${rowsTotal}, rate: ${actualSamplingRate})`);
 
     // FIX 2.3: Memory pre-flight check to prevent large allocations
     const featureCount = featureColumns.length;
     const estimatedMemoryMB = (rowsProcessed * featureCount * 8) / (1024 * 1024);
     const MEMORY_LIMIT_MB = 25;  // 25 MB safe limit for Arrow IPC serialization
 
-    console.log(
+    logger.info(
       `[AnomalyService] Memory estimate: ${estimatedMemoryMB.toFixed(1)} MB ` +
       `(${rowsProcessed} rows × ${featureCount} features × 8 bytes)`
     );
@@ -365,7 +366,7 @@ export async function analyzeAnomalies(
 
     // Performance warning for large result sets
     if (anomalies.length > 5000) {
-      console.warn('[AnomalyService] Large anomaly count detected:', {
+      logger.warn('[AnomalyService] Large anomaly count detected:', {
         anomalyCount: anomalies.length,
         recommendation: 'Consider increasing threshold or enabling sampling',
       });
@@ -394,7 +395,7 @@ export async function analyzeAnomalies(
       metadata,
     };
 
-    console.log('[AnomalyService] Analysis complete:', {
+    logger.info('[AnomalyService] Analysis complete:', {
       anomalyCount: output.anomalyCount,
       anomalyRate: (output.anomalyRate * 100).toFixed(2) + '%',
       gpuUsed,
@@ -403,7 +404,7 @@ export async function analyzeAnomalies(
 
     return output;
   } catch (error) {
-    console.error('[AnomalyService] Analysis failed:', error);
+    logger.error('[AnomalyService] Analysis failed:', error);
     
     // FIX 2.2: Reset worker after error to prevent memory leak
     // Worker may be in bad state after WASM crash, terminate and recreate
@@ -421,13 +422,13 @@ export function resetWorker(): void {
   if (workerInstance) {
     try {
       workerInstance.terminate();
-      console.log('[AnomalyService] Worker terminated');
+      logger.info('[AnomalyService] Worker terminated');
     } catch (e) {
-      console.warn('[AnomalyService] Worker termination failed:', e);
+      logger.warn('[AnomalyService] Worker termination failed:', e);
     }
     workerInstance = null;
   }
-  console.log('[AnomalyService] Worker reset complete');
+  logger.info('[AnomalyService] Worker reset complete');
 }
 
 /**
@@ -437,6 +438,6 @@ export function cleanup(): void {
   if (workerInstance) {
     workerInstance.terminate();
     workerInstance = null;
-    console.log('[AnomalyService] Worker terminated');
+    logger.info('[AnomalyService] Worker terminated');
   }
 }

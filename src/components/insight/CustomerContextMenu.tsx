@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { UserOutlined, BarChartOutlined } from '@ant-design/icons';
 import { TOKEN } from '../../theme';
 
@@ -33,7 +34,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
   const adjustedX = Math.min(x, window.innerWidth - menuWidth - 10);
   const adjustedY = Math.min(y, window.innerHeight - menuHeight - 10);
   
-  console.log('[CustomerContextMenu] Render:', { 
+  logger.info('[CustomerContextMenu] Render:', { 
     visible, 
     original: { x, y }, 
     adjusted: { x: adjustedX, y: adjustedY },
@@ -47,7 +48,7 @@ export const CustomerContextMenu: React.FC<CustomerContextMenuProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.customer-context-menu')) {
-        console.log('[CustomerContextMenu] Click outside, closing menu');
+        logger.info('[CustomerContextMenu] Click outside, closing menu');
         onClose();
       }
     };

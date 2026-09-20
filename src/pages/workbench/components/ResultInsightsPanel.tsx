@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { logger } from '../../../utils/logger';
 import {
   WarningFilled,
   ExclamationCircleFilled,
@@ -237,7 +238,7 @@ const InsightItemView: React.FC<InsightItemViewProps> = ({ item, onItemClick }) 
 
   const handleClick = () => {
     // Reserved for future drill-down feature — currently only logs
-    console.log('[InsightsPanel] InsightItem clicked:', { id: item.id, metadata: item.metadata });
+    logger.info('[InsightsPanel] InsightItem clicked:', { id: item.id, metadata: item.metadata });
     onItemClick?.({ id: item.id, metadata: item.metadata });
   };
 

@@ -6,6 +6,7 @@
  */
 
 import type { AnomalyRecord } from '../../types/anomaly.types';
+import { logger } from '../../utils/logger';
 import type { ClusteringAnalysisOutput, CustomerClusterRecord } from '../../types/clustering.types';
 import type { 
   AggregatedFeatures, 
@@ -130,11 +131,11 @@ async function computeNumericStatsFromFeatures(
       FROM "${tableName}"
     `;
     
-    console.log('[Aggregator] Batch querying global averages for', validColumns.length, 'columns');
+    logger.info('[Aggregator] Batch querying global averages for', validColumns.length, 'columns');
     const globalResult = await executeQuery(globalQuery);
     
     if (globalResult.data.length === 0) {
-      console.warn('[Aggregator] No global data returned');
+      logger.warn('[Aggregator] No global data returned');
       return stats;
     }
     
@@ -152,14 +153,14 @@ async function computeNumericStatsFromFeatures(
         globalAvg: globalAvg ? Number(globalAvg) : undefined,
       };
       
-      console.log(`[Aggregator] Stats for "${col}":`, {
+      logger.info(`[Aggregator] Stats for "${col}":`, {
         anomalyAvg: avg.toFixed(2),
         globalAvg: globalAvg ? Number(globalAvg).toFixed(2) : 'N/A',
         deviation: globalAvg ? ((avg - globalAvg) / globalAvg * 100).toFixed(1) + '%' : 'N/A'
       });
     }
   } catch (error) {
-    console.error('[Aggregator] Failed to query global statistics:', error);
+    logger.error('[Aggregator] Failed to query global statistics:', error);
     // Fallback: return anomaly stats without global comparison
     for (const col of validColumns) {
       const { avg, min, max } = anomalyStats[col];
@@ -221,7 +222,7 @@ export async function aggregateClusters(
   // Step 4: Sample customers from each cluster (stratified sampling)
   const sampleCustomers = sampleCustomersFromClusters(customers, clusters.length);
   
-  console.log('[Aggregator] Clustered data aggregated:', {
+  logger.info('[Aggregator] Clustered data aggregated:', {
     totalCustomers,
     numClusters: clusters.length,
     samplesPerCluster: CLUSTER_SAMPLE_SIZE,

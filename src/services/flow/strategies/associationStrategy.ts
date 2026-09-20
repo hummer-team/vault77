@@ -1,4 +1,5 @@
 import { BaseStrategy } from '../strategies';
+import { logger } from '../../../utils/logger';
 import {
   FlowNodeType,
   OperatorType,
@@ -49,7 +50,7 @@ export class AssociationStrategy extends BaseStrategy {
     if (groupByClause) parts.push(groupByClause);
 
     const sql = parts.join('\n');
-    console.log(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
+    logger.info(`[${this.name}.buildOperatorSql] sql=\n${sql}`);
     return sql;
   }
 

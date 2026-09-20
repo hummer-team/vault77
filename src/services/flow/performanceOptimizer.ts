@@ -4,6 +4,7 @@
  */
 
 import type { FlowNode } from './types';
+import { logger } from '../../utils/logger';
 
 /**
  * Memory usage monitor
@@ -63,7 +64,7 @@ export class MemoryMonitor {
    */
   addWarning(warning: string): void {
     this.memoryWarnings.push(warning);
-    console.warn('[MemoryMonitor]', warning);
+    logger.warn('[MemoryMonitor]', warning);
   }
 
   /**
@@ -122,7 +123,7 @@ export class QueryOptimizer {
   static optimizeSelectClause(sql: string): string {
     // If SELECT *, suggest replacing with specific columns
     if (sql.includes('SELECT *')) {
-      console.warn(
+      logger.warn(
         '[QueryOptimizer] Using SELECT * may impact performance. Consider selecting specific columns.'
       );
     }
@@ -410,7 +411,7 @@ export class CacheManager {
 
     // Check if adding this would exceed max cache size
     if (size > this.maxCacheSize) {
-      console.warn('[CacheManager] Data too large to cache:', size);
+      logger.warn('[CacheManager] Data too large to cache:', size);
       return;
     }
 
@@ -503,14 +504,14 @@ export class PerformanceProfiler {
   static end(label: string): number {
     const start = this.timers.get(label);
     if (!start) {
-      console.warn(`[PerformanceProfiler] Timer "${label}" not found`);
+      logger.warn(`[PerformanceProfiler] Timer "${label}" not found`);
       return 0;
     }
 
     const duration = performance.now() - start;
     this.timers.delete(label);
 
-    console.log(`[PerformanceProfiler] ${label}: ${duration.toFixed(2)}ms`);
+    logger.info(`[PerformanceProfiler] ${label}: ${duration.toFixed(2)}ms`);
     return duration;
   }
 

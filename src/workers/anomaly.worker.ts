@@ -4,6 +4,7 @@
  */
 
 import init, { detect_order_anomalies } from '../../wasm/fast_insight_engine.js';
+import { logger } from '../utils/logger';
 import * as arrow from 'apache-arrow';
 import type {
   AnomalyDetectionRequest,
@@ -29,21 +30,21 @@ let hasGPU = false;
 async function checkWebGPUSupport(): Promise<boolean> {
   // Check if navigator.gpu exists (WebGPU API)
   if (typeof navigator === 'undefined' || !('gpu' in navigator)) {
-    console.log('[AnomalyWorker] WebGPU not available (API missing)');
+    logger.info('[AnomalyWorker] WebGPU not available (API missing)');
     return false;
   }
 
   try {
     const adapter = await (navigator as any).gpu.requestAdapter();
     if (!adapter) {
-      console.log('[AnomalyWorker] WebGPU adapter not found (no compatible GPU)');
+      logger.info('[AnomalyWorker] WebGPU adapter not found (no compatible GPU)');
       return false;
     }
 
-    console.log('[AnomalyWorker] WebGPU available, adapter:', adapter);
+    logger.info('[AnomalyWorker] WebGPU available, adapter:', adapter);
     return true;
   } catch (error) {
-    console.error('[AnomalyWorker] WebGPU check failed:', error);
+    logger.error('[AnomalyWorker] WebGPU check failed:', error);
     return false;
   }
 }
@@ -56,18 +57,18 @@ async function checkWebGPUSupport(): Promise<boolean> {
  */
 function shouldUseGPU(rowCount: number, strategy: string): boolean {
   if (strategy === 'disable') {
-    console.log('[AnomalyWorker] GPU disabled by user setting');
+    logger.info('[AnomalyWorker] GPU disabled by user setting');
     return false;
   }
   
   if (strategy === 'force') {
-    console.log('[AnomalyWorker] GPU forced by user setting');
+    logger.info('[AnomalyWorker] GPU forced by user setting');
     return true; // May fail if GPU unavailable, WASM will fallback
   }
 
   // 'auto' strategy: Use GPU for >5k rows if available
   const useGPU = rowCount > 5000 && hasGPU;
-  console.log(`[AnomalyWorker] Auto GPU decision: ${useGPU} (rows: ${rowCount}, GPU available: ${hasGPU})`);
+  logger.info(`[AnomalyWorker] Auto GPU decision: ${useGPU} (rows: ${rowCount}, GPU available: ${hasGPU})`);
   return useGPU;
 }
 
@@ -145,10 +146,10 @@ async function serializeToArrowIPC(
     const writer = arrow.RecordBatchStreamWriter.writeAll([recordBatch]);
     const arrowData = await writer.toUint8Array();
 
-    console.log(`[AnomalyWorker] Serialized ${orderIds.length} orders x ${featureCount} features (${arrowData.byteLength} bytes)`);
+    logger.info(`[AnomalyWorker] Serialized ${orderIds.length} orders x ${featureCount} features (${arrowData.byteLength} bytes)`);
     return new Uint8Array(arrowData);
   } catch (error) {
-    console.error('[AnomalyWorker] Arrow IPC serialization failed:', error);
+    logger.error('[AnomalyWorker] Arrow IPC serialization failed:', error);
     throw new Error(`Arrow serialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -182,10 +183,10 @@ function deserializeFromArrowIPC(arrowResult: Uint8Array): {
     const abnormalScores = Array.from(scoreColumn.toArray()) as number[];
     const isAbnormal = Array.from(flagColumn.toArray()) as boolean[];
 
-    console.log(`[AnomalyWorker] Deserialized ${orderIds.length} results`);
+    logger.info(`[AnomalyWorker] Deserialized ${orderIds.length} results`);
     return { orderIds, abnormalScores, isAbnormal };
   } catch (error) {
-    console.error('[AnomalyWorker] Arrow IPC deserialization failed:', error);
+    logger.error('[AnomalyWorker] Arrow IPC deserialization failed:', error);
     throw new Error(`Arrow deserialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -203,10 +204,10 @@ self.onmessage = async (e: MessageEvent<AnomalyDetectionRequest>) => {
   try {
     // Initialize WASM module (once)
     if (!wasmInitialized) {
-      console.log('[AnomalyWorker] Initializing WASM module...');
+      logger.info('[AnomalyWorker] Initializing WASM module...');
       await init();
       wasmInitialized = true;
-      console.log('[AnomalyWorker] WASM initialized successfully');
+      logger.info('[AnomalyWorker] WASM initialized successfully');
 
       // Check GPU availability (once)
       hasGPU = await checkWebGPUSupport();
@@ -238,7 +239,7 @@ self.onmessage = async (e: MessageEvent<AnomalyDetectionRequest>) => {
     // Arrow IPC serialization already copied the data
 
     // Call WASM function
-    console.log(`[AnomalyWorker] Calling detect_order_anomalies (GPU: ${useGPU}, threshold: ${threshold}, scalingMode: ${scalingMode})`);
+    logger.info(`[AnomalyWorker] Calling detect_order_anomalies (GPU: ${useGPU}, threshold: ${threshold}, scalingMode: ${scalingMode})`);
     const wasmStart = performance.now();
     const arrowResult = await detect_order_anomalies(
       arrowData,
@@ -247,7 +248,7 @@ self.onmessage = async (e: MessageEvent<AnomalyDetectionRequest>) => {
       useGPU
     );
     const wasmDuration = performance.now() - wasmStart;
-    console.log(`[AnomalyWorker] WASM execution completed in ${wasmDuration.toFixed(2)}ms`);
+    logger.info(`[AnomalyWorker] WASM execution completed in ${wasmDuration.toFixed(2)}ms`);
 
     // NOTE: arrowData is const, will be GC'd after scope ends
     // WASM has already consumed the buffer
@@ -271,9 +272,9 @@ self.onmessage = async (e: MessageEvent<AnomalyDetectionRequest>) => {
     };
 
     self.postMessage(response);
-    console.log(`[AnomalyWorker] Success response sent (total: ${totalDuration.toFixed(2)}ms)`);
+    logger.info(`[AnomalyWorker] Success response sent (total: ${totalDuration.toFixed(2)}ms)`);
   } catch (error) {
-    console.error('[AnomalyWorker] Error during anomaly detection:', error);
+    logger.error('[AnomalyWorker] Error during anomaly detection:', error);
 
     // Send error response
     const errorResponse: AnomalyDetectionError = {
@@ -292,4 +293,4 @@ self.onmessage = async (e: MessageEvent<AnomalyDetectionRequest>) => {
 // Worker Ready Signal
 // ============================================================================
 
-console.log('[AnomalyWorker] Worker script loaded, waiting for messages...');
+logger.info('[AnomalyWorker] Worker script loaded, waiting for messages...');

@@ -4,6 +4,7 @@
  */
 
 import init, { segment_customer_orders } from '../../wasm/fast_insight_engine.js';
+import { logger } from '../utils/logger';
 import { 
   serializeToArrowIPC, 
   deserializeClusteringResult,
@@ -32,21 +33,21 @@ let hasGPU = false;
  */
 async function checkWebGPUSupport(): Promise<boolean> {
   if (typeof navigator === 'undefined' || !('gpu' in navigator)) {
-    console.log('[ClusteringWorker] WebGPU not available (API missing)');
+    logger.info('[ClusteringWorker] WebGPU not available (API missing)');
     return false;
   }
 
   try {
     const adapter = await (navigator as any).gpu.requestAdapter();
     if (!adapter) {
-      console.log('[ClusteringWorker] WebGPU adapter not found (no compatible GPU)');
+      logger.info('[ClusteringWorker] WebGPU adapter not found (no compatible GPU)');
       return false;
     }
 
-    console.log('[ClusteringWorker] WebGPU available, adapter:', adapter);
+    logger.info('[ClusteringWorker] WebGPU available, adapter:', adapter);
     return true;
   } catch (error) {
-    console.error('[ClusteringWorker] WebGPU check failed:', error);
+    logger.error('[ClusteringWorker] WebGPU check failed:', error);
     return false;
   }
 }
@@ -59,13 +60,13 @@ async function checkWebGPUSupport(): Promise<boolean> {
  */
 function shouldUseGPU(rowCount: number, useGPU: boolean): boolean {
   if (!useGPU) {
-    console.log('[ClusteringWorker] GPU disabled by user preference');
+    logger.info('[ClusteringWorker] GPU disabled by user preference');
     return false;
   }
 
   // Auto strategy: Use GPU for >5k customers if available
   const shouldUse = rowCount > 5000 && hasGPU;
-  console.log(`[ClusteringWorker] GPU decision: ${shouldUse} (rows: ${rowCount}, GPU available: ${hasGPU})`);
+  logger.info(`[ClusteringWorker] GPU decision: ${shouldUse} (rows: ${rowCount}, GPU available: ${hasGPU})`);
   return shouldUse;
 }
 
@@ -82,10 +83,10 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
   try {
     // Initialize WASM module (once)
     if (!wasmInitialized) {
-      console.log('[ClusteringWorker] Initializing WASM module...');
+      logger.info('[ClusteringWorker] Initializing WASM module...');
       await init();
       wasmInitialized = true;
-      console.log('[ClusteringWorker] WASM initialized successfully');
+      logger.info('[ClusteringWorker] WASM initialized successfully');
 
       // Check GPU availability (once)
       hasGPU = await checkWebGPUSupport();
@@ -119,7 +120,7 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
     // Use WASM_COLUMN_MAPPING to handle the naming inconsistency:
     // - TypeScript: 'customer_id' (semantic)
     // - Wasm expects: 'order_id' (hardcoded)
-    console.log(`[ClusteringWorker] Serializing ${customerIds.length} customers with ${features[0].length} features...`);
+    logger.info(`[ClusteringWorker] Serializing ${customerIds.length} customers with ${features[0].length} features...`);
     const arrowData = await serializeToArrowIPC(
       customerIds, 
       WASM_COLUMN_MAPPING.clustering.idColumn,  // 'order_id'
@@ -127,7 +128,7 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
     );
 
     // Call WASM function
-    console.log(`[ClusteringWorker] Calling segment_customer_orders (K=${nClusters}, GPU=${useGPU}, scalingMode=${scalingMode})`);
+    logger.info(`[ClusteringWorker] Calling segment_customer_orders (K=${nClusters}, GPU=${useGPU}, scalingMode=${scalingMode})`);
     const wasmStart = performance.now();
     const arrowResult = await segment_customer_orders(
       arrowData,
@@ -136,7 +137,7 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
       useGPU
     );
     const wasmDuration = performance.now() - wasmStart;
-    console.log(`[ClusteringWorker] WASM execution completed in ${wasmDuration.toFixed(2)}ms`);
+    logger.info(`[ClusteringWorker] WASM execution completed in ${wasmDuration.toFixed(2)}ms`);
 
     // Deserialize result
     const { customerIds: resultIds, clusterIds } = deserializeClusteringResult(arrowResult);
@@ -158,10 +159,10 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
       },
     };
 
-    console.log(`[ClusteringWorker] Success: ${resultIds.length} customers clustered into ${nClusters} groups (${totalDuration.toFixed(2)}ms)`);
+    logger.info(`[ClusteringWorker] Success: ${resultIds.length} customers clustered into ${nClusters} groups (${totalDuration.toFixed(2)}ms)`);
     self.postMessage(response);
   } catch (error) {
-    console.error('[ClusteringWorker] Error:', error);
+    logger.error('[ClusteringWorker] Error:', error);
 
     const response: ClusteringError = {
       type: 'CLUSTERING_SEGMENT_ERROR',
@@ -176,4 +177,4 @@ self.onmessage = async (e: MessageEvent<ClusteringRequest>) => {
 };
 
 // Log worker initialization
-console.log('[ClusteringWorker] Worker initialized');
+logger.info('[ClusteringWorker] Worker initialized');

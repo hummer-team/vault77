@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
+import { logger } from '../../utils/logger';
 import * as echarts from 'echarts';
 import type { CustomerClusterRecord, ClusterMetadata } from '../../types/clustering.types';
 import { TOP_N_PER_CLUSTER } from '../../constants/clustering.constants';
@@ -60,7 +61,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
 
   // Sample data: top N per cluster for performance
   const displayData = useMemo(() => {
-    console.log('[ClusteringScatterChart] Computing displayData, input data length:', stableData.length);
+    logger.info('[ClusteringScatterChart] Computing displayData, input data length:', stableData.length);
     
     // Group by cluster
     const clusterGroups = new Map<number, CustomerClusterRecord[]>();
@@ -71,7 +72,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       clusterGroups.get(customer.clusterId)!.push(customer);
     });
     
-    console.log('[ClusteringScatterChart] Cluster groups:', Array.from(clusterGroups.entries()).map(([id, customers]) => ({ clusterId: id, count: customers.length })));
+    logger.info('[ClusteringScatterChart] Cluster groups:', Array.from(clusterGroups.entries()).map(([id, customers]) => ({ clusterId: id, count: customers.length })));
     
     // Take top N per cluster (sorted by monetary desc - most valuable customers)
     const sampledData: CustomerClusterRecord[] = [];
@@ -82,14 +83,14 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       sampledData.push(...sorted);
     });
     
-    console.log('[ClusteringScatterChart] Sampled data length:', sampledData.length);
+    logger.info('[ClusteringScatterChart] Sampled data length:', sampledData.length);
     return sampledData;
   }, [data]);  // Only depend on data, NOT onDataSampled
 
   // Separate effect to notify parent (only when data actually changes)
   useEffect(() => {
     if (data.length !== lastDataLengthRef.current) {
-      console.log('[ClusteringScatterChart] Data length changed, notifying parent');
+      logger.info('[ClusteringScatterChart] Data length changed, notifying parent');
       lastDataLengthRef.current = data.length;
       if (onDataSampled && displayData.length !== data.length) {
         onDataSampled(displayData.length, data.length);
@@ -104,14 +105,14 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
   ];
 
   useEffect(() => {
-    console.log('[ClusteringScatterChart] useEffect triggered, displayData.length:', displayData.length, 'chartRef.current:', !!chartRef.current);
+    logger.info('[ClusteringScatterChart] useEffect triggered, displayData.length:', displayData.length, 'chartRef.current:', !!chartRef.current);
     
     if (!chartRef.current || displayData.length === 0) {
-      console.log('[ClusteringScatterChart] Early return - no chart ref or empty data');
+      logger.info('[ClusteringScatterChart] Early return - no chart ref or empty data');
       return;
     }
 
-    console.log('[ClusteringScatterChart] Initializing chart...');
+    logger.info('[ClusteringScatterChart] Initializing chart...');
 
     // Reinitialize chart on theme change
     const currentTheme = isDarkTheme() ? 'dark' : null;
@@ -143,7 +144,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       ]);
     });
 
-    console.log('[ClusteringScatterChart] ClusterDataMap:', Array.from(clusterDataMap.entries()).map(([id, data]) => ({ clusterId: id, points: data.length })));
+    logger.info('[ClusteringScatterChart] ClusterDataMap:', Array.from(clusterDataMap.entries()).map(([id, data]) => ({ clusterId: id, points: data.length })));
 
     // Create series for each cluster
     const series = clusters.map((cluster, idx) => {
@@ -302,7 +303,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
     // Handle click on data points to select cluster
     if (onClusterClick) {
       chartInstance.on('click', (params: any) => {
-        console.log('[ScatterChart] Click event:', { 
+        logger.info('[ScatterChart] Click event:', { 
           componentType: params.componentType, 
           seriesName: params.seriesName 
         });
@@ -313,10 +314,10 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
             (c.label || `Cluster ${c.clusterId}`) === clusterName
           );
           
-          console.log('[ScatterChart] Found cluster:', cluster);
+          logger.info('[ScatterChart] Found cluster:', cluster);
           
           if (cluster) {
-            console.log('[ScatterChart] Calling onClusterClick with clusterId:', cluster.clusterId);
+            logger.info('[ScatterChart] Calling onClusterClick with clusterId:', cluster.clusterId);
             onClusterClick(cluster.clusterId);
           }
         }
@@ -340,7 +341,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       const offsetX = event.clientX - rect.left;
       const offsetY = event.clientY - rect.top;
       
-      console.log('[ScatterChart] Native contextmenu event:', {
+      logger.info('[ScatterChart] Native contextmenu event:', {
         offsetX,
         offsetY,
         pageX: event.pageX,
@@ -390,7 +391,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
               if (distance < 30 && !foundCustomerId) {
                 foundCustomerId = seriesItem._customerIds?.[dataIndex];
                 foundSeriesName = seriesItem.name;
-                console.log('[ScatterChart] Found clicked point:', {
+                logger.info('[ScatterChart] Found clicked point:', {
                   seriesName: foundSeriesName,
                   customerId: foundCustomerId,
                   distance: distance.toFixed(2),
@@ -406,7 +407,7 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
       });
       
       if (foundCustomerId) {
-        console.log('[ScatterChart] Setting context menu state...');
+        logger.info('[ScatterChart] Setting context menu state...');
         // Use setTimeout to ensure old menu closes before opening new one
         setTimeout(() => {
           setContextMenu({
@@ -415,10 +416,10 @@ export const ClusteringScatterChart: React.FC<ClusteringScatterChartProps> = ({
             y: offsetY,
             customerId: String(foundCustomerId),
           });
-          console.log('[ScatterChart] Context menu state set with offset coords:', { offsetX, offsetY });
+          logger.info('[ScatterChart] Context menu state set with offset coords:', { offsetX, offsetY });
         }, 50);
       } else {
-        console.log('[ScatterChart] No customer point found near click', {
+        logger.info('[ScatterChart] No customer point found near click', {
           minDistance: minDistance.toFixed(2),
           threshold: 30,
           samplePoints: debugPoints

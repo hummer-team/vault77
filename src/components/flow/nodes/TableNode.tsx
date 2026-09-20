@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useState, useMemo } from 'react';
+import { logger } from '../../../utils/logger';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { Button, Tag, Tooltip, Space, Spin } from 'antd';
 import {
@@ -116,7 +117,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
         const schema = await getTableSchema(data.tableName, executeQuery);
         updateNode(id, { fields: schema.fields, expanded: true });
       } catch (error) {
-        console.error(`[TableNode] Failed to load schema for ${data.tableName}:`, error);
+        logger.error(`[TableNode] Failed to load schema for ${data.tableName}:`, error);
       } finally {
         setLoading(false);
       }
@@ -128,7 +129,7 @@ export const TableNode: React.FC<TableNodeProps> = ({
   // Handle field drag start
   const handleFieldDragStart = useCallback((field: Field) => {
     // TODO: Implement field drag logic
-    console.log('Field drag start:', field);
+    logger.info('Field drag start:', field);
   }, []);
 
   // Handle delete
