@@ -1,26 +1,21 @@
-# Vaultmind — AGENTS.md (Harness Intent Layer)
-
-> **Harness Engineering — Intent 层**
-> 定义项目架构意图与模块边界，是 AI 开始工作前的首要上下文。
-
----
-
-## ⚡ Harness Feedforward 检查（按顺序读取）
-
-| 层 | 文件               | 目的 |
-|----|------------------|------|
-| Intent | `AGENTS.md`（本文件） | 项目架构与模块边界 |
-| Authority | `@.opencode/references/rule.md`              | 工作流、权限约束、禁止行为 |
-
-> ⛔ **未完成 Feedforward 检查，禁止开始任何代码修改。**
-
----
-
 ## 一、项目概览
 
 **Vaultmind** — Chrome Extension 形式的 **Agent-Driven Analytics Workbench**。用户通过可视化流程画布构建分析模板，对 Excel/CSV 数据执行 SQL 分析，并通过 LLM 自然语言进行决策推演。
 
 **技术栈**: TypeScript 5 (Strict) · React 18 · Ant Design 6 · DuckDB-WASM · OpenAI SDK · Zustand 5 · Vite 5 · Chrome MV3
+
+### 技术栈
+
+| 类别 | 技术 |
+|------|------|
+| 语言 / 运行时 | TypeScript 5 (Strict Mode) · Bun |
+| UI | React 18 · Ant Design 6 · ReactFlow |
+| 数据引擎 | DuckDB-WASM · Apache Arrow |
+| LLM | OpenAI SDK · @mlc-ai/web-llm |
+| 状态管理 | Zustand 5 |
+| 校验 | Zod 4 · zod-gpt |
+| 构建 | Vite 5 · @crxjs/vite-plugin (Chrome MV3) |
+| 测试 | `bun test` |
 
 ### 核心架构
 
@@ -73,81 +68,6 @@ DuckDB WASM Worker（design/udf.sql 注册 MACRO）
 
 ---
 
-## 四、目录结构
-
-```
-src/
-├── main.tsx                    # Chrome Extension 入口
-├── background.ts               # Service Worker（MV3 Background）
-├── content-script.ts           # Content Script 注入
-├── global.css                  # 全局样式 & CSS 变量
-├── sandbox.ts                  # 沙箱隔离逻辑
-│
-├── components/
-│   ├── chart/                  # ECharts 图表组件（Container/Widget/ConfigPanel）
-│   ├── common/                 # 通用组件（VmDialog 弹窗体系）
-│   ├── flow/                   # 流程画布核心（Canvas/节点/边/抽屉/hooks）
-│   │   ├── nodes/              # 流程节点组件（DataSource/Merge/Join/UDF 等）
-│   │   ├── edges/              # 自定义边（JoinEdge/DeletableEdge）
-│   │   ├── udf/                # UDF 算子配置抽屉
-│   │   ├── controls/           # 画布工具栏
-│   │   ├── hooks/              # useMergeActions / useUpstreamJoinedTables
-│   │   └── contexts/           # FlowAttachmentsContext
-│   ├── insight/                # 洞察可视化组件（热力图/散点图/雷达图/汇总表）
-│   └── layout/                 # 全局布局（AppLayout/Sandbox/ThemeSwitcher）
-│
-├── pages/
-│   ├── workbench/              # 主工作台（ChatPanel/FileDropzone/ResultsDisplay）
-│   ├── biz-kernel-market/      # 业务算子市场
-│   ├── insight/                # 洞察结果页
-│   ├── settings/               # 设置页（Profile）
-│   ├── asset-center/           # 资产中心（模板列表）
-│   ├── session/                # 会话列表
-│   ├── subscription/           # 订阅页
-│   └── feedback/               # 反馈抽屉
-│
-├── hooks/                      # React Hooks（useDuckDB/useFileParsing/useLLMAgent/useAnomaly 等）
-│   └── insight/                # useInsight
-│
-├── services/
-│   ├── llm/                    # Agent 核心（AgentExecutor/AgentRuntime/PromptManager）
-│   │   ├── skills/             # Skill 体系（builtin/core/entities/router/adapters）
-│   │   └── industry/           # 行业 metrics 定义（ecommerce 等）
-│   ├── flow/                   # 流程引擎（strategies.ts + strategies/ + validator）
-│   │   └── strategies/         # 业务算子策略 + UDF 数据清洗策略
-│   ├── insight/                # 洞察服务（聚合/分箱/列推断/上下文构建/报告生成）
-│   │   └── strategies/         # 洞察 Action 策略（Anomaly/Clustering）
-│   ├── anomaly/                # 异常检测服务
-│   ├── clustering/             # 聚类分析服务（含 RFM）
-│   ├── rfm/                    # RFM 聚类专项服务
-│   ├── biz-kernels/            # 业务算子元数据与检索
-│   ├── tools/                  # LLM 工具（duckdbTools/sqlPolicy）
-│   ├── flags/                  # 行业功能开关（featureFlags）
-│   ├── user-skill/             # User Skill 持久化与校验
-│   └── __tests__/              # 服务层测试
-│
-├── workers/
-│   ├── duckdb.worker.ts        # DuckDB WASM Worker（受保护）
-│   ├── anomaly.worker.ts       # 异常检测 Worker
-│   └── clustering.worker.ts    # 聚类分析 Worker
-│
-├── stores/                     # Zustand stores（flowStore/kernelPickerStore）
-├── theme/                      # 三主题定义 + useEChartsTheme hook
-│   └── themes/                 # cyanDark / lightOrange / orangeDark
-├── prompts/                    # 行业 system prompt（ecommerce/finance/retail）
-│   ├── insight/                # 洞察 Action prompt（anomaly/clustering/regression）
-│   └── skills/                 # Skill prompt 模板
-├── types/                      # TypeScript 类型定义（anomaly/clustering/insight/workbench）
-├── config/                     # Persona 配置（personas/personaSuggestions）
-├── constants/                  # 业务常量（anomaly/clustering）
-├── contexts/                   # React Context（DuckDBContext）
-├── utils/                      # 工具函数（arrow/chart/file/csv/logger/tableAnalytics）
-├── status/                     # 应用状态管理（appStatusManager）
-└── test/                       # 测试基础设施（setup）
-```
-
----
-
 ## 五、受保护资产（未经明确指令禁止修改）
 
 ```
@@ -157,5 +77,3 @@ vite.config.ts                      — 构建配置
 tsconfig.json / tsconfig.node.json  — TS 编译配置
 package.json                        — 依赖变更需人类审批
 ```
-
----
