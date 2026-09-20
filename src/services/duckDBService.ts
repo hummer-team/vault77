@@ -1,6 +1,7 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { DuckDBDataProtocol } from '@duckdb/duckdb-wasm';
 import { duckDBUdfService } from './duckDBUdfService';
+import { buildCsvReadSql } from './duckdbCsvReadSql';
 
 const ARROW_IPC_STREAM_EOS = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]);
 
@@ -226,7 +227,7 @@ export class DuckDBService {
     fileName: string,
     startTimeMs: number
   ): Promise<void> {
-    const sql = `CREATE OR REPLACE TABLE ${safeTableName} AS SELECT * FROM read_csv_auto(${safeFileName}, header=true,sample_size=100);`;
+    const sql = buildCsvReadSql(safeTableName, safeFileName);
     console.log(`[DuckDBService] Loading CSV via read_csv_auto: ${fileName}`);
     await conn.query(sql);
     console.log(`[DuckDBService] Table ${safeTableName} created via read_csv_auto, cost ${Date.now() - startTimeMs} ms.`);
