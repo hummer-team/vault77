@@ -5,6 +5,7 @@
 
 import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { storageService } from '../storageService';
+import { logger } from '../../utils/logger';
 
 describe('StorageService', () => {
   let mockChromeStorage: {
@@ -203,16 +204,16 @@ describe('StorageService', () => {
     });
 
     test('should handle Chrome API error gracefully', async () => {
-      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const loggerSpy = spyOn(logger, 'error').mockImplementation(() => {});
       spyOn(mockChromeStorage, 'set').mockRejectedValueOnce(
         new Error('Storage quota exceeded')
       );
 
       await storageService.setItem<string>('error-key', 'test-value');
 
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalled();
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
 
     test('should save boolean value', async () => {
@@ -236,16 +237,16 @@ describe('StorageService', () => {
     });
 
     test('should handle Chrome API error gracefully', async () => {
-      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const loggerSpy = spyOn(logger, 'error').mockImplementation(() => {});
       spyOn(mockChromeStorage, 'remove').mockRejectedValueOnce(
         new Error('Chrome API unavailable')
       );
 
       await storageService.removeItem('error-key');
 
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalled();
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
 
     test('should handle multiple removals without errors', async () => {
