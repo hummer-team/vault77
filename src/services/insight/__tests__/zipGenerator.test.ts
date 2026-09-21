@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { generateZip, type ZipContent } from '../zipGenerator';
+import { logger } from '../../../utils/logger';
 
 describe('zipGenerator', () => {
   beforeEach(() => {
@@ -74,9 +75,9 @@ describe('zipGenerator', () => {
     });
     
     it('should include all filenames in log', async () => {
-      const consoleSpy = mock(() => {});
-      const originalLog = console.log;
-      console.log = consoleSpy;
+      const loggerSpy = mock(() => {});
+      const originalInfo = logger.info;
+      logger.info = loggerSpy;
       
       const files: ZipContent[] = [
         { filename: 'report.md', content: 'Report' },
@@ -85,8 +86,8 @@ describe('zipGenerator', () => {
       
       await generateZip(files, 'report.zip');
       
-      console.log = originalLog;
-      expect(consoleSpy).toHaveBeenCalled();
+      logger.info = originalInfo;
+      expect(loggerSpy).toHaveBeenCalled();
     });
     
     it('should handle long filenames', async () => {
@@ -106,7 +107,7 @@ describe('zipGenerator', () => {
         { filename: 'report (2024-01-01).md', content: 'Test' },
       ];
       
-      await generateZip(files, 'test.zip');
+      await generateZip(files, 'report.zip');
       expect(true).toBe(true);
     });
   });
