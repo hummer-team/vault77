@@ -403,6 +403,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
       constraints: ['多维度业务指标数据，如订单金额、订单频次、用户活跃度等'],
     },
   },
+  // done
   {
     name: 'fn_ecom_order_net_amount_calc',
     displayName: '订单净额计算（退款后实收）',
