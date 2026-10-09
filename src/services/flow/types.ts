@@ -60,6 +60,7 @@ export enum OperatorType {
   ORDER_FUNNEL_ANALYSIS = 'order_funnel_analysis',    // Operations: full-chain order funnel conversion analysis
   FULFILLMENT_EFFICIENCY = 'fulfillment_efficiency',  // Operations: pay→ship→receive fulfillment time analysis
   NET_AMOUNT_CALC = 'net_amount_calc',  // Order accounting: net amount after refund/rejection
+  PROFIT_MARGIN_CALC = 'profit_margin_calc',  // Order accounting: gross/net profit margin calculation
 }
 
 export enum LogicType {
@@ -290,6 +291,8 @@ export interface SelectNodeData extends BaseNodeData {
   fulfillmentEfficiencyConfig?: FulfillmentEfficiencyConfig;
   /** Config for fn_ecom_order_net_amount_calc */
   netAmountCalcConfig?: NetAmountCalcConfig;
+  /** Config for fn_ecom_order_profit_margin_calc */
+  profitMarginCalcConfig?: ProfitMarginCalcConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -897,6 +900,51 @@ export interface NetAmountCalcConfig {
   /** Comma-separated excluded statuses, default 'CANCELLED' */
   excludedStatuses: string;
 }
+
+/**
+ * Config stored on SelectNodeData for fn_ecom_order_profit_margin_calc.
+ * Row-level atomic calculation:
+ *   profit = net_amount ± cost ± shipping_fee ± platform_fee ± service_fee
+ *   profit_margin = profit / net_amount (with zero-division protection)
+ * Risk classification: high_risk / warning / healthy based on warningThresholdPct
+ */
+export interface ProfitMarginCalcConfig {
+  fieldMapping: {
+    /** Required: net amount column */
+    netAmountCol: string;
+    /** Required: product cost column */
+    costCol: string;
+    /** Optional: shipping fee column (default 0 if not mapped) */
+    shippingFeeCol?: string;
+    /** Optional: platform fee/commission column */
+    platformFeeCol?: string;
+    /** Optional: service fee column */
+    serviceFeeCol?: string;
+    /** Optional: order ID column for downstream grouping */
+    orderIdCol?: string;
+    /** Optional: user ID column for downstream grouping */
+    userIdCol?: string;
+    /** Optional: SKU ID column for downstream grouping */
+    skuIdCol?: string;
+    /** Optional: order time column for downstream grouping */
+    orderTimeCol?: string;
+    /** Optional: category column for downstream grouping */
+    categoryCol?: string;
+    /** Optional: channel column for downstream grouping */
+    channelCol?: string;
+  };
+  /** 5 structured formula slots with operator (+/-) */
+  formulaSlots: {
+    slot1: FormulaSlot;
+    slot2: FormulaSlot;
+    slot3: FormulaSlot;
+    slot4: FormulaSlot;
+    slot5: FormulaSlot;
+  };
+  /** Warning threshold percentage (0-100, default 5, step 0.5) */
+  warningThresholdPct: number;
+}
+
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.

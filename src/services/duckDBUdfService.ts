@@ -28,7 +28,8 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_order_channel_analysis: 'fn_ecom_order_channel_analysis',
   fn_ecom_order_funnel_analysis: 'fn_ecom_order_funnel_analysis',
   fn_ecom_fulfillment_efficiency: 'fn_ecom_fulfillment_efficiency',
-  fn_ecom_order_net_amount_calc: 'fn_ecom_order_net_amount_calc'
+  fn_ecom_order_net_amount_calc: 'fn_ecom_order_net_amount_calc',
+  fn_ecom_order_profit_margin_calc: 'fn_ecom_order_profit_margin_calc'
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */

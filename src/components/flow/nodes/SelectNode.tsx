@@ -38,6 +38,7 @@ import type {
   OrderFunnelAnalysisConfig,
   FulfillmentEfficiencyConfig,
   NetAmountCalcConfig,
+  ProfitMarginCalcConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -64,6 +65,7 @@ import { OrderChannelAnalysisDrawer } from '../udf/OrderChannelAnalysisDrawer';
 import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
 import { FulfillmentEfficiencyDrawer } from '../udf/FulfillmentEfficiencyDrawer.tsx';
 import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
+import { OrderProfitMarginCalcDrawer } from '../udf/OrderProfitMarginCalcDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -136,6 +138,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_order_funnel_analysis:                OperatorType.ORDER_FUNNEL_ANALYSIS,
     fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
     fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
+    fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -315,6 +318,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleProfitMarginCalcConfirm = useCallback(
+    (config: ProfitMarginCalcConfig) => {
+      updateNode(id, { profitMarginCalcConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.PROFIT_MARGIN_CALC } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -381,6 +396,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
                   data.netAmountCalcConfig?.fieldMapping?.refundAmountCol &&
                   data.netAmountCalcConfig?.fieldMapping?.rejectionAmountCol &&
                   data.netAmountCalcConfig?.fieldMapping?.orderStatusCol);
+      case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
+        return !!(data.profitMarginCalcConfig?.fieldMapping?.netAmountCol &&
+                  data.profitMarginCalcConfig?.fieldMapping?.costCol);
       default:
         return false;
     }
@@ -838,6 +856,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleNetAmountCalcConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
+          return (
+            <OrderProfitMarginCalcDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.profitMarginCalcConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleProfitMarginCalcConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

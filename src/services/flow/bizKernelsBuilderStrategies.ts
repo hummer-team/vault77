@@ -49,6 +49,8 @@ export enum SelectNodePanelType {
   FULFILLMENT_EFFICIENCY_DRAWER = 'FULFILLMENT_EFFICIENCY_DRAWER',
   /** OrderNetAmountCalcDrawer — used for 订单净额计算（退款后实收） */
   NET_AMOUNT_CALC_DRAWER = 'NET_AMOUNT_CALC_DRAWER',
+  /** OrderProfitMarginCalcDrawer — used for 订单毛利/净利率自动计算 */
+  PROFIT_MARGIN_CALC_DRAWER = 'PROFIT_MARGIN_CALC_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -85,6 +87,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_order_funnel_analysis:  SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER,
   fn_ecom_fulfillment_efficiency: SelectNodePanelType.FULFILLMENT_EFFICIENCY_DRAWER,
   fn_ecom_order_net_amount_calc: SelectNodePanelType.NET_AMOUNT_CALC_DRAWER,
+  fn_ecom_order_profit_margin_calc: SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER,
 };
 
 // ============================================================================
@@ -163,6 +166,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.ORDER_FUNNEL_ANALYSIS_DRAWER:
     case SelectNodePanelType.FULFILLMENT_EFFICIENCY_DRAWER:
     case SelectNodePanelType.NET_AMOUNT_CALC_DRAWER:
+    case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
       actions.openUdfDrawer();
       break;
     default:
