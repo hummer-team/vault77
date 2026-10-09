@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { OrderProfitMarginCalcStrategy, FIELD_MATCH_PATTERNS, DEFAULT_PROFIT_MARGIN_CONFIG } from '../orderProfitMarginCalcStrategy';
 import { StrategyFactory } from '../../strategyFactory';
 import {
