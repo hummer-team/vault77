@@ -11,14 +11,13 @@
  * All colors use TOKEN (CSS variables) — no hardcoded hex values.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Drawer,
   Button,
   Select,
   Space,
   Typography,
-  message,
   Tooltip,
   Collapse,
   InputNumber,
@@ -101,7 +100,9 @@ const FieldRow: React.FC<{
   value: string;
   columns: string[];
   onChange: (v: string) => void;
-}> = ({ label, required, tip, value, columns, onChange }) => (
+  status?: 'error';
+  selectRef?: React.Ref<any>;
+}> = ({ label, required, tip, value, columns, onChange, status, selectRef }) => (
   <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 6 }}>
     <div style={{ width: 110, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
       {required && <span style={{ color: TOKEN.primary, fontSize: 10 }}>*</span>}
@@ -115,6 +116,8 @@ const FieldRow: React.FC<{
     <Select
       size="small"
       allowClear
+      ref={selectRef}
+      status={status}
       style={{ flex: 1 }}
       value={value || undefined}
       placeholder={required ? '必填' : '可选 · 自动推断'}
@@ -208,11 +211,13 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
   onConfirm,
   onCancel,
 }) => {
-  const [messageApi, contextHolder] = message.useMessage();
-
   // --- Group 1: Required fields ---
   const [netAmountCol, setNetAmountCol] = useState('');
   const [costCol, setCostCol] = useState('');
+  const [netAmountError, setNetAmountError] = useState(false);
+  const [costError, setCostError] = useState(false);
+  const netAmountRef = useRef<any>(null);
+  const costRef = useRef<any>(null);
 
   // --- Group 1: Optional fields ---
   const [shippingFeeCol, setShippingFeeCol] = useState('');
@@ -312,11 +317,13 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
   const handleNetAmountColChange = useCallback((v: string) => {
     setNetAmountCol(v);
     setSlot1((prev) => ({ ...prev, column: v }));
+    if (v) setNetAmountError(false);
   }, []);
 
   const handleCostColChange = useCallback((v: string) => {
     setCostCol(v);
     setSlot2((prev) => ({ ...prev, column: v }));
+    if (v) setCostError(false);
   }, []);
 
   const handleShippingFeeColChange = useCallback((v: string) => {
@@ -344,9 +351,16 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
   }, [netAmountCol, costCol, shippingFeeCol, platformFeeCol, serviceFeeCol]);
 
   const handleSubmit = useCallback(() => {
-    // Validate required fields
-    if (!netAmountCol || !costCol) {
-      messageApi.open({ type: 'warning', content: '请填写必填字段：订单净额列、商品成本列' });
+    const hasNet = !!netAmountCol;
+    const hasCost = !!costCol;
+    setNetAmountError(!hasNet);
+    setCostError(!hasCost);
+    if (!hasNet) {
+      netAmountRef.current?.focus();
+      return;
+    }
+    if (!hasCost) {
+      costRef.current?.focus();
       return;
     }
 
@@ -395,7 +409,6 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
     slot5,
     warningThresholdPct,
     onConfirm,
-    messageApi,
   ]);
 
   const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', marginBottom: 8, gap: 6 };
@@ -403,7 +416,6 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
 
   return (
     <>
-      {contextHolder}
       <Drawer
         open={open}
         onClose={onCancel}
@@ -465,6 +477,8 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
             value={netAmountCol}
             columns={columns}
             onChange={handleNetAmountColChange}
+            status={netAmountError ? 'error' : undefined}
+            selectRef={netAmountRef}
           />
           <FieldRow
             label="商品成本"
@@ -473,6 +487,8 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
             value={costCol}
             columns={columns}
             onChange={handleCostColChange}
+            status={costError ? 'error' : undefined}
+            selectRef={costRef}
           />
 
           {/* Optional fields */}
