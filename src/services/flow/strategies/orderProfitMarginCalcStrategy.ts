@@ -258,7 +258,7 @@ export class OrderProfitMarginCalcStrategy extends BaseStrategy {
 
     // Threshold value (with fallback to 0.05 if invalid)
     const thresholdPct = cfg.warningThresholdPct;
-    const thresholdValue = Number.isFinite(thresholdPct) && thresholdPct > 0
+    const thresholdValue = Number.isFinite(thresholdPct) && thresholdPct >= 0
       ? thresholdPct / 100
       : 0.05;
 
@@ -455,9 +455,14 @@ ${feeColsStr}    ${grossExpr} AS gross_profit_raw,
       },
     };
 
+    // Filter out internal SQL columns (null_fee_count is for Q11 statistics only)
+    const filteredSchema = (queryResult.schema as { name: string; type: string }[]).filter(
+      (col) => col.name !== 'null_fee_count'
+    );
+
     // Enrich schema with 4 JS-computed columns
     const enrichedSchema = [
-      ...(queryResult.schema as { name: string; type: string }[]),
+      ...filteredSchema,
       { name: 'gross_profit', type: 'DOUBLE' },
       { name: 'gross_margin', type: 'DOUBLE' },
       { name: 'gross_profit_rounded', type: 'DOUBLE' },
@@ -490,9 +495,14 @@ ${feeColsStr}    ${grossExpr} AS gross_profit_raw,
       description: '未查询到有效的订单数据，请检查数据源或筛选条件',
     };
 
+    // Filter out internal SQL columns (consistent with main path)
+    const filteredSchema = (queryResult.schema as { name: string; type: string }[]).filter(
+      (col) => col.name !== 'null_fee_count'
+    );
+
     // Enrich schema with 4 JS-computed columns (consistent with main path)
     const enrichedSchema = [
-      ...(queryResult.schema as { name: string; type: string }[]),
+      ...filteredSchema,
       { name: 'gross_profit', type: 'DOUBLE' },
       { name: 'gross_margin', type: 'DOUBLE' },
       { name: 'gross_profit_rounded', type: 'DOUBLE' },
