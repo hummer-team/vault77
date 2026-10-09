@@ -221,6 +221,9 @@ const applyFormatter = (value: any, spec: ColumnFormatterSpec): React.ReactNode 
         '高': 'orange',
         '中': 'gold',
         '低': 'green',
+        '高风险': 'red',
+        '预警': 'gold',
+        '健康': 'green',
       };
       const color = colorMap[textValue] || 'default';
       return <Tag color={color}>{textValue}</Tag>;

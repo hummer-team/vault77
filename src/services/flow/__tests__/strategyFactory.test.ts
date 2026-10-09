@@ -8,6 +8,7 @@ import { AssociationStrategy } from '../strategies/associationStrategy';
 import { AnomalyStrategy }     from '../strategies/anomalyStrategy';
 import { ClusteringStrategy }  from '../strategies/clusteringStrategy';
 import { UdfReplaceColumnStrategy } from '../strategies/udfReplaceColumnStrategy';
+import { OrderProfitMarginCalcStrategy } from '../strategies/orderProfitMarginCalcStrategy';
 import { OperatorType } from '../types';
 
 describe('StrategyFactory', () => {
@@ -41,11 +42,12 @@ describe('StrategyFactory', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(20);
+      expect(strategies).toHaveLength(21);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);
       expect(strategies[3]).toBeInstanceOf(UdfReplaceColumnStrategy);
+      expect(strategies[20]).toBeInstanceOf(OrderProfitMarginCalcStrategy);
     });
 
     it('should return strategies with correct operator types', () => {
@@ -56,6 +58,7 @@ describe('StrategyFactory', () => {
       expect(operatorTypes).toContain(OperatorType.ANOMALY);
       expect(operatorTypes).toContain(OperatorType.CLUSTERING);
       expect(operatorTypes).toContain(OperatorType.UDF_REPLACE_COLUMN);
+      expect(operatorTypes).toContain(OperatorType.PROFIT_MARGIN_CALC);
     });
   });
 

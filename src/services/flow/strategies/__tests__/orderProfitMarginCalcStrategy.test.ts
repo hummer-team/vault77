@@ -725,4 +725,151 @@ describe('OrderProfitMarginCalcStrategy', () => {
     expect(DEFAULT_PROFIT_MARGIN_CONFIG.formulaSlots.slot5.operator).toBe('-');
     expect(DEFAULT_PROFIT_MARGIN_CONFIG.warningThresholdPct).toBe(5);
   });
+
+  // ---------- Medium-8: Additional test coverage for Phase 3 gaps ------------
+
+  it('should classify net_amount <= 0 as 高风险 (F6 fixture)', async () => {
+    const rows = [
+      {
+        net_amount: -100,  // net <= 0
+        cost: 60,
+        gross_profit_raw: -160,  // net + cost = -100 + (-60) = -160 (cost slot is '+')
+        gross_margin_raw: 1.6,
+        is_negative_margin: true,
+        risk_level: '高风险',
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const highRiskCount = result.data.filter((r: any) => r.risk_level === '高风险').length;
+    expect(highRiskCount).toBe(1);
+    
+    // Verify insight card for high-risk orders
+    const negativeItem = result.insightsData?.insights.find((i) => i.id === 'negative-margin-alert');
+    expect(negativeItem).toBeDefined();
+    // Since is_negative_margin is true, iconKey should be 'critical'
+    expect(negativeItem?.iconKey).toBe('critical');
+  });
+
+  it('should have explicit iconKey for all 3 insight cards', async () => {
+    const rows = [
+      {
+        net_amount: 100,
+        cost: 60,
+        gross_profit_raw: 40,
+        gross_margin_raw: 0.4,
+        is_negative_margin: false,
+        risk_level: '健康',
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const insights = result.insightsData?.insights || [];
+    
+    // Should have at least 3 insight cards (overview, negative-margin, warning)
+    expect(insights.length).toBeGreaterThanOrEqual(3);
+    
+    // All cards should have explicit iconKey
+    insights.forEach((item) => {
+      expect(item.iconKey).toBeDefined();
+      expect(typeof item.iconKey).toBe('string');
+      expect(item.iconKey.length).toBeGreaterThan(0);
+    });
+    
+    // Verify specific iconKeys
+    const overviewItem = insights.find((i) => i.id === 'profit-margin-summary');
+    const negativeItem = insights.find((i) => i.id === 'negative-margin-alert');
+    const warningItem = insights.find((i) => i.id === 'low-margin-warning');
+    
+    expect(overviewItem?.iconKey).toBe('order');
+    expect(negativeItem?.iconKey).toBe('safe');
+    expect(warningItem?.iconKey).toBe('insight');
+  });
+
+  it('should include data quality hint in description when NULL rows exist', async () => {
+    const rows = [
+      {
+        net_amount: 100,
+        cost: 60,
+        gross_profit_raw: 40,
+        gross_margin_raw: 0.4,
+        is_negative_margin: false,
+        risk_level: '健康',
+        null_fee_count: 0,
+      },
+      {
+        net_amount: 200,
+        cost: 80,
+        gross_profit_raw: 120,
+        gross_margin_raw: 0.6,
+        is_negative_margin: false,
+        risk_level: '健康',
+        null_fee_count: 2,  // This row has NULL values
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const warningItem = result.insightsData?.insights.find((i) => i.id === 'low-margin-warning');
+    
+    expect(warningItem).toBeDefined();
+    // Description should mention data quality issue
+    expect(warningItem?.description).toContain('数据质量');
+    expect(warningItem?.description).toContain('1 行');
+  });
+
+  it('should use DEFAULT_PROFIT_MARGIN_CONFIG when _lastConfig is not set', async () => {
+    // Reset _lastConfig by creating a new strategy instance
+    const freshStrategy = new OrderProfitMarginCalcStrategy();
+    
+    const rows = [
+      {
+        net_amount: 100,
+        cost: 60,
+        gross_profit_raw: 40,
+        gross_margin_raw: 0.4,
+        is_negative_margin: false,
+        risk_level: '健康',
+      },
+    ];
+
+    // Call postProcess without calling buildSql first
+    const result = await freshStrategy.postProcess({ data: rows, schema: [] });
+    
+    // Should use default config with warningThresholdPct = 5%
+    const warningItem = result.insightsData?.insights.find((i) => i.id === 'low-margin-warning');
+    const thresholdMetric = warningItem?.metrics.find((m) => m.label === '当前阈值');
+    
+    // Threshold should be 0.05 (5% / 100)
+    expect(thresholdMetric?.value).toBe(0.05);
+    expect(thresholdMetric?.unit).toBe('%');
+  });
+
+  it('should have 当前阈值 metric value divided by 100 (e.g., 0.05 not 5)', async () => {
+    // Build SQL with custom config to set _lastConfig
+    const customConfig: ProfitMarginCalcConfig = {
+      ...baseConfig,
+      warningThresholdPct: 10,  // 10%
+    };
+    const nodes = [createTableNode(), createSelectNode(customConfig)];
+    strategy.buildSql(nodes, []);
+    
+    const rows = [
+      {
+        net_amount: 100,
+        cost: 60,
+        gross_profit_raw: 40,
+        gross_margin_raw: 0.4,
+        is_negative_margin: false,
+        risk_level: '健康',
+      },
+    ];
+
+    const result = await strategy.postProcess({ data: rows, schema: [] });
+    const warningItem = result.insightsData?.insights.find((i) => i.id === 'low-margin-warning');
+    const thresholdMetric = warningItem?.metrics.find((m) => m.label === '当前阈值');
+    
+    // Should be 0.1 (10% / 100), not 10
+    expect(thresholdMetric?.value).toBe(0.1);
+    expect(thresholdMetric?.unit).toBe('%');
+  });
 });

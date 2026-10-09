@@ -11,7 +11,7 @@
  * All colors use TOKEN (CSS variables) — no hardcoded hex values.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Drawer,
   Button,
@@ -237,7 +237,6 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
   // --- Group 3: Risk threshold ---
   const [warningThresholdPct, setWarningThresholdPct] = useState(5);
 
-  const selectRef = useRef<{ focus: () => void }>(null);
 
   // Restore or auto-fill when drawer opens
   useEffect(() => {
@@ -263,12 +262,20 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
       setSlot5(initialConfig.formulaSlots.slot5);
       setWarningThresholdPct(initialConfig.warningThresholdPct);
     } else {
-      // Auto-fill from column names via regex
-      const net = autoMatch(columns, 'netAmountCol');
-      const cost = autoMatch(columns, 'costCol');
-      const shipping = autoMatch(columns, 'shippingFeeCol');
-      const platform = autoMatch(columns, 'platformFeeCol');
-      const service = autoMatch(columns, 'serviceFeeCol');
+      // Auto-fill from column names via regex (skip already-occupied columns)
+      const usedCols = new Set<string>();
+      const autoMatchSkip = (cols: string[], patternKey: string): string => {
+        const available = cols.filter(c => !usedCols.has(c));
+        const matched = autoMatch(available, patternKey);
+        if (matched) usedCols.add(matched);
+        return matched;
+      };
+
+      const net = autoMatchSkip(columns, 'netAmountCol');
+      const cost = autoMatchSkip(columns, 'costCol');
+      const shipping = autoMatchSkip(columns, 'shippingFeeCol');
+      const platform = autoMatchSkip(columns, 'platformFeeCol');
+      const service = autoMatchSkip(columns, 'serviceFeeCol');
 
       setNetAmountCol(net);
       setCostCol(cost);
@@ -276,12 +283,12 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
       setPlatformFeeCol(platform);
       setServiceFeeCol(service);
 
-      setOrderIdCol(autoMatch(columns, 'orderIdCol'));
-      setUserIdCol(autoMatch(columns, 'userIdCol'));
-      setSkuIdCol(autoMatch(columns, 'skuIdCol'));
-      setOrderTimeCol(autoMatch(columns, 'orderTimeCol'));
-      setCategoryCol(autoMatch(columns, 'categoryCol'));
-      setChannelCol(autoMatch(columns, 'channelCol'));
+      setOrderIdCol(autoMatchSkip(columns, 'orderIdCol'));
+      setUserIdCol(autoMatchSkip(columns, 'userIdCol'));
+      setSkuIdCol(autoMatchSkip(columns, 'skuIdCol'));
+      setOrderTimeCol(autoMatchSkip(columns, 'orderTimeCol'));
+      setCategoryCol(autoMatchSkip(columns, 'categoryCol'));
+      setChannelCol(autoMatchSkip(columns, 'channelCol'));
 
       // Default formula slots linked to mapped columns
       setSlot1({ operator: '+', column: net });
@@ -297,7 +304,8 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
   // Formula preview text (business Chinese, always visible)
   const formulaPreview = useMemo(() => {
     const colName = (col: string) => col || '?';
-    return `毛利 = 订单净额(${colName(slot1.column)}) − 商品成本(${colName(slot2.column)}) − 运费(${colName(slot3.column)}) − 平台佣金(${colName(slot4.column)}) − 服务费(${colName(slot5.column)})`;
+    const opSymbol = (op: string) => op === '+' ? '+' : '−';
+    return `毛利 = 订单净额(${colName(slot1.column)}) ${opSymbol(slot2.operator)} 商品成本(${colName(slot2.column)}) ${opSymbol(slot3.operator)} 运费(${colName(slot3.column)}) ${opSymbol(slot4.operator)} 平台佣金(${colName(slot4.column)}) ${opSymbol(slot5.operator)} 服务费(${colName(slot5.column)})`;
   }, [slot1, slot2, slot3, slot4, slot5]);
 
   // Sync field mapping changes to formula slots
@@ -339,7 +347,6 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
     // Validate required fields
     if (!netAmountCol || !costCol) {
       messageApi.open({ type: 'warning', content: '请填写必填字段：订单净额列、商品成本列' });
-      if (selectRef.current) selectRef.current.focus();
       return;
     }
 

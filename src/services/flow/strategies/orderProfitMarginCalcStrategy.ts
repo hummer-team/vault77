@@ -236,6 +236,21 @@ export class OrderProfitMarginCalcStrategy extends BaseStrategy {
     // Gross profit expression
     const grossExpr = formulaParts.join(' ');
 
+    // Build null count expression for data quality tracking (Q11)
+    const nullCheckParts: string[] = [
+      `CASE WHEN ${costCol} IS NULL THEN 1 ELSE 0 END`,
+    ];
+    if (fm.shippingFeeCol) {
+      nullCheckParts.push(`CASE WHEN "${fm.shippingFeeCol}" IS NULL THEN 1 ELSE 0 END`);
+    }
+    if (fm.platformFeeCol) {
+      nullCheckParts.push(`CASE WHEN "${fm.platformFeeCol}" IS NULL THEN 1 ELSE 0 END`);
+    }
+    if (fm.serviceFeeCol) {
+      nullCheckParts.push(`CASE WHEN "${fm.serviceFeeCol}" IS NULL THEN 1 ELSE 0 END`);
+    }
+    const nullCountExpr = nullCheckParts.join(' + ');
+
     // Optional columns string
     const optionalColsStr = optionalCols.length > 0 ? optionalCols.join(',\n') + ',\n' : '';
     // Fee columns string
@@ -262,7 +277,8 @@ ${feeColsStr}    ${grossExpr} AS gross_profit_raw,
     CASE
       WHEN (${grossExpr}) < 0 THEN true
       ELSE false
-    END AS is_negative_margin
+    END AS is_negative_margin,
+    ${nullCountExpr} AS null_fee_count
   FROM src
 )`;
 
@@ -338,6 +354,12 @@ ${feeColsStr}    ${grossExpr} AS gross_profit_raw,
     const negativeMarginRate = enrichedRows.length > 0 ? negativeMarginCount / enrichedRows.length : 0;
     const warningRate = enrichedRows.length > 0 ? warningCount / enrichedRows.length : 0;
 
+    // Count rows with NULL cost/fee data (Q11 data quality tracking)
+    const nullFeeCountRows = enrichedRows.reduce((sum, r) => {
+      const nullCount = (r as any).null_fee_count;
+      return sum + (typeof nullCount === 'number' && nullCount > 0 ? 1 : 0);
+    }, 0);
+
     // Find deepest loss
     const deepestLoss = enrichedRows.reduce((min, r) => {
       return r.gross_profit < min ? r.gross_profit : min;
@@ -384,13 +406,14 @@ ${feeColsStr}    ${grossExpr} AS gross_profit_raw,
       iconKey: 'insight',
       title: '低毛利预警',
       sortOrder: 3,
-      description: warningCount > 0
+      description: (warningCount > 0
         ? `发现 ${warningCount} 笔低毛利订单（毛利率 < ${_cfg.warningThresholdPct}%）`
-        : `所有订单毛利率均高于 ${_cfg.warningThresholdPct}% 阈值`,
+        : `所有订单毛利率均高于 ${_cfg.warningThresholdPct}% 阈值`) +
+        (nullFeeCountRows > 0 ? `（${nullFeeCountRows} 行成本/费用数据质量缺失，已按 0 计算）` : ''),
       metrics: [
         { label: '预警订单数', value: warningCount, unit: '单' },
         { label: '预警占比', value: warningRate, unit: '%' },
-        { label: '当前阈值', value: _cfg.warningThresholdPct, unit: '%' },
+        { label: '当前阈值', value: _cfg.warningThresholdPct / 100, unit: '%' },
       ],
       suggestion: warningCount > 0
         ? '建议优化产品定价或降低成本，提升整体毛利水平'
