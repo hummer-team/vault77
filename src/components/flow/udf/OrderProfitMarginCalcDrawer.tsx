@@ -306,12 +306,11 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
     }
   }, [open, columns, initialConfig]);
 
-  // Formula preview text (business Chinese, always visible)
+  // Formula preview: COALESCE wrapping for mapped cols, COALESCE(?, 0) for unmapped (plan Q2)
   const formulaPreview = useMemo(() => {
-    // Unmapped slots fall back to COALESCE(?, 0): they still participate as 0 (plan Q2)
-    const colName = (col: string) => col || 'COALESCE(?, 0)';
+    const colRef = (col: string) => (col ? `COALESCE("${col}", 0)` : 'COALESCE(?, 0)');
     const opSymbol = (op: string) => op === '+' ? '+' : '−';
-    return `毛利 = 订单净额(${colName(slot1.column)}) ${opSymbol(slot2.operator)} 商品成本(${colName(slot2.column)}) ${opSymbol(slot3.operator)} 运费(${colName(slot3.column)}) ${opSymbol(slot4.operator)} 平台佣金(${colName(slot4.column)}) ${opSymbol(slot5.operator)} 服务费(${colName(slot5.column)})`;
+    return `${colRef(slot1.column)} ${opSymbol(slot2.operator)} ${colRef(slot2.column)} ${opSymbol(slot3.operator)} ${colRef(slot3.column)} ${opSymbol(slot4.operator)} ${colRef(slot4.column)} ${opSymbol(slot5.operator)} ${colRef(slot5.column)}`;
   }, [slot1, slot2, slot3, slot4, slot5]);
 
   // Sync field mapping changes to formula slots
@@ -465,6 +464,9 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
           </Text>
           <div style={{ marginTop: 6, fontSize: 11, color: TOKEN.textSecondary, lineHeight: '18px' }}>
             {formulaPreview}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, color: TOKEN.textMuted }}>
+            💡 未配置按 0 计算，系统自动包裹 COALESCE 防空值
           </div>
         </div>
 
