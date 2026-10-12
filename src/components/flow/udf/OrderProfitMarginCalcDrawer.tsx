@@ -172,7 +172,7 @@ const FormulaSlotRow: React.FC<{
       allowClear
       style={{ flex: 1 }}
       value={slot.column || undefined}
-      placeholder="选择列"
+      placeholder="选择列（未配置按 COALESCE(?, 0) 计 0）"
       onChange={(v) => onColumnChange(v ?? '')}
       options={columns.map((c) => ({ label: c, value: c }))}
       showSearch
@@ -308,7 +308,8 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
 
   // Formula preview text (business Chinese, always visible)
   const formulaPreview = useMemo(() => {
-    const colName = (col: string) => col || '?';
+    // Unmapped slots fall back to COALESCE(?, 0): they still participate as 0 (plan Q2)
+    const colName = (col: string) => col || 'COALESCE(?, 0)';
     const opSymbol = (op: string) => op === '+' ? '+' : '−';
     return `毛利 = 订单净额(${colName(slot1.column)}) ${opSymbol(slot2.operator)} 商品成本(${colName(slot2.column)}) ${opSymbol(slot3.operator)} 运费(${colName(slot3.column)}) ${opSymbol(slot4.operator)} 平台佣金(${colName(slot4.column)}) ${opSymbol(slot5.operator)} 服务费(${colName(slot5.column)})`;
   }, [slot1, slot2, slot3, slot4, slot5]);
@@ -555,7 +556,7 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
                   <Section icon={<FunctionOutlined />} title="计算公式" badge="Group 2">
                     <div style={{ marginBottom: 12 }}>
                       <Text style={{ fontSize: 11, color: TOKEN.textMuted }}>
-                        编辑各槽位的运算符和列映射（槽位1运算符固定为 +）
+                        编辑各槽位的运算符和列映射（槽位1运算符固定为 +）。未配置的可选槽位以 COALESCE(?, 0) 计 0 参与公式。
                       </Text>
                     </div>
                     <FormulaSlotRow
