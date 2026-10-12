@@ -306,11 +306,12 @@ export const OrderProfitMarginCalcDrawer: React.FC<OrderProfitMarginCalcDrawerPr
     }
   }, [open, columns, initialConfig]);
 
-  // Formula preview: COALESCE wrapping for mapped cols, COALESCE(?, 0) for unmapped (plan Q2)
+  // Formula preview: keep Chinese business labels and show the exact COALESCE-wrapped
+  // expression per slot; unmapped slots fall back to COALESCE(?, 0) and count as 0 (plan Q2)
   const formulaPreview = useMemo(() => {
     const colRef = (col: string) => (col ? `COALESCE("${col}", 0)` : 'COALESCE(?, 0)');
-    const opSymbol = (op: string) => op === '+' ? '+' : '−';
-    return `${colRef(slot1.column)} ${opSymbol(slot2.operator)} ${colRef(slot2.column)} ${opSymbol(slot3.operator)} ${colRef(slot3.column)} ${opSymbol(slot4.operator)} ${colRef(slot4.column)} ${opSymbol(slot5.operator)} ${colRef(slot5.column)}`;
+    const opSymbol = (op: string) => (op === '+' ? '+' : '−');
+    return `毛利 = 订单净额 ${colRef(slot1.column)} ${opSymbol(slot2.operator)} 商品成本 ${colRef(slot2.column)} ${opSymbol(slot3.operator)} 运费 ${colRef(slot3.column)} ${opSymbol(slot4.operator)} 平台佣金 ${colRef(slot4.column)} ${opSymbol(slot5.operator)} 服务费 ${colRef(slot5.column)}`;
   }, [slot1, slot2, slot3, slot4, slot5]);
 
   // Sync field mapping changes to formula slots
