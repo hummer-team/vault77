@@ -67,7 +67,7 @@ import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
 import { FulfillmentEfficiencyDrawer } from '../udf/FulfillmentEfficiencyDrawer.tsx';
 import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { OrderProfitMarginCalcDrawer } from '../udf/OrderProfitMarginCalcDrawer';
-import { OrderFeeAllocateDrawer } from '../udf/OrderFeeAllocateDrawer';
+import { EcomPlatformFeeAllocateDrawer } from '../udf/EcomPlatformFeeAllocateDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -141,7 +141,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
     fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
     fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
-    fn_ecom_platform_fee_allocate:                OperatorType.FEE_ALLOCATE,
+    fn_ecom_platform_fee_allocate:                OperatorType.PLATFORM_FEE_ALLOCATE,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -339,7 +339,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       setUdfDrawerOpen(false);
       const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
       if (endNode) {
-        updateNode(endNode.id, { operatorType: OperatorType.FEE_ALLOCATE } as Record<string, unknown>);
+        updateNode(endNode.id, { operatorType: OperatorType.PLATFORM_FEE_ALLOCATE } as Record<string, unknown>);
       }
     },
     [id, updateNode]
@@ -414,7 +414,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
         return !!(data.profitMarginCalcConfig?.fieldMapping?.netAmountCol &&
                   data.profitMarginCalcConfig?.fieldMapping?.costCol);
-      case SelectNodePanelType.FEE_ALLOCATE_CALC_DRAWER:
+      case SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER:
         return !!(data.feeAllocateConfig?.fieldMapping?.orderIdCol &&
                   data.feeAllocateConfig?.fieldMapping?.skuIdCol &&
                   data.feeAllocateConfig?.fieldMapping?.orderNetAmountCol &&
@@ -894,9 +894,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
-        case SelectNodePanelType.FEE_ALLOCATE_CALC_DRAWER:
+        case SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER:
           return (
-            <OrderFeeAllocateDrawer
+            <EcomPlatformFeeAllocateDrawer
               open={udfDrawerOpen}
               columns={columnNames}
               initialConfig={data.feeAllocateConfig}

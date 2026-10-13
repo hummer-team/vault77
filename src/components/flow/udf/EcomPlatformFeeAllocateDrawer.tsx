@@ -1,5 +1,5 @@
 /**
- * OrderFeeAllocateDrawer
+ * EcomPlatformFeeAllocateDrawer
  *
  * Configuration drawer for fn_ecom_platform_fee_allocate (平台佣金/服务费自动分摊).
  *
@@ -30,7 +30,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { FeeAllocateConfig } from '../../../services/flow/types';
-import { FIELD_MATCH_PATTERNS } from '../../../services/flow/strategies/orderFeeAllocateCalcStrategy';
+import { FIELD_MATCH_PATTERNS } from '../../../services/flow/strategies/ecomPlatformFeeAllocateStrategy';
 import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
@@ -135,7 +135,7 @@ const FieldRow: React.FC<{
 // Props
 // ============================================================================
 
-export interface OrderFeeAllocateDrawerProps {
+export interface EcomPlatformFeeAllocateDrawerProps {
   open: boolean;
   columns: string[];
   initialConfig?: FeeAllocateConfig;
@@ -150,7 +150,7 @@ export interface OrderFeeAllocateDrawerProps {
 // Main component
 // ============================================================================
 
-export const OrderFeeAllocateDrawer: React.FC<OrderFeeAllocateDrawerProps> = ({
+export const EcomPlatformFeeAllocateDrawer: React.FC<EcomPlatformFeeAllocateDrawerProps> = ({
   open,
   columns,
   initialConfig,
@@ -523,4 +523,4 @@ export const OrderFeeAllocateDrawer: React.FC<OrderFeeAllocateDrawerProps> = ({
   );
 };
 
-export default OrderFeeAllocateDrawer;
+export default EcomPlatformFeeAllocateDrawer;
