@@ -61,7 +61,7 @@ export enum OperatorType {
   FULFILLMENT_EFFICIENCY = 'fulfillment_efficiency',  // Operations: pay→ship→receive fulfillment time analysis
   NET_AMOUNT_CALC = 'net_amount_calc',  // Order accounting: net amount after refund/rejection
   PROFIT_MARGIN_CALC = 'profit_margin_calc',  // Order accounting: gross/net profit margin calculation
-  FEE_ALLOCATE = 'fee_allocate',              // 平台佣金/服务费分摊到订单行
+  PLATFORM_FEE_ALLOCATE = 'platform_fee_allocate',  // 平台佣金/服务费自动分摊
 }
 
 export enum LogicType {

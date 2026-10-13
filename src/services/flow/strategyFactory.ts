@@ -26,6 +26,7 @@ import { OrderFunnelAnalysisStrategy } from './strategies/orderFunnelAnalysisStr
 import { FulfillmentEfficiencyStrategy } from './strategies/fulfillmentEfficiencyStrategy';
 import { OrderNetAmountCalcStrategy } from './strategies/orderNetAmountCalcStrategy';
 import { OrderProfitMarginCalcStrategy } from './strategies/orderProfitMarginCalcStrategy';
+import { EcomPlatformFeeAllocateStrategy } from './strategies/ecomPlatformFeeAllocateStrategy';
 
 /**
  * Strategy Factory
@@ -54,6 +55,7 @@ export class StrategyFactory {
     [OperatorType.FULFILLMENT_EFFICIENCY, new FulfillmentEfficiencyStrategy()],
     [OperatorType.NET_AMOUNT_CALC, new OrderNetAmountCalcStrategy()],
     [OperatorType.PROFIT_MARGIN_CALC, new OrderProfitMarginCalcStrategy()],
+    [OperatorType.PLATFORM_FEE_ALLOCATE, new EcomPlatformFeeAllocateStrategy()],
   ]);
 
   /**
