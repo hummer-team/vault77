@@ -61,6 +61,7 @@ export enum OperatorType {
   FULFILLMENT_EFFICIENCY = 'fulfillment_efficiency',  // Operations: pay→ship→receive fulfillment time analysis
   NET_AMOUNT_CALC = 'net_amount_calc',  // Order accounting: net amount after refund/rejection
   PROFIT_MARGIN_CALC = 'profit_margin_calc',  // Order accounting: gross/net profit margin calculation
+  FEE_ALLOCATE = 'fee_allocate',              // 平台佣金/服务费分摊到订单行
 }
 
 export enum LogicType {
@@ -293,6 +294,7 @@ export interface SelectNodeData extends BaseNodeData {
   netAmountCalcConfig?: NetAmountCalcConfig;
   /** Config for fn_ecom_order_profit_margin_calc */
   profitMarginCalcConfig?: ProfitMarginCalcConfig;
+  feeAllocateConfig?: FeeAllocateConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -945,6 +947,33 @@ export interface ProfitMarginCalcConfig {
   warningThresholdPct: number;
 }
 
+/**
+ * Config stored on SelectNodeData for fn_ecom_platform_fee_allocate.
+ */
+export interface FeeAllocateConfig {
+  fieldMapping: {
+    /** Required: order ID column for grouping */
+    orderIdCol: string;
+    /** Required: SKU/product line ID column for allocation target */
+    skuIdCol: string;
+    /** Required: order-level net amount column (denominator for ratio) */
+    orderNetAmountCol: string;
+    /** Required: SKU-level net amount column (numerator for ratio) */
+    skuNetAmountCol: string;
+    /** Required: platform commission column */
+    platformFeeCol: string;
+    /** Required: service fee column */
+    serviceFeeCol: string;
+    /** Optional: order time column */
+    orderTimeCol?: string;
+    /** Optional: category column */
+    categoryCol?: string;
+    /** Optional: channel column */
+    channelCol?: string;
+  };
+  /** Warning threshold for cost ratio (0-100, default 15, step 0.5) */
+  warningThresholdPct: number;
+}
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.
