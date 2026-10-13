@@ -459,6 +459,7 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
       ]
     }
   },
+  // done
   {
     name: 'fn_ecom_order_profit_margin_calc',
     displayName: '订单毛利/净利率自动计算',
