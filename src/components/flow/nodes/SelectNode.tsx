@@ -39,6 +39,7 @@ import type {
   FulfillmentEfficiencyConfig,
   NetAmountCalcConfig,
   ProfitMarginCalcConfig,
+  FeeAllocateConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -66,6 +67,7 @@ import { OrderFunnelAnalysisDrawer } from '../udf/OrderFunnelAnalysisDrawer';
 import { FulfillmentEfficiencyDrawer } from '../udf/FulfillmentEfficiencyDrawer.tsx';
 import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { OrderProfitMarginCalcDrawer } from '../udf/OrderProfitMarginCalcDrawer';
+import { OrderFeeAllocateDrawer } from '../udf/OrderFeeAllocateDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -139,6 +141,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_fulfillment_efficiency:               OperatorType.FULFILLMENT_EFFICIENCY,
     fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
     fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
+    fn_ecom_platform_fee_allocate:                OperatorType.FEE_ALLOCATE,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -330,6 +333,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleFeeAllocateConfirm = useCallback(
+    (config: FeeAllocateConfig) => {
+      updateNode(id, { feeAllocateConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.FEE_ALLOCATE } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -399,6 +414,13 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
         return !!(data.profitMarginCalcConfig?.fieldMapping?.netAmountCol &&
                   data.profitMarginCalcConfig?.fieldMapping?.costCol);
+      case SelectNodePanelType.FEE_ALLOCATE_CALC_DRAWER:
+        return !!(data.feeAllocateConfig?.fieldMapping?.orderIdCol &&
+                  data.feeAllocateConfig?.fieldMapping?.skuIdCol &&
+                  data.feeAllocateConfig?.fieldMapping?.orderNetAmountCol &&
+                  data.feeAllocateConfig?.fieldMapping?.skuNetAmountCol &&
+                  data.feeAllocateConfig?.fieldMapping?.platformFeeCol &&
+                  data.feeAllocateConfig?.fieldMapping?.serviceFeeCol);
       default:
         return false;
     }
@@ -869,6 +891,19 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleProfitMarginCalcConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.FEE_ALLOCATE_CALC_DRAWER:
+          return (
+            <OrderFeeAllocateDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.feeAllocateConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              kernelIndustry={kernelMeta?.industry}
+              kernelCategory={kernelMeta?.category}
+              onConfirm={handleFeeAllocateConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
