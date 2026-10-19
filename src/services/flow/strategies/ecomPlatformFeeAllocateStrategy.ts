@@ -1,20 +1,20 @@
 /**
- * EcomPlatformFeeAllocateStrategy
+ * EcomPlatformFeeAllocateStrategy — fn_ecom_platform_fee_allocate（平台佣金/服务费自动分摊）
  *
- * Builds DuckDB SQL for fn_ecom_platform_fee_allocate (平台佣金/服务费自动分摊).
+ * SQL 管道（CTE）：
+ *   src   → 过滤源表（userWhere 注入于此），ROW_NUMBER() OVER () AS _src_rn
+ *   ord   → order_fee_total 逐列去重取总（每费用槽 MAX(COALESCE(col,0)) OVER (PARTITION BY 订单) 相加）
+ *           + row_weight（amount→COALESCE("A",0) / quantity→COALESCE("Q",0) / even→1）
+ *           + order_weight_total
+ *   alloc → alloc_base（零权重→0，否则 ROUND(费×权重/总权重,2)）+ rn（单内金额最大行=1）
+ *   agg   → alloc_sum = SUM(alloc_base) OVER (PARTITION BY 订单)
+ *   fin   → allocated_fee（rn=1 回补尾差，保证逐单 Σ == ROUND(order_fee_total,2)）
+ *           + is_rounding_adjust + alloc_ratio_pct（0–1 比例，×100 由展示层负责）
+ *   末段  → SELECT * EXCLUDE(6 中间列) + alloc_mode_label + product_net_profit；
+ *           ORDER BY 订单 ASC, 金额 DESC, _src_rn ASC（订单聚簇 + 单内金额降序）
  *
- * SQL pipeline (CTE):
- *   src      → filtered source table (userWhere injected here)
- *   ord      → per-order aggregation: total_weight + per-fee dedup (MAX per partition)
- *   alloc    → per-row allocation: weight / total_weight * fee_amount
- *   agg      → rounding adjustment: tail-diff to max weight row
- *   fin      → final SELECT with ROUND(..., 2) and EXCLUDE internal columns
- *
- * postProcess: builds insightsData with 4 cards:
- *   ① total allocated amount (¥)
- *   ② order count
- *   ③ max cost ratio (%)
- *   ④ warning if any zero-weight orders (iconKey: 'warning' | 'safe')
+ * postProcess：4 张洞察卡（summary/top-orders/rounding-adjust/zero-weight-abnormal）
+ * + 空结果 1 张 warning 卡；displayConfig 不设 defaultSort（保护 SQL 聚簇序）。
  */
 
 import { BaseStrategy } from '../strategies';
@@ -22,13 +22,16 @@ import {
   FlowNodeType,
   OperatorType,
   ValidationSeverity,
+  DEFAULT_FEE_ALLOCATE_CONFIG,
   type FlowNode,
   type FlowEdge,
   type AnalysisResult,
   type OperatorInsightsData,
   type InsightItem,
   type OperatorDisplayConfig,
-  type FeeAllocateConfig,
+  type PlatformFeeAllocateConfig,
+  type FeeAllocateMode,
+  type FormulaSlot,
   type ValidationError,
 } from '../types';
 import { logger } from '../../../utils/logger';
@@ -38,38 +41,59 @@ import { logger } from '../../../utils/logger';
 // ============================================================================
 
 export const FIELD_MATCH_PATTERNS: Record<string, RegExp> = {
-  orderIdCol: /订单[_-]?id|order[_-]?id/i,
-  skuIdCol: /商品[_-]?id|sku[_-]?id|product[_-]?id|item[_-]?id/i,
-  orderNetAmountCol: /订单[_-]?净额|order[_-]?net[_-]?amount|order[_-]?total/i,
-  skuNetAmountCol: /商品[_-]?净额|sku[_-]?net[_-]?amount|item[_-]?amount/i,
-  platformFeeCol: /平台[_-]?佣金|platform[_-]?fee|commission/i,
-  serviceFeeCol: /服务[_-]?费|service[_-]?fee/i,
-  orderTimeCol: /下单[_-]?时间|order[_-]?time|created[_-]?at/i,
-  categoryCol: /类目|category/i,
-  channelCol: /渠道|channel/i,
+  orderIdCol: /订单[ _. -]?(单号|编号|号|id)|order[ _. -]?(id|no)/i,
+  amountCol: /商品金额|金额|product[ _. -]?amount|price/i,
+  quantityCol: /购买数量|数量|quantity|qty/i,
+  platformFeeCol: /平台佣金|佣金|platform[ _. -]?fee|commission/i,
+  adFeeCol: /广告费|广告|ad[ _. -]?fee|promotion/i,
+  serviceFeeCol: /服务费|service[ _. -]?fee/i,
+  shippingFeeCol: /运费|物流|shipping|freight|delivery/i,
 };
 
-// ============================================================================
-// Row type
-// ============================================================================
+/** 分摊模式 → 用户可见文案（决议 9，与核 detailedDescription/OPERATOR_CONFIG 逐句一致） */
+const MODE_LABEL: Record<FeeAllocateMode, string> = {
+  amount: '金额比例分摊',
+  quantity: '数量比例分摊',
+  even: '整单均摊',
+};
 
-interface AllocRow {
-  [key: string]: unknown;
+const FEE_SLOT_KEYS = ['slot1', 'slot2', 'slot3', 'slot4'] as const;
+const DEDUCT_SLOT_KEYS = ['slot1', 'slot2'] as const;
+
+/** SQL 输出新增列（决议 7 固定列集；enrichedSchema 缺失才补） */
+const NEW_COLUMNS: Array<{ name: string; type: string }> = [
+  { name: 'order_fee_total', type: 'DOUBLE' },
+  { name: 'allocated_fee', type: 'DOUBLE' },
+  { name: 'alloc_ratio_pct', type: 'DOUBLE' },
+  { name: 'is_rounding_adjust', type: 'BOOLEAN' },
+  { name: 'alloc_mode_label', type: 'VARCHAR' },
+  { name: 'product_net_profit', type: 'DOUBLE' },
+];
+
+/** buildOperatorSql 记录、postProcess 消费（strategy-rules §三：禁止 postProcess 重读节点） */
+interface LastConfig {
+  mode: FeeAllocateMode;
+  orderIdCol: string;
+  amountCol: string;
 }
 
-// ============================================================================
-// Strategy
-// ============================================================================
+type AllocRow = Record<string, unknown>;
+
+const safeNum = (v: unknown): number => {
+  const n = typeof v === 'bigint' ? Number(v) : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const safeBool = (v: unknown): boolean => v === true || v === 1 || v === '1' || v === 'true';
 
 export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
   readonly type = OperatorType.PLATFORM_FEE_ALLOCATE;
   readonly name = '平台佣金/服务费自动分摊';
 
-  /** Shared config between buildOperatorSql and postProcess */
-  private _lastConfig: FeeAllocateConfig | null = null;
+  private _lastConfig: LastConfig | null = null;
 
-  getRequiredNodes(): FlowNodeType[] {
-    return [FlowNodeType.TABLE];
+  override getRequiredNodes(): FlowNodeType[] {
+    return [FlowNodeType.SELECT];
   }
 
   // --------------------------------------------------------------------------
@@ -81,35 +105,26 @@ export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
     _edges: FlowEdge[],
   ): ValidationError[] {
     const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
-    const cfg = (selectNode?.data as { feeAllocateConfig?: FeeAllocateConfig } | undefined)
-      ?.feeAllocateConfig;
-
-    // No config → not yet configured, not an error
-    if (!cfg) return [];
+    const cfg = (selectNode?.data as { platformFeeAllocateConfig?: PlatformFeeAllocateConfig } | undefined)
+      ?.platformFeeAllocateConfig;
+    if (!selectNode || !cfg) return [];
 
     const errors: ValidationError[] = [];
-    const nodeId = selectNode?.id ?? 'select';
+    const push = (message: string) => errors.push({
+      nodeId: selectNode.id,
+      nodeType: FlowNodeType.SELECT,
+      severity: ValidationSeverity.ERROR,
+      message,
+    });
 
-    const requiredFields: Array<{ key: keyof FeeAllocateConfig['fieldMapping']; label: string }> = [
-      { key: 'orderIdCol', label: '订单ID列' },
-      { key: 'skuIdCol', label: '商品行ID列' },
-      { key: 'orderNetAmountCol', label: '订单净额列' },
-      { key: 'skuNetAmountCol', label: '商品净额列' },
-      { key: 'platformFeeCol', label: '平台佣金列' },
-      { key: 'serviceFeeCol', label: '服务费列' },
-    ];
-
-    for (const { key, label } of requiredFields) {
-      if (!cfg.fieldMapping[key]) {
-        errors.push({
-          nodeId,
-          nodeType: FlowNodeType.SELECT,
-          severity: ValidationSeverity.ERROR,
-          message: `缺少必填字段: ${label}`,
-        });
-      }
+    if (!cfg.fieldMapping?.orderIdCol) push('缺少必填字段: 订单号列');
+    if (!cfg.fieldMapping?.amountCol) push('缺少必填字段: 商品金额列');
+    if (cfg.mode === 'quantity' && !cfg.fieldMapping?.quantityCol) {
+      push('缺少必填字段: 购买数量列（按数量比例分摊时必填）');
     }
-
+    if (!FEE_SLOT_KEYS.some((k) => cfg.feeSlots?.[k]?.column)) {
+      push('缺少费用槽位: 至少配置一项费用列');
+    }
     return errors;
   }
 
@@ -128,113 +143,93 @@ export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
       (nodes.find((n) => n.type === FlowNodeType.TABLE)?.data as { tableName?: string })
         ?.tableName ?? '';
 
-    const cfg = (selectNode?.data as { feeAllocateConfig?: FeeAllocateConfig } | undefined)
-      ?.feeAllocateConfig;
+    const cfg = (selectNode?.data as { platformFeeAllocateConfig?: PlatformFeeAllocateConfig } | undefined)
+      ?.platformFeeAllocateConfig;
 
     if (!tableName || !cfg) {
-      logger.warn('[EcomPlatformFeeAllocate] Missing table or config');
+      logger.warn(
+        `[EcomPlatformFeeAllocate] 降级空查询: table=${tableName || '<空>'}, ` +
+        `config=${cfg ? 'ok' : '<缺失>'}`,
+      );
       return 'SELECT 1 WHERE false';
     }
 
-    this._lastConfig = cfg;
+    const { orderIdCol, amountCol, quantityCol } = cfg.fieldMapping;
+    this._lastConfig = { mode: cfg.mode, orderIdCol, amountCol };
 
-    // Note: fieldMapping.skuIdCol is validated in validateOperatorSpecific and
-    // used by the drawer; SQL granularity is order_id + deterministic source row.
-    const {
-      orderIdCol,
-      orderNetAmountCol: ONA,
-      skuNetAmountCol: SNA,
-      platformFeeCol: PF,
-      serviceFeeCol: SF,
-    } = cfg.fieldMapping;
+    const O = `"${orderIdCol}"`;
+    const A = `"${amountCol}"`;
+    const Q = quantityCol ? `"${quantityCol}"` : '0';
 
-    // Fee dedup expressions: MAX per order partition (cross-row fill safe)
-    const feePlatformExpr = `MAX(COALESCE("${PF}", 0)) OVER (PARTITION BY "${orderIdCol}")`;
-    const feeServiceExpr = `MAX(COALESCE("${SF}", 0)) OVER (PARTITION BY "${orderIdCol}")`;
-    const feeTotalExpr = `(${feePlatformExpr} + ${feeServiceExpr})`;
+    // 费用总额：逐列去重（每槽 MAX OVER 订单分区）后相加，防重复计费且不漏跨行填充（决议 3）
+    const feeTerms = FEE_SLOT_KEYS
+      .map((k) => cfg.feeSlots[k])
+      .filter((s: FormulaSlot) => !!s?.column)
+      .map((s: FormulaSlot, i) =>
+        `${i === 0 ? (s.operator === '-' ? '- ' : '') : `${s.operator} `}MAX(COALESCE("${s.column}", 0)) OVER (PARTITION BY ${O})`)
+      .join(' ');
+    const feeTotalExpr = feeTerms || '0.0';
 
-    // Weight = sku net amount (amount-ratio mode, default)
-    const weightExpr = `COALESCE("${SNA}", 0)`;
-    const weightTotalExpr = `SUM(${weightExpr}) OVER (PARTITION BY "${orderIdCol}")`;
+    // 权重表达式：三种 mode 仅在此处分叉（决议 2）
+    const weightExpr =
+      cfg.mode === 'amount' ? `COALESCE(${A}, 0)`
+      : cfg.mode === 'quantity' ? `COALESCE(${Q}, 0)`
+      : '1';
+    const weightTotalExpr =
+      cfg.mode === 'even'
+        ? `COUNT(*) OVER (PARTITION BY ${O})`
+        : `SUM(${weightExpr}) OVER (PARTITION BY ${O})`;
 
-    // WHERE clause
-    const whereClause = userWhere
-      ? `\n  WHERE ${userWhere.replace(/^WHERE\s+/i, '')}`
+    // 扣减槽：product_net_profit = 本行金额 − 分摊费用 ± 扣减项
+    const deductSuffix = DEDUCT_SLOT_KEYS
+      .map((k) => cfg.deductSlots[k])
+      .filter((s: FormulaSlot) => !!s?.column)
+      .map((s: FormulaSlot) => ` ${s.operator} COALESCE("${s.column}", 0)`)
+      .join('');
+
+    const whereClause = userWhere?.trim()
+      ? `\n  WHERE ${userWhere.replace(/^WHERE\s+/i, '').trim()}`
       : '';
 
-    // EXCLUDE list — synced with ORDER BY (_src_rn internal)
-    const excludeCols = [
-      '_src_rn',
-      '_fee_platform',
-      '_fee_service',
-      '_fee_total',
-      '_weight',
-      '_weight_total',
-      '_alloc_platform',
-      '_alloc_service',
-      '_alloc_raw',
-      '_order_alloc_sum',
-      '_max_weight_row',
-      // NOTE: _is_zero_weight is intentionally NOT excluded — it is an
-      // auxiliary check column consumed by insight card 4.
-    ];
-
-    const sql = `WITH src AS (
-  SELECT *, ROW_NUMBER() OVER () AS _src_rn FROM "${tableName}"${whereClause}
+    return `WITH src AS (
+  SELECT *, ROW_NUMBER() OVER () AS _src_rn
+  FROM "${tableName}"${whereClause}
 ),
 ord AS (
-  SELECT
-    *,
-    ${feePlatformExpr} AS _fee_platform,
-    ${feeServiceExpr} AS _fee_service,
-    ${feeTotalExpr} AS _fee_total,
-    ${weightExpr} AS _weight,
-    ${weightTotalExpr} AS _weight_total,
-    CASE WHEN ${weightTotalExpr} = 0 THEN true ELSE false END AS _is_zero_weight
+  SELECT *,
+    ${feeTotalExpr} AS order_fee_total,
+    ${weightExpr} AS row_weight,
+    ${weightTotalExpr} AS order_weight_total
   FROM src
 ),
 alloc AS (
-  SELECT
-    *,
-    ROUND(_weight / NULLIF(_weight_total, 0) * _fee_platform, 2) AS _alloc_platform,
-    ROUND(_weight / NULLIF(_weight_total, 0) * _fee_service, 2) AS _alloc_service,
-    ROUND(_weight / NULLIF(_weight_total, 0) * _fee_total, 2) AS _alloc_raw,
-    SUM(ROUND(_weight / NULLIF(_weight_total, 0) * _fee_total, 2))
-      OVER (PARTITION BY "${orderIdCol}") AS _order_alloc_sum,
-    ROW_NUMBER() OVER (
-      PARTITION BY "${orderIdCol}"
-      ORDER BY _weight DESC, COALESCE("${SNA}", 0) DESC, _src_rn ASC
-    ) = 1 AS _max_weight_row
+  SELECT *,
+    CASE WHEN order_weight_total <= 0 THEN 0.0
+         ELSE ROUND(order_fee_total * row_weight / order_weight_total, 2) END AS alloc_base,
+    ROW_NUMBER() OVER (PARTITION BY ${O} ORDER BY COALESCE(${A}, 0) DESC, COALESCE(${Q}, 0) DESC, _src_rn ASC) AS rn
   FROM ord
 ),
 agg AS (
-  SELECT
-    * EXCLUDE (${excludeCols.join(', ')}),
-    CASE
-      WHEN _is_zero_weight THEN 0
-      WHEN _max_weight_row THEN ROUND(_alloc_raw + (_fee_total - _order_alloc_sum), 2)
-      ELSE _alloc_raw
-    END AS allocated_fee,
-    CASE
-      WHEN _is_zero_weight THEN 0
-      ELSE ROUND(_alloc_raw / NULLIF(_fee_total, 0), 4)
-    END AS alloc_ratio_pct,
-    CASE
-      WHEN _is_zero_weight THEN 0
-      WHEN _max_weight_row AND ABS(_fee_total - _order_alloc_sum) > 0.001 THEN 1
-      ELSE 0
-    END AS is_rounding_adjust,
-    ROUND(
-      COALESCE("${SNA}", 0) / NULLIF(SUM(COALESCE("${SNA}", 0)) OVER (PARTITION BY "${orderIdCol}"), 0)
-        * COALESCE("${ONA}", 0),
-      2
-    ) AS product_net_profit
+  SELECT *, SUM(alloc_base) OVER (PARTITION BY ${O}) AS alloc_sum
   FROM alloc
+),
+fin AS (
+  SELECT *,
+    CASE WHEN order_weight_total <= 0 THEN 0.0
+         WHEN rn = 1 THEN ROUND(order_fee_total - alloc_sum + alloc_base, 2)
+         ELSE alloc_base END AS allocated_fee,
+    CASE WHEN rn = 1 AND order_weight_total > 0
+              AND ABS(ROUND(order_fee_total - alloc_sum + alloc_base, 2) - alloc_base) > 0.005
+         THEN true ELSE false END AS is_rounding_adjust,
+    CASE WHEN order_weight_total <= 0 THEN 0.0
+         ELSE ROUND(row_weight / order_weight_total, 4) END AS alloc_ratio_pct
+  FROM agg
 )
-SELECT * FROM agg
-ORDER BY "${orderIdCol}", _src_rn`;
-
-    return sql;
+SELECT * EXCLUDE (_src_rn, row_weight, order_weight_total, alloc_base, alloc_sum, rn),
+       '${MODE_LABEL[cfg.mode]}' AS alloc_mode_label,
+       ROUND(COALESCE(${A}, 0) - allocated_fee${deductSuffix}, 2) AS product_net_profit
+FROM fin
+ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
   }
 
   // --------------------------------------------------------------------------
@@ -243,119 +238,169 @@ ORDER BY "${orderIdCol}", _src_rn`;
 
   override async postProcess(data: unknown): Promise<AnalysisResult> {
     const queryResult = data as {
-      data: AllocRow[];
-      schema: Record<string, string>[];
+      data?: AllocRow[];
+      schema?: Record<string, string>[];
     };
+    const rawRows = queryResult?.data ?? [];
+    const baseSchema = (queryResult?.schema ?? []) as Record<string, string>[];
 
-    if (!queryResult?.data?.length) {
-      return this._buildEmptyResult(queryResult?.schema ?? []);
+    if (!rawRows.length) {
+      return this._buildEmptyResult(baseSchema);
     }
 
-    const cfg = this._lastConfig;
-    const rows = queryResult.data;
+    const last = this._lastConfig ?? {
+      mode: DEFAULT_FEE_ALLOCATE_CONFIG.mode,
+      orderIdCol: DEFAULT_FEE_ALLOCATE_CONFIG.fieldMapping.orderIdCol,
+      amountCol: DEFAULT_FEE_ALLOCATE_CONFIG.fieldMapping.amountCol,
+    };
 
-    // Card ①: total allocated fee
-    const totalAllocated = rows.reduce(
-      (sum, r) => sum + (Number(r.allocated_fee) || 0),
-      0,
-    );
+    // 行归一化（决议 7 输出列固定，不新增列）
+    const rows: AllocRow[] = rawRows.map((r) => ({
+      ...r,
+      order_fee_total: safeNum(r.order_fee_total),
+      allocated_fee: safeNum(r.allocated_fee),
+      alloc_ratio_pct: safeNum(r.alloc_ratio_pct),
+      product_net_profit: safeNum(r.product_net_profit),
+      is_rounding_adjust: safeBool(r.is_rounding_adjust),
+      alloc_mode_label: String(r.alloc_mode_label ?? ''),
+    }));
 
-    // Card ②: order count (distinct order IDs)
-    const orderCol = cfg?.fieldMapping.orderIdCol ?? '';
-    const orderIds = new Set(rows.map((r) => r[orderCol]));
-    const orderCount = orderIds.size;
+    // 订单聚合：Σ allocated_fee / 订单费用 / 零权重判定
+    const byOrder = new Map<string, { fee: number; orderFeeTotal: number; allZeroRatio: boolean }>();
+    let totalAllocated = 0;
+    let totalAmount = 0;
+    for (const row of rows) {
+      const oid = String(row[last.orderIdCol] ?? '');
+      const fee = row.allocated_fee as number;
+      totalAllocated += fee;
+      totalAmount += safeNum(row[last.amountCol]);
+      const agg = byOrder.get(oid) ?? { fee: 0, orderFeeTotal: 0, allZeroRatio: true };
+      agg.fee += fee;
+      agg.orderFeeTotal = Math.max(agg.orderFeeTotal, row.order_fee_total as number);
+      agg.allZeroRatio = agg.allZeroRatio && (row.alloc_ratio_pct as number) === 0;
+      byOrder.set(oid, agg);
+    }
+    const orderCount = byOrder.size;
 
-    // Card ③: max cost ratio
-    const maxRatio = rows.reduce(
-      (max, r) => Math.max(max, Number(r.alloc_ratio_pct) || 0),
-      0,
-    );
+    // 卡① 分摊汇总
+    const modeSentence = {
+      amount: '按商品金额比例分摊',
+      quantity: '按商品数量比例分摊',
+      even: '整单均摊',
+    }[last.mode];
+    const avgRatio = totalAmount > 0 ? totalAllocated / totalAmount : 0;
+    // 量纲单点（问题 8）：下方乘 100 是全文件唯一一处，仅用于 description 文案。
+    // 表格列 alloc_ratio_pct 保持 0–1，×100 由展示层 percent_signed 契约完成
+    // （ResultsDisplay.tsx:145-152）；指标 value 按 InsightMetric 契约存 0–1 原始小数，
+    // ×100 由卡片展示层完成（types.ts unit='%' 约定）。禁止在此预乘指标值。
+    const cardSummary: InsightItem = {
+      id: 'fee-allocate-summary',
+      cardType: 'standard',
+      iconKey: 'order',
+      title: '分摊汇总',
+      sortOrder: 1,
+      description: `共 ${orderCount} 笔订单，${modeSentence}；平均费率 ${(avgRatio * 100).toFixed(2)}%`,
+      metrics: [
+        { label: '总分摊费用', value: totalAllocated, unit: '元', highlight: true },
+        { label: '订单数', value: orderCount, unit: '单' },
+        { label: '平均费率', value: avgRatio, unit: '%' },
+      ],
+    };
 
-    // Card ④: zero-weight warning
-    const hasZeroWeight = rows.some((r) => r._is_zero_weight === true);
+    // 卡② 费用最高的订单（Top5，按订单聚合 Σ allocated_fee 降序）
+    const orderFees = [...byOrder.entries()]
+      .map(([oid, agg]) => ({ oid, fee: agg.fee }))
+      .sort((a, b) => b.fee - a.fee);
+    const sortedFees = orderFees.map((o) => o.fee).sort((a, b) => a - b);
+    const median = sortedFees.length
+      ? sortedFees.length % 2 === 1
+        ? sortedFees[(sortedFees.length - 1) / 2]
+        : (sortedFees[sortedFees.length / 2 - 1] + sortedFees[sortedFees.length / 2]) / 2
+      : 0;
+    const cardTopOrders: InsightItem = {
+      id: 'fee-allocate-top-orders',
+      cardType: 'standard',
+      iconKey: 'insight',
+      title: '费用最高的订单',
+      sortOrder: 2,
+      description: orderFees.slice(0, 5).map((o) => `${o.oid}(${o.fee.toFixed(2)}元)`).join('、'),
+      metrics: [
+        { label: '最高单', value: orderFees[0]?.fee ?? 0, unit: '元', highlight: true },
+        { label: '中位', value: median, unit: '元' },
+        { label: '费用>0订单数', value: orderFees.filter((o) => o.fee > 0).length, unit: '单' },
+      ],
+    };
 
-    // Insight cards per plan: 3 metric cards + zero-weight warning card (iconKey 'warning'/'safe')
-    const insights: InsightItem[] = [
-      {
-        id: 'fee-allocate-total',
-        cardType: 'standard',
-        iconKey: 'insight',
-        title: '分摊总额',
-        sortOrder: 1,
-        metrics: [
-          { label: '分摊佣金/服务费合计', value: totalAllocated, unit: '元' },
-        ],
+    // 卡③ 尾差回补行（决议 5/8）
+    const adjustRows = rows.filter((r) => r.is_rounding_adjust === true);
+    const adjustOrders = new Set(adjustRows.map((r) => String(r[last.orderIdCol] ?? '')));
+    const cardRounding: InsightItem = {
+      id: 'rounding-adjust',
+      cardType: 'standard',
+      iconKey: 'insight',
+      title: '尾差回补行',
+      sortOrder: 3,
+      description: '尾差回补至订单内金额最大行，逐单对平（Σ分摊额 = 订单费用）',
+      metrics: [
+        { label: '尾差行数', value: adjustRows.length, unit: '行' },
+        { label: '涉及订单数', value: adjustOrders.size, unit: '单' },
+      ],
+    };
+
+    // 卡④ 零权重异常订单（费用>0 但该单分摊比例全 0；决议 8 提醒档位 warning）
+    let abnormalCount = 0;
+    for (const agg of byOrder.values()) {
+      if (agg.orderFeeTotal > 0 && agg.allZeroRatio) abnormalCount++;
+    }
+    const cardZeroWeight: InsightItem = {
+      id: 'zero-weight-abnormal',
+      cardType: 'standard',
+      iconKey: abnormalCount > 0 ? 'warning' : 'safe',
+      title: '零权重异常订单',
+      sortOrder: 4,
+      description: abnormalCount > 0
+        ? `${abnormalCount} 笔订单费用大于 0 但分摊比例为 0`
+        : '无零权重异常订单',
+      ...(abnormalCount > 0 ? { suggestion: '检查该订单商品金额/数量是否缺失' } : {}),
+      metrics: [
+        { label: '异常订单数', value: abnormalCount, unit: '单' },
+      ],
+    };
+
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: rows.length,
+        totalFilterRecordCount: rows.length,
+        totalOrderCount: orderCount,
       },
-      {
-        id: 'fee-allocate-orders',
-        cardType: 'standard',
-        iconKey: 'order',
-        title: '涉及订单',
-        sortOrder: 2,
-        metrics: [
-          { label: '订单数', value: orderCount, unit: '单' },
-        ],
-      },
-      {
-        id: 'fee-allocate-max-ratio',
-        cardType: 'standard',
-        iconKey: 'price',
-        title: '最高费率',
-        sortOrder: 3,
-        description: '单行分摊费用占订单费用总额的最大比例',
-        metrics: [
-          { label: '最高分摊费率', value: maxRatio , unit: '%', highlight: hasZeroWeight },
-        ],
-      },
-      {
-        id: 'fee-allocate-zero-weight',
-        cardType: 'standard',
-        iconKey: hasZeroWeight ? 'warning' : 'safe',
-        title: hasZeroWeight ? '零权重订单' : '权重正常',
-        sortOrder: 4,
-        description: hasZeroWeight
-          ? '存在权重全为 0 的订单，其分摊结果已置 0，请检查净额字段'
-          : '所有订单行权重正常',
-        suggestion: hasZeroWeight ? '请核对商品净额列是否填写完整，或改用其他分摊权重模式' : undefined,
-      },
-    ];
+      insights: [cardSummary, cardTopOrders, cardRounding, cardZeroWeight],
+    };
 
-    // Enriched schema: reuse queryResult.schema + add auxiliary columns
-    const auxiliaryColumns = [
-      { name: 'allocated_fee', type: 'DOUBLE' },
-      { name: 'alloc_ratio_pct', type: 'DOUBLE' },
-      { name: 'is_rounding_adjust', type: 'INTEGER' },
-      { name: 'product_net_profit', type: 'DOUBLE' },
-    ];
-
-    const enrichedSchema = [
-      ...queryResult.schema,
-      ...auxiliaryColumns,
-    ];
-
-    // alloc_ratio_pct is stored as a 0-1 fraction; the percent_signed
-    // formatter renders it as a percentage (plan revision round 2, P2).
-    const displayConfig = {
+    // displayConfig：不设 defaultSort（JS 重排会覆盖 SQL 订单聚簇序，决议 10）；
+    // alloc_ratio_pct 出 SQL 保持 0–1，percent_signed 负责 ×100
+    const displayConfig: OperatorDisplayConfig = {
       columnFormatters: {
-        allocated_fee: { type: 'currency_signed' as const, unit: '元', precision: 2 },
-        alloc_ratio_pct: { type: 'percent_signed' as const, precision: 2 },
-        product_net_profit: { type: 'currency_signed' as const, unit: '元', precision: 2 },
+        allocated_fee: { type: 'currency_signed', unit: '元', precision: 2 },
+        order_fee_total: { type: 'currency_signed', unit: '元', precision: 2 },
+        product_net_profit: { type: 'currency_signed', unit: '元', precision: 2 },
+        alloc_ratio_pct: { type: 'percent_signed', precision: 2 },
       },
       columnTooltips: {
-        allocated_fee: '按商品净额占比分摊的平台佣金+服务费（尾差补偿已并入最大权重行）',
-        alloc_ratio_pct: '该行分摊费用占该订单费用总额的比例（0-1）',
-        is_rounding_adjust: '1 表示该行吸收了订单内的四舍五入尾差',
-        product_net_profit: '分摊后商品净额（用于成本分析）',
-        _is_zero_weight: 'true 表示该订单所有行权重为 0，分摊结果置 0',
+        allocated_fee: '本行分摊到的订单费用（保留 2 位小数，尾差行含回补额）',
+        product_net_profit: '商品金额 − 分摊费用 − 可选扣减后的单品净利',
+        order_fee_total: '按订单逐列去重后的订单费用总额（佣金＋广告费…）',
+        alloc_ratio_pct: '本行权重占订单权重合计的比例（比值存储，按百分比展示）',
+        is_rounding_adjust: '分摊尾差回补行（订单内金额最大行）',
+        alloc_mode_label: '本次采用的分摊模式',
       },
-    } as OperatorDisplayConfig;
+    };
 
     return {
       type: OperatorType.PLATFORM_FEE_ALLOCATE,
       sql: '',
-      data: rows,
-      schema: enrichedSchema as unknown[],
-      insightsData: { insights } as OperatorInsightsData,
+      data: rows as unknown[],
+      schema: this._enrichSchema(baseSchema),
+      insightsData,
       displayConfig,
     };
   }
@@ -364,30 +409,28 @@ ORDER BY "${orderIdCol}", _src_rn`;
   // Helpers
   // --------------------------------------------------------------------------
 
+  /** 6 新列均由 SQL 产出；仅当 schema 缺失时才补（问题 6：禁止拼接重复列） */
+  private _enrichSchema(schema: Record<string, string>[]): Record<string, string>[] {
+    const existing = new Set(schema.map((c) => (c as { name?: string }).name));
+    const missing = NEW_COLUMNS.filter((c) => !existing.has(c.name));
+    return missing.length ? [...schema, ...missing] : schema;
+  }
+
   private _buildEmptyResult(schema: Record<string, string>[]): AnalysisResult {
     const warningItem: InsightItem = {
-      id: 'fee-allocate-empty',
+      id: 'fee-allocate-empty-result',
       cardType: 'standard',
       iconKey: 'warning',
-      title: '分摊结果',
+      title: '无分摊结果',
+      description: '当前数据源为空或过滤条件过严',
       sortOrder: 1,
-      description: '无数据，请检查上游表与算子配置',
     };
-
-    const auxiliaryColumns = [
-      { name: 'allocated_fee', type: 'DOUBLE' },
-      { name: 'alloc_ratio_pct', type: 'DOUBLE' },
-      { name: 'is_rounding_adjust', type: 'INTEGER' },
-      { name: 'product_net_profit', type: 'DOUBLE' },
-    ];
-
-    const enrichedSchema = [...schema, ...auxiliaryColumns];
 
     return {
       type: OperatorType.PLATFORM_FEE_ALLOCATE,
       sql: '',
       data: [],
-      schema: enrichedSchema as unknown[],
+      schema: this._enrichSchema(schema) as unknown[],
       insightsData: { insights: [warningItem] } as OperatorInsightsData,
       displayConfig: {} as OperatorDisplayConfig,
     };

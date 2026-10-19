@@ -39,7 +39,7 @@ import type {
   FulfillmentEfficiencyConfig,
   NetAmountCalcConfig,
   ProfitMarginCalcConfig,
-  FeeAllocateConfig,
+  PlatformFeeAllocateConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -334,8 +334,8 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
   );
 
   const handleFeeAllocateConfirm = useCallback(
-    (config: FeeAllocateConfig) => {
-      updateNode(id, { feeAllocateConfig: config } as Partial<SelectNodeData>);
+    (config: PlatformFeeAllocateConfig) => {
+      updateNode(id, { platformFeeAllocateConfig: config } as Partial<SelectNodeData>);
       setUdfDrawerOpen(false);
       const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
       if (endNode) {
@@ -414,13 +414,13 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
         return !!(data.profitMarginCalcConfig?.fieldMapping?.netAmountCol &&
                   data.profitMarginCalcConfig?.fieldMapping?.costCol);
-      case SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER:
-        return !!(data.feeAllocateConfig?.fieldMapping?.orderIdCol &&
-                  data.feeAllocateConfig?.fieldMapping?.skuIdCol &&
-                  data.feeAllocateConfig?.fieldMapping?.orderNetAmountCol &&
-                  data.feeAllocateConfig?.fieldMapping?.skuNetAmountCol &&
-                  data.feeAllocateConfig?.fieldMapping?.platformFeeCol &&
-                  data.feeAllocateConfig?.fieldMapping?.serviceFeeCol);
+      case SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER: {
+        const feeCfg = data.platformFeeAllocateConfig;
+        return !!(feeCfg?.fieldMapping?.orderIdCol &&
+                  feeCfg?.fieldMapping?.amountCol &&
+                  (feeCfg.mode !== 'quantity' || feeCfg.fieldMapping?.quantityCol) &&
+                  !!feeCfg.feeSlots?.slot1?.column);
+      }
       default:
         return false;
     }
@@ -899,7 +899,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
             <EcomPlatformFeeAllocateDrawer
               open={udfDrawerOpen}
               columns={columnNames}
-              initialConfig={data.feeAllocateConfig}
+              initialConfig={data.platformFeeAllocateConfig}
               kernelDisplayName={kernelMeta?.displayName}
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}

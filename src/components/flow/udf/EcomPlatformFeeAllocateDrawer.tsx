@@ -4,44 +4,39 @@
  * Configuration drawer for fn_ecom_platform_fee_allocate (平台佣金/服务费自动分摊).
  *
  * Sections:
- *   Group 1 — Required field mapping (6 required columns)
- *   Group 2 — Optional dimension columns (3 optional)
- *   Group 3 — Risk threshold configuration
+ *   Group 1 — 分摊模式（Radio 三态）+ 字段映射（订单号/商品金额必填，购买数量条件必填）
+ *   Group 2 — 费用槽位 feeSlots slot1-4（slot1 锚定 '+平台佣金'，逐槽可选列可清空）
+ *   Group 3 — 净利扣减 deductSlots slot1-2（默认 '-'，可换 '+/-'）
  *
  * All colors use TOKEN (CSS variables) — no hardcoded hex values.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Drawer,
   Button,
   Select,
-  Space,
+  Radio,
   Typography,
   Tooltip,
-  Collapse,
-  InputNumber,
 } from 'antd';
 import {
   CloseOutlined,
   ApartmentOutlined,
   FunctionOutlined,
-  FilterOutlined,
+  SplitCellsOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import type { FeeAllocateConfig } from '../../../services/flow/types';
+import {
+  DEFAULT_FEE_ALLOCATE_CONFIG,
+  type FeeAllocateMode,
+  type FormulaSlot,
+  type PlatformFeeAllocateConfig,
+} from '../../../services/flow/types';
 import { FIELD_MATCH_PATTERNS } from '../../../services/flow/strategies/ecomPlatformFeeAllocateStrategy';
 import { TOKEN } from '../../../theme';
 
 const { Text } = Typography;
-
-// ============================================================================
-// Auto-match helper
-// ============================================================================
-
-function autoMatch(columns: string[], patternKey: string): string {
-  return columns.find((c) => FIELD_MATCH_PATTERNS[patternKey]?.test(c)) ?? '';
-}
 
 // ============================================================================
 // Section wrapper
@@ -100,8 +95,7 @@ const FieldRow: React.FC<{
   columns: string[];
   onChange: (v: string) => void;
   status?: 'error';
-  selectRef?: React.Ref<any>;
-}> = ({ label, required, tip, value, columns, onChange, status, selectRef }) => (
+}> = ({ label, required, tip, value, columns, onChange, status }) => (
   <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 6 }}>
     <div style={{ width: 140, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
       {required && <span style={{ color: TOKEN.primary, fontSize: 10 }}>*</span>}
@@ -114,13 +108,56 @@ const FieldRow: React.FC<{
     </div>
     <Select
       size="small"
-      allowClear
-      ref={selectRef}
+      value={value || undefined}
       status={status}
       style={{ flex: 1 }}
-      value={value || undefined}
+      allowClear
       placeholder={required ? '必填' : '可选 · 自动推断'}
       onChange={(v) => onChange(v ?? '')}
+      options={columns.map((c) => ({ label: c, value: c }))}
+      showSearch
+      filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+      styles={{
+        popup: { root: { background: TOKEN.bgBase, borderColor: TOKEN.borderMid } },
+      }}
+    />
+  </div>
+);
+
+// ============================================================================
+// SlotRow — label + operator Select + column Select (FormulaSlot editor)
+// ============================================================================
+
+const SlotRow: React.FC<{
+  label: string;
+  slot: FormulaSlot;
+  columns: string[];
+  onOperatorChange: (op: '+' | '-') => void;
+  onColumnChange: (col: string) => void;
+  operatorLocked?: boolean;
+}> = ({ label, slot, columns, onOperatorChange, onColumnChange, operatorLocked }) => (
+  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+    <Text style={{ fontSize: 12, color: TOKEN.textSecondary, width: 88, flexShrink: 0 }}>
+      {label}
+    </Text>
+    {operatorLocked ? (
+      <Text style={{ fontSize: 13, color: TOKEN.textMuted, width: 48, textAlign: 'center' }}>+</Text>
+    ) : (
+      <Select
+        size="small"
+        value={slot.operator}
+        style={{ width: 60, flexShrink: 0 }}
+        onChange={(op) => onOperatorChange(op as '+' | '-')}
+        options={[{ label: '+', value: '+' }, { label: '−', value: '-' }]}
+      />
+    )}
+    <Select
+      size="small"
+      value={slot.column || undefined}
+      style={{ flex: 1 }}
+      allowClear
+      placeholder="可选 · 留空跳过"
+      onChange={(v) => onColumnChange(v ?? '')}
       options={columns.map((c) => ({ label: c, value: c }))}
       showSearch
       filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
@@ -138,200 +175,146 @@ const FieldRow: React.FC<{
 export interface EcomPlatformFeeAllocateDrawerProps {
   open: boolean;
   columns: string[];
-  initialConfig?: FeeAllocateConfig;
+  initialConfig?: PlatformFeeAllocateConfig;
   kernelDisplayName?: string;
   kernelIndustry?: string;
   kernelCategory?: string;
-  onConfirm: (config: FeeAllocateConfig) => void;
+  onConfirm: (config: PlatformFeeAllocateConfig) => void;
   onCancel: () => void;
 }
 
-// ============================================================================
-// Main component
-// ============================================================================
+type FeeSlots = PlatformFeeAllocateConfig['feeSlots'];
+type DeductSlots = PlatformFeeAllocateConfig['deductSlots'];
+
+const MODE_OPTIONS: Array<{ value: FeeAllocateMode; label: string; desc: string }> = [
+  { value: 'amount', label: '金额比例分摊', desc: '按行商品金额占比分摊' },
+  { value: 'quantity', label: '数量比例分摊', desc: '按行购买数量占比分摊' },
+  { value: 'even', label: '整单均摊', desc: '订单费用按行数均分' },
+];
+
+const emptySlot = (operator: '+' | '-'): FormulaSlot => ({ operator, column: '' });
 
 export const EcomPlatformFeeAllocateDrawer: React.FC<EcomPlatformFeeAllocateDrawerProps> = ({
   open,
   columns,
   initialConfig,
-  kernelDisplayName = '平台佣金/服务费自动分摊',
+  kernelDisplayName,
   onConfirm,
   onCancel,
 }) => {
-  // --- Group 1: Required fields ---
+  const [mode, setMode] = useState<FeeAllocateMode>(DEFAULT_FEE_ALLOCATE_CONFIG.mode);
   const [orderIdCol, setOrderIdCol] = useState('');
-  const [skuIdCol, setSkuIdCol] = useState('');
-  const [orderNetAmountCol, setOrderNetAmountCol] = useState('');
-  const [skuNetAmountCol, setSkuNetAmountCol] = useState('');
-  const [platformFeeCol, setPlatformFeeCol] = useState('');
-  const [serviceFeeCol, setServiceFeeCol] = useState('');
+  const [amountCol, setAmountCol] = useState('');
+  const [quantityCol, setQuantityCol] = useState('');
+  const [feeSlots, setFeeSlots] = useState<FeeSlots>({
+    slot1: emptySlot('+'),
+    slot2: emptySlot('+'),
+    slot3: emptySlot('+'),
+    slot4: emptySlot('+'),
+  });
+  const [deductSlots, setDeductSlots] = useState<DeductSlots>({
+    slot1: emptySlot('-'),
+    slot2: emptySlot('-'),
+  });
+  const [submitted, setSubmitted] = useState(false);
 
-  const [orderIdError, setOrderIdError] = useState(false);
-  const [skuIdError, setSkuIdError] = useState(false);
-  const [orderNetAmountError, setOrderNetAmountError] = useState(false);
-  const [skuNetAmountError, setSkuNetAmountError] = useState(false);
-  const [platformFeeError, setPlatformFeeError] = useState(false);
-  const [serviceFeeError, setServiceFeeError] = useState(false);
-
-  const orderIdRef = useRef<any>(null);
-  const skuIdRef = useRef<any>(null);
-  const orderNetAmountRef = useRef<any>(null);
-  const skuNetAmountRef = useRef<any>(null);
-  const platformFeeRef = useRef<any>(null);
-  const serviceFeeRef = useRef<any>(null);
-
-  // --- Group 2: Optional dimension columns ---
-  const [orderTimeCol, setOrderTimeCol] = useState('');
-  const [categoryCol, setCategoryCol] = useState('');
-  const [channelCol, setChannelCol] = useState('');
-
-  // --- Group 3: Risk threshold ---
-  const [warningThresholdPct, setWarningThresholdPct] = useState(15);
-
-  // Restore or auto-fill when drawer opens
+  // Restore from initialConfig, or auto-fill defaults from column names
   useEffect(() => {
     if (!open) return;
+    setSubmitted(false);
 
     if (initialConfig) {
-      const fm = initialConfig.fieldMapping;
-      setOrderIdCol(fm.orderIdCol);
-      setSkuIdCol(fm.skuIdCol);
-      setOrderNetAmountCol(fm.orderNetAmountCol);
-      setSkuNetAmountCol(fm.skuNetAmountCol);
-      setPlatformFeeCol(fm.platformFeeCol);
-      setServiceFeeCol(fm.serviceFeeCol);
-      setOrderTimeCol(fm.orderTimeCol ?? '');
-      setCategoryCol(fm.categoryCol ?? '');
-      setChannelCol(fm.channelCol ?? '');
-      setWarningThresholdPct(initialConfig.warningThresholdPct);
+      setMode(initialConfig.mode);
+      setOrderIdCol(initialConfig.fieldMapping.orderIdCol);
+      setAmountCol(initialConfig.fieldMapping.amountCol);
+      setQuantityCol(initialConfig.fieldMapping.quantityCol ?? '');
+      setFeeSlots(initialConfig.feeSlots);
+      setDeductSlots(initialConfig.deductSlots);
     } else {
-      // Auto-fill from column names via regex
+      // Auto-fill from column names via regex; 无匹配列时槽位留空、可手动选择
       const usedCols = new Set<string>();
-      const autoMatchSkip = (cols: string[], patternKey: string): string => {
-        const available = cols.filter(c => !usedCols.has(c));
-        const matched = autoMatch(available, patternKey);
-        if (matched) usedCols.add(matched);
-        return matched;
+      const pick = (patternKey: string): string => {
+        const found = columns.find(
+          (c) => !usedCols.has(c) && FIELD_MATCH_PATTERNS[patternKey]?.test(c),
+        ) ?? '';
+        if (found) usedCols.add(found);
+        return found;
       };
-
-      setOrderIdCol(autoMatchSkip(columns, 'orderIdCol'));
-      setSkuIdCol(autoMatchSkip(columns, 'skuIdCol'));
-      setOrderNetAmountCol(autoMatchSkip(columns, 'orderNetAmountCol'));
-      setSkuNetAmountCol(autoMatchSkip(columns, 'skuNetAmountCol'));
-      setPlatformFeeCol(autoMatchSkip(columns, 'platformFeeCol'));
-      setServiceFeeCol(autoMatchSkip(columns, 'serviceFeeCol'));
-      setOrderTimeCol(autoMatchSkip(columns, 'orderTimeCol'));
-      setCategoryCol(autoMatchSkip(columns, 'categoryCol'));
-      setChannelCol(autoMatchSkip(columns, 'channelCol'));
-
-      setWarningThresholdPct(15);
+      setMode(DEFAULT_FEE_ALLOCATE_CONFIG.mode);
+      setOrderIdCol(pick('orderIdCol'));
+      setAmountCol(pick('amountCol'));
+      setQuantityCol(pick('quantityCol'));
+      setFeeSlots({
+        slot1: { operator: '+', column: pick('platformFeeCol') },
+        slot2: { operator: '+', column: pick('adFeeCol') },
+        slot3: { operator: '+', column: pick('serviceFeeCol') },
+        slot4: { operator: '+', column: pick('shippingFeeCol') },
+      });
+      setDeductSlots({
+        slot1: { operator: '-', column: '' },
+        slot2: { operator: '-', column: '' },
+      });
     }
-  }, [open, columns, initialConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialConfig, columns]);
 
-  // Change handlers with error clearing
-  const handleOrderIdColChange = useCallback((v: string) => {
-    setOrderIdCol(v);
-    if (v) setOrderIdError(false);
-  }, []);
+  const updateFeeSlot = (key: keyof FeeSlots, patch: Partial<FormulaSlot>) =>
+    setFeeSlots((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  const updateDeductSlot = (key: keyof DeductSlots, patch: Partial<FormulaSlot>) =>
+    setDeductSlots((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
 
-  const handleSkuIdColChange = useCallback((v: string) => {
-    setSkuIdCol(v);
-    if (v) setSkuIdError(false);
-  }, []);
+  // ------------------------------------------------------------------
+  // Validation
+  // ------------------------------------------------------------------
 
-  const handleOrderNetAmountColChange = useCallback((v: string) => {
-    setOrderNetAmountCol(v);
-    if (v) setOrderNetAmountError(false);
-  }, []);
-
-  const handleSkuNetAmountColChange = useCallback((v: string) => {
-    setSkuNetAmountCol(v);
-    if (v) setSkuNetAmountError(false);
-  }, []);
-
-  const handlePlatformFeeColChange = useCallback((v: string) => {
-    setPlatformFeeCol(v);
-    if (v) setPlatformFeeError(false);
-  }, []);
-
-  const handleServiceFeeColChange = useCallback((v: string) => {
-    setServiceFeeCol(v);
-    if (v) setServiceFeeError(false);
-  }, []);
+  const errors = {
+    orderIdCol: !orderIdCol,
+    amountCol: !amountCol,
+    quantityCol: mode === 'quantity' && !quantityCol,
+    feeSlots: !feeSlots.slot1.column,
+  };
+  const hasErrors = Object.values(errors).some(Boolean);
 
   const handleSubmit = useCallback(() => {
-    const hasOrderId = !!orderIdCol;
-    const hasSkuId = !!skuIdCol;
-    const hasOrderNetAmount = !!orderNetAmountCol;
-    const hasSkuNetAmount = !!skuNetAmountCol;
-    const hasPlatformFee = !!platformFeeCol;
-    const hasServiceFee = !!serviceFeeCol;
+    setSubmitted(true);
+    if (hasErrors) return;
 
-    setOrderIdError(!hasOrderId);
-    setSkuIdError(!hasSkuId);
-    setOrderNetAmountError(!hasOrderNetAmount);
-    setSkuNetAmountError(!hasSkuNetAmount);
-    setPlatformFeeError(!hasPlatformFee);
-    setServiceFeeError(!hasServiceFee);
-
-    if (!hasOrderId) {
-      orderIdRef.current?.focus();
-      return;
-    }
-    if (!hasSkuId) {
-      skuIdRef.current?.focus();
-      return;
-    }
-    if (!hasOrderNetAmount) {
-      orderNetAmountRef.current?.focus();
-      return;
-    }
-    if (!hasSkuNetAmount) {
-      skuNetAmountRef.current?.focus();
-      return;
-    }
-    if (!hasPlatformFee) {
-      platformFeeRef.current?.focus();
-      return;
-    }
-    if (!hasServiceFee) {
-      serviceFeeRef.current?.focus();
-      return;
-    }
-
-    // Assemble config
-    const config: FeeAllocateConfig = {
+    const config: PlatformFeeAllocateConfig = {
+      mode,
       fieldMapping: {
         orderIdCol,
-        skuIdCol,
-        orderNetAmountCol,
-        skuNetAmountCol,
-        platformFeeCol,
-        serviceFeeCol,
-        ...(orderTimeCol && { orderTimeCol }),
-        ...(categoryCol && { categoryCol }),
-        ...(channelCol && { channelCol }),
+        amountCol,
+        quantityCol: quantityCol || undefined,
       },
-      warningThresholdPct,
+      feeSlots,
+      deductSlots,
     };
-
     onConfirm(config);
-  }, [
-    orderIdCol,
-    skuIdCol,
-    orderNetAmountCol,
-    skuNetAmountCol,
-    platformFeeCol,
-    serviceFeeCol,
-    orderTimeCol,
-    categoryCol,
-    channelCol,
-    warningThresholdPct,
-    onConfirm,
-  ]);
+  }, [hasErrors, mode, orderIdCol, amountCol, quantityCol, feeSlots, deductSlots, onConfirm]);
 
-  const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', marginBottom: 8, gap: 6 };
-  const labelStyle: React.CSSProperties = { fontSize: 12, color: TOKEN.textSecondary, width: 140, flexShrink: 0 };
+  // ------------------------------------------------------------------
+  // Formula preview（中文标签为主，括号内附原始列名）
+  // ------------------------------------------------------------------
+
+  const feeParts = (['slot1', 'slot2', 'slot3', 'slot4'] as const)
+    .map((k) => feeSlots[k])
+    .filter((s) => s.column)
+    .map((s) => `${s.operator === '-' ? '−' : '+'} ${s.column}`)
+    .join(' ');
+  const deductParts = (['slot1', 'slot2'] as const)
+    .map((k) => deductSlots[k])
+    .filter((s) => s.column)
+    .map((s) => `${s.operator === '-' ? '−' : '+'} ${s.column}`)
+    .join(' ');
+
+  const feePreview = feeParts
+    ? `订单费用 = ${feeParts}（按订单去重取总）`
+    : '订单费用 = 未配置（槽位 1 必选）';
+  const netPreview = deductParts
+    ? `单品净利 = 商品金额 − 分摊费用 ${deductParts}`
+    : '单品净利 = 商品金额 − 分摊费用';
+
+  const activeMode = MODE_OPTIONS.find((m) => m.value === mode);
 
   return (
     <>
@@ -357,21 +340,130 @@ export const EcomPlatformFeeAllocateDrawer: React.FC<EcomPlatformFeeAllocateDraw
           },
         }}
         extra={
-          <Space>
+          <div style={{ display: 'flex', gap: 8 }}>
             <Button size="small" icon={<CloseOutlined />} onClick={onCancel}>
               取消
             </Button>
             <Button size="small" type="primary" onClick={handleSubmit}>
-              确认
+              应用
             </Button>
-          </Space>
+          </div>
         }
-        closable={false}
       >
-        {/* Allocation summary */}
+        {/* Group 1: Mode + Field mapping */}
+        <Section icon={<SplitCellsOutlined />} title="分摊模式与字段映射" badge="Group 1">
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 11, color: TOKEN.textMuted, display: 'block', marginBottom: 6 }}>
+              支持整单均摊、金额比例分摊、数量比例分摊，尾差自动回补至订单内金额最大行，逐单对平。
+            </Text>
+            <Radio.Group
+              value={mode}
+              onChange={(e) => setMode(e.target.value as FeeAllocateMode)}
+              optionType="button"
+              buttonStyle="solid"
+              size="small"
+              options={MODE_OPTIONS.map((m) => ({ label: m.label, value: m.value }))}
+            />
+            {activeMode && (
+              <Text style={{ fontSize: 11, color: TOKEN.textMuted, display: 'block', marginTop: 6 }}>
+                {activeMode.desc}
+              </Text>
+            )}
+          </div>
+
+          <FieldRow
+            label="订单号"
+            required
+            tip="订单级费用的分组依据（同一订单各行费用值相同或仅首行填充）"
+            value={orderIdCol}
+            columns={columns}
+            onChange={setOrderIdCol}
+            status={submitted && errors.orderIdCol ? 'error' : undefined}
+          />
+          <FieldRow
+            label="商品金额"
+            required
+            tip="行级商品金额：金额比例分摊的权重，也是单品净利的被减数"
+            value={amountCol}
+            columns={columns}
+            onChange={setAmountCol}
+            status={submitted && errors.amountCol ? 'error' : undefined}
+          />
+          <FieldRow
+            label="购买数量"
+            required={mode === 'quantity'}
+            tip="仅「数量比例分摊」必填；其余模式可留空"
+            value={quantityCol}
+            columns={columns}
+            onChange={setQuantityCol}
+            status={submitted && errors.quantityCol ? 'error' : undefined}
+          />
+          {submitted && errors.quantityCol && (
+            <Text style={{ fontSize: 11, color: TOKEN.textError }}>
+              数量比例分摊需要选择购买数量列
+            </Text>
+          )}
+        </Section>
+
+        {/* Group 2: Fee slots */}
+        <Section icon={<ApartmentOutlined />} title="订单费用槽位（相加 = 订单费用）" badge="Group 2">
+          <SlotRow
+            label="槽位 1 · 佣金 *"
+            slot={feeSlots.slot1}
+            columns={columns}
+            operatorLocked
+            onOperatorChange={() => undefined}
+            onColumnChange={(col) => updateFeeSlot('slot1', { column: col })}
+          />
+          <SlotRow
+            label="槽位 2 · 广告费"
+            slot={feeSlots.slot2}
+            columns={columns}
+            onOperatorChange={(op) => updateFeeSlot('slot2', { operator: op })}
+            onColumnChange={(col) => updateFeeSlot('slot2', { column: col })}
+          />
+          <SlotRow
+            label="槽位 3 · 服务费"
+            slot={feeSlots.slot3}
+            columns={columns}
+            onOperatorChange={(op) => updateFeeSlot('slot3', { operator: op })}
+            onColumnChange={(col) => updateFeeSlot('slot3', { column: col })}
+          />
+          <SlotRow
+            label="槽位 4 · 其他"
+            slot={feeSlots.slot4}
+            columns={columns}
+            onOperatorChange={(op) => updateFeeSlot('slot4', { operator: op })}
+            onColumnChange={(col) => updateFeeSlot('slot4', { column: col })}
+          />
+          {submitted && errors.feeSlots && (
+            <Text style={{ fontSize: 11, color: TOKEN.textError }}>
+              槽位 1（平台佣金）为必选，请选择费用列
+            </Text>
+          )}
+        </Section>
+
+        {/* Group 3: Deduct slots */}
+        <Section icon={<ApartmentOutlined />} title="净利扣减槽位（可选）" badge="Group 3">
+          <SlotRow
+            label="扣减 1"
+            slot={deductSlots.slot1}
+            columns={columns}
+            onOperatorChange={(op) => updateDeductSlot('slot1', { operator: op })}
+            onColumnChange={(col) => updateDeductSlot('slot1', { column: col })}
+          />
+          <SlotRow
+            label="扣减 2"
+            slot={deductSlots.slot2}
+            columns={columns}
+            onOperatorChange={(op) => updateDeductSlot('slot2', { operator: op })}
+            onColumnChange={(col) => updateDeductSlot('slot2', { column: col })}
+          />
+        </Section>
+
+        {/* Preview */}
         <div
           style={{
-            marginBottom: 16,
             padding: '10px 14px',
             background: 'var(--vm-primary-glow)',
             border: `1px solid var(--vm-primary-border)`,
@@ -382,141 +474,13 @@ export const EcomPlatformFeeAllocateDrawer: React.FC<EcomPlatformFeeAllocateDraw
             💸 分摊逻辑预览：
           </Text>
           <div style={{ marginTop: 6, fontSize: 11, color: TOKEN.textSecondary, lineHeight: '18px' }}>
-            平台佣金分摊 = 订单平台佣金 × (SKU净额 ÷ 订单净额)<br/>
-            服务费分摊 = 订单服务费 × (SKU净额 ÷ 订单净额)
+            {feePreview}
+            <br />
+            {netPreview}
           </div>
           <div style={{ marginTop: 4, fontSize: 11, color: TOKEN.textMuted }}>
-            💡 按订单分组，根据每个SKU的净额占比，将订单级的平台佣金和服务费分摊到每个SKU行
+            💡 分摊模式：{activeMode?.label}；{activeMode?.desc}；尾差回补至订单内金额最大行，保证每笔订单分摊合计恰好等于订单费用。
           </div>
-        </div>
-
-        {/* Group 1: Required Field Mapping */}
-        <Section icon={<ApartmentOutlined />} title="必填字段映射" badge="Group 1">
-          <FieldRow
-            label="订单ID"
-            required
-            tip="订单唯一标识，用于分组"
-            value={orderIdCol}
-            columns={columns}
-            onChange={handleOrderIdColChange}
-            status={orderIdError ? 'error' : undefined}
-            selectRef={orderIdRef}
-          />
-          <FieldRow
-            label="SKU/商品行ID"
-            required
-            tip="订单内商品行的唯一标识"
-            value={skuIdCol}
-            columns={columns}
-            onChange={handleSkuIdColChange}
-            status={skuIdError ? 'error' : undefined}
-            selectRef={skuIdRef}
-          />
-          <FieldRow
-            label="订单净额"
-            required
-            tip="订单级的净额（退款后实收），作为分摊分母"
-            value={orderNetAmountCol}
-            columns={columns}
-            onChange={handleOrderNetAmountColChange}
-            status={orderNetAmountError ? 'error' : undefined}
-            selectRef={orderNetAmountRef}
-          />
-          <FieldRow
-            label="SKU净额"
-            required
-            tip="商品行级的净额，作为分摊分子"
-            value={skuNetAmountCol}
-            columns={columns}
-            onChange={handleSkuNetAmountColChange}
-            status={skuNetAmountError ? 'error' : undefined}
-            selectRef={skuNetAmountRef}
-          />
-          <FieldRow
-            label="平台佣金"
-            required
-            tip="订单级的平台佣金/手续费"
-            value={platformFeeCol}
-            columns={columns}
-            onChange={handlePlatformFeeColChange}
-            status={platformFeeError ? 'error' : undefined}
-            selectRef={platformFeeRef}
-          />
-          <FieldRow
-            label="服务费"
-            required
-            tip="订单级的其他服务费用"
-            value={serviceFeeCol}
-            columns={columns}
-            onChange={handleServiceFeeColChange}
-            status={serviceFeeError ? 'error' : undefined}
-            selectRef={serviceFeeRef}
-          />
-        </Section>
-
-        {/* Group 2: Optional dimension columns + Group 3: Risk threshold (in Collapse) */}
-        <Collapse
-          ghost
-          size="small"
-          defaultActiveKey={[]}
-          style={{ marginBottom: 16 }}
-          items={[
-            {
-              key: '1',
-              label: (
-                <span style={{ fontSize: 12, color: TOKEN.textSecondary }}>
-                  <ApartmentOutlined style={{ marginRight: 6 }} />
-                  更多设置
-                </span>
-              ),
-              children: (
-                <>
-                  {/* Optional dimension columns */}
-                  <Section icon={<ApartmentOutlined />} title="维度透传（可选）" badge="Group 2">
-                    <FieldRow label="下单时间" value={orderTimeCol} columns={columns} onChange={setOrderTimeCol} />
-                    <FieldRow label="类目" value={categoryCol} columns={columns} onChange={setCategoryCol} />
-                    <FieldRow label="渠道" value={channelCol} columns={columns} onChange={setChannelCol} />
-                  </Section>
-
-                  {/* Risk threshold */}
-                  <Section icon={<FilterOutlined />} title="风险分级配置" badge="Group 3">
-                    <div style={rowStyle}>
-                      <Text style={labelStyle}>预警成本占比</Text>
-                      <InputNumber
-                        size="small"
-                        style={{ width: 100 }}
-                        value={warningThresholdPct}
-                        min={0}
-                        max={100}
-                        step={0.5}
-                        suffix="%"
-                        onChange={(v) => setWarningThresholdPct(v ?? 15)}
-                      />
-                    </div>
-                    <div style={{ marginTop: 8 }}>
-                      <Text style={{ fontSize: 11, color: TOKEN.textMuted, lineHeight: '18px' }}>
-                        风险等级判定：分摊后总成本占比（成本+佣金+服务费）÷ 净额 ≥ 预警值 → 预警；否则 → 健康
-                      </Text>
-                    </div>
-                  </Section>
-                </>
-              ),
-            },
-          ]}
-        />
-
-        {/* Hint line */}
-        <div
-          style={{
-            padding: '10px 14px',
-            background: TOKEN.bgSection,
-            borderRadius: TOKEN.radius,
-            marginTop: 4,
-          }}
-        >
-          <Text style={{ fontSize: 11, color: TOKEN.textMuted, lineHeight: '18px' }}>
-            💡 <b>提示：</b>分摊逻辑按订单分组，将订单级的平台佣金和服务费按SKU净额占比分摊到每个商品行。如需剔除已取消订单，请在画布中添加「条件」节点过滤。
-          </Text>
         </div>
       </Drawer>
     </>

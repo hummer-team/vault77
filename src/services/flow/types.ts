@@ -294,7 +294,7 @@ export interface SelectNodeData extends BaseNodeData {
   netAmountCalcConfig?: NetAmountCalcConfig;
   /** Config for fn_ecom_order_profit_margin_calc */
   profitMarginCalcConfig?: ProfitMarginCalcConfig;
-  feeAllocateConfig?: FeeAllocateConfig;
+  platformFeeAllocateConfig?: PlatformFeeAllocateConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -947,33 +947,40 @@ export interface ProfitMarginCalcConfig {
   warningThresholdPct: number;
 }
 
+export type FeeAllocateMode = 'amount' | 'quantity' | 'even';
+
 /**
  * Config stored on SelectNodeData for fn_ecom_platform_fee_allocate.
+ * Order-level fee allocation: fee (deduped per order) apportioned to detail rows
+ * by even / amount-ratio / quantity-ratio; rounding residual lands on the
+ * max-amount row so that SUM(allocated_fee) == order fee per order.
  */
-export interface FeeAllocateConfig {
+export interface PlatformFeeAllocateConfig {
+  mode: FeeAllocateMode;                     // default 'amount'
   fieldMapping: {
-    /** Required: order ID column for grouping */
     orderIdCol: string;
-    /** Required: SKU/product line ID column for allocation target */
-    skuIdCol: string;
-    /** Required: order-level net amount column (denominator for ratio) */
-    orderNetAmountCol: string;
-    /** Required: SKU-level net amount column (numerator for ratio) */
-    skuNetAmountCol: string;
-    /** Required: platform commission column */
-    platformFeeCol: string;
-    /** Required: service fee column */
-    serviceFeeCol: string;
-    /** Optional: order time column */
-    orderTimeCol?: string;
-    /** Optional: category column */
-    categoryCol?: string;
-    /** Optional: channel column */
-    channelCol?: string;
+    amountCol: string;
+    quantityCol?: string;                    // mode='quantity' 时必填
   };
-  /** Warning threshold for cost ratio (0-100, default 15, step 0.5) */
-  warningThresholdPct: number;
+  feeSlots: { slot1: FormulaSlot; slot2: FormulaSlot; slot3: FormulaSlot; slot4: FormulaSlot };
+  deductSlots: { slot1: FormulaSlot; slot2: FormulaSlot };
 }
+
+/** 默认配置 — 计划 11 §0.1：slot1 锚定 +平台佣金、slot2 +广告费，slot3/4 与扣减槽留空 */
+export const DEFAULT_FEE_ALLOCATE_CONFIG: PlatformFeeAllocateConfig = {
+  mode: 'amount',
+  fieldMapping: { orderIdCol: '', amountCol: '', quantityCol: '' },
+  feeSlots: {
+    slot1: { operator: '+', column: 'platform_fee' },
+    slot2: { operator: '+', column: 'ad_fee' },
+    slot3: { operator: '+', column: '' },
+    slot4: { operator: '+', column: '' },
+  },
+  deductSlots: {
+    slot1: { operator: '-', column: '' },
+    slot2: { operator: '-', column: '' },
+  },
+};
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.
