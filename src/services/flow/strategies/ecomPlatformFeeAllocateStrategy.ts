@@ -307,9 +307,9 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       ],
     };
 
-    // 卡② 费用最高的订单（Top5，按订单聚合 Σ allocated_fee 降序）
+    // 卡② 费用最高的订单（Top5，按订单聚合 order_fee_total 降序）
     const orderFees = [...byOrder.entries()]
-      .map(([oid, agg]) => ({ oid, fee: agg.fee }))
+      .map(([oid, agg]) => ({ oid, fee: agg.orderFeeTotal }))
       .sort((a, b) => b.fee - a.fee);
     const sortedFees = orderFees.map((o) => o.fee).sort((a, b) => a - b);
     const median = sortedFees.length
