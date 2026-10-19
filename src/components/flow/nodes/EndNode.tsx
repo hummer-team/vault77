@@ -276,7 +276,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
   }, [shouldExecuteDirectly, executeFlow]);
 
   // Get operator config
-  const operatorConfig = OPERATOR_CONFIG[data.operatorType as keyof typeof OPERATOR_CONFIG];
+  const operatorConfig = OPERATOR_CONFIG[data.operatorType];
 
   // Error count
   const errorCount = data.errors?.length || 0;

@@ -257,8 +257,8 @@ export const OPERATOR_CONFIG = {
     color: '#52c41a',
   },
   platform_fee_allocate: {
-    name: '平台佣金/服务费分摊',
-    description: '行级原子计算：按订单净额占比将平台佣金和服务费分摊到每个商品行，含分摊后成本分析与异常预警',
+    name: '平台佣金/服务费自动分摊',
+    description: '行级分摊计算：订单费用按 order_id 分区三模式分摊（整单均摊/金额比例/数量比例），尾差挂金额最大行逐单对平',
     icon: '💸',
     color: '#13c2c2',
   },

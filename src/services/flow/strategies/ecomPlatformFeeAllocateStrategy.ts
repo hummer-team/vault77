@@ -161,6 +161,8 @@ export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
     const A = `"${amountCol}"`;
     const Q = quantityCol ? `"${quantityCol}"` : '0';
 
+    logger.info(`[${this.name}.buildOperatorSql] mode=${cfg.mode}, table=${tableName}, orderIdCol=${orderIdCol}, amountCol=${amountCol}`);
+
     // 费用总额：逐列去重（每槽 MAX OVER 订单分区）后相加，防重复计费且不漏跨行填充（决议 3）
     const feeTerms = FEE_SLOT_KEYS
       .map((k) => cfg.feeSlots[k])
@@ -169,6 +171,7 @@ export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
         `${i === 0 ? (s.operator === '-' ? '- ' : '') : `${s.operator} `}MAX(COALESCE("${s.column}", 0)) OVER (PARTITION BY ${O})`)
       .join(' ');
     const feeTotalExpr = feeTerms || '0.0';
+    logger.debug(`[${this.name}.buildOperatorSql] 费用槽位生效 ${FEE_SLOT_KEYS.filter((k) => !!cfg.feeSlots[k]?.column).length}/4`);
 
     // 权重表达式：三种 mode 仅在此处分叉（决议 2）
     const weightExpr =
@@ -265,6 +268,8 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       alloc_mode_label: String(r.alloc_mode_label ?? ''),
     }));
 
+    logger.info(`[${this.name}.postProcess] rows=${rows.length}, mode=${last.mode}`);
+
     // 订单聚合：Σ allocated_fee / 订单费用 / 零权重判定
     const byOrder = new Map<string, { fee: number; orderFeeTotal: number; allZeroRatio: boolean }>();
     let totalAllocated = 0;
@@ -346,6 +351,8 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
         { label: '涉及订单数', value: adjustOrders.size, unit: '单' },
       ],
     };
+
+    logger.debug(`[${this.name}.postProcess] orderCount=${orderCount}, adjustRows=${adjustRows.length}`);
 
     // 卡④ 零权重异常订单（费用>0 但该单分摊比例全 0；决议 8 提醒档位 warning）
     let abnormalCount = 0;
