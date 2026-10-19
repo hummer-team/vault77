@@ -250,6 +250,34 @@ describe('EcomPlatformFeeAllocateStrategy', () => {
       expect(cards[3].iconKey).toBe('safe');
     });
 
+    it('skips order-level stats instead of collapsing rows when orderIdCol is unavailable (问题 16)', async () => {
+      // 关键：不调用 buildOperatorSql → _lastConfig 为 null（兜底分支，此前零覆盖）
+      const fresh = new EcomPlatformFeeAllocateStrategy();
+      const rows = [
+        allocRow({ order_id: 'O1' }),
+        allocRow({ order_id: 'O2', allocated_fee: 5, alloc_ratio_pct: 0.3333, is_rounding_adjust: true }),
+      ];
+      const res = await fresh.postProcess({ data: rows, schema: [] });
+      const cards = cardsOf(res);
+
+      // 卡②/卡④ 需要订单维，缺列时不产出；卡①/卡③ 保留
+      expect(cards.map((c) => c.id)).toEqual(['fee-allocate-summary', 'rounding-adjust']);
+      // 卡① 不再输出「共 1 笔订单」伪值，也不再输出恒 0 的「平均费率」
+      expect(cards[0].description ?? '').not.toContain('笔订单');
+      expect(cards[0].description ?? '').not.toContain('平均费率');
+      expect(cards[0].description).toContain('按商品金额比例分摊');
+      // 行级合计仍然真实（10 + 5），未被空键归并
+      expect(cards[0].metrics?.[0].value).toBeCloseTo(15, 2);
+      expect(cards[0].metrics?.map((m) => m.label)).toEqual(['总分摊费用']);
+      // 卡③ 只保留行级口径，去掉无法计算的「涉及订单数」
+      expect(cards[1].metrics?.map((m) => m.label)).toEqual(['尾差行数']);
+      expect(cards[1].metrics?.[0].value).toBe(1);
+      // summary 不谎报订单数
+      const summary = (res.insightsData as { summary?: { totalOrderCount?: number; totalRecordCount?: number } }).summary;
+      expect(summary?.totalOrderCount).toBeUndefined();
+      expect(summary?.totalRecordCount).toBe(2);
+    });
+
     it('flips card④ to warning for zero-weight abnormal orders with suggestion', async () => {
       strategy.buildOperatorSql(makeNodes(makeConfig()), noEdges);
       const rows = [allocRow({ order_id: 'O2', allocated_fee: 0, alloc_ratio_pct: 0, order_fee_total: 10, product_amount: 0 })];

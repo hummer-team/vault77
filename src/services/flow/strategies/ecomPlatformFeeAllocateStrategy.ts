@@ -28,6 +28,7 @@ import {
   type AnalysisResult,
   type OperatorInsightsData,
   type InsightItem,
+  type InsightMetric,
   type OperatorDisplayConfig,
   type PlatformFeeAllocateConfig,
   type FeeAllocateMode,
@@ -85,6 +86,12 @@ const safeNum = (v: unknown): number => {
 };
 
 const safeBool = (v: unknown): boolean => v === true || v === 1 || v === '1' || v === 'true';
+
+/** 列名归一：非字符串/空白一律视为「无此维度」（问题 16：禁止空列名参与取列） */
+const readColumnName = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+/** 单元格 → 分组键：空值归一到空串，避免 'null'/'undefined' 字符串混入分组 */
+const cellKey = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
 
 export class EcomPlatformFeeAllocateStrategy extends BaseStrategy {
   readonly type = OperatorType.PLATFORM_FEE_ALLOCATE;
@@ -251,11 +258,14 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       return this._buildEmptyResult(baseSchema);
     }
 
-    const last = this._lastConfig ?? {
-      mode: DEFAULT_FEE_ALLOCATE_CONFIG.mode,
-      orderIdCol: DEFAULT_FEE_ALLOCATE_CONFIG.fieldMapping.orderIdCol,
-      amountCol: DEFAULT_FEE_ALLOCATE_CONFIG.fieldMapping.amountCol,
-    };
+    // 问题 16：不再用 DEFAULT_FEE_ALLOCATE_CONFIG 的空列名伪造「订单维度」。
+    // 缺列时跳过对应层级的统计，而不是把全部行按空键归并成 1 笔订单（错误值）。
+    const last = this._lastConfig;
+    const mode = last?.mode ?? DEFAULT_FEE_ALLOCATE_CONFIG.mode;
+    const orderIdCol = readColumnName(last?.orderIdCol);
+    const amountCol = readColumnName(last?.amountCol);
+    const hasOrderDim = orderIdCol.length > 0;
+    const hasAmountDim = amountCol.length > 0;
 
     // 行归一化（决议 7 输出列固定，不新增列）
     const rows: AllocRow[] = rawRows.map((r) => ({
@@ -268,32 +278,46 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       alloc_mode_label: String(r.alloc_mode_label ?? ''),
     }));
 
-    logger.info(`[${this.name}.postProcess] rows=${rows.length}, mode=${last.mode}`);
+    logger.info(
+      `[${this.name}.postProcess] rows=${rows.length}, mode=${mode}, ` +
+      `hasOrderDim=${hasOrderDim}, hasAmountDim=${hasAmountDim}`,
+    );
 
-    // 订单聚合：Σ allocated_fee / 订单费用 / 零权重判定
+    // 订单聚合：Σ allocated_fee / 订单费用 / 零权重判定（无订单列时整体跳过）
     const byOrder = new Map<string, { fee: number; orderFeeTotal: number; allZeroRatio: boolean }>();
     let totalAllocated = 0;
     let totalAmount = 0;
     for (const row of rows) {
-      const oid = String(row[last.orderIdCol] ?? '');
       const fee = row.allocated_fee as number;
       totalAllocated += fee;
-      totalAmount += safeNum(row[last.amountCol]);
+      if (hasAmountDim) totalAmount += safeNum(row[amountCol]);
+      if (!hasOrderDim) continue;
+      const oid = cellKey(row[orderIdCol]);
       const agg = byOrder.get(oid) ?? { fee: 0, orderFeeTotal: 0, allZeroRatio: true };
       agg.fee += fee;
       agg.orderFeeTotal = Math.max(agg.orderFeeTotal, row.order_fee_total as number);
       agg.allZeroRatio = agg.allZeroRatio && (row.alloc_ratio_pct as number) === 0;
       byOrder.set(oid, agg);
     }
-    const orderCount = byOrder.size;
+    const orderCount = hasOrderDim ? byOrder.size : undefined;
 
     // 卡① 分摊汇总
     const modeSentence = {
       amount: '按商品金额比例分摊',
       quantity: '按商品数量比例分摊',
       even: '整单均摊',
-    }[last.mode];
+    }[mode];
     const avgRatio = totalAmount > 0 ? totalAllocated / totalAmount : 0;
+    // 无订单列 / 无金额列时降级文案：绝不输出「共 1 笔订单」「平均费率 0.00%」这类伪值
+    const summaryHead = [
+      ...(orderCount === undefined ? [] : [`共 ${orderCount} 笔订单`]),
+      modeSentence,
+    ].join('，');
+    const summaryMetrics: InsightMetric[] = [
+      { label: '总分摊费用', value: totalAllocated, unit: '元', highlight: true },
+    ];
+    if (orderCount !== undefined) summaryMetrics.push({ label: '订单数', value: orderCount, unit: '单' });
+    if (hasAmountDim) summaryMetrics.push({ label: '平均费率', value: avgRatio, unit: '%' });
     // 量纲单点（问题 8）：下方乘 100 是全文件唯一一处，仅用于 description 文案。
     // 表格列 alloc_ratio_pct 保持 0–1，×100 由展示层 percent_signed 契约完成
     // （ResultsDisplay.tsx:145-152）；指标 value 按 InsightMetric 契约存 0–1 原始小数，
@@ -304,41 +328,51 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       iconKey: 'order',
       title: '分摊汇总',
       sortOrder: 1,
-      description: `共 ${orderCount} 笔订单，${modeSentence}；平均费率 ${(avgRatio * 100).toFixed(2)}%`,
-      metrics: [
-        { label: '总分摊费用', value: totalAllocated, unit: '元', highlight: true },
-        { label: '订单数', value: orderCount, unit: '单' },
-        { label: '平均费率', value: avgRatio, unit: '%' },
-      ],
+      description: hasAmountDim
+        ? `${summaryHead}；平均费率 ${(avgRatio * 100).toFixed(2)}%`
+        : summaryHead,
+      metrics: summaryMetrics,
     };
 
     // 卡② 费用最高的订单（Top5，按订单聚合 order_fee_total 降序）
-    const orderFees = [...byOrder.entries()]
-      .map(([oid, agg]) => ({ oid, fee: agg.orderFeeTotal }))
-      .sort((a, b) => b.fee - a.fee);
-    const sortedFees = orderFees.map((o) => o.fee).sort((a, b) => a - b);
-    const median = sortedFees.length
-      ? sortedFees.length % 2 === 1
-        ? sortedFees[(sortedFees.length - 1) / 2]
-        : (sortedFees[sortedFees.length / 2 - 1] + sortedFees[sortedFees.length / 2]) / 2
-      : 0;
-    const cardTopOrders: InsightItem = {
-      id: 'fee-allocate-top-orders',
-      cardType: 'standard',
-      iconKey: 'insight',
-      title: '费用最高的订单',
-      sortOrder: 2,
-      description: orderFees.slice(0, 5).map((o) => `${o.oid}(${o.fee.toFixed(2)}元)`).join('、'),
-      metrics: [
-        { label: '最高单', value: orderFees[0]?.fee ?? 0, unit: '元', highlight: true },
-        { label: '中位', value: median, unit: '元' },
-        { label: '费用>0订单数', value: orderFees.filter((o) => o.fee > 0).length, unit: '单' },
-      ],
-    };
+    // 订单列缺失时该卡无意义，整体不产出（问题 16）
+    let cardTopOrders: InsightItem | undefined;
+    if (hasOrderDim) {
+      const orderFees = [...byOrder.entries()]
+        .map(([oid, agg]) => ({ oid, fee: agg.orderFeeTotal }))
+        .sort((a, b) => b.fee - a.fee);
+      const sortedFees = orderFees.map((o) => o.fee).sort((a, b) => a - b);
+      const median = sortedFees.length
+        ? sortedFees.length % 2 === 1
+          ? sortedFees[(sortedFees.length - 1) / 2]
+          : (sortedFees[sortedFees.length / 2 - 1] + sortedFees[sortedFees.length / 2]) / 2
+        : 0;
+      cardTopOrders = {
+        id: 'fee-allocate-top-orders',
+        cardType: 'standard',
+        iconKey: 'insight',
+        title: '费用最高的订单',
+        sortOrder: 2,
+        description: orderFees.slice(0, 5).map((o) => `${o.oid}(${o.fee.toFixed(2)}元)`).join('、'),
+        metrics: [
+          { label: '最高单', value: orderFees[0]?.fee ?? 0, unit: '元', highlight: true },
+          { label: '中位', value: median, unit: '元' },
+          { label: '费用>0订单数', value: orderFees.filter((o) => o.fee > 0).length, unit: '单' },
+        ],
+      };
+    }
 
     // 卡③ 尾差回补行（决议 5/8）
     const adjustRows = rows.filter((r) => r.is_rounding_adjust === true);
-    const adjustOrders = new Set(adjustRows.map((r) => String(r[last.orderIdCol] ?? '')));
+    const adjustOrderCount = hasOrderDim
+      ? new Set(adjustRows.map((r) => cellKey(r[orderIdCol]))).size
+      : undefined;
+    const roundingMetrics: InsightMetric[] = [
+      { label: '尾差行数', value: adjustRows.length, unit: '行' },
+    ];
+    if (adjustOrderCount !== undefined) {
+      roundingMetrics.push({ label: '涉及订单数', value: adjustOrderCount, unit: '单' });
+    }
     const cardRounding: InsightItem = {
       id: 'rounding-adjust',
       cardType: 'standard',
@@ -346,41 +380,50 @@ ORDER BY ${O} ASC, COALESCE(${A}, 0) DESC, _src_rn ASC`;
       title: '尾差回补行',
       sortOrder: 3,
       description: '尾差回补至订单内金额最大行，逐单对平（Σ分摊额 = 订单费用）',
-      metrics: [
-        { label: '尾差行数', value: adjustRows.length, unit: '行' },
-        { label: '涉及订单数', value: adjustOrders.size, unit: '单' },
-      ],
+      metrics: roundingMetrics,
     };
 
-    logger.debug(`[${this.name}.postProcess] orderCount=${orderCount}, adjustRows=${adjustRows.length}`);
+    logger.debug(
+      `[${this.name}.postProcess] orderCount=${orderCount === undefined ? 'n/a' : orderCount}, ` +
+      `adjustRows=${adjustRows.length}`,
+    );
 
     // 卡④ 零权重异常订单（费用>0 但该单分摊比例全 0；决议 8 提醒档位 warning）
-    let abnormalCount = 0;
-    for (const agg of byOrder.values()) {
-      if (agg.orderFeeTotal > 0 && agg.allZeroRatio) abnormalCount++;
+    // 订单维判定需要订单列，缺列时不产出（问题 16）
+    let cardZeroWeight: InsightItem | undefined;
+    if (hasOrderDim) {
+      let abnormalCount = 0;
+      for (const agg of byOrder.values()) {
+        if (agg.orderFeeTotal > 0 && agg.allZeroRatio) abnormalCount++;
+      }
+      cardZeroWeight = {
+        id: 'zero-weight-abnormal',
+        cardType: 'standard',
+        iconKey: abnormalCount > 0 ? 'warning' : 'safe',
+        title: '零权重异常订单',
+        sortOrder: 4,
+        description: abnormalCount > 0
+          ? `${abnormalCount} 笔订单费用大于 0 但分摊比例为 0`
+          : '无零权重异常订单',
+        ...(abnormalCount > 0 ? { suggestion: '检查该订单商品金额/数量是否缺失' } : {}),
+        metrics: [
+          { label: '异常订单数', value: abnormalCount, unit: '单' },
+        ],
+      };
     }
-    const cardZeroWeight: InsightItem = {
-      id: 'zero-weight-abnormal',
-      cardType: 'standard',
-      iconKey: abnormalCount > 0 ? 'warning' : 'safe',
-      title: '零权重异常订单',
-      sortOrder: 4,
-      description: abnormalCount > 0
-        ? `${abnormalCount} 笔订单费用大于 0 但分摊比例为 0`
-        : '无零权重异常订单',
-      ...(abnormalCount > 0 ? { suggestion: '检查该订单商品金额/数量是否缺失' } : {}),
-      metrics: [
-        { label: '异常订单数', value: abnormalCount, unit: '单' },
-      ],
-    };
+
+    const insights: InsightItem[] = [cardSummary];
+    if (cardTopOrders) insights.push(cardTopOrders);
+    insights.push(cardRounding);
+    if (cardZeroWeight) insights.push(cardZeroWeight);
 
     const insightsData: OperatorInsightsData = {
       summary: {
         totalRecordCount: rows.length,
         totalFilterRecordCount: rows.length,
-        totalOrderCount: orderCount,
+        ...(orderCount === undefined ? {} : { totalOrderCount: orderCount }),
       },
-      insights: [cardSummary, cardTopOrders, cardRounding, cardZeroWeight],
+      insights,
     };
 
     // displayConfig：不设 defaultSort（JS 重排会覆盖 SQL 订单聚簇序，决议 10）；
