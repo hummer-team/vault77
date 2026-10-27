@@ -41,7 +41,7 @@ import type {
   ProfitMarginCalcConfig,
   PlatformFeeAllocateConfig,
 } from '../../../services/flow/types';
-import { OperatorType, FlowNodeType } from '../../../services/flow/types';
+import { OperatorType, FlowNodeType, hasColumnValue, missingDimensionColumns } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -142,6 +142,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
     fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
     fn_ecom_platform_fee_allocate:                OperatorType.PLATFORM_FEE_ALLOCATE,
+    fn_ecom_activity_effect_split:                OperatorType.ACTIVITY_EFFECT_SPLIT,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -420,6 +421,13 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
                   feeCfg?.fieldMapping?.amountCol &&
                   (feeCfg.mode !== 'quantity' || feeCfg.fieldMapping?.quantityCol) &&
                   !!feeCfg.feeSlots?.slot1?.column);
+      }
+      case SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER: {
+        // 与 Phase 1 校验规则 1/2/3 同源（Phase 0 导出函数，禁止内联重写判定）
+        const splitCfg = data.activityEffectSplitConfig;
+        return !!splitCfg?.dimensions?.length
+          && missingDimensionColumns(splitCfg).length === 0
+          && hasColumnValue(splitCfg.fieldMapping.netAmountCol);
       }
       default:
         return false;

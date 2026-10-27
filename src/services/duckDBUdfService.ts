@@ -31,6 +31,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_order_net_amount_calc: 'fn_ecom_order_net_amount_calc',
   fn_ecom_order_profit_margin_calc: 'fn_ecom_order_profit_margin_calc',
   fn_ecom_platform_fee_allocate: 'fn_ecom_platform_fee_allocate',
+  fn_ecom_activity_effect_split: 'fn_ecom_activity_effect_split',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */

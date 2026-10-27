@@ -102,6 +102,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_order_net_amount_calc:                OperatorType.NET_AMOUNT_CALC,
     fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
     fn_ecom_platform_fee_allocate:                OperatorType.PLATFORM_FEE_ALLOCATE,
+    fn_ecom_activity_effect_split:                OperatorType.ACTIVITY_EFFECT_SPLIT,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {

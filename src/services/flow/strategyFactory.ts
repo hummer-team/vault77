@@ -27,6 +27,7 @@ import { FulfillmentEfficiencyStrategy } from './strategies/fulfillmentEfficienc
 import { OrderNetAmountCalcStrategy } from './strategies/orderNetAmountCalcStrategy';
 import { OrderProfitMarginCalcStrategy } from './strategies/orderProfitMarginCalcStrategy';
 import { EcomPlatformFeeAllocateStrategy } from './strategies/ecomPlatformFeeAllocateStrategy';
+import { EcomActivityEffectSplitStrategy } from './strategies/ecomActivityEffectSplitStrategy';
 
 /**
  * Strategy Factory
@@ -56,6 +57,7 @@ export class StrategyFactory {
     [OperatorType.NET_AMOUNT_CALC, new OrderNetAmountCalcStrategy()],
     [OperatorType.PROFIT_MARGIN_CALC, new OrderProfitMarginCalcStrategy()],
     [OperatorType.PLATFORM_FEE_ALLOCATE, new EcomPlatformFeeAllocateStrategy()],
+    [OperatorType.ACTIVITY_EFFECT_SPLIT, new EcomActivityEffectSplitStrategy()],
   ]);
 
   /**
