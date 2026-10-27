@@ -62,6 +62,7 @@ export enum OperatorType {
   NET_AMOUNT_CALC = 'net_amount_calc',  // Order accounting: net amount after refund/rejection
   PROFIT_MARGIN_CALC = 'profit_margin_calc',  // Order accounting: gross/net profit margin calculation
   PLATFORM_FEE_ALLOCATE = 'platform_fee_allocate',  // 平台佣金/服务费自动分摊
+  ACTIVITY_EFFECT_SPLIT = 'activity_effect_split',  // 运营复盘：活动/优惠券/直播间效果拆分
 }
 
 export enum LogicType {
@@ -295,6 +296,8 @@ export interface SelectNodeData extends BaseNodeData {
   /** Config for fn_ecom_order_profit_margin_calc */
   profitMarginCalcConfig?: ProfitMarginCalcConfig;
   platformFeeAllocateConfig?: PlatformFeeAllocateConfig;
+  /** fn_ecom_activity_effect_split 配置 */
+  activityEffectSplitConfig?: ActivityEffectSplitConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -981,6 +984,94 @@ export const DEFAULT_FEE_ALLOCATE_CONFIG: PlatformFeeAllocateConfig = {
     slot2: { operator: '-', column: '' },
   },
 };
+
+/** 拆分维度（决策 #1 / #3） */
+export type ActivitySplitDimension = 'activity' | 'coupon' | 'live_room' | 'activity_type';
+/** 拉动金额口径（决策 #5 / #6 / #8） */
+export type ActivityLiftCaliber = 'activity_gmv' | 'product_amount' | 'baseline_delta' | 'custom_slots';
+/** 补贴成本口径（决策 #7 / #8） */
+export type ActivityCostCaliber = 'slot_sum' | 'single_column';
+
+export interface ActivityEffectSplitConfig {
+  dimensions: ActivitySplitDimension[];
+  fieldMapping: ActivityEffectSplitFieldMapping;
+  /** 决策 #5 / #6：`baseline_delta` 即「开启基线对比」的唯一真值（不另设布尔开关字段） */
+  liftCaliber: ActivityLiftCaliber;
+  costCaliber: ActivityCostCaliber;
+  liftSlots: FormulaSlot[];
+  costSlots: FormulaSlot[];
+  costSingleColumn: string;
+  excludedStatuses: string;
+  topN: number;
+}
+
+export interface ActivityEffectSplitFieldMapping {
+  activityIdCol: string;          // 维度「活动」列（维度分组键）
+  activityNameCol?: string;       // 维度「活动」展示名；映射后 dimension_label = COALESCE(名称, 活动列)
+  activityTypeCol?: string;       // 维度「活动类型」列
+  couponIdCol?: string;           // 维度「优惠券」列
+  couponAmountCol?: string;       // 优惠金额列：coupon_order_ratio 的判定依据（决策 #4）
+  liveRoomIdCol?: string;         // 维度「直播间」列
+  netAmountCol: string;           // 必填：订单实付金额（默认 lift 口径）
+  productAmountCol?: string;      // lift 口径 = 商品实付金额
+  payTimeCol?: string;            // 基线口径必填
+  activityStartCol?: string;      // 基线口径必填
+  activityEndCol?: string;        // 基线口径必填
+  couponStatusCol?: string;       // 核销率（决策 #9）
+  orderStatusCol?: string;        // 排除法过滤（决策 #11）
+  orderIdCol?: string;            // 订单量去重；缺省用 COUNT(*)
+  userIdCol?: string;             // 核销率去重键、券覆盖占比
+  quantityCol?: string;           // 销量
+}
+
+export const DEFAULT_ACTIVITY_EFFECT_SPLIT_CONFIG: ActivityEffectSplitConfig = {
+  dimensions: ['activity', 'coupon', 'live_room'],   // #1 / #3：activity_type 默认关闭
+  fieldMapping: { activityIdCol: '', activityNameCol: '', couponAmountCol: '', netAmountCol: '' },
+  liftCaliber: 'activity_gmv',                       // #5
+  costCaliber: 'slot_sum',                           // #7
+  liftSlots: [{ operator: '+', column: '' }],
+  costSlots: [
+    { operator: '+', column: 'coupon_amount' },
+    { operator: '+', column: 'discount_amount' },
+    { operator: '+', column: 'platform_subsidy' },
+    { operator: '+', column: 'ad_cost' },
+  ],
+  costSingleColumn: '',
+  excludedStatuses: 'CANCELLED,CLOSED',              // #11
+  topN: 3,                                           // #14
+};
+
+/**
+ * 逐字段深拷贝：默认常量为模块级单例，抽屉与策略均不得共享其嵌套引用。
+ * 不使用 `structuredClone`，纯 TS 显式克隆，jsdom 环境下同样可测。
+ */
+export function cloneActivityEffectSplitConfig(cfg: ActivityEffectSplitConfig): ActivityEffectSplitConfig {
+  return {
+    ...cfg,
+    dimensions: [...cfg.dimensions],
+    fieldMapping: { ...cfg.fieldMapping },
+    liftSlots: cfg.liftSlots.map((s) => ({ ...s })),
+    costSlots: cfg.costSlots.map((s) => ({ ...s })),
+  };
+}
+
+/** 维度 → 必填列键：Phase 1 校验 / Phase 2 isUdfConfigured / Phase 3 抽屉门禁共用同一映射，禁止各写一份 */
+export const DIMENSION_COLUMN_KEY: Record<ActivitySplitDimension, keyof ActivityEffectSplitFieldMapping> = {
+  activity: 'activityIdCol',
+  coupon: 'couponIdCol',
+  live_room: 'liveRoomIdCol',
+  activity_type: 'activityTypeCol',
+};
+
+/** 「已映射」唯一判据：'' 与 undefined 语义等价 */
+export function hasColumnValue(col?: string): boolean {
+  return !!col && col.trim() !== '';
+}
+
+/** 所选维度中尚未映射列的维度列表；空数组 = 维度门禁通过（dimensions 为空时由调用方单独判定） */
+export function missingDimensionColumns(cfg?: ActivityEffectSplitConfig): ActivitySplitDimension[] {
+  return (cfg?.dimensions ?? []).filter((d) => !hasColumnValue(cfg?.fieldMapping?.[DIMENSION_COLUMN_KEY[d]]));
+}
 
 /**
  * A single replacement rule for udf_replace_spec_column_value.
