@@ -570,19 +570,33 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     displayName: '活动/优惠券/直播间效果拆分',
     industry: '电商/订单',
     category: '运营复盘',
-    version: '1.0.0',
-    description: '自动识别活动订单，统计销量、拉动金额、核销率、ROI',
+    version: '1.1.0',
+    description: '自动识别活动订单，按活动、优惠券、直播间拆分销量、拉动金额、补贴成本与投产比',
     detailedDescription:
-        '按活动、优惠券、直播间、满减、秒杀拆分订单，计算活动净增长、补贴成本、ROI，判断活动是否盈利，避免盲目投流。',
+        '按活动、优惠券、直播间、活动类型拆分订单，计算活动净增长、补贴成本与投产比，并给出自然成交对照，判断活动是否盈利，避免盲目投流。券核销率需订单包含优惠券状态。',
     author: 'official',
     likes: 350,
     credits: 200,
     dataVolume: '10w order',
-    estimatedTime: '5s',
+    estimatedTime: '15s',
     metadata: {
-      inputFields: ['activity_id','coupon_id','live_room_id','net_amount','cost'],
-      outputFields: ['activity','order_count','lift_amount','roi','cost_rate'],
-      constraints: ['需要活动/优惠券/直播间标识']
+      // 相对需求第 1 轮 Q6 方案 A（23 项）的删减：coupon_receive_time 由 coupon_status 取代（第 2 轮 Q3 方案 D 用订单表状态判核销）；
+      // is_new_customer / refund_amount 本版无消费方（不做新客拆分；退款已在实付净额中扣除）。23 − 3 + 1 = 21 项，
+      // 每项均可在 ActivityEffectSplitFieldMapping 或算子槽位默认列中找到落点。
+      inputFields: ['activity_id','activity_name','activity_type','coupon_id','live_room_id',
+        'pay_time','activity_start_time','activity_end_time',
+        'order_id','user_id','quantity','net_amount','pay_amount','gross_profit',
+        'coupon_amount','discount_amount','platform_subsidy','ad_cost','cost',
+        'coupon_status','order_status'],
+      // 与算子输出 14 列一一对应、同序
+      outputFields: ['dimension_type','dimension_label','order_count','quantity','gmv','lift_amount',
+        'subsidy_cost','net_lift','roi','cost_rate','coupon_redemption_rate',
+        'coupon_order_ratio','avg_order_value','profit_effective_flag'],
+      constraints: ['需要活动/优惠券/直播间标识（至少其一）',
+        '所选拆分维度必须各自指定对应数据列（活动/优惠券/直播间/活动类型）',
+        '需要指定订单实付金额列',
+        '成本列缺失或所选成本列在本区间内全为空时，投产比与成本率置空并提示，不输出 0',
+        '基线对比需订单支付时间与活动起止时间（基线窗口取活动前等长区间）；券核销率需优惠券状态列，券覆盖占比需优惠金额列']
     }
   },
 
