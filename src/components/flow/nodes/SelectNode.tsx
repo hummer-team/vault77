@@ -40,6 +40,7 @@ import type {
   NetAmountCalcConfig,
   ProfitMarginCalcConfig,
   PlatformFeeAllocateConfig,
+  ActivityEffectSplitConfig,
 } from '../../../services/flow/types';
 import { OperatorType, FlowNodeType, hasColumnValue, missingDimensionColumns } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
@@ -68,6 +69,7 @@ import { FulfillmentEfficiencyDrawer } from '../udf/FulfillmentEfficiencyDrawer.
 import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { OrderProfitMarginCalcDrawer } from '../udf/OrderProfitMarginCalcDrawer';
 import { EcomPlatformFeeAllocateDrawer } from '../udf/EcomPlatformFeeAllocateDrawer';
+import { EcomActivityEffectSplitDrawer } from '../udf/EcomActivityEffectSplitDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -341,6 +343,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
       if (endNode) {
         updateNode(endNode.id, { operatorType: OperatorType.PLATFORM_FEE_ALLOCATE } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
+  const handleActivityEffectSplitConfirm = useCallback(
+    (config: ActivityEffectSplitConfig) => {
+      updateNode(id, { activityEffectSplitConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.ACTIVITY_EFFECT_SPLIT } as Record<string, unknown>);
       }
     },
     [id, updateNode]
@@ -912,6 +926,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               kernelIndustry={kernelMeta?.industry}
               kernelCategory={kernelMeta?.category}
               onConfirm={handleFeeAllocateConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER:
+          return (
+            <EcomActivityEffectSplitDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.activityEffectSplitConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              onConfirm={handleActivityEffectSplitConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
