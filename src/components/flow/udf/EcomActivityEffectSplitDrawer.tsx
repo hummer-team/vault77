@@ -216,17 +216,17 @@ export const EcomActivityEffectSplitDrawer: React.FC<EcomActivityEffectSplitDraw
       footer={
         <div>
           {dimsEmpty && (
-            <div style={{ fontSize: 12, color: 'var(--vm-color-warning, #d48806)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
               请至少选择一个拆分维度
             </div>
           )}
           {missingDims.length > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--vm-color-warning, #d48806)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
               {missingDims.map((d) => `${DIMENSION_LABEL[d]}维度尚未指定数据列`).join('；')}
             </div>
           )}
           {noNet && !dimsEmpty && missingDims.length === 0 && (
-            <div style={{ fontSize: 12, color: 'var(--vm-color-warning, #d48806)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
               订单实付金额为必填列
             </div>
           )}
