@@ -272,12 +272,54 @@ describe('lift 口径（决策 #5 / #6 / #8）', () => {
   it('基线口径：活动腿按该维度值的活动窗口截断（两腿同口径，决策 #6）', () => {
     const sql = build(fullDims({ liftCaliber: 'baseline_delta' }));
     const agg = sql.slice(sql.indexOf('agg_activity AS ('), sql.indexOf('d_activity AS ('));
-    expect(agg).toContain('AND EXISTS (');
+    expect(agg).toContain('AND NOT EXISTS (');
     expect(agg).toContain('FROM win_activity w');
-    expect(agg).toContain('CAST(src."支付时间" AS DATE) BETWEEN w.win_start AND w.win_end');
+    expect(agg).toContain('CAST(src."支付时间" AS DATE) NOT BETWEEN w.win_start AND w.win_end');
     expect(agg).toContain('GROUP BY 1, 2');
     // 非基线口径不引入窗口约束（src 区间即统计区间）
     expect(defaultSql()).not.toContain('EXISTS (');
+    // 正向 EXISTS 已废弃：inner-join 语义会静默剔除窗口/支付时间未知的行（第 3 轮评审 Medium 1）
+    expect(agg).not.toMatch(/\n\s+AND EXISTS \(/);
+  });
+
+  it('基线否定式窗口谓词等价模型：未知行保留、仅剔除已确认窗口外行（第 3 轮评审 Medium 1，结果型用例）', () => {
+    // 模型与生成的 SQL 谓词逐段对齐：
+    //   AND NOT EXISTS (SELECT 1 FROM win_activity w
+    //     WHERE w.dim_key = CAST(src."活动ID" AS VARCHAR)
+    //       AND CAST(src."支付时间" AS DATE) NOT BETWEEN w.win_start AND w.win_end)
+    // win_<dim> 每维度值一行（win_start = MIN(开始时间)、win_end = MAX(结束时间)，全 NULL ⇒ NULL）；
+    // SQL 三值逻辑：pay 或窗口端点为 NULL ⇒ NOT BETWEEN 为 UNKNOWN ⇒ 子查询无匹配 ⇒ 行保留（回退 lift 置空语义）
+    const sql = build(fullDims({ liftCaliber: 'baseline_delta' }));
+    expect(sql).toContain('MIN(CAST("活动开始时间" AS DATE)) AS win_start');
+    expect(sql).toContain('MAX(CAST("活动结束时间" AS DATE)) AS win_end');
+    expect(sql).toContain('CASE WHEN b.base_net IS NULL THEN CAST(NULL AS DOUBLE) ELSE ROUND((a._act_lift - b.base_net), 2) END AS lift_amount');
+
+    type Row = { id: string; pay: string | null; net: number };
+    const ts = (s: string | null): number | null => (s === null ? null : Date.parse(`${s}T00:00:00Z`));
+    const windows: Record<string, { start: number | null; end: number | null }> = {
+      A1: { start: ts('2024-01-10'), end: ts('2024-01-12') }, // 活动窗口 3 天
+      A4: { start: null, end: null },                          // 起止时间整列 NULL（窗口未知）
+    };
+    const kept = (r: Row): boolean => {
+      const w = windows[r.id];
+      if (r.pay === null || w.start === null || w.end === null) return true; // UNKNOWN ⇒ 不剔除
+      const p = ts(r.pay) as number;
+      return !(p < w.start || p > w.end); // TRUE ⇒ 已确认窗口外 ⇒ 剔除
+    };
+    const rows: Row[] = [
+      { id: 'A1', pay: '2024-01-11', net: 100 }, // 窗口内 → 保留
+      { id: 'A1', pay: '2024-01-08', net: 60 },  // 等长前窗（-2 天）→ 活动腿剔除（第 2 轮 Medium 1 修复效果不回退）
+      { id: 'A1', pay: null, net: 500 },         // 支付时间 NULL → 保留（正向 EXISTS 下曾被静默剔除）
+      { id: 'A4', pay: '2024-01-05', net: 50 },  // 窗口 NULL → 保留
+      { id: 'A4', pay: '2024-01-11', net: 50 },  // 窗口 NULL → 保留
+    ];
+    const leg = (id: string) => rows.filter((r) => r.id === id && kept(r));
+    // A1：前窗订单不进活动腿，但 payTime NULL 行回归 ⇒ GMV 600（100 + 500），不再是修后 100 / 修前 630 的任一极端
+    expect(leg('A1').map((r) => r.net)).toEqual([100, 500]);
+    // A4：起止时间整列 NULL 的维度值不再被静默整行剔除（恢复 2 行 / 100 元）
+    expect(leg('A4')).toHaveLength(2);
+    // base 腿：JOIN 条件含 date_diff BETWEEN，窗口或 pay 为 NULL ⇒ 无匹配 ⇒ base_net NULL ⇒ 上层 guard 输出 lift NULL（不是 0）
+    expect(sql).toContain('ON a.dim_key = b.dim_key');
   });
 
   it('gmv 恒为实付合计，不受 lift 口径影响', () => {
@@ -552,7 +594,7 @@ describe('postProcess 洞察卡（决策 #14）', () => {
       '只与同一活动 / 券 / 直播 / 活动类型在活动前等长窗口内的实付金额对比',
       '最早活动开始至最晚活动结束',
       '前窗无同标识订单时',
-      '自然行为活动期净额，不参与基线扣减',
+      '自然行为全时段净额（不受活动窗口约束），不参与基线扣减',
       '维度与标识越多执行越慢',
     ]) expect(desc).toContain(s);
   });

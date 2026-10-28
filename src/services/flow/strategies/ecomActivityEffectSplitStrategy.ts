@@ -416,11 +416,14 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
           : `MAX(CAST("${idCol}" AS VARCHAR))`;
       // 基线口径两腿同口径（决策 #6）：活动腿必须收敛到该维度值的活动窗口内，
       // 否则前窗订单会同时进入活动腿，gmv / order_count / quantity / subsidy_cost 被基线期订单污染
+      // 必须是否定式 NOT EXISTS：正向 EXISTS 依赖 win_<dim> 存在，会把「活动起止时间整列为空」
+      // 的维度值和「支付时间为 NULL」的订单静默剔除（CAST(NULL AS DATE) BETWEEN 返回 NULL → 行丢）。
+      // NULL 行既不匹配窗口也不匹配反窗口 → NOT EXISTS 为真 → 行保留、基线腿 NULL → lift/net_lift/roi 为 NULL。
       const windowCond = isBaseline
-        ? `\n    AND EXISTS (\n` +
+        ? `\n    AND NOT EXISTS (\n` +
           `      SELECT 1 FROM win_${dim} w\n` +
           `      WHERE w.dim_key = CAST(src."${idCol}" AS VARCHAR)\n` +
-          `        AND CAST(src."${m.payTimeCol}" AS DATE) BETWEEN w.win_start AND w.win_end\n` +
+          `        AND CAST(src."${m.payTimeCol}" AS DATE) NOT BETWEEN w.win_start AND w.win_end\n` +
           `    )`
         : '';
       ctes.push(
@@ -592,7 +595,7 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
         '每条维度行只与同一活动 / 券 / 直播 / 活动类型在活动前等长窗口内的实付金额对比',
         '基线窗口取该维度值在本表内的最早活动开始至最晚活动结束',
         '前窗无同标识订单时拉动金额 / 净增长 / 投产比 / 成本率为空（不是 0）',
-        '自然行为活动期净额，不参与基线扣减',
+        '自然行为全时段净额（不受活动窗口约束），不参与基线扣减',
         '基线口径需按生效维度逐个前窗回扫，维度与标识越多执行越慢',
       );
     }
