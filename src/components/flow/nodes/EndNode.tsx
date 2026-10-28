@@ -20,7 +20,7 @@ import type { EndNodeData, ConditionGroupDefinitionNodeData, OperatorNodeData, A
 import { FLOW_COLORS, OPERATOR_CONFIG } from '../../../services/flow/constants';
 import { StrategyFactory } from '../../../services/flow/strategyFactory';
 import { useDuckDBContext } from '../../../contexts/DuckDBContext';
-import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource } from '../../../services/flow/types';
+import { ValidationSeverity, FlowNodeType, OperatorType, EndNodeTriggerSource, blockingValidationErrors } from '../../../services/flow/types';
 import { ConditionValueFillDrawer } from '../udf/ConditionValueFillDrawer';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
 import { buildFlowSummary, type FlowSummary } from '../../../services/flow/flowSummary';
@@ -141,14 +141,22 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
         const strategy = StrategyFactory.getStrategy(resolvedOperatorType);
 
         const validationErrors = strategy.validate(storeNodes, edges);
-        if ((validationErrors?.length || 0) > 0) {
+        // 仅 ERROR 阻断执行；WARNING 为非阻断提示（如「成本费用项均未选择」），不得拦下运行
+        const warnings = (validationErrors ?? []).filter((e) => e.severity === ValidationSeverity.WARNING);
+        if (warnings.length > 0) {
+          logger.info(
+            `[EndNode] 非阻断提示: ${warnings.map((w) => w.message).join('；')}`,
+          );
+        }
+        const blockingErrors = blockingValidationErrors(validationErrors);
+        if (blockingErrors.length > 0) {
           updateNode(id, {
             ...data,
             executing: false,
-            errors: validationErrors,
+            errors: blockingErrors,
           });
           setErrorPanelOpen(true);
-          return { success: false, error: validationErrors[0]?.message ?? '流程配置校验失败' };
+          return { success: false, error: blockingErrors[0]?.message ?? '流程配置校验失败' };
         }
 
         if (!isDBReady) {

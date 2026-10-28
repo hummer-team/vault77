@@ -6,12 +6,12 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Drawer, Button, Select, Input, InputNumber, Radio, Checkbox, Tooltip, Typography } from 'antd';
-import { FunctionOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { FunctionOutlined, InfoCircleOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   DEFAULT_ACTIVITY_EFFECT_SPLIT_CONFIG,
   cloneActivityEffectSplitConfig,
   hasColumnValue,
-  missingDimensionColumns,
+  collectActivitySplitBlockers,
   type ActivityEffectSplitConfig,
   type ActivityEffectSplitFieldMapping,
   type ActivitySplitDimension,
@@ -37,6 +37,10 @@ export interface EcomActivityEffectSplitDrawerProps {
 }
 
 const DIMS: ActivitySplitDimension[] = ['activity', 'coupon', 'live_room', 'activity_type'];
+
+/** 槽位数量（Phase 3 任务 5）：最多 4 行 / 最少 1 行，1 行时删除按钮 disabled */
+const SLOT_MAX = 4;
+const SLOT_MIN = 1;
 
 const TIME_KEYS: Array<keyof ActivityEffectSplitFieldMapping> = ['payTimeCol', 'activityStartCol', 'activityEndCol'];
 
@@ -153,11 +157,28 @@ export const EcomActivityEffectSplitDrawer: React.FC<EcomActivityEffectSplitDraw
     setCfg((prev) => ({ ...prev, costSlots: prev.costSlots.map((s, j) => (j === i ? { ...s, ...p } : s)) })), []);
   const patchLiftSlot = useCallback((i: number, p: Partial<FormulaSlot>) =>
     setCfg((prev) => ({ ...prev, liftSlots: prev.liftSlots.map((s, j) => (j === i ? { ...s, ...p } : s)) })), []);
+  const addSlot = useCallback((key: 'costSlots' | 'liftSlots') =>
+    setCfg((prev) => (prev[key].length >= SLOT_MAX
+      ? prev
+      : { ...prev, [key]: [...prev[key], { operator: '+', column: '' } as FormulaSlot] })), []);
+  const removeSlot = useCallback((key: 'costSlots' | 'liftSlots', index: number) =>
+    setCfg((prev) => (prev[key].length <= SLOT_MIN
+      ? prev
+      : { ...prev, [key]: prev[key].filter((_, j) => j !== index) })), []);
 
-  const missingDims = useMemo(() => missingDimensionColumns(cfg), [cfg]);
-  const dimsEmpty = cfg.dimensions.length === 0;
-  const noNet = !hasColumnValue(cfg.fieldMapping.netAmountCol);
-  const gateOk = !dimsEmpty && missingDims.length === 0 && !noNet;
+  // 确认门禁 = Phase 1 校验 / Phase 2 isUdfConfigured 共用的同一阻断判据（禁止内联重写）
+  const blockers = useMemo(() => collectActivitySplitBlockers(cfg), [cfg]);
+  const gateOk = blockers.length === 0;
+  const noNet = blockers.some((b) => b.code === 'no-net-amount');
+  const noDimBlocker = blockers.some((b) => b.code === 'no-dimension');
+  const missingDimsText = blockers
+    .filter((b) => b.code === 'missing-dimension-column')
+    .map((b) => b.message)
+    .join('；');
+  const otherBlockersText = blockers
+    .filter((b) => b.code !== 'no-dimension' && b.code !== 'missing-dimension-column')
+    .map((b) => b.message)
+    .join('；');
 
   const timeReady = TIME_KEYS.every((k) => hasColumnValue(cfg.fieldMapping[k]));
 
@@ -215,19 +236,19 @@ export const EcomActivityEffectSplitDrawer: React.FC<EcomActivityEffectSplitDraw
       }
       footer={
         <div>
-          {dimsEmpty && (
+          {noDimBlocker && (
             <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
               请至少选择一个拆分维度
             </div>
           )}
-          {missingDims.length > 0 && (
+          {missingDimsText && (
             <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
-              {missingDims.map((d) => `${DIMENSION_LABEL[d]}维度尚未指定数据列`).join('；')}
+              {missingDimsText}
             </div>
           )}
-          {noNet && !dimsEmpty && missingDims.length === 0 && (
+          {otherBlockersText && (
             <div style={{ fontSize: 12, color: 'var(--vm-color-warning)', marginBottom: 8 }}>
-              订单实付金额为必填列
+              {otherBlockersText}
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -305,15 +326,28 @@ export const EcomActivityEffectSplitDrawer: React.FC<EcomActivityEffectSplitDraw
         {cfg.costCaliber === 'slot_sum' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {cfg.costSlots.map((s, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div key={`cost-${i}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <Select size="small" value={s.operator} style={{ width: 56, flexShrink: 0 }}
                   options={[{ label: '+', value: '+' }, { label: '−', value: '-' }]}
                   onChange={(op) => patchCostSlot(i, { operator: op as '+' | '-' })} />
-                <FieldRow label={`费用项 ${i + 1}`} value={s.column} columns={columns}
-                  placeholder={multiCandidateHint(SLOT_PATTERN_KEYS[i] ?? '', columns)}
-                  onChange={(v) => patchCostSlot(i, { column: v })} />
+                <div style={{ flex: 1 }}>
+                  <FieldRow label={`费用项 ${i + 1}`} value={s.column} columns={columns}
+                    placeholder={multiCandidateHint(SLOT_PATTERN_KEYS[i] ?? '', columns)}
+                    onChange={(v) => patchCostSlot(i, { column: v })} />
+                </div>
+                <Button size="small" type="text" style={{ flexShrink: 0 }}
+                  aria-label={`删除费用项 ${i + 1}`}
+                  icon={<MinusCircleOutlined />}
+                  disabled={cfg.costSlots.length <= SLOT_MIN}
+                  onClick={() => removeSlot('costSlots', i)} />
               </div>
             ))}
+            <Button size="small" type="dashed" aria-label="增加费用项"
+              icon={<PlusOutlined />}
+              disabled={cfg.costSlots.length >= SLOT_MAX}
+              onClick={() => addSlot('costSlots')}>
+              增加费用项
+            </Button>
           </div>
         )}
         {cfg.costCaliber === 'single_column' && (
@@ -341,13 +375,30 @@ export const EcomActivityEffectSplitDrawer: React.FC<EcomActivityEffectSplitDraw
         </div>
         <div style={{ fontSize: 11, color: TOKEN.textMuted, marginBottom: 8, paddingLeft: 94 }}>{liftFormula}</div>
         {cfg.liftCaliber === 'custom_slots' && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, paddingLeft: 94 }}>
-            <Select size="small" value={cfg.liftSlots[0]?.operator ?? '+'} style={{ width: 56 }}
-              options={[{ label: '+', value: '+' }, { label: '−', value: '-' }]}
-              onChange={(op) => patchLiftSlot(0, { operator: op as '+' | '-' })} />
-            <FieldRow label="拉动公式列" value={cfg.liftSlots[0]?.column ?? ''} columns={columns}
-              placeholder={multiCandidateHint('liftAmountSlot', columns)}
-              onChange={(v) => patchLiftSlot(0, { column: v })} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, paddingLeft: 94 }}>
+            {cfg.liftSlots.map((s, i) => (
+              <div key={`lift-${i}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Select size="small" value={s.operator} style={{ width: 56, flexShrink: 0 }}
+                  options={[{ label: '+', value: '+' }, { label: '−', value: '-' }]}
+                  onChange={(op) => patchLiftSlot(i, { operator: op as '+' | '-' })} />
+                <div style={{ flex: 1 }}>
+                  <FieldRow label={`拉动公式项 ${i + 1}`} value={s.column} columns={columns}
+                    placeholder={multiCandidateHint('liftAmountSlot', columns)}
+                    onChange={(v) => patchLiftSlot(i, { column: v })} />
+                </div>
+                <Button size="small" type="text" style={{ flexShrink: 0 }}
+                  aria-label={`删除拉动公式项 ${i + 1}`}
+                  icon={<MinusCircleOutlined />}
+                  disabled={cfg.liftSlots.length <= SLOT_MIN}
+                  onClick={() => removeSlot('liftSlots', i)} />
+              </div>
+            ))}
+            <Button size="small" type="dashed" aria-label="增加拉动公式项"
+              icon={<PlusOutlined />}
+              disabled={cfg.liftSlots.length >= SLOT_MAX}
+              onClick={() => addSlot('liftSlots')}>
+              增加拉动公式项
+            </Button>
           </div>
         )}
         <div style={{ fontSize: 12, color: TOKEN.textSecondary, marginBottom: 4 }}>{costFormula}</div>

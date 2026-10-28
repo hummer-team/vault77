@@ -160,13 +160,15 @@ describe('自动预填与不覆盖', () => {
     expect(cfg.fieldMapping.activityIdCol).toBe('活动编号');
   });
 
-  it('多候选不回填：成本多列 → costSingleColumn 保持空且 placeholder 含「多个候选」', () => {
+  it('多候选不回填：成本多列 → costSingleColumn 保持空、placeholder 含「多个候选」，门禁同源拦截', () => {
     renderDrawer({ columns: ['活动编号', '订单实付金额', '优惠券编号', '直播间编号', '成本', '物流成本'] });
     fireEvent.click(screen.getByRole('radio', { name: '直接用一列' }));
     expect(screen.getByText('多个候选：成本 / 物流成本')).toBeInTheDocument();
+    // 未选成本列 = Phase 1 阻断原因，抽屉门禁同源：不允许保存后再在执行期被拦
+    expect(applyButton()).toBeDisabled();
+    expect(screen.getByText('单列成本口径需要指定成本列')).toBeInTheDocument();
     fireEvent.click(applyButton());
-    const cfg = onConfirm.mock.calls[0][0] as ActivityEffectSplitConfig;
-    expect(cfg.costSingleColumn).toBe('');
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it('不覆盖已填：initialConfig.netAmountCol 不被正则结果替换', () => {
@@ -210,7 +212,13 @@ describe('口径与槽位', () => {
 
   it('口径来回切换不被静默覆盖为 activity_gmv', () => {
     const TIME_COLS = [...AUTO_COLS, '支付时间', '活动开始时间', '活动结束时间'];
-    renderDrawer({ columns: TIME_COLS });
+    renderDrawer({
+      columns: TIME_COLS,
+      initialConfig: makeCfg({
+        dimensions: ['activity'],
+        fieldMapping: { activityIdCol: '活动编号', netAmountCol: '订单实付金额', productAmountCol: '商品金额' },
+      }),
+    });
     openLiftCaliber();
     pickOption('商品实付金额');
     openSelect('商品实付金额');
@@ -246,7 +254,7 @@ describe('口径与槽位', () => {
   it('默认配置隔离性：改槽 → 取消 → 重挂载 → 载荷仍为默认；DEFAULT 常量未被污染', () => {
     const cols = [...AUTO_COLS, 'coupon_amount', 'discount_amount', 'platform_subsidy', 'ad_cost', 'extra_cost'];
     const { unmount } = renderDrawer({ columns: cols });
-    openSelect('coupon_amount');
+    openSelectByLabel('费用项 1');
     pickOption('extra_cost');
     fireEvent.click(screen.getByRole('button', { name: /取\s*消/ }));
     unmount();
@@ -280,7 +288,7 @@ describe('载荷规范化', () => {
       initialConfig: makeCfg({
         dimensions: ['activity'],
         fieldMapping: { activityIdCol: ' 活动A ', netAmountCol: ' pay ' },
-        topN: 99,
+        topN: 7,
         excludedStatuses: ' CANCELLED , CLOSED ',
       }),
       columns: [],
@@ -289,7 +297,71 @@ describe('载荷规范化', () => {
     const cfg = onConfirm.mock.calls[0][0] as ActivityEffectSplitConfig;
     expect(cfg.fieldMapping.activityIdCol).toBe('活动A');
     expect(cfg.fieldMapping.netAmountCol).toBe('pay');
-    expect(cfg.topN).toBe(10);
+    expect(cfg.topN).toBe(7);
     expect(cfg.excludedStatuses).toBe('CANCELLED , CLOSED');
+  });
+
+  it('topN 越界（历史异常值）→ 门禁同源拦截并提示可修正', () => {
+    renderDrawer({
+      initialConfig: makeCfg({
+        dimensions: ['activity'],
+        fieldMapping: { activityIdCol: '活动A', netAmountCol: 'pay' },
+        topN: 99,
+      }),
+      columns: [],
+    });
+    expect(applyButton()).toBeDisabled();
+    expect(screen.getByText('洞察数量需在 1–10 之间')).toBeInTheDocument();
+  });
+});
+
+describe('槽位增删与门禁覆盖（Phase 3 任务 5 / 校验规则 4 + 补充规则）', () => {
+  beforeEach(() => { cleanup(); vi.clearAllMocks(); });
+
+  it('成本槽位 4 行：增加按钮 disabled；删到 1 行后删除按钮 disabled 且载荷只剩 1 槽', () => {
+    renderDrawer();
+    expect(screen.getByRole('button', { name: '增加费用项' })).toBeDisabled();
+    for (let i = 4; i >= 1; i -= 1) {
+      fireEvent.click(screen.getByRole('button', { name: `删除费用项 ${i}` }));
+    }
+    expect(screen.getByRole('button', { name: '增加费用项' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '删除费用项 1' })).toBeDisabled();
+    fireEvent.click(applyButton());
+    const cfg = onConfirm.mock.calls[0][0] as ActivityEffectSplitConfig;
+    expect(cfg.costSlots).toHaveLength(1);
+  });
+
+  it('拉动槽位最少 1 行（删除 disabled）；增到 4 行后增加按钮 disabled，删除后载荷行数正确', () => {
+    renderDrawer();
+    openLiftCaliber();
+    pickOption('自定义加减公式');
+    expect(screen.getByRole('button', { name: '删除拉动公式项 1' })).toBeDisabled();
+    for (let i = 0; i < 3; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: '增加拉动公式项' }));
+    }
+    expect(screen.getByRole('button', { name: '增加拉动公式项' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '删除拉动公式项 4' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '删除拉动公式项 4' }));
+    fireEvent.click(applyButton());
+    const cfg = onConfirm.mock.calls[0][0] as ActivityEffectSplitConfig;
+    expect(cfg.liftSlots).toHaveLength(3);
+    expect(cfg.liftCaliber).toBe('custom_slots');
+  });
+
+  it('商品实付金额口径缺商品列 → 应用禁用 + 行内警示（与校验规则同源）', () => {
+    renderDrawer({
+      columns: ['活动编号', '订单实付金额'],
+      initialConfig: makeCfg({
+        dimensions: ['activity'],
+        fieldMapping: { activityIdCol: '活动编号', netAmountCol: '订单实付金额' },
+      }),
+    });
+    expect(applyButton()).toBeEnabled();
+    openLiftCaliber();
+    pickOption('商品实付金额');
+    expect(applyButton()).toBeDisabled();
+    expect(screen.getByText('商品实付金额口径需要指定商品金额列')).toBeInTheDocument();
+    fireEvent.click(applyButton());
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

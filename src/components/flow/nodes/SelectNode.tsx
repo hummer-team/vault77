@@ -42,7 +42,7 @@ import type {
   PlatformFeeAllocateConfig,
   ActivityEffectSplitConfig,
 } from '../../../services/flow/types';
-import { OperatorType, FlowNodeType, hasColumnValue, missingDimensionColumns } from '../../../services/flow/types';
+import { OperatorType, FlowNodeType, collectActivitySplitBlockers } from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -437,11 +437,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
                   !!feeCfg.feeSlots?.slot1?.column);
       }
       case SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER: {
-        // 与 Phase 1 校验规则 1/2/3 同源（Phase 0 导出函数，禁止内联重写判定）
+        // 与 Phase 1 校验规则 1–4 与两条口径补充规则同源（Phase 0 唯一判据，禁止内联重写判定）
         const splitCfg = data.activityEffectSplitConfig;
-        return !!splitCfg?.dimensions?.length
-          && missingDimensionColumns(splitCfg).length === 0
-          && hasColumnValue(splitCfg.fieldMapping.netAmountCol);
+        return !!splitCfg && collectActivitySplitBlockers(splitCfg).length === 0;
       }
       default:
         return false;

@@ -1055,6 +1055,14 @@ export function cloneActivityEffectSplitConfig(cfg: ActivityEffectSplitConfig): 
   };
 }
 
+/** 维度中文化标签：Phase 1 校验文案 / Phase 3 抽屉门禁共用，禁止各写一份 */
+export const ACTIVITY_DIMENSION_LABEL: Record<ActivitySplitDimension, string> = {
+  activity: '活动',
+  coupon: '优惠券',
+  live_room: '直播间',
+  activity_type: '活动类型',
+};
+
 /** 维度 → 必填列键：Phase 1 校验 / Phase 2 isUdfConfigured / Phase 3 抽屉门禁共用同一映射，禁止各写一份 */
 export const DIMENSION_COLUMN_KEY: Record<ActivitySplitDimension, keyof ActivityEffectSplitFieldMapping> = {
   activity: 'activityIdCol',
@@ -1071,6 +1079,64 @@ export function hasColumnValue(col?: string): boolean {
 /** 所选维度中尚未映射列的维度列表；空数组 = 维度门禁通过（dimensions 为空时由调用方单独判定） */
 export function missingDimensionColumns(cfg?: ActivityEffectSplitConfig): ActivitySplitDimension[] {
   return (cfg?.dimensions ?? []).filter((d) => !hasColumnValue(cfg?.fieldMapping?.[DIMENSION_COLUMN_KEY[d]]));
+}
+
+/**
+ * 活动效果拆分的阻断原因（规则 1–4 + 两条口径补充规则）。
+ * 消息即业务化中文文案，三处复用（策略校验 / `isUdfConfigured` / 抽屉确认门禁），禁止各写一份判定。
+ */
+export interface ActivitySplitBlocker {
+  code:
+    | 'no-dimension'
+    | 'missing-dimension-column'
+    | 'no-net-amount'
+    | 'baseline-time-missing'
+    | 'top-n-out-of-range'
+    | 'product-amount-missing'
+    | 'single-column-missing';
+  message: string;
+}
+
+/**
+ * 唯一阻断判据（Phase 1 校验规则 1–4 + 两条补充规则）：
+ * `validateOperatorSpecific` 逐条转成 ERROR，`isUdfConfigured` 与抽屉门禁取 `length === 0`。
+ * 非阻断提示（空成本槽 / 空拉动槽）不属于阻断原因，由策略侧以 WARNING 单独返回。
+ */
+export function collectActivitySplitBlockers(cfg?: ActivityEffectSplitConfig): ActivitySplitBlocker[] {
+  // 从未保存过抽屉时按默认配置判定（与策略校验同源）
+  const c = cfg ?? DEFAULT_ACTIVITY_EFFECT_SPLIT_CONFIG;
+  const blockers: ActivitySplitBlocker[] = [];
+
+  if (c.dimensions.length === 0) {
+    blockers.push({ code: 'no-dimension', message: '请至少选择一个拆分维度（活动 / 优惠券 / 直播间 / 活动类型）' });
+  }
+  for (const dim of missingDimensionColumns(c)) {
+    blockers.push({
+      code: 'missing-dimension-column',
+      message: `${ACTIVITY_DIMENSION_LABEL[dim]}维度尚未指定数据列`,
+    });
+  }
+  if (!hasColumnValue(c.fieldMapping.netAmountCol)) {
+    blockers.push({ code: 'no-net-amount', message: '请指定订单实付金额列' });
+  }
+  if (
+    c.liftCaliber === 'baseline_delta' &&
+    !(hasColumnValue(c.fieldMapping.payTimeCol) &&
+      hasColumnValue(c.fieldMapping.activityStartCol) &&
+      hasColumnValue(c.fieldMapping.activityEndCol))
+  ) {
+    blockers.push({ code: 'baseline-time-missing', message: '基线对比需要订单支付时间与活动起止时间' });
+  }
+  if (!Number.isFinite(c.topN) || c.topN < 1 || c.topN > 10) {
+    blockers.push({ code: 'top-n-out-of-range', message: '洞察数量需在 1–10 之间' });
+  }
+  if (c.liftCaliber === 'product_amount' && !hasColumnValue(c.fieldMapping.productAmountCol)) {
+    blockers.push({ code: 'product-amount-missing', message: '商品实付金额口径需要指定商品金额列' });
+  }
+  if (c.costCaliber === 'single_column' && !hasColumnValue(c.costSingleColumn)) {
+    blockers.push({ code: 'single-column-missing', message: '单列成本口径需要指定成本列' });
+  }
+  return blockers;
 }
 
 /**
@@ -1229,7 +1295,15 @@ export interface ValidationError {
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
-  warnings: ValidationError[];
+  warnings?: ValidationError[];
+}
+
+/**
+ * 执行阻断判据（唯一真值）：只有 ERROR 拦截执行，`WARNING` 为非阻断提示。
+ * 消费方：`EndNode.executeFlow`（阻断前过滤）—— 避免「非阻断提示」被当作错误拦下。
+ */
+export function blockingValidationErrors(errors?: ValidationError[]): ValidationError[] {
+  return (errors ?? []).filter((e) => e.severity !== ValidationSeverity.WARNING);
 }
 
 // ============================================================================

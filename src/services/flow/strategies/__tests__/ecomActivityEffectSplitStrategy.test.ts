@@ -161,15 +161,62 @@ describe('isEmptyExpr 判定矩阵（决策 #12）', () => {
   });
 });
 
+/** 取 agg_natural 的 WHERE 子句（CTE 体内 WHERE 到 CTE 结束） */
+const naturalWhere = (sql: string): string =>
+  sql.slice(sql.indexOf('agg_natural AS ('), sql.indexOf('d_natural AS ('))
+    .split('  WHERE ')[1]
+    .split('\n)')[0]
+    .trim();
+
+/** 决策 #12 空判定语义模型：NULL / 空串 / 纯空白 / '0' / 数值 0 视为「空」（与 isEmptyExpr 同义） */
+const isEmptyValue = (v: unknown): boolean => {
+  const text = String(v ?? '').trim();
+  if (text === '') return true;
+  const n = Number(text);
+  return Number.isFinite(n) && n === 0;
+};
+
+/** 把 natural WHERE 还原为行过滤器，用它对样例订单做结果型判定 */
+const naturalMatcher = (where: string): ((row: Record<string, unknown>) => boolean) => {
+  const cols = where.split('\n    AND ').map((cond) => {
+    const m = /CAST\("([^"]+)" AS VARCHAR\)/.exec(cond);
+    if (!m) throw new Error(`无法解析 natural 条件: ${cond}`);
+    return m[1];
+  });
+  return (row) => cols.every((col) => isEmptyValue(row[col]));
+};
+
 describe('natural 分支（决策 #4）', () => {
-  it('勾 coupon 未勾 activity：仍生成 natural 行并携带活动标识排除条件', () => {
+  it('勾 coupon 未勾 activity：仍生成 natural 行，条件为已映射标识列的 isEmptyExpr（正极性）', () => {
     const sql = build(cfg({ dimensions: ['coupon'] }, { couponIdCol: '优惠券ID', activityIdCol: '活动ID' }));
     expect(sql).toContain("'natural' AS dimension_type");
     expect(sql).toContain(`'${NATURAL_ROW_LABEL}' AS dimension_label`);
-    const natural = sql.slice(sql.indexOf('agg_natural AS ('));
-    expect(natural).toContain('NOT (COALESCE(TRIM(CAST("活动ID" AS VARCHAR))');
-    expect(natural).toContain('NOT (COALESCE(TRIM(CAST("优惠券ID" AS VARCHAR))');
+    const where = naturalWhere(sql);
+    // 极性：自然成交 = 三标识「全空」，故为正条件（出现 NOT 即把语义反转成「带标识订单」）
+    expect(where).not.toContain('NOT (');
+    const conds = where.split('\n    AND ');
+    expect(conds).toHaveLength(2);
+    for (const cond of conds) expect(cond.startsWith('(COALESCE(TRIM(CAST(')).toBe(true);
     expect(sql).toContain('FROM d_natural');
+  });
+
+  it('结果型：三标识全空才进 natural，带标识 / 部分标识订单不进 natural', () => {
+    const sql = build(cfg({ dimensions: ['coupon'] }, { couponIdCol: '优惠券ID', activityIdCol: '活动ID' }));
+    const isNatural = naturalMatcher(naturalWhere(sql));
+    // 带标识订单 → 不进 natural（修前该断言失败：NOT 包裹会把它们计入 natural）
+    expect(isNatural({ 活动ID: 'A1', 优惠券ID: 'C1' })).toBe(false);
+    // 仅部分标识为空 → 不进 natural
+    expect(isNatural({ 活动ID: 'A1', 优惠券ID: '' })).toBe(false);
+    expect(isNatural({ 活动ID: null, 优惠券ID: 'C1' })).toBe(false);
+    // 三标识全空（含 NULL / 空白 / 数值 0）→ 进 natural
+    expect(isNatural({ 活动ID: null, 优惠券ID: '' })).toBe(true);
+    expect(isNatural({ 活动ID: '  ', 优惠券ID: 0 })).toBe(true);
+  });
+
+  it('agg_natural 无 GROUP BY：空输入下仍返回 1 行（决策 #4「恒 1 行」）', () => {
+    const nat = defaultSql().slice(defaultSql().indexOf('agg_natural AS ('), defaultSql().indexOf('d_natural AS ('));
+    expect(nat).not.toContain('GROUP BY');
+    expect(nat).toContain('COUNT(');
   });
 
   it('d_natural 恒不 JOIN base_*：单口径 + guard FALSE', () => {
@@ -220,6 +267,17 @@ describe('lift 口径（决策 #5 / #6 / #8）', () => {
     expect(sql).toContain(`BETWEEN -GREATEST(date_diff('day', w.win_start, w.win_end) + 1, 1) AND -1`);
     expect(sql).toContain('ON a.dim_key = b.dim_key');
     expect(sql).toContain('ROUND((a._act_lift - b.base_net) - a.subsidy_cost, 2) END AS net_lift');
+  });
+
+  it('基线口径：活动腿按该维度值的活动窗口截断（两腿同口径，决策 #6）', () => {
+    const sql = build(fullDims({ liftCaliber: 'baseline_delta' }));
+    const agg = sql.slice(sql.indexOf('agg_activity AS ('), sql.indexOf('d_activity AS ('));
+    expect(agg).toContain('AND EXISTS (');
+    expect(agg).toContain('FROM win_activity w');
+    expect(agg).toContain('CAST(src."支付时间" AS DATE) BETWEEN w.win_start AND w.win_end');
+    expect(agg).toContain('GROUP BY 1, 2');
+    // 非基线口径不引入窗口约束（src 区间即统计区间）
+    expect(defaultSql()).not.toContain('EXISTS (');
   });
 
   it('gmv 恒为实付合计，不受 lift 口径影响', () => {

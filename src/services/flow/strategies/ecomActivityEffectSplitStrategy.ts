@@ -21,7 +21,8 @@ import {
   cloneActivityEffectSplitConfig,
   hasColumnValue,
   DIMENSION_COLUMN_KEY,
-  missingDimensionColumns,
+  ACTIVITY_DIMENSION_LABEL,
+  collectActivitySplitBlockers,
   type ActivityEffectSplitConfig,
   type ActivityEffectSplitFieldMapping,
   type ActivitySplitDimension,
@@ -43,10 +44,7 @@ import { logger } from '../../../utils/logger';
 // ============================================================================
 
 export const DIMENSION_LABEL: Record<ActivitySplitDimension | 'natural', string> = {
-  activity: '活动',
-  coupon: '优惠券',
-  live_room: '直播间',
-  activity_type: '活动类型',
+  ...ACTIVITY_DIMENSION_LABEL,
   natural: '自然成交',
 };
 
@@ -58,28 +56,28 @@ export const NATURAL_ROW_LABEL = '自然成交（无活动/无券/无直播）';
  * 16 个 fieldMapping 列键 + 6 个槽位/单列键（抽屉用于预填成本槽位、拉动首槽与单列成本）。
  */
 export const ACTIVITY_FIELD_MATCH_PATTERNS: Record<string, RegExp> = {
-  activityIdCol: /活动[ _. -]?(编号|id|号)|activity[ _. -]?(id|code)/i,
-  activityNameCol: /活动[名标]?称|activity[ _. -]?name|campaign[ _. -]?name/i,
-  activityTypeCol: /活动类型|activity[ _. -]?type|campaign[ _. -]?type/i,
-  couponIdCol: /优惠券?[ _. -]?(编号|号|id)|coupon[ _. -]?(id|code|no)/i,
-  couponAmountCol: /优惠券金额|优惠(金额)?(?!状态)|coupon[ _. -]?amount/i,
-  liveRoomIdCol: /直播间[ _. -]?(编号|号|id)|live[ _. -]?room[ _. -]?(id|code)/i,
-  payTimeCol: /支付(时间|日期)?|付款时间|pay[ _. -]?(time|date)|paid[ _. -]?at/i,
-  activityStartCol: /活动开始|开始(时间|日期)|activity[ _. -]?start|start[ _. -]?(time|date)/i,
+  activityIdCol: /活动[ _. -]?(编号|id|号)|活动[ _. -]?id|act[ _. -]?id|activity[ _. -]?(id|code)|campaign[ _. -]?id/i,
+  activityNameCol: /活动[名标]?称|活动名|activity[ _. -]?name|campaign[ _. -]?name/i,
+  activityTypeCol: /活动类型|活动玩法|activity[ _. -]?type|promotion[ _. -]?type|campaign[ _. -]?type/i,
+  couponIdCol: /优惠券[ _. -]?(编号|号|id)|券[ _. -]?(编号|号|id)|coupon[ _. -]?(id|code|no)|voucher[ _. -]?id/i,
+  couponAmountCol: /优惠券金额|券金额|优惠[总金]*额|coupon[ _. -]?amount/i,
+  liveRoomIdCol: /直播间?[ _. -]?(编号|号|id)|live[ _. -]?(room)?[ _. -]?id|room[ _. -]?id/i,
+  payTimeCol: /支付(时间|日期)|付款时间|pay[ _. -]?(time|date)|paid[ _. -]?(at|time)/i,
+  activityStartCol: /活动开始|开始(时间|日期)|activity[ _. -]?start|start[ _. -]?(time|date)|begin[ _. -]?time/i,
   activityEndCol: /活动结束|结束(时间|日期)|activity[ _. -]?end|end[ _. -]?(time|date)/i,
-  netAmountCol: /(?:订单)?实付(?:金额)?|净(金额|款|额)|net[ _. -]?(amount|paid)|actual[ _. -]?(amount|pay)/i,
-  productAmountCol: /商品[实付]*(金额)?|product[ _. -]?(amount|price)|goods[ _. -]?amount|item[ _. -]?amount/i,
+  netAmountCol: /(?:订单)?实付(?:金额)?|净(金额|款|额)|支付金额|net[ _. -]?(amount|paid)|pay[ _. -]?amount|actual[ _. -]?(amount|pay)/i,
+  productAmountCol: /商品[实付]*金额|product[ _. -]?(amount|price)|goods[ _. -]?amount|item[ _. -]?amount/i,
   orderIdCol: /订单[ _. -]?(编号|号|id)|order[ _. -]?(id|no)/i,
-  userIdCol: /用户[ _. -]?(编号|号|id)|买家[ _. -]?(编号|号|id)|buyer[ _. -]?id|user[ _. -]?id/i,
+  userIdCol: /用户[ _. -]?(编号|号|id)|会员[ _. -]?(编号|号|id)|买家[ _. -]?(编号|号|id)|buyer[ _. -]?id|user[ _. -]?id|member[ _. -]?id/i,
   quantityCol: /购买数量|数量|quantity|qty/i,
   couponStatusCol: /优惠券状态|券状态|coupon[ _. -]?status/i,
   orderStatusCol: /订单状态|order[ _. -]?status/i,
-  couponAmountSlot: /优惠券金额|coupon[ _. -]?amount/i,
-  discountAmountSlot: /折扣(金额)?|discount[ _. -]?amount/i,
-  platformSubsidySlot: /平台补贴|platform[ _. -]?subsidy/i,
-  adCostSlot: /广告费|投流(费)?|推广费|ad[ _. -]?cost|promotion[ _. -]?cost/i,
+  couponAmountSlot: /优惠券金额|券金额|coupon[ _. -]?amount/i,
+  discountAmountSlot: /优惠总[金额]+|优惠[金额]+合计|折扣(金额)?|discount[ _. -]?(total|amount)/i,
+  platformSubsidySlot: /平台补贴|补贴(金额)?|platform[ _. -]?subsidy|subsidy/i,
+  adCostSlot: /广告费|投流(费)?|推广费|坑位费|ad[ _. -]?cost|promotion[ _. -]?cost/i,
   liftAmountSlot: /拉动金额|活动金额|lift[ _. -]?amount/i,
-  costSingleColumn: /补贴成本|成本(金额|列)?|subsidy[ _. -]?cost|total[ _. -]?cost/i,
+  costSingleColumn: /活动成本|成本(金额|列)?|subsidy[ _. -]?cost|total[ _. -]?cost|cost/i,
 };
 
 // ============================================================================
@@ -268,31 +266,9 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
     const push = (message: string, severity: ValidationSeverity = ValidationSeverity.ERROR) =>
       errors.push({ nodeId: selectNode.id, nodeType: FlowNodeType.SELECT, severity, message });
 
-    if (config.dimensions.length === 0) {
-      push('请至少选择一个拆分维度（活动 / 优惠券 / 直播间 / 活动类型）');
-    }
-    // 规则 2：逐维度（同源 Phase 0 missingDimensionColumns，可多条）
-    for (const dim of missingDimensionColumns(config)) {
-      push(`${DIMENSION_LABEL[dim]}维度尚未指定数据列`);
-    }
-    if (!has(config.fieldMapping.netAmountCol)) {
-      push('请指定订单实付金额列');
-    }
-    if (
-      config.liftCaliber === 'baseline_delta' &&
-      !(has(config.fieldMapping.payTimeCol) && has(config.fieldMapping.activityStartCol) && has(config.fieldMapping.activityEndCol))
-    ) {
-      push('基线对比需要订单支付时间与活动起止时间');
-    }
-    if (!Number.isFinite(config.topN) || config.topN < 1 || config.topN > 10) {
-      push('洞察数量需在 1–10 之间');
-    }
-    // 字段缺失补充规则（同属校验族）
-    if (config.liftCaliber === 'product_amount' && !has(config.fieldMapping.productAmountCol)) {
-      push('商品实付金额口径需要指定商品金额列');
-    }
-    if (config.costCaliber === 'single_column' && !has(config.costSingleColumn)) {
-      push('单列成本口径需要指定成本列');
+    // 规则 1–4 + 两条口径补充规则：与 isUdfConfigured / 抽屉确认门禁共用唯一判据（禁止各写一份）
+    for (const blocker of collectActivitySplitBlockers(config)) {
+      push(blocker.message);
     }
     // 非阻断提示（判据与 slotSumExpr 空槽同源，禁止另写一份）
     if (config.costCaliber === 'slot_sum' && slotSumExpr(config.costSlots) === 'CAST(NULL AS DOUBLE)') {
@@ -438,6 +414,15 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
         dim === 'activity' && has(m.activityNameCol)
           ? `COALESCE(MAX(NULLIF(TRIM(CAST("${m.activityNameCol}" AS VARCHAR)), '')), MAX(CAST("${idCol}" AS VARCHAR)))`
           : `MAX(CAST("${idCol}" AS VARCHAR))`;
+      // 基线口径两腿同口径（决策 #6）：活动腿必须收敛到该维度值的活动窗口内，
+      // 否则前窗订单会同时进入活动腿，gmv / order_count / quantity / subsidy_cost 被基线期订单污染
+      const windowCond = isBaseline
+        ? `\n    AND EXISTS (\n` +
+          `      SELECT 1 FROM win_${dim} w\n` +
+          `      WHERE w.dim_key = CAST(src."${idCol}" AS VARCHAR)\n` +
+          `        AND CAST(src."${m.payTimeCol}" AS DATE) BETWEEN w.win_start AND w.win_end\n` +
+          `    )`
+        : '';
       ctes.push(
         `agg_${dim} AS (\n` +
         `  SELECT\n` +
@@ -446,7 +431,7 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
         `    ${labelExpr} AS dimension_label,\n` +
         `    ${metricCols}\n` +
         `  FROM src\n` +
-        `  WHERE NOT (${isEmptyExpr(idCol)})\n` +
+        `  WHERE NOT (${isEmptyExpr(idCol)})${windowCond}\n` +
         `  GROUP BY 1, 2\n` +
         `)`,
       );
@@ -458,11 +443,14 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
     }
 
     // 自然成交分支：恒生成、恒 1 行、与维度勾选解耦（决策 #4）；三标识全未映射时 WHERE 为 1 = 1
+    // 极性：自然成交 = 三标识**全空**（决策 #4），故条件为已映射标识列的 isEmptyExpr 以 AND 连接；
+    // 每条独立加括号（isEmptyExpr 内含 OR，缺括号会让 AND 只作用于最后一个分支）
     const naturalConds = (['activityIdCol', 'couponIdCol', 'liveRoomIdCol'] as const)
       .map((k) => m[k])
       .filter((col) => has(col))
-      .map((col) => `NOT (${isEmptyExpr(col as string)})`);
+      .map((col) => `(${isEmptyExpr(col as string)})`);
     ctes.push(
+      // 无 GROUP BY：常量分组列 + 无分组的聚合查询在空输入下仍返回 1 行（决策 #4「自然行恒 1 行」）
       `agg_natural AS (\n` +
       `  SELECT\n` +
       `    'natural' AS dimension_type,\n` +
@@ -470,7 +458,6 @@ export class EcomActivityEffectSplitStrategy extends BaseStrategy {
       `    ${metricCols}\n` +
       `  FROM src\n` +
       `  WHERE ${naturalConds.length > 0 ? naturalConds.join('\n    AND ') : '1 = 1'}\n` +
-      `  GROUP BY 1, 2\n` +
       `)`,
       `d_natural AS (${dTemplate('agg_natural a', deltaNatural)})`,
     );
