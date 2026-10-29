@@ -1,0 +1,532 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SQL 快照 > 8 项全开（映射全部 11 列） 1`] = `
+"WITH src_all AS (
+  SELECT
+    CAST("buyer_id" AS VARCHAR) AS user_id,
+    ts_to_epoch_ms("create_time") AS order_time_ms,
+    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
+    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
+    CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
+    NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
+    CAST("pay_amount" AS DOUBLE) AS amount,
+    CAST("original_price" AS DOUBLE) AS original_amount,
+    CAST("trade_status" AS VARCHAR) AS order_status,
+    CAST("order_id" AS VARCHAR) AS order_id,
+    ts_to_epoch_ms("user_reg_time") AS register_ms,
+    ts_to_epoch_ms("first_order_time") AS first_order_ms
+  FROM "ecom_orders"
+),
+src AS (
+  SELECT * FROM src_all
+),
+ref AS (
+  SELECT MAX(order_time_ms) AS ref_ts FROM src
+),
+usr AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") AS order_count,
+    SUM("amount") AS amount_sum,
+    COUNT("amount") AS amount_count,
+    MIN(order_time_ms) AS first_ts,
+    MIN(register_ms) AS register_ms,
+    MIN(first_order_ms) AS first_order_ms,
+    CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
+  FROM src
+  GROUP BY user_id
+),
+burst AS (
+  SELECT
+    user_id,
+    bkt_burst,
+    COUNT(DISTINCT "order_id") AS bkt_orders
+  FROM src
+  GROUP BY user_id, bkt_burst
+),
+addr_clu AS (
+  SELECT
+    "addr_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "addr_key" IS NOT NULL
+  GROUP BY "addr_key", bkt_cluster
+),
+addr_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS addr_cluster_users
+  FROM src
+  JOIN addr_clu c ON c."key" = src."addr_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+mobile_clu AS (
+  SELECT
+    "mobile_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "mobile_key" IS NOT NULL
+  GROUP BY "mobile_key", bkt_cluster
+),
+mobile_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS mobile_cluster_users
+  FROM src
+  JOIN mobile_clu c ON c."key" = src."mobile_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+device_clu AS (
+  SELECT
+    "device_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "device_key" IS NOT NULL
+  GROUP BY "device_key", bkt_cluster
+),
+device_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS device_cluster_accounts
+  FROM src
+  JOIN device_clu c ON c."key" = src."device_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+ord AS (
+  SELECT
+    src.user_id,
+    "order_id",
+    CASE WHEN burst.bkt_orders >= 10 THEN TRUE ELSE FALSE END AS is_burst,
+    CASE WHEN ac."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_addr,
+    CASE WHEN mc."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_mobile,
+    CASE WHEN dc."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_device,
+    CASE WHEN CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END <= 7 AND usr.order_count >= 3 THEN TRUE ELSE FALSE END AS is_new_account,
+    CASE WHEN "amount" <= "original_amount" * 0.3 AND "original_amount" > 0 THEN TRUE ELSE FALSE END AS is_price,
+    CASE WHEN usr.amount_count >= 2 AND "amount" >= (usr.amount_sum - "amount") / NULLIF(usr.amount_count - 1, 0) * 3 THEN TRUE ELSE FALSE END AS is_amount,
+    CASE WHEN UPPER(TRIM("order_status")) IN ('REFUNDED','RETURNED','CANCELLED','已退款','退款成功','已退货','已取消','交易关闭','退货退款') THEN TRUE ELSE FALSE END AS is_refund,
+    CASE WHEN burst.bkt_orders >= 10
+      OR ac."key_users" >= 3
+      OR mc."key_users" >= 3
+      OR dc."key_users" >= 3
+      OR CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END <= 7 AND usr.order_count >= 3
+      OR "amount" <= "original_amount" * 0.3 AND "original_amount" > 0
+      OR usr.amount_count >= 2 AND "amount" >= (usr.amount_sum - "amount") / NULLIF(usr.amount_count - 1, 0) * 3
+      OR UPPER(TRIM("order_status")) IN ('REFUNDED','RETURNED','CANCELLED','已退款','退款成功','已退货','已取消','交易关闭','退货退款') THEN TRUE ELSE FALSE END AS is_abnormal
+  FROM src
+  LEFT JOIN burst ON burst.user_id = src.user_id AND burst.bkt_burst = src.bkt_burst
+  LEFT JOIN addr_clu ac ON ac."key" = src.addr_key AND ac."bkt" = src.bkt_cluster
+  LEFT JOIN mobile_clu mc ON mc."key" = src.mobile_key AND mc."bkt" = src.bkt_cluster
+  LEFT JOIN device_clu dc ON dc."key" = src.device_key AND dc."bkt" = src.bkt_cluster
+  JOIN usr ON usr.user_id = src.user_id
+  CROSS JOIN ref
+),
+abn AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_abnormal) AS order_count_abnormal,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_refund) AS refund_count,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_price) AS price_anomaly_orders,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_amount) AS amount_deviation_orders
+  FROM ord
+  GROUP BY user_id
+),
+feat AS (
+  SELECT
+    usr.user_id,
+    usr.order_count,
+    abn.order_count_abnormal,
+    bw.max_window_orders,
+    a.addr_cluster_users,
+    m.mobile_cluster_users,
+    d.device_cluster_accounts,
+    CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END AS account_age_days,
+    '注册时间' AS age_basis,
+    abn.refund_count,
+    ROUND(abn.refund_count * 100.0 / NULLIF(usr.order_count, 0), 1) AS refund_rate,
+    abn.price_anomaly_orders,
+    abn.amount_deviation_orders,
+    usr.order_ids,
+    '' AS skipped_rules,
+    CASE WHEN '' = '' THEN 'ok' ELSE 'degraded' END AS data_quality_flag
+  FROM usr
+  CROSS JOIN ref
+  LEFT JOIN (
+    SELECT user_id, MAX(bkt_orders) AS max_window_orders FROM burst GROUP BY user_id
+  ) bw ON bw.user_id = usr.user_id
+  LEFT JOIN addr_user a ON a.user_id = usr.user_id
+  LEFT JOIN mobile_user m ON m.user_id = usr.user_id
+  LEFT JOIN device_user d ON d.user_id = usr.user_id
+  LEFT JOIN abn ON abn.user_id = usr.user_id
+),
+sc AS (
+  SELECT f.*,
+    CASE WHEN max_window_orders >= 10 THEN 20 ELSE 0 END AS w_burst,
+    CASE WHEN max_window_orders >= 10 THEN '密集下单' ELSE NULL END AS t_burst,
+    CASE WHEN addr_cluster_users >= 3 THEN 20 ELSE 0 END AS w_addr,
+    CASE WHEN addr_cluster_users >= 3 THEN '同地址多账号' ELSE NULL END AS t_addr,
+    CASE WHEN mobile_cluster_users >= 3 THEN 15 ELSE 0 END AS w_mobile,
+    CASE WHEN mobile_cluster_users >= 3 THEN '同手机多账号' ELSE NULL END AS t_mobile,
+    CASE WHEN device_cluster_accounts >= 3 THEN 15 ELSE 0 END AS w_device,
+    CASE WHEN device_cluster_accounts >= 3 THEN '同设备多账号' ELSE NULL END AS t_device,
+    CASE WHEN account_age_days <= 7 AND order_count >= 3 THEN 10 ELSE 0 END AS w_newacc,
+    CASE WHEN account_age_days <= 7 AND order_count >= 3 THEN '批量小号' ELSE NULL END AS t_newacc,
+    CASE WHEN price_anomaly_orders >= 2 THEN 10 ELSE 0 END AS w_price,
+    CASE WHEN price_anomaly_orders >= 2 THEN '改价异常' ELSE NULL END AS t_price,
+    CASE WHEN amount_deviation_orders >= 2 THEN 5 ELSE 0 END AS w_amount,
+    CASE WHEN amount_deviation_orders >= 2 THEN '金额突变' ELSE NULL END AS t_amount,
+    CASE WHEN refund_count >= 2 AND refund_rate >= 30 THEN 5 ELSE 0 END AS w_refund,
+    CASE WHEN refund_count >= 2 AND refund_rate >= 30 THEN '退款异常' ELSE NULL END AS t_refund
+  FROM feat f
+)
+SELECT
+  user_id,
+  order_count,
+  order_count_abnormal,
+  CASE WHEN w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund > 100 THEN 100 ELSE w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund END AS risk_score,
+  CASE WHEN w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund >= 80 THEN '严重'
+       WHEN w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund >= 60 THEN '高'
+       WHEN w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund >= 40 THEN '中'
+       ELSE '低' END AS risk_level,
+  list_filter([t_burst, t_addr, t_mobile, t_device, t_newacc, t_price, t_amount, t_refund], x -> x IS NOT NULL) AS risk_type,
+  max_window_orders,
+  addr_cluster_users,
+  mobile_cluster_users,
+  device_cluster_accounts,
+  account_age_days,
+  age_basis,
+  refund_count,
+  refund_rate,
+  price_anomaly_orders,
+  amount_deviation_orders,
+  order_ids,
+  skipped_rules,
+  data_quality_flag
+FROM sc
+WHERE w_burst + w_addr + w_mobile + w_device + w_newacc + w_price + w_amount + w_refund > 0
+ORDER BY risk_score DESC, user_id"
+`;
+
+exports[`SQL 快照 > 核心 5 项全关且 priceAnomaly 开启 1`] = `
+"WITH src_all AS (
+  SELECT
+    CAST("buyer_id" AS VARCHAR) AS user_id,
+    ts_to_epoch_ms("create_time") AS order_time_ms,
+    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
+    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
+    CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
+    NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
+    CAST("pay_amount" AS DOUBLE) AS amount,
+    CAST("original_price" AS DOUBLE) AS original_amount,
+    CAST("trade_status" AS VARCHAR) AS order_status,
+    CAST("order_id" AS VARCHAR) AS order_id,
+    ts_to_epoch_ms("user_reg_time") AS register_ms,
+    ts_to_epoch_ms("first_order_time") AS first_order_ms
+  FROM "ecom_orders"
+),
+src AS (
+  SELECT * FROM src_all
+),
+ref AS (
+  SELECT MAX(order_time_ms) AS ref_ts FROM src
+),
+usr AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") AS order_count,
+    SUM("amount") AS amount_sum,
+    COUNT("amount") AS amount_count,
+    MIN(order_time_ms) AS first_ts,
+    MIN(register_ms) AS register_ms,
+    MIN(first_order_ms) AS first_order_ms,
+    CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
+  FROM src
+  GROUP BY user_id
+),
+ord AS (
+  SELECT
+    src.user_id,
+    "order_id",
+    CASE WHEN FALSE THEN TRUE ELSE FALSE END AS is_burst,
+    CASE WHEN FALSE THEN TRUE ELSE FALSE END AS is_addr,
+    CASE WHEN FALSE THEN TRUE ELSE FALSE END AS is_mobile,
+    CASE WHEN FALSE THEN TRUE ELSE FALSE END AS is_device,
+    CASE WHEN CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END <= 7 AND usr.order_count >= 3 THEN TRUE ELSE FALSE END AS is_new_account,
+    CASE WHEN "amount" <= "original_amount" * 0.3 AND "original_amount" > 0 THEN TRUE ELSE FALSE END AS is_price,
+    CASE WHEN usr.amount_count >= 2 AND "amount" >= (usr.amount_sum - "amount") / NULLIF(usr.amount_count - 1, 0) * 3 THEN TRUE ELSE FALSE END AS is_amount,
+    CASE WHEN UPPER(TRIM("order_status")) IN ('REFUNDED','RETURNED','CANCELLED','已退款','退款成功','已退货','已取消','交易关闭','退货退款') THEN TRUE ELSE FALSE END AS is_refund,
+    CASE WHEN "amount" <= "original_amount" * 0.3 AND "original_amount" > 0 THEN TRUE ELSE FALSE END AS is_abnormal
+  FROM src
+  JOIN usr ON usr.user_id = src.user_id
+  CROSS JOIN ref
+),
+abn AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_abnormal) AS order_count_abnormal,
+    NULL::BIGINT AS refund_count,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_price) AS price_anomaly_orders,
+    NULL::BIGINT AS amount_deviation_orders
+  FROM ord
+  GROUP BY user_id
+),
+feat AS (
+  SELECT
+    usr.user_id,
+    usr.order_count,
+    abn.order_count_abnormal,
+    NULL::BIGINT AS max_window_orders,
+    NULL::BIGINT AS addr_cluster_users,
+    NULL::BIGINT AS mobile_cluster_users,
+    NULL::BIGINT AS device_cluster_accounts,
+    NULL::DOUBLE AS account_age_days,
+    '未启用' AS age_basis,
+    abn.refund_count,
+    NULL::DOUBLE AS refund_rate,
+    abn.price_anomaly_orders,
+    abn.amount_deviation_orders,
+    usr.order_ids,
+    '' AS skipped_rules,
+    CASE WHEN '' = '' THEN 'ok' ELSE 'degraded' END AS data_quality_flag
+  FROM usr
+  CROSS JOIN ref
+  LEFT JOIN abn ON abn.user_id = usr.user_id
+),
+sc AS (
+  SELECT f.*,
+    CASE WHEN price_anomaly_orders >= 2 THEN 10 ELSE 0 END AS w_price,
+    CASE WHEN price_anomaly_orders >= 2 THEN '改价异常' ELSE NULL END AS t_price
+  FROM feat f
+)
+SELECT
+  user_id,
+  order_count,
+  order_count_abnormal,
+  CASE WHEN w_price > 100 THEN 100 ELSE w_price END AS risk_score,
+  CASE WHEN w_price >= 80 THEN '严重'
+       WHEN w_price >= 60 THEN '高'
+       WHEN w_price >= 40 THEN '中'
+       ELSE '低' END AS risk_level,
+  list_filter([t_price], x -> x IS NOT NULL) AS risk_type,
+  max_window_orders,
+  addr_cluster_users,
+  mobile_cluster_users,
+  device_cluster_accounts,
+  account_age_days,
+  age_basis,
+  refund_count,
+  refund_rate,
+  price_anomaly_orders,
+  amount_deviation_orders,
+  order_ids,
+  skipped_rules,
+  data_quality_flag
+FROM sc
+WHERE w_price > 0
+ORDER BY risk_score DESC, user_id"
+`;
+
+exports[`SQL 快照 > 默认配置（核心 5 项开启 + 全列映射） 1`] = `
+"WITH src_all AS (
+  SELECT
+    CAST("buyer_id" AS VARCHAR) AS user_id,
+    ts_to_epoch_ms("create_time") AS order_time_ms,
+    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
+    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
+    CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
+    NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
+    CAST("pay_amount" AS DOUBLE) AS amount,
+    CAST("original_price" AS DOUBLE) AS original_amount,
+    CAST("trade_status" AS VARCHAR) AS order_status,
+    CAST("order_id" AS VARCHAR) AS order_id,
+    ts_to_epoch_ms("user_reg_time") AS register_ms,
+    ts_to_epoch_ms("first_order_time") AS first_order_ms
+  FROM "ecom_orders"
+),
+src AS (
+  SELECT * FROM src_all
+),
+ref AS (
+  SELECT MAX(order_time_ms) AS ref_ts FROM src
+),
+usr AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") AS order_count,
+    SUM("amount") AS amount_sum,
+    COUNT("amount") AS amount_count,
+    MIN(order_time_ms) AS first_ts,
+    MIN(register_ms) AS register_ms,
+    MIN(first_order_ms) AS first_order_ms,
+    CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
+  FROM src
+  GROUP BY user_id
+),
+burst AS (
+  SELECT
+    user_id,
+    bkt_burst,
+    COUNT(DISTINCT "order_id") AS bkt_orders
+  FROM src
+  GROUP BY user_id, bkt_burst
+),
+addr_clu AS (
+  SELECT
+    "addr_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "addr_key" IS NOT NULL
+  GROUP BY "addr_key", bkt_cluster
+),
+addr_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS addr_cluster_users
+  FROM src
+  JOIN addr_clu c ON c."key" = src."addr_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+mobile_clu AS (
+  SELECT
+    "mobile_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "mobile_key" IS NOT NULL
+  GROUP BY "mobile_key", bkt_cluster
+),
+mobile_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS mobile_cluster_users
+  FROM src
+  JOIN mobile_clu c ON c."key" = src."mobile_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+device_clu AS (
+  SELECT
+    "device_key" AS "key",
+    bkt_cluster AS "bkt",
+    COUNT(DISTINCT "user_id") AS "key_users"
+  FROM src
+  WHERE "device_key" IS NOT NULL
+  GROUP BY "device_key", bkt_cluster
+),
+device_user AS (
+  SELECT
+    src.user_id,
+    MAX(c."key_users") AS device_cluster_accounts
+  FROM src
+  JOIN device_clu c ON c."key" = src."device_key" AND c."bkt" = src.bkt_cluster
+  GROUP BY src.user_id
+),
+ord AS (
+  SELECT
+    src.user_id,
+    "order_id",
+    CASE WHEN burst.bkt_orders >= 10 THEN TRUE ELSE FALSE END AS is_burst,
+    CASE WHEN ac."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_addr,
+    CASE WHEN mc."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_mobile,
+    CASE WHEN dc."key_users" >= 3 THEN TRUE ELSE FALSE END AS is_device,
+    CASE WHEN CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END <= 7 AND usr.order_count >= 3 THEN TRUE ELSE FALSE END AS is_new_account,
+    CASE WHEN "amount" <= "original_amount" * 0.3 AND "original_amount" > 0 THEN TRUE ELSE FALSE END AS is_price,
+    CASE WHEN usr.amount_count >= 2 AND "amount" >= (usr.amount_sum - "amount") / NULLIF(usr.amount_count - 1, 0) * 3 THEN TRUE ELSE FALSE END AS is_amount,
+    CASE WHEN UPPER(TRIM("order_status")) IN ('REFUNDED','RETURNED','CANCELLED','已退款','退款成功','已退货','已取消','交易关闭','退货退款') THEN TRUE ELSE FALSE END AS is_refund,
+    CASE WHEN burst.bkt_orders >= 10
+      OR ac."key_users" >= 3
+      OR mc."key_users" >= 3
+      OR dc."key_users" >= 3
+      OR CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END <= 7 AND usr.order_count >= 3 THEN TRUE ELSE FALSE END AS is_abnormal
+  FROM src
+  LEFT JOIN burst ON burst.user_id = src.user_id AND burst.bkt_burst = src.bkt_burst
+  LEFT JOIN addr_clu ac ON ac."key" = src.addr_key AND ac."bkt" = src.bkt_cluster
+  LEFT JOIN mobile_clu mc ON mc."key" = src.mobile_key AND mc."bkt" = src.bkt_cluster
+  LEFT JOIN device_clu dc ON dc."key" = src.device_key AND dc."bkt" = src.bkt_cluster
+  JOIN usr ON usr.user_id = src.user_id
+  CROSS JOIN ref
+),
+abn AS (
+  SELECT
+    user_id,
+    COUNT(DISTINCT "order_id") FILTER (WHERE is_abnormal) AS order_count_abnormal,
+    NULL::BIGINT AS refund_count,
+    NULL::BIGINT AS price_anomaly_orders,
+    NULL::BIGINT AS amount_deviation_orders
+  FROM ord
+  GROUP BY user_id
+),
+feat AS (
+  SELECT
+    usr.user_id,
+    usr.order_count,
+    abn.order_count_abnormal,
+    bw.max_window_orders,
+    a.addr_cluster_users,
+    m.mobile_cluster_users,
+    d.device_cluster_accounts,
+    CASE WHEN usr.register_ms IS NULL THEN NULL ELSE ROUND(GREATEST(0, ref.ref_ts - usr.register_ms) / 86400000.0, 1) END AS account_age_days,
+    '注册时间' AS age_basis,
+    abn.refund_count,
+    NULL::DOUBLE AS refund_rate,
+    abn.price_anomaly_orders,
+    abn.amount_deviation_orders,
+    usr.order_ids,
+    '' AS skipped_rules,
+    CASE WHEN '' = '' THEN 'ok' ELSE 'degraded' END AS data_quality_flag
+  FROM usr
+  CROSS JOIN ref
+  LEFT JOIN (
+    SELECT user_id, MAX(bkt_orders) AS max_window_orders FROM burst GROUP BY user_id
+  ) bw ON bw.user_id = usr.user_id
+  LEFT JOIN addr_user a ON a.user_id = usr.user_id
+  LEFT JOIN mobile_user m ON m.user_id = usr.user_id
+  LEFT JOIN device_user d ON d.user_id = usr.user_id
+  LEFT JOIN abn ON abn.user_id = usr.user_id
+),
+sc AS (
+  SELECT f.*,
+    CASE WHEN max_window_orders >= 10 THEN 20 ELSE 0 END AS w_burst,
+    CASE WHEN max_window_orders >= 10 THEN '密集下单' ELSE NULL END AS t_burst,
+    CASE WHEN addr_cluster_users >= 3 THEN 20 ELSE 0 END AS w_addr,
+    CASE WHEN addr_cluster_users >= 3 THEN '同地址多账号' ELSE NULL END AS t_addr,
+    CASE WHEN mobile_cluster_users >= 3 THEN 15 ELSE 0 END AS w_mobile,
+    CASE WHEN mobile_cluster_users >= 3 THEN '同手机多账号' ELSE NULL END AS t_mobile,
+    CASE WHEN device_cluster_accounts >= 3 THEN 15 ELSE 0 END AS w_device,
+    CASE WHEN device_cluster_accounts >= 3 THEN '同设备多账号' ELSE NULL END AS t_device,
+    CASE WHEN account_age_days <= 7 AND order_count >= 3 THEN 10 ELSE 0 END AS w_newacc,
+    CASE WHEN account_age_days <= 7 AND order_count >= 3 THEN '批量小号' ELSE NULL END AS t_newacc
+  FROM feat f
+)
+SELECT
+  user_id,
+  order_count,
+  order_count_abnormal,
+  CASE WHEN w_burst + w_addr + w_mobile + w_device + w_newacc > 100 THEN 100 ELSE w_burst + w_addr + w_mobile + w_device + w_newacc END AS risk_score,
+  CASE WHEN w_burst + w_addr + w_mobile + w_device + w_newacc >= 80 THEN '严重'
+       WHEN w_burst + w_addr + w_mobile + w_device + w_newacc >= 60 THEN '高'
+       WHEN w_burst + w_addr + w_mobile + w_device + w_newacc >= 40 THEN '中'
+       ELSE '低' END AS risk_level,
+  list_filter([t_burst, t_addr, t_mobile, t_device, t_newacc], x -> x IS NOT NULL) AS risk_type,
+  max_window_orders,
+  addr_cluster_users,
+  mobile_cluster_users,
+  device_cluster_accounts,
+  account_age_days,
+  age_basis,
+  refund_count,
+  refund_rate,
+  price_anomaly_orders,
+  amount_deviation_orders,
+  order_ids,
+  skipped_rules,
+  data_quality_flag
+FROM sc
+WHERE w_burst + w_addr + w_mobile + w_device + w_newacc > 0
+ORDER BY risk_score DESC, user_id"
+`;
