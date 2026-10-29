@@ -7,12 +7,17 @@ import {
   EcomSuspiciousOrderDetectStrategy,
   DEGRADE_SQL,
   isAmountDeviation,
+  buildRiskEvidence,
+  buildSuggestion,
 } from '../ecomSuspiciousOrderDetectStrategy';
 import {
   DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG,
   FlowNodeType,
+  ValidationSeverity,
   buildScoreCalibration,
   cloneSuspiciousOrderDetectConfig,
+  collectEffectiveRules,
+  collectSuspiciousOrderBlockers,
   type FlowNode,
   type SuspiciousOrderDetectConfig,
   type SuspiciousOrderDetectFieldMapping,
@@ -288,13 +293,33 @@ describe('八条规则判据方向（金标准）', () => {
     expect(build(cfg({ refundStatusValues: "it's,已退款" }, ALL_COLS))).toContain("'IT''S'");
   });
 
-  it('D14 去重口径：异常订单数按 order_id 去重，全 SQL 不出现 LEAST(', () => {
+  it('D14 去重口径：异常订单数按 order_id 去重，且不用 LEAST( 夹取订单数相加', () => {
     const sql = build(full());
     expect(sql).toContain('COUNT(DISTINCT "order_id") FILTER (WHERE is_abnormal)');
-    expect(sql).not.toContain('LEAST(');
+    // must-fix #2：禁止用 LEAST( 做异常订单数相加夹取；risk_score 的 100 上限走 CASE WHEN
+    expect(sql).not.toMatch(/LEAST\([^)]*order_count_abnormal/i);
+    expect(sql).toContain('CASE WHEN ');
     const noOrderId = build(cfg({}, withoutCols(['orderIdCol'])));
     expect(noOrderId).toContain('COUNT(*) FILTER (WHERE is_abnormal)');
     expect(noOrderId).not.toContain('COUNT(DISTINCT "order_id")');
+  });
+
+  // must-fix #2：100 分上限必须存在（评审要求保留，只是不得用 LEAST 实现）
+  it('risk_score 保留 100 分上限（CASE WHEN 实现，非 LEAST）', () => {
+    const sql = build(full());
+    expect(sql).toMatch(/CASE WHEN [^>]+> 100 THEN 100 ELSE /);
+    expect(sql).not.toContain('LEAST(');
+  });
+
+  // must-fix #1：burst 是 (user_id, bkt) 粒度。ord 侧按 (user_id, bkt) 双键关联订单行（一单一行，
+  // 不扇出）；feat 侧必须先按 user_id 聚合再接入，否则破坏「一行一主体」。
+  it('burst 粒度不扇出：ord 双键关联、feat 经 user_id 聚合子查询接入', () => {
+    const sql = build(full());
+    const feat = sql.slice(sql.indexOf('feat AS ('));
+    expect(feat).toContain('SELECT user_id, MAX(bkt_orders) AS max_window_orders FROM burst GROUP BY user_id');
+    expect(feat).not.toContain('LEFT JOIN burst');
+    // ord 侧必须同时限定桶号，否则一用户跨多桶会把订单行重复计入
+    expect(sql).toMatch(/LEFT JOIN burst ON burst\.user_id = src\.user_id AND burst\.bkt_burst = src\.bkt_burst/);
   });
 
   it('未启用规则的计数列输出 NULL 而非 0', () => {
@@ -358,3 +383,258 @@ describe('SQL 快照', () => {
 });
 
 
+
+// ============================================================================
+// Phase 2 — validate：0.7 阻断（ERROR）与缺列降级提示（WARNING）
+// ============================================================================
+
+const validateOf = (config?: SuspiciousOrderDetectConfig) => strategy.validate(makeNodes(config), []);
+const errsOf = (c?: SuspiciousOrderDetectConfig) => validateOf(c).filter((e) => e.severity === ValidationSeverity.ERROR);
+const warnsOf = (c?: SuspiciousOrderDetectConfig) => validateOf(c).filter((e) => e.severity === ValidationSeverity.WARNING);
+
+describe('validate（Phase 2）', () => {
+  it('未指定用户ID列 → ERROR，文案含「用户ID列」', () => {
+    const errs = errsOf(cfg({}, withoutCols(['userIdCol'])));
+    expect(errs.length).toBeGreaterThan(0);
+    expect(errs.some((e) => e.message.includes('用户ID列'))).toBe(true);
+  });
+
+  it('改价异常已开启但缺原价列 → 仅 WARNING，blockers 仍为空', () => {
+    const c = cfg({ ruleToggles: { ...D.ruleToggles, priceAnomaly: true } }, withoutCols(['originalAmountCol']));
+    expect(collectSuspiciousOrderBlockers(c)).toHaveLength(0);
+    expect(errsOf(c)).toHaveLength(0);
+    expect(warnsOf(c).some((w) => w.message.includes('改价异常'))).toBe(true);
+  });
+
+  it('addressPrefixLength=8 → WARNING、无 ERROR', () => {
+    const c = full({ thresholds: { ...D.thresholds, addressPrefixLength: 8 } });
+    expect(errsOf(c)).toHaveLength(0);
+    expect(warnsOf(c).some((w) => w.message.includes('地址前缀过短'))).toBe(true);
+  });
+
+  it('默认配置 + 11 列全映射 → 零 ERROR 零 WARNING（用户主动关闭增强规则不提示）', () => {
+    expect(errsOf(full())).toHaveLength(0);
+    expect(warnsOf(full())).toHaveLength(0);
+  });
+
+  it('覆盖摘要 WARNING：仅在缺依赖列时出现，且用 effective 口径', () => {
+    const missing3 = cfg({}, withoutCols(['addressCol', 'mobileCol', 'deviceCol']));
+    const summary = warnsOf(missing3).filter((w) => w.message.includes('生效'))
+      .map((w) => w.message).join('|');
+    expect(summary).toContain('生效 2 项');
+    expect(summary).toContain('跳过 3 项');
+
+    expect(warnsOf(full()).some((w) => w.message.includes('生效'))).toBe(false);
+
+    const priceMissing = cfg({ ruleToggles: { ...D.ruleToggles, priceAnomaly: true } }, withoutCols(['originalAmountCol']));
+    const priceSummary = warnsOf(priceMissing).filter((w) => w.message.includes('生效'))
+      .map((w) => w.message).join('|');
+    expect(priceSummary).toContain('跳过 1 项');
+    expect(priceSummary).not.toContain('8/8');
+  });
+});
+
+// ============================================================================
+// Phase 2 — postProcess：两列注入 / 等级排序 / 4 张洞察卡片
+// ============================================================================
+
+/** 0.6 的 20 列输出行夹具（列名与 SQL 逐字对齐） */
+const rowOf = (patch: Record<string, unknown> = {}): Record<string, unknown> => ({
+  user_id: 'U1', order_count: 11, order_count_abnormal: 11, risk_score: 70, risk_level: '高',
+  risk_type: ['密集下单', '同地址多账号'], max_window_orders: 11, addr_cluster_users: 3,
+  mobile_cluster_users: 3, device_cluster_accounts: 3, account_age_days: null, age_basis: '注册时间',
+  refund_count: 0, refund_rate: null, price_anomaly_orders: 0, amount_deviation_orders: 0,
+  order_ids: '[A0] 等 11 笔', skipped_rules: '', data_quality_flag: 'ok', ...patch,
+});
+
+/** postProcess 的配置唯一来源是 buildOperatorSql 记录的 _lastConfig，测试须按真实顺序驱动 */
+const runPost = async (config: SuspiciousOrderDetectConfig | undefined, data: unknown[], schema: unknown[] = []) => {
+  build(config);
+  return strategy.postProcess({ data, schema });
+};
+
+const card = (r: Awaited<ReturnType<typeof runPost>>, id: string) =>
+  (r.insightsData?.insights ?? []).find((i) => i.id === id);
+
+describe('postProcess（Phase 2）', () => {
+  it('空结果 → 1 张 warning 卡 + displayConfig 照常返回', async () => {
+    const r = await runPost(full(), []);
+    expect(r.data).toEqual([]);
+    expect(r.insightsData?.insights).toHaveLength(1);
+    expect(r.insightsData?.insights[0].iconKey).toBe('warning');
+    expect(r.displayConfig).toBeDefined();
+  });
+
+  it('正常 3 行 → 每行注入 risk_evidence 与 suggestion，卡片固定 4 张', async () => {
+    const r = await runPost(full(), [rowOf(), rowOf({ user_id: 'U2', risk_level: '中', risk_score: 40 })]);
+    expect(r.insightsData?.insights).toHaveLength(4);
+    for (const row of r.data) {
+      expect(typeof row.risk_evidence).toBe('string');
+      expect(typeof row.suggestion).toBe('string');
+    }
+    for (const c of r.insightsData?.insights ?? []) {
+      expect(c.description).toBeTruthy();
+      expect(c.cardType).toBe('standard');
+    }
+  });
+
+  it('排序唯一真值：严重 → 中 → 低（同级按分数降序）', async () => {
+    const r = await runPost(full(), [
+      rowOf({ user_id: 'U1', risk_level: '低', risk_score: 20 }),
+      rowOf({ user_id: 'U2', risk_level: '严重', risk_score: 85 }),
+      rowOf({ user_id: 'U3', risk_level: '中', risk_score: 40 }),
+      rowOf({ user_id: 'U4', risk_level: '中', risk_score: 55 }),
+    ]);
+    expect(r.data.map((x) => x.user_id)).toEqual(['U2', 'U4', 'U3', 'U1']);
+  });
+
+  it('证据文案由命中规则拼装：密集下单 + 同地址', async () => {
+    const r = await runPost(full(), [rowOf()]);
+    const evidence = String(r.data[0].risk_evidence);
+    expect(evidence).toContain('小时内最多下单 11 笔');
+    expect(evidence).toContain('同一收货地址关联 3 个账号');
+    // 未命中规则（改价/金额/退款）不得出现在证据里
+    expect(evidence).not.toContain('折');
+    expect(evidence).not.toContain('退款');
+  });
+
+  it('schema 追加两列，已存在则不重复追加', async () => {
+    const base = [{ name: 'user_id', type: 'VARCHAR' }];
+    const added = await runPost(full(), [rowOf()], base);
+    expect((added.schema ?? []).map((s) => (s as { name?: string }).name))
+      .toEqual(['user_id', 'risk_evidence', 'suggestion']);
+
+    const preset = await runPost(full(), [rowOf()],
+      [...base, { name: 'risk_evidence', type: 'VARCHAR' }, { name: 'suggestion', type: 'VARCHAR' }]);
+    expect((preset.schema ?? []).filter((s) => (s as { name?: string }).name === 'suggestion')).toHaveLength(1);
+  });
+
+  it('卡片 1「生效规则」与 collectEffectiveRules 同源：默认 5、全开 8、缺聚集三列 2', async () => {
+    const allOn = { ...D.ruleToggles, priceAnomaly: true, amountDeviation: true, refundAnomaly: true };
+    const missingCluster = cfg({}, withoutCols(['addressCol', 'mobileCol', 'deviceCol']));
+    const cases: Array<[SuspiciousOrderDetectConfig, number]> = [
+      [full(), 5],
+      [full({ ruleToggles: allOn }), 8],
+      [missingCluster, 2],
+    ];
+    for (const [c, expected] of cases) {
+      expect(collectEffectiveRules(c).effective.length).toBe(expected);
+      const m = (card(await runPost(c, [rowOf()]), 'risk-overview')?.metrics ?? [])
+        .find((x) => x.label === '生效规则');
+      expect(m?.value).toBe(expected);
+    }
+  });
+
+  it('卡片 2：topN 截断 + 「等 N 个」收尾；无严重主体时保留卡片并改文案', async () => {
+    const severe = [
+      rowOf({ user_id: 'U1', risk_level: '严重', risk_score: 90 }),
+      rowOf({ user_id: 'U2', risk_level: '严重', risk_score: 85 }),
+      rowOf({ user_id: 'U3', risk_level: '严重', risk_score: 80 }),
+    ];
+    const desc = String(card(await runPost(full({ topN: 2 }), severe), 'critical-subjects')?.description);
+    expect(desc).toContain('U1');
+    expect(desc).toContain('U2');
+    expect(desc).not.toContain('U3');
+    expect(desc).toContain('等 3 个');
+
+    const none = String(card(await runPost(full(), [rowOf({ risk_level: '中', risk_score: 40 })]), 'critical-subjects')?.description);
+    expect(none).toBe('本次未发现严重风险主体');
+  });
+
+  it('卡片 3：三维度聚集分段；均未命中时给「未发现多账号聚集」', async () => {
+    const gang = rowOf({ risk_type: ['密集下单', '同地址多账号', '同手机多账号', '同设备多账号'] });
+    const desc = String(card(await runPost(full(), [gang, gang]), 'cluster-gangs')?.description);
+    expect(desc).toContain('同地址 2 个主体（关联账号合计 6）');
+    expect(desc).toContain('同手机 2 个主体（关联账号合计 6）');
+    expect(desc).toContain('同设备 2 个主体（关联账号合计 6）');
+
+    // 分段只跟随 risk_type 命中的规则：仅有聚集数值列但未命中 → 不出现聚集分段
+    const partial = String(card(await runPost(full(), [rowOf()]), 'cluster-gangs')?.description);
+    expect(partial).toContain('同地址');
+    expect(partial).not.toContain('同手机');
+
+    const clean = String(card(await runPost(full(), [rowOf({ risk_type: ['密集下单'] })]), 'cluster-gangs')?.description);
+    expect(clean).toBe('未发现多账号聚集');
+  });
+
+  it('卡片 4 三态文案：已关闭 / 缺列跳过 / 全部纳入（互不串台）', async () => {
+    const defaultDesc = String(card(await runPost(full(), [rowOf()]), 'rule-coverage')?.description);
+    expect(defaultDesc).toContain('已关闭 3 项');
+    expect(defaultDesc).toContain('生效 5/8 项');
+    expect(defaultDesc).not.toContain('8 项规则全部纳入');
+
+    const allOn = { ...D.ruleToggles, priceAnomaly: true, amountDeviation: true, refundAnomaly: true };
+    const allOnDesc = String(card(await runPost(full({ ruleToggles: allOn }), [rowOf()]), 'rule-coverage')?.description);
+    expect(allOnDesc).toContain('8 项规则全部纳入本次检测');
+    expect(allOnDesc).not.toContain('已关闭');
+
+    const priceMissing = cfg({ ruleToggles: { ...D.ruleToggles, priceAnomaly: true } }, withoutCols(['originalAmountCol']));
+    const skipDesc = String(card(await runPost(priceMissing, [rowOf()]), 'rule-coverage')?.description);
+    expect(skipDesc).toContain('跳过 1 项');
+    expect(skipDesc).toContain('改价异常');
+  });
+
+  it('行计数口径 tooltip 跟随 orderIdCol 配置（不写死）', async () => {
+    const cols = ['order_count', 'max_window_orders', 'order_count_abnormal'];
+    const withIds = (await runPost(full(), [rowOf()])).displayConfig?.columnTooltips ?? {};
+    const withoutIds = (await runPost(cfg({}, withoutCols(['orderIdCol'])), [rowOf()])).displayConfig?.columnTooltips ?? {};
+    for (const c of cols) {
+      expect(withoutIds[c] ?? '').toContain('按数据行计数');
+      expect(withIds[c] ?? '').not.toContain('按数据行计数');
+    }
+  });
+
+  it('幽灵配置：未 buildSql 直接 postProcess 不抛错且不串上一个节点配置', async () => {
+    const fresh = new EcomSuspiciousOrderDetectStrategy();
+    const empty = await fresh.postProcess({ data: [], schema: [] });
+    expect(empty.insightsData?.insights).toHaveLength(1);
+    expect(empty.displayConfig).toBeDefined();
+
+    // A 节点（8 项全开 + 自定义 1 折）→ 无配置节点（DEGRADE_SQL）→ 文案必须退回默认口径
+    const customA = full({
+      ruleToggles: { ...D.ruleToggles, priceAnomaly: true, amountDeviation: true, refundAnomaly: true },
+      thresholds: { ...D.thresholds, priceAnomalyMaxRatio: 0.1 },
+    });
+    expect(build(customA)).toContain('* 0.1');
+    expect(build(undefined)).toBe(DEGRADE_SQL);
+    const r = await strategy.postProcess({ data: [rowOf({ risk_type: ['改价异常'], price_anomaly_orders: 2 })], schema: [] });
+    expect(String(r.data[0].risk_evidence)).toContain('不足原价的 3 折');
+    expect(String(r.data[0].risk_evidence)).not.toContain('1 折');
+    expect(String(card(r, 'rule-coverage')?.description)).not.toContain('8 项规则全部纳入');
+  });
+});
+
+describe('证据与建议纯函数', () => {
+  it('0.3 折算为 3 折（不出现浮点尾噪 3.0）', () => {
+    expect(buildRiskEvidence(rowOf({ risk_type: ['改价异常'], price_anomaly_orders: 2 }), full()))
+      .toBe('2 笔订单实付不足原价的 3 折');
+  });
+
+  it('金额突变与退款异常文案取配置倍数与行内占比', () => {
+    const c = full({ thresholds: { ...D.thresholds, amountDeviationMultiple: 4 } });
+    expect(buildRiskEvidence(rowOf({ risk_type: ['金额突变'], amount_deviation_orders: 3 }), c))
+      .toBe('3 笔订单金额超过其余订单平均金额 4 倍');
+    expect(buildRiskEvidence(rowOf({ risk_type: ['退款异常'], refund_count: 2, refund_rate: 66.7 }), full()))
+      .toBe('退款/取消 2 笔，占比 66.7%');
+  });
+
+  it('批量小号带年龄基准；数值列为 NULL 时跳过分段而非兜底 0', () => {
+    expect(buildRiskEvidence(rowOf({ risk_type: ['批量小号'], account_age_days: 0, age_basis: '本表最早下单时间' }), full()))
+      .toBe('账号年龄约 0 天（基准：本表最早下单时间）');
+    expect(buildRiskEvidence(rowOf({ risk_type: ['批量小号'], account_age_days: null }), full())).toBe('');
+    expect(buildRiskEvidence(rowOf({ risk_type: ['未知规则'] }), full())).toBe('');
+  });
+
+  it('BIGINT 计数列可正常渲染', () => {
+    expect(buildRiskEvidence(rowOf({ risk_type: ['密集下单'], max_window_orders: BigInt(11) }), full()))
+      .toBe('1 小时内最多下单 11 笔');
+  });
+
+  it('suggestion 按等级映射，未知等级退回持续观察', () => {
+    expect(buildSuggestion('严重')).toBe('立即拦截并人工复核');
+    expect(buildSuggestion('高')).toBe('人工复核后决定处置');
+    expect(buildSuggestion('中')).toBe('加入限购/观察名单');
+    expect(buildSuggestion('低')).toBe('持续观察');
+    expect(buildSuggestion(null)).toBe('持续观察');
+  });
+});

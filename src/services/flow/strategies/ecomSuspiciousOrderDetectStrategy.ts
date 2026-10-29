@@ -22,6 +22,7 @@ import { BaseStrategy } from '../strategies';
 import {
   FlowNodeType,
   OperatorType,
+  ValidationSeverity,
   DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG,
   SUSPICIOUS_ORDER_RULE_KEYS,
   SUSPICIOUS_RULE_LABEL,
@@ -34,9 +35,14 @@ import {
   type AnalysisResult,
   type FlowEdge,
   type FlowNode,
+  type InsightItem,
+  type InsightMetric,
+  type OperatorDisplayConfig,
+  type OperatorInsightsData,
   type SelectNodeData,
   type SuspiciousOrderDetectConfig,
   type SuspiciousOrderRuleKey,
+  type ValidationError,
 } from '../types';
 import { logger } from '../../../utils/logger';
 
@@ -517,6 +523,126 @@ export function buildFinalSelect(cfg: SuspiciousOrderDetectConfig, gates: Suspic
 }
 
 // ============================================================================
+// postProcess 纯函数（Phase 2）：证据文案 / 处置建议 / 等级排序
+// ============================================================================
+
+/** SQL 输出行视图（0.6 的 20 列 + postProcess 注入 risk_evidence / suggestion） */
+export type SuspiciousOrderRow = Record<string, unknown> & {
+  user_id?: unknown;
+  risk_score?: unknown;
+  risk_level?: unknown;
+  risk_type?: unknown;
+  order_count_abnormal?: unknown;
+};
+
+function safeNum(v: unknown): number {
+  const n = typeof v === 'bigint' ? Number(v) : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** 空值即空：null/undefined/非有限 → null（证据文案据此跳过分段） */
+function toNum(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === 'bigint' ? Number(v) : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 等级排序唯一真值：严重 0 / 高 1 / 中 2 / 低 3 */
+const LEVEL_RANK: Record<string, number> = { 严重: 0, 高: 1, 中: 2, 低: 3 };
+
+const LEVEL_SUGGESTION: Record<string, string> = {
+  严重: '立即拦截并人工复核',
+  高: '人工复核后决定处置',
+  中: '加入限购/观察名单',
+  低: '持续观察',
+};
+
+/** 标签 → 规则键反查（标签唯一真值是 SUSPICIOUS_RULE_LABEL，禁止另写一份中文） */
+const RULE_BY_LABEL: Record<string, SuspiciousOrderRuleKey> = {};
+for (const key of SUSPICIOUS_ORDER_RULE_KEYS) RULE_BY_LABEL[SUSPICIOUS_RULE_LABEL[key]] = key;
+
+/** `risk_type` 在 duckdb-wasm 下是 VARCHAR[]，降级/历史数据可能是文本形态 */
+function asStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter((x) => x.length > 0);
+  if (typeof v === 'string' && v.length > 0) {
+    return v.replace(/^[\s[]+|[\s\]]+$/g, '').split(',')
+      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .filter((s) => s.length > 0);
+  }
+  return [];
+}
+
+/** 展示数值：整数不带小数位，小数保留 1 位（0.3*10 的浮点尾噪在此收敛） */
+function fmtNum(n: number): string {
+  // 先收敛浮点尾噪（0.3 * 10 === 3.0000000000000004），避免出现「3.0 折」这类文案
+  return String(Math.round(n * 100) / 100);
+}
+
+/** 各规则的证据文案：依赖列为空则跳过分段，不兜底为 0 */
+const EVIDENCE_TEXT: Record<SuspiciousOrderRuleKey, (row: SuspiciousOrderRow, cfg: SuspiciousOrderDetectConfig) => string> = {
+  burstOrders: (r, c) => {
+    const v = toNum(r.max_window_orders);
+    return v === null ? '' : `${fmtNum(c.windows.burstWindowMinutes / 60)} 小时内最多下单 ${fmtNum(v)} 笔`;
+  },
+  addressCluster: (r) => {
+    const v = toNum(r.addr_cluster_users);
+    return v === null ? '' : `同一收货地址关联 ${fmtNum(v)} 个账号`;
+  },
+  mobileCluster: (r) => {
+    const v = toNum(r.mobile_cluster_users);
+    return v === null ? '' : `同一手机号关联 ${fmtNum(v)} 个账号`;
+  },
+  deviceCluster: (r) => {
+    const v = toNum(r.device_cluster_accounts);
+    return v === null ? '' : `同一设备关联 ${fmtNum(v)} 个账号`;
+  },
+  newAccounts: (r) => {
+    const v = toNum(r.account_age_days);
+    return v === null ? '' : `账号年龄约 ${fmtNum(v)} 天（基准：${String(r.age_basis ?? '未知')}）`;
+  },
+  priceAnomaly: (r, c) => {
+    const v = toNum(r.price_anomaly_orders);
+    return v === null ? '' : `${fmtNum(v)} 笔订单实付不足原价的 ${fmtNum(c.thresholds.priceAnomalyMaxRatio * 10)} 折`;
+  },
+  amountDeviation: (r, c) => {
+    const v = toNum(r.amount_deviation_orders);
+    return v === null ? '' : `${fmtNum(v)} 笔订单金额超过其余订单平均金额 ${fmtNum(c.thresholds.amountDeviationMultiple)} 倍`;
+  },
+  refundAnomaly: (r) => {
+    const v = toNum(r.refund_count);
+    const rate = toNum(r.refund_rate);
+    return v === null || rate === null ? '' : `退款/取消 ${fmtNum(v)} 笔，占比 ${fmtNum(rate)}%`;
+  },
+};
+
+/** 由 risk_type 命中的规则拼装业务文案（`；` 连接） */
+export function buildRiskEvidence(row: SuspiciousOrderRow, cfg: SuspiciousOrderDetectConfig): string {
+  const parts: string[] = [];
+  for (const label of asStringArray(row.risk_type)) {
+    const key = RULE_BY_LABEL[label];
+    if (!key) continue;
+    const text = EVIDENCE_TEXT[key](row, cfg);
+    if (text) parts.push(text);
+  }
+  return parts.join('；');
+}
+
+/** 等级 → 处置建议；未知等级按「持续观察」，保证列不为空 */
+export function buildSuggestion(level: unknown): string {
+  return LEVEL_SUGGESTION[String(level)] ?? '持续观察';
+}
+
+/** 等级升序（严重→低）→ 同等级风险分降序 → user_id 兜底，保证结果稳定 */
+export function compareRiskRows(a: SuspiciousOrderRow, b: SuspiciousOrderRow): number {
+  const la = LEVEL_RANK[String(a.risk_level)] ?? 4;
+  const lb = LEVEL_RANK[String(b.risk_level)] ?? 4;
+  if (la !== lb) return la - lb;
+  const d = safeNum(b.risk_score) - safeNum(a.risk_score);
+  if (d !== 0) return d;
+  return String(a.user_id ?? '') < String(b.user_id ?? '') ? -1 : 1;
+}
+
+// ============================================================================
 // 策略
 // ============================================================================
 
@@ -576,13 +702,222 @@ export class EcomSuspiciousOrderDetectStrategy extends BaseStrategy {
     return sql;
   }
 
-  /** Phase 2 补全：证据文案 / 处置建议注入 + 4 张洞察卡片（此处先保证类型与空结果可运行） */
-  async postProcess(data: unknown): Promise<AnalysisResult> {
+  /** 0.7 阻断判据 → ERROR；缺列降级与前缀过短 → WARNING（判据与 SQL 生成同源，禁止另写一份） */
+  protected override validateOperatorSpecific(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+  ): ValidationError[] {
+    const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
+    if (!selectNode) return [];
+    const cfg = (selectNode.data as SelectNodeData | undefined)?.suspiciousOrderDetectConfig
+      ?? DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG;
+
+    const errors: ValidationError[] = [];
+    const push = (message: string, severity: ValidationSeverity = ValidationSeverity.ERROR) =>
+      errors.push({ nodeId: selectNode.id, nodeType: FlowNodeType.SELECT, severity, message });
+
+    for (const blocker of collectSuspiciousOrderBlockers(cfg)) push(blocker.message);
+
+    if (cfg.thresholds.addressPrefixLength < 10) {
+      push('地址前缀过短会把不同住户合并，可能误判同址多账号', ValidationSeverity.WARNING);
+    }
+
+    // 已开启但缺依赖列：直接复用 Phase 0 的 collectSkippedRules
+    for (const key of collectSkippedRules(cfg)) {
+      push(`『${SUSPICIOUS_RULE_LABEL[key]}』已开启但缺少依赖列，本次不参与计算`, ValidationSeverity.WARNING);
+    }
+
+    // D6 覆盖摘要：仅 skipped>0 时提示；用户主动关闭不算跳过（默认配置即 5/8）
+    const coverage = collectEffectiveRules(cfg);
+    if (coverage.skipped.length > 0) {
+      push(
+        `本次 8 项规则中生效 ${coverage.effective.length} 项（缺少依赖列跳过 ${coverage.skipped.length} 项：` +
+        `${coverage.skipped.map((k) => SUSPICIOUS_RULE_LABEL[k]).join('、')}）`,
+        ValidationSeverity.WARNING,
+      );
+    }
+    return errors;
+  }
+
+  override async postProcess(data: unknown): Promise<AnalysisResult> {
     const cfg = this._lastConfig ?? DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG;
-    const queryResult = data as { data?: unknown[]; schema?: unknown[] };
-    const rows = queryResult.data ?? [];
-    logger.info(`[${this.name}.postProcess] rows=${rows.length}, effectiveRules=${collectEffectiveRules(cfg).effective.length}/8`);
-    return { type: this.type, sql: '', data: rows, schema: queryResult.schema ?? [] };
+    const queryResult = (data ?? {}) as { data?: unknown; schema?: unknown[] };
+    const rows = (Array.isArray(queryResult.data) ? queryResult.data : []) as SuspiciousOrderRow[];
+    const coverage = collectEffectiveRules(cfg);
+    logger.info(`[${this.name}.postProcess] rows=${rows.length}, effectiveRules=${coverage.effective.length}/8`);
+
+    if (rows.length === 0) {
+      return {
+        type: this.type, sql: '', data: [],
+        schema: queryResult.schema ?? [],
+        insightsData: {
+          summary: { totalRecordCount: 0, totalFilterRecordCount: 0, riskRecordCount: 0, criticalRecordCount: 0 },
+          insights: [{
+            id: 'no-risk-subjects', cardType: 'standard', iconKey: 'warning',
+            title: '未发现风险主体',
+            description:
+              `当前生效规则 ${coverage.effective.length}/8 项，观察区间${cfg.windows.observationDays > 0 ? `近 ${cfg.windows.observationDays} 天` : '覆盖全部历史数据'}，` +
+              '未命中任何启用规则的阈值，可放宽阈值或补充依赖列后重跑',
+            sortOrder: 1,
+          }],
+        },
+        displayConfig: this.buildDisplayConfig(cfg),
+      };
+    }
+
+    // 注入两列 → 按等级/分数排序（唯一真值：严重→高→中→低，同级降序）
+    const decorated: SuspiciousOrderRow[] = rows.map((r) => ({
+      ...r,
+      risk_evidence: buildRiskEvidence(r, cfg),
+      suggestion: buildSuggestion(r.risk_level),
+    }));
+    decorated.sort(compareRiskRows);
+
+    const levelCount = (lv: string) => decorated.filter((r) => String(r.risk_level) === lv).length;
+    const severeCount = levelCount('严重');
+    const riskCount = severeCount + levelCount('高') + levelCount('中');
+    const abnormalOrders = decorated.reduce((a, r) => a + safeNum(r.order_count_abnormal), 0);
+    const avgScore = decorated.reduce((a, r) => a + safeNum(r.risk_score), 0) / decorated.length;
+    const topN = Math.max(1, Math.min(10, Math.trunc(safeNum(cfg.topN)) || 5));
+    const { severeScore, highScore, midScore } = cfg.tiers;
+
+    // 卡片 2：严重风险主体（无严重也保留卡片，仅改文案，杜绝卡片数量随数据漂移）
+    const severeSubjects = decorated.filter((r) => String(r.risk_level) === '严重');
+    const severeNames = severeSubjects.slice(0, topN).map((r) => String(r.user_id ?? ''));
+    const severeText = severeNames.length > 0
+      ? severeNames.join('、') + (severeSubjects.length > topN ? ` 等 ${severeSubjects.length} 个` : '')
+      : '本次未发现严重风险主体';
+
+    // 卡片 3：团伙聚集（三维度命中主体数 + 涉及账号数合计）
+    const hasLabel = (r: SuspiciousOrderRow, key: SuspiciousOrderRuleKey) =>
+      asStringArray(r.risk_type).indexOf(SUSPICIOUS_RULE_LABEL[key]) >= 0;
+    const clusterDims: Array<{ key: SuspiciousOrderRuleKey; label: string; col: string }> = [
+      { key: 'addressCluster', label: '同地址', col: 'addr_cluster_users' },
+      { key: 'mobileCluster', label: '同手机', col: 'mobile_cluster_users' },
+      { key: 'deviceCluster', label: '同设备', col: 'device_cluster_accounts' },
+    ];
+    const clusterSegs = clusterDims.map((d) => {
+      const hit = decorated.filter((r) => hasLabel(r, d.key));
+      return hit.length === 0
+        ? null
+        : `${d.label} ${hit.length} 个主体（关联账号合计 ${hit.reduce((a, r) => a + safeNum(r[d.col]), 0)}）`;
+    }).filter((s): s is string => s !== null);
+
+    // 卡片 4：规则覆盖三态文案（只拼非零分段；「全部纳入」仅在 8/8 时使用）
+    const coverageSegs: string[] = [];
+    if (coverage.closed.length > 0) {
+      coverageSegs.push(`已关闭 ${coverage.closed.length} 项（${coverage.closed.map((k) => SUSPICIOUS_RULE_LABEL[k]).join('、')}）`);
+    }
+    if (coverage.skipped.length > 0) {
+      coverageSegs.push(`缺依赖列跳过 ${coverage.skipped.length} 项（${coverage.skipped.map((k) => SUSPICIOUS_RULE_LABEL[k]).join('、')}）`);
+    }
+    coverageSegs.push(coverage.effective.length === 8
+      ? '8 项规则全部纳入本次检测'
+      : `生效 ${coverage.effective.length}/8 项`);
+
+    const overviewMetrics: InsightMetric[] = [
+      { label: '风险主体数', value: decorated.length },
+      { label: '严重·高风险数', value: severeCount + levelCount('高') },
+      { label: '平均风险分', value: Number(avgScore.toFixed(1)) },
+      { label: '生效规则', value: coverage.effective.length },
+    ];
+
+    const insights: InsightItem[] = [
+        {
+          id: 'risk-overview', cardType: 'standard', iconKey: 'warning',
+          title: '风险主体概览',
+          description:
+            `共 ${decorated.length} 个风险主体：严重 ${severeCount}、高 ${levelCount('高')}、中 ${levelCount('中')}、低 ${levelCount('低')}；` +
+            `平均风险分 ${Number(avgScore.toFixed(1))}；分档阈值 ≥${severeScore} 严重 / ≥${highScore} 高 / ≥${midScore} 中`,
+          suggestion: severeCount > 0
+            ? '优先处理严重风险主体，再看高风险清单'
+            : '无严重风险主体，按中/高档批量处置即可',
+          sortOrder: 1,
+          metrics: overviewMetrics,
+        },
+        {
+          id: 'critical-subjects', cardType: 'standard', iconKey: 'critical',
+          title: '严重风险主体',
+          description: severeText,
+          suggestion: severeSubjects.length > 0 ? '立即拦截并人工复核，必要时联动账号体系冻结' : undefined,
+          sortOrder: 2,
+        },
+        {
+          id: 'cluster-gangs', cardType: 'standard', iconKey: 'user',
+          title: '团伙聚集',
+          description: clusterSegs.length > 0 ? clusterSegs.join('；') : '未发现多账号聚集',
+          suggestion: clusterSegs.length > 0 ? '同簇账号建议批量处置（同一自然人多账号规避限购）' : undefined,
+          sortOrder: 3,
+        },
+        {
+          id: 'rule-coverage', cardType: 'standard', iconKey: 'quality',
+          title: '检测规则覆盖',
+          description: coverageSegs.join('；'),
+          sortOrder: 4,
+        },
+    ];
+
+    const insightsData: OperatorInsightsData = {
+      summary: {
+        totalRecordCount: decorated.length,
+        totalFilterRecordCount: abnormalOrders,
+        riskRecordCount: riskCount,
+        criticalRecordCount: severeCount,
+      },
+      insights,
+    };
+
+    const schema = (queryResult.schema ?? []) as Array<{ name?: string }>;
+    const withField = (list: unknown[], name: string) =>
+      list.some((s) => (s as { name?: string }).name === name) ? list : [...list, { name, type: 'STRING' }];
+    const enhancedSchema = withField(withField(schema, 'risk_evidence'), 'suggestion');
+
+    return {
+      type: this.type, sql: '',
+      // SAFETY: rows 是 SQL 20 列原值透传 + 注入的 2 个字符串列，Record 视图只做渲染层契约，不做字段级断言
+      data: decorated as unknown as Record<string, unknown>[],
+      schema: enhancedSchema,
+      insightsData,
+      displayConfig: this.buildDisplayConfig(cfg),
+    };
+  }
+
+  /**
+   * displayConfig 与空结果路径同源（禁止另写一份）；不含 rowColorizer —— 颜色由渲染层主题驱动，
+   * 硬编码色值会违反 theme.md。
+   */
+  private buildDisplayConfig(cfg: SuspiciousOrderDetectConfig): OperatorDisplayConfig {
+    const m = cfg.fieldMapping;
+    const { severeScore, highScore, midScore } = cfg.tiers;
+    // 未映射订单号列时行计数退化为数据行数，口径说明必须跟随配置（不写死）
+    const rowCaliber = hasColumnValue(m.orderIdCol) ? '' : '；未指定订单号列时按数据行计数';
+    const clusterTip = (label: string) =>
+      `同一${label}在 ${cfg.windows.clusterWindowMinutes} 分钟窗口内关联的账号数（按时间窗整除对齐的固定分桶统计，跨桶边界前后的聚集可能被低估）`;
+
+    return {
+      defaultSort: { column: 'risk_score', order: 'descend' },
+      columnFormatters: {
+        risk_type: { type: 'json_tag_badges' },
+        risk_level: { type: 'risk_badge' },
+        account_age_days: { type: 'duration_days', unit: '天' },
+      },
+      columnTooltips: {
+        risk_score:
+          `风险分 = 命中规则权重之和（上限 100）；分档 ≥${severeScore} 严重 / ≥${highScore} 高 / ≥${midScore} 中 / 其余低`,
+        order_count: `区间内订单数${rowCaliber}${rowCaliber ? '，请确保一行一订单' : ''}`,
+        order_count_abnormal: `命中任一风险规则的订单数，同一订单只计一次${rowCaliber}`,
+        max_window_orders:
+          `按 ${cfg.windows.burstWindowMinutes} 分钟整除对齐的固定分桶统计的单桶最大下单数，跨桶边界前后的突发可能被低估${rowCaliber}`,
+        addr_cluster_users: clusterTip('地址前缀（前 ' + cfg.thresholds.addressPrefixLength + ' 字符）'),
+        mobile_cluster_users: clusterTip('手机号（去分隔符并全角转半角）'),
+        device_cluster_accounts: clusterTip('设备标识'),
+        account_age_days:
+          '账号年龄 = 统计截止时间 − 注册时间；缺注册时间时退回首单时间，再退回本表最早下单时间；基准晚于统计截止时间时按 0 天计',
+        refund_rate: '退款/取消订单占比（百分比）',
+        order_ids: '最多展示 10 个订单号，超出以「等 N 笔」标注',
+        skipped_rules: '本次因缺少依赖列而跳过的规则（配置补齐该列后自动纳入）',
+      },
+    };
   }
 }
 
