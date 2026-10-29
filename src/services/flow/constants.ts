@@ -268,6 +268,12 @@ export const OPERATOR_CONFIG = {
     icon: '🎯',
     color: '#fa541c',
   },
+  suspicious_order_detect: {
+    name: '恶意订单/刷单/异常下单检测',
+    description: '按用户聚合 8 项规则信号，加权评分并分级，输出命中规则明细与处置建议',
+    icon: '🛡️',
+    color: '#eb2f96',
+  },
 };
 
 // ============================================================================

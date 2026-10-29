@@ -63,6 +63,7 @@ export enum OperatorType {
   PROFIT_MARGIN_CALC = 'profit_margin_calc',  // Order accounting: gross/net profit margin calculation
   PLATFORM_FEE_ALLOCATE = 'platform_fee_allocate',  // 平台佣金/服务费自动分摊
   ACTIVITY_EFFECT_SPLIT = 'activity_effect_split',  // 运营复盘：活动/优惠券/直播间效果拆分
+  SUSPICIOUS_ORDER_DETECT = 'suspicious_order_detect',  // 风险风控：恶意订单/刷单/异常下单检测
 }
 
 export enum LogicType {
@@ -298,6 +299,8 @@ export interface SelectNodeData extends BaseNodeData {
   platformFeeAllocateConfig?: PlatformFeeAllocateConfig;
   /** fn_ecom_activity_effect_split 配置 */
   activityEffectSplitConfig?: ActivityEffectSplitConfig;
+  /** fn_ecom_suspicious_order_detect 配置 */
+  suspiciousOrderDetectConfig?: SuspiciousOrderDetectConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -1137,6 +1140,317 @@ export function collectActivitySplitBlockers(cfg?: ActivityEffectSplitConfig): A
     blockers.push({ code: 'single-column-missing', message: '单列成本口径需要指定成本列' });
   }
   return blockers;
+}
+
+// ============================================================================
+// fn_ecom_suspicious_order_detect — 恶意订单/刷单/异常下单检测（feature 15）
+// 契约层：类型 / 默认值 / 阻断判据 / 生效规则判据，策略、抽屉、SelectNode 三处同源
+// ============================================================================
+
+/** 8 条风险规则键（顺序 = 打分与文案顺序，禁止随意调换：SQL 分值数组与校准表依赖它） */
+export type SuspiciousOrderRuleKey =
+  | 'burstOrders' | 'addressCluster' | 'mobileCluster' | 'deviceCluster'
+  | 'newAccounts'  | 'priceAnomaly'  | 'amountDeviation' | 'refundAnomaly';
+
+/** 规则键全集（单一事实源，遍历顺序 = 此顺序） */
+export const SUSPICIOUS_ORDER_RULE_KEYS: SuspiciousOrderRuleKey[] = [
+  'burstOrders', 'addressCluster', 'mobileCluster', 'deviceCluster',
+  'newAccounts', 'priceAnomaly', 'amountDeviation', 'refundAnomaly',
+];
+
+export interface SuspiciousOrderDetectFieldMapping {
+  userIdCol: string;            // 必填：风控主体
+  orderTimeCol: string;         // 必填：下单时间
+  addressCol?: string;          // R2 收货地址
+  mobileCol?: string;           // R3 收货手机
+  deviceCol?: string;           // R4 设备号
+  amountCol?: string;           // R6/R7 订单实付金额
+  originalAmountCol?: string;   // R6 原价/吊牌价
+  orderIdCol?: string;          // 订单号明细列（D2 方案 C）
+  orderStatusCol?: string;      // R8 订单状态
+  registerTimeCol?: string;     // R5 注册时间（三级链第 1 级）
+  firstOrderTimeCol?: string;   // R5 首次下单时间（三级链第 2 级）
+}
+
+export interface SuspiciousOrderDetectThresholds {
+  burstOrderCount: number;          // 10
+  addrClusterUsers: number;         // 3
+  mobileClusterUsers: number;       // 3
+  deviceClusterUsers: number;       // 3
+  newAccountMaxAgeDays: number;     // 7
+  newAccountMinOrders: number;      // 3
+  priceAnomalyMaxRatio: number;     // 0.3
+  priceAnomalyMinOrders: number;    // 2
+  amountDeviationMultiple: number;  // 3
+  amountDeviationMinOrders: number; // 2
+  refundMinOrders: number;          // 2
+  refundRatePercent: number;        // 30（百分比）
+  addressPrefixLength: number;      // 15（D12 归一化口径，与 arbitrage LEFT(addr,15) 同源）
+}
+
+export interface SuspiciousOrderDetectWindows {
+  burstWindowMinutes: number;    // 60  （D11 突发窗口）
+  clusterWindowMinutes: number;  // 120 （D11 聚集窗口）
+  observationDays: number;       // 0 = 全部数据（D11 观察区间）
+}
+
+export interface SuspiciousOrderDetectRuleToggles {
+  burstOrders: boolean;      // 核心·默认 true
+  addressCluster: boolean;   // 核心·true
+  mobileCluster: boolean;    // 核心·true
+  deviceCluster: boolean;    // 核心·true
+  newAccounts: boolean;      // 核心·true
+  priceAnomaly: boolean;     // 增强·默认 false
+  amountDeviation: boolean;  // 增强·false
+  refundAnomaly: boolean;    // 增强·false
+}
+
+export type SuspiciousOrderDetectWeights = Record<SuspiciousOrderRuleKey, number>;
+
+export interface SuspiciousOrderDetectTiers {
+  severeScore: number; // 80
+  highScore: number;   // 60
+  midScore: number;    // 40
+}
+
+export interface SuspiciousOrderDetectConfig {
+  fieldMapping: SuspiciousOrderDetectFieldMapping;
+  thresholds: SuspiciousOrderDetectThresholds;
+  windows: SuspiciousOrderDetectWindows;
+  ruleToggles: SuspiciousOrderDetectRuleToggles;
+  weights: SuspiciousOrderDetectWeights;
+  tiers: SuspiciousOrderDetectTiers;
+  /** R8 判定为退款/取消的订单状态值（逗号分隔、`UPPER(TRIM())` 后逐项比对，大小写不敏感） */
+  refundStatusValues: string;
+  /** 洞察卡片列出的风险主体数，1–10，默认 5 */
+  topN: number;
+}
+
+/** 默认权重合计 100（D10 校准表基准：5 项共振即 80 分入「严重」） */
+export const DEFAULT_SUSPICIOUS_ORDER_DETECT_WEIGHTS: SuspiciousOrderDetectWeights = {
+  burstOrders: 20, addressCluster: 20, mobileCluster: 15, deviceCluster: 15,
+  newAccounts: 10, priceAnomaly: 10, amountDeviation: 5, refundAnomaly: 5,
+};
+
+/** 默认配置：核心 5 项开启、增强 3 项关闭（D16「零配置即得到宣称能力」） */
+export const DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG: SuspiciousOrderDetectConfig = {
+  fieldMapping: {
+    userIdCol: '', orderTimeCol: '', addressCol: '', mobileCol: '', deviceCol: '',
+    amountCol: '', originalAmountCol: '', orderIdCol: '', orderStatusCol: '',
+    registerTimeCol: '', firstOrderTimeCol: '',
+  },
+  thresholds: {
+    burstOrderCount: 10, addrClusterUsers: 3, mobileClusterUsers: 3, deviceClusterUsers: 3,
+    newAccountMaxAgeDays: 7, newAccountMinOrders: 3, priceAnomalyMaxRatio: 0.3,
+    priceAnomalyMinOrders: 2, amountDeviationMultiple: 3, amountDeviationMinOrders: 2,
+    refundMinOrders: 2, refundRatePercent: 30, addressPrefixLength: 15,
+  },
+  windows: { burstWindowMinutes: 60, clusterWindowMinutes: 120, observationDays: 0 },
+  ruleToggles: {
+    burstOrders: true, addressCluster: true, mobileCluster: true, deviceCluster: true,
+    newAccounts: true, priceAnomaly: false, amountDeviation: false, refundAnomaly: false,
+  },
+  weights: { ...DEFAULT_SUSPICIOUS_ORDER_DETECT_WEIGHTS },
+  tiers: { severeScore: 80, highScore: 60, midScore: 40 },
+  refundStatusValues: 'REFUNDED,RETURNED,CANCELLED,已退款,退款成功,已退货,已取消,交易关闭,退货退款',
+  topN: 5,
+};
+
+/** 规则中文标签：`risk_type` 数组、`skipped_rules` 文案、抽屉行标题三处共用 */
+export const SUSPICIOUS_RULE_LABEL: Record<SuspiciousOrderRuleKey, string> = {
+  burstOrders: '密集下单', addressCluster: '同地址多账号', mobileCluster: '同手机多账号',
+  deviceCluster: '同设备多账号', newAccounts: '批量小号', priceAnomaly: '改价异常',
+  amountDeviation: '金额突变', refundAnomaly: '退款异常',
+};
+
+/**
+ * 规则 → 依赖列键（R1/R5 无额外依赖恒不跳过：R5 由三级链兜底，D6）。
+ * `collectSkippedRules` 与抽屉「已开启但缺列」提示共用此映射。
+ */
+export const SUSPICIOUS_RULE_DEPENDENCY_COLS: Partial<
+  Record<SuspiciousOrderRuleKey, Array<keyof SuspiciousOrderDetectFieldMapping>>
+> = {
+  addressCluster: ['addressCol'],
+  mobileCluster: ['mobileCol'],
+  deviceCluster: ['deviceCol'],
+  priceAnomaly: ['amountCol', 'originalAmountCol'],
+  amountDeviation: ['amountCol'],
+  refundAnomaly: ['orderStatusCol'],
+};
+
+/** 逐层深拷贝：默认常量是模块级单例，抽屉与策略不得共享其嵌套引用（不使用 structuredClone，jsdom 可测） */
+export function cloneSuspiciousOrderDetectConfig(cfg: SuspiciousOrderDetectConfig): SuspiciousOrderDetectConfig {
+  return {
+    fieldMapping: { ...cfg.fieldMapping },
+    thresholds: { ...cfg.thresholds },
+    windows: { ...cfg.windows },
+    ruleToggles: { ...cfg.ruleToggles },
+    weights: { ...cfg.weights },
+    tiers: { ...cfg.tiers },
+    refundStatusValues: cfg.refundStatusValues,
+    topN: cfg.topN,
+  };
+}
+
+export type SuspiciousOrderDetectBlockerCode =
+  | 'no-user-id' | 'no-order-time' | 'burst-window-invalid' | 'burst-count-invalid'
+  | 'cluster-window-invalid' | 'address-prefix-invalid' | 'observation-days-invalid'
+  | 'threshold-non-positive' | 'weight-out-of-range' | 'weight-total-invalid' | 'tier-order-invalid'
+  | 'top-n-invalid';
+
+export interface SuspiciousOrderDetectBlocker {
+  code: SuspiciousOrderDetectBlockerCode;
+  message: string;
+}
+
+/** 计数类阈值下限（`burstOrderCount` 有专属 code，故排除） */
+const SUSPICIOUS_COUNT_THRESHOLDS: Array<keyof SuspiciousOrderDetectThresholds> = [
+  'addrClusterUsers', 'mobileClusterUsers', 'deviceClusterUsers',
+  'newAccountMaxAgeDays', 'newAccountMinOrders', 'priceAnomalyMinOrders',
+  'amountDeviationMinOrders', 'refundMinOrders',
+];
+
+/**
+ * 恶意订单检测的阻断原因（0.7 表 12 项）。
+ * 消息即业务化中文，三处复用（策略 validate / `isUdfConfigured` / 抽屉确认门禁），禁止各写一份判定。
+ */
+export function collectSuspiciousOrderBlockers(
+  cfg?: SuspiciousOrderDetectConfig,
+): SuspiciousOrderDetectBlocker[] {
+  const c = cfg ?? DEFAULT_SUSPICIOUS_ORDER_DETECT_CONFIG;
+  const t = c.thresholds;
+  const w = c.windows;
+  const blockers: SuspiciousOrderDetectBlocker[] = [];
+
+  if (!hasColumnValue(c.fieldMapping.userIdCol)) {
+    blockers.push({ code: 'no-user-id', message: '请指定用户ID列（风控主体）' });
+  }
+  if (!hasColumnValue(c.fieldMapping.orderTimeCol)) {
+    blockers.push({ code: 'no-order-time', message: '请指定订单下单时间列' });
+  }
+  if (!Number.isFinite(w.burstWindowMinutes) || w.burstWindowMinutes <= 0) {
+    blockers.push({ code: 'burst-window-invalid', message: '密集下单观察时长需大于 0 分钟' });
+  }
+  if (!Number.isFinite(t.burstOrderCount) || t.burstOrderCount < 2) {
+    blockers.push({ code: 'burst-count-invalid', message: '密集下单订单数阈值需不小于 2 单' });
+  }
+  if (!Number.isFinite(w.clusterWindowMinutes) || w.clusterWindowMinutes <= 0) {
+    blockers.push({ code: 'cluster-window-invalid', message: '聚集观察时长需大于 0 分钟' });
+  }
+  if (!Number.isFinite(t.addressPrefixLength) || t.addressPrefixLength < 1 || t.addressPrefixLength > 40) {
+    blockers.push({ code: 'address-prefix-invalid', message: '地址前缀长度需在 1–40 个字符之间' });
+  }
+  if (!Number.isFinite(w.observationDays) || w.observationDays < 0) {
+    blockers.push({ code: 'observation-days-invalid', message: '观察区间天数不能为负数' });
+  }
+  const thresholdBad =
+    SUSPICIOUS_COUNT_THRESHOLDS.some((k) => !Number.isFinite(t[k]) || t[k] < 1) ||
+    !Number.isFinite(t.priceAnomalyMaxRatio) || t.priceAnomalyMaxRatio <= 0 || t.priceAnomalyMaxRatio > 1 ||
+    !Number.isFinite(t.refundRatePercent) || t.refundRatePercent <= 0 || t.refundRatePercent > 100 ||
+    !Number.isFinite(t.amountDeviationMultiple) || t.amountDeviationMultiple <= 0;
+  if (thresholdBad) {
+    blockers.push({ code: 'threshold-non-positive', message: '规则阈值需为正数且处于合理区间' });
+  }
+  const weightValues = SUSPICIOUS_ORDER_RULE_KEYS.map((k) => c.weights[k]);
+  if (weightValues.some((v) => !Number.isFinite(v) || v < 0 || v > 100)) {
+    blockers.push({ code: 'weight-out-of-range', message: '单项规则权重需在 0–100 之间' });
+  }
+  if (weightValues.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0) <= 0) {
+    blockers.push({ code: 'weight-total-invalid', message: '规则权重合计需大于 0' });
+  }
+  const { severeScore, highScore, midScore } = c.tiers;
+  if (
+    !Number.isFinite(severeScore) || !Number.isFinite(highScore) || !Number.isFinite(midScore) ||
+    !(100 >= severeScore && severeScore > highScore && highScore > midScore && midScore >= 1)
+  ) {
+    blockers.push({ code: 'tier-order-invalid', message: '风险分档需满足 严重 > 高 > 中，且均不超过 100' });
+  }
+  if (!Number.isFinite(c.topN) || c.topN < 1 || c.topN > 10) {
+    blockers.push({ code: 'top-n-invalid', message: '洞察列出主体数需在 1–10 之间' });
+  }
+  return blockers;
+}
+
+/** 列名匹配正则（中英双写，`i`）：抽屉自动预填与单测共同消费，键集 = fieldMapping 的 11 个键 */
+export const SUSPICIOUS_FIELD_MATCH_PATTERNS: Record<keyof SuspiciousOrderDetectFieldMapping, RegExp> = {
+  userIdCol: /用户[ _. -]?(编号|号|id)|会员[ _. -]?(编号|号|id)|买家[ _. -]?(编号|号|id)|user[ _. -]?id|buyer[ _. -]?id|member[ _. -]?id/i,
+  orderTimeCol: /下单(时间|日期)|订单(时间|日期)|创建时间|支付(时间|日期)|payment[ _. -]?time|pay[ _. -]?(time|date)|create[ _. -]?(time|at)|paid[ _. -]?(at|time)/i,
+  addressCol: /收货地址|收件地址|详细地址|地址|receiver[ _. -]?addr|shipping[ _. -]?addr|address/i,
+  mobileCol: /收货(手机|电话)|收件(手机|电话)|联系(手机|电话)|手机号?|mobile|phone|tel/i,
+  deviceCol: /设备(号|id|编号)|device[ _. -]?(id|no)|imei|idfa|oaid|mac/i,
+  amountCol: /实付(金额)?|支付金额|付款金额|订单金额|pay[ _. -]?amount|actual[ _. -]?(amount|pay)/i,
+  originalAmountCol: /原价|吊牌价|划线价|标准价|市场价|list[ _. -]?price|origin(al)?[ _. -]?price|original[ _. -]?amount/i,
+  orderIdCol: /订单[ _. -]?(编号|号|id)|order[ _. -]?(id|no)/i,
+  orderStatusCol: /订单状态|交易状态|order[ _. -]?status|trade[ _. -]?status/i,
+  registerTimeCol: /注册(时间|日期|日期时间)|register[ _. -]?(time|date|at)|sign[ _. -]?up[ _. -]?time/i,
+  firstOrderTimeCol: /首次下单(时间|日期)|首单(时间|日期)|first[ _. -]?order[ _. -]?(time|date)/i,
+};
+
+/**
+ * 评分校准表（0.3）：按当前权重降序累计「命中 N 项的最高可能得分」并落到档位。
+ * 纯函数无 IO，供抽屉校准表与单测使用；合计超过 100 时按 100 夹取（与 SQL 的 LEAST 同口径）。
+ */
+export function buildScoreCalibration(
+  weights: SuspiciousOrderDetectWeights,
+  tiers: SuspiciousOrderDetectTiers,
+): Array<{ hitCount: number; maxScore: number; level: string }> {
+  const sorted = SUSPICIOUS_ORDER_RULE_KEYS
+    .map((k) => (Number.isFinite(weights[k]) ? weights[k] : 0))
+    .sort((a, b) => b - a);
+  let acc = 0;
+  return sorted.map((w, i) => {
+    acc += w;
+    const maxScore = Math.min(100, acc);
+    const level = maxScore >= tiers.severeScore ? '严重'
+      : maxScore >= tiers.highScore ? '高'
+        : maxScore >= tiers.midScore ? '中' : '低';
+    return { hitCount: i + 1, maxScore, level };
+  });
+}
+
+/** 解析退款状态值集合：去空白、过滤空项、`toUpperCase()`（中文值不变，与 SQL 的 `UPPER(TRIM(...))` 对齐） */
+export function parseRefundStatusValues(values: string): string[] {
+  return (values ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((v) => v.toUpperCase());
+}
+
+/**
+ * 缺依赖列被跳过的规则（D6 降级判据唯一来源）：开关为 true 且依赖列未映射。
+ * R1 只依赖两列必填、R5 有三级链兜底，两者永不出现于此列表。
+ * 策略 `skipped_rules` 字面量、validate 降级 WARNING、抽屉提示三处共用，禁止各写一份。
+ */
+export function collectSkippedRules(cfg: SuspiciousOrderDetectConfig): SuspiciousOrderRuleKey[] {
+  return SUSPICIOUS_ORDER_RULE_KEYS.filter((key) => {
+    if (!cfg.ruleToggles?.[key]) return false;
+    const deps = SUSPICIOUS_RULE_DEPENDENCY_COLS[key];
+    if (!deps) return false;
+    if (deps.some((col) => !hasColumnValue(cfg.fieldMapping?.[col]))) return true;
+    // R8 额外要求退款状态值非空（全为空白等价于未配置）
+    return key === 'refundAnomaly' && parseRefundStatusValues(cfg.refundStatusValues).length === 0;
+  });
+}
+
+/** 规则覆盖三态（0.7「生效规则」唯一判据）：closed 用户主动关闭 / skipped 缺列跳过 / effective 真正参与打分 */
+export interface SuspiciousOrderRuleCoverage {
+  total: 8;
+  closed: SuspiciousOrderRuleKey[];
+  skipped: SuspiciousOrderRuleKey[];
+  effective: SuspiciousOrderRuleKey[];
+}
+
+/**
+ * 「生效规则 N/8」判据（禁止各处用 `8 - collectSkippedRules().length` 自行相减，那会把用户主动关闭的规则算成生效）。
+ * 四处消费者：validate 覆盖 WARNING、洞察卡片 1 metrics、洞察卡片 4 文案、抽屉分组 ⑦。
+ */
+export function collectEffectiveRules(cfg: SuspiciousOrderDetectConfig): SuspiciousOrderRuleCoverage {
+  const skipped = collectSkippedRules(cfg);
+  const skippedSet = new Set<string>(skipped);
+  const closed = SUSPICIOUS_ORDER_RULE_KEYS.filter((k) => cfg.ruleToggles?.[k] === false);
+  const effective = SUSPICIOUS_ORDER_RULE_KEYS.filter((k) => !skippedSet.has(k) && closed.indexOf(k) < 0);
+  return { total: 8, closed, skipped, effective };
 }
 
 /**
