@@ -381,11 +381,28 @@ describe('SQL 快照', () => {
     expect(build(cfg({ ruleToggles: { burstOrders: false, addressCluster: false, mobileCluster: false, deviceCluster: false, newAccounts: false, priceAnomaly: true, amountDeviation: false, refundAnomaly: false } }, ALL_COLS))).toMatchSnapshot();
   });
 
-  // 回归（review 问题 1）：NULL user_id 不得聚成「幽灵主体」——usr CTE 必须先过滤再分组
+  // 回归（review 问题 1）：缺失用户ID不得聚成「幽灵主体」——usr CTE 必须先过滤 NULL 与空白再分组
+  const usrSegment = (sql: string): string => {
+    const start = sql.indexOf('usr AS (');
+    const end = sql.indexOf(',\nburst AS (');
+    return sql.slice(start, end > -1 ? end : sql.length);
+  };
+
   it('usr CTE 过滤 NULL user_id（幽灵主体回归）', () => {
+    expect(usrSegment(build(full()))).toContain(
+      "FROM src\n  WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''\n  GROUP BY user_id",
+    );
+  });
+
+  // 回归（review 第 2 轮 问题 1）：空白/纯空格 user_id 是导入导出补列的常见缺值形态，
+  // 若不过滤则以普通字符串聚成幽灵主体，且能正常 JOIN ord/abn（行内指标看似正常值，更难被下游识别）。
+  // 主体行唯一来源是 usr（feat 以 `FROM usr` 驱动），故 usr 单点过滤即等价于「空白用户ID不产出主体行」。
+  it('usr CTE 同时过滤空白 user_id（第 2 轮幽灵主体回归）', () => {
     const sql = build(full());
-    const usrSeg = sql.slice(sql.indexOf('usr AS ('), sql.indexOf(',\nburst AS (') > -1 ? sql.indexOf(',\nburst AS (') : sql.length);
-    expect(usrSeg).toContain('FROM src\n  WHERE user_id IS NOT NULL\n  GROUP BY user_id');
+    const seg = usrSegment(sql);
+    expect(seg).toContain("WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''");
+    expect(seg).toContain('GROUP BY user_id');
+    expect(sql).toContain('FROM usr');
   });
 });
 

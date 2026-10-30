@@ -261,8 +261,10 @@ export function buildUsrCte(cfg: SuspiciousOrderDetectConfig): string {
     'MIN(first_order_ms) AS first_order_ms',
     `${buildOrderIdsExpr(cfg)} AS order_ids`,
   ].join(',\n    ');
-  // NULL user_id 不参与主体聚合：否则缺失用户ID的行会聚成一个「幽灵主体」输出行（与 ord INNER JOIN 口径自相矛盾）
-  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  WHERE user_id IS NOT NULL\n  GROUP BY user_id\n)`;
+  // 缺失用户ID（NULL 与空白/纯空格）不参与主体聚合：否则这些脏数据行会聚成一个「幽灵主体」输出行
+  // （空白串能正常 JOIN ord/abn，行内指标看似「正常值」，比 NULL 更难被下游识别），并污染风险主体数/
+  // 平均风险分/严重·高风险数三张洞察卡片与 TopN 榜。空白归 NULL 与同文件 addrKeyExpr / deviceKeyExpr 一致。
+  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''\n  GROUP BY user_id\n)`;
 }
 
 /** 0.6 列 17：先去 NULL 再去重，前 10 个 + 「等 N 笔」，禁止静默截断 */
