@@ -35,6 +35,7 @@ usr AS (
     MIN(first_order_ms) AS first_order_ms,
     CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
   FROM src
+  WHERE user_id IS NOT NULL
   GROUP BY user_id
 ),
 burst AS (
@@ -245,6 +246,7 @@ usr AS (
     MIN(first_order_ms) AS first_order_ms,
     CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
   FROM src
+  WHERE user_id IS NOT NULL
   GROUP BY user_id
 ),
 ord AS (
@@ -365,6 +367,7 @@ usr AS (
     MIN(first_order_ms) AS first_order_ms,
     CAST(list_slice(list(DISTINCT "order_id") FILTER (WHERE "order_id" IS NOT NULL), 1, 10) AS VARCHAR) || CASE WHEN COUNT(DISTINCT "order_id") > 10 THEN ' 等 ' || CAST(COUNT(DISTINCT "order_id") AS VARCHAR) || ' 笔' ELSE '' END AS order_ids
   FROM src
+  WHERE user_id IS NOT NULL
   GROUP BY user_id
 ),
 burst AS (

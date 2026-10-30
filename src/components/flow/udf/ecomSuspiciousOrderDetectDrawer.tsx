@@ -228,8 +228,12 @@ export const EcomSuspiciousOrderDetectDrawer: React.FC<EcomSuspiciousOrderDetect
     return parts.join(' · ');
   }, [coverage]);
 
+  // Plan Phase 4 ⑦：按当前权重渲染，权重为 0 的规则标注「未计分」（review 问题 2）
   const formulaText = useMemo(
-    () => `风险分 = min(100, ${SUSPICIOUS_ORDER_RULE_KEYS.map((k) => `命中${SUSPICIOUS_RULE_LABEL[k]}×${cfg.weights[k]}`).join(' + ')})`,
+    () =>
+      `风险分 = min(100, ${SUSPICIOUS_ORDER_RULE_KEYS.map((k) =>
+        cfg.weights[k] === 0 ? `命中${SUSPICIOUS_RULE_LABEL[k]}（未计分）` : `命中${SUSPICIOUS_RULE_LABEL[k]}×${cfg.weights[k]}`,
+      ).join(' + ')})`,
     [cfg.weights],
   );
 

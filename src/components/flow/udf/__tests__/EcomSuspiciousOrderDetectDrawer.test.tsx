@@ -176,6 +176,18 @@ describe('EcomSuspiciousOrderDetectDrawer — preview and gates', () => {
     expect(screen.getAllByText(/严重/).length).toBeGreaterThan(0);
   });
 
+  // review 问题 2：Plan Phase 4 ⑦ 要求权重为 0 的规则在公式预览中标注「未计分」
+  it('marks a zero-weight rule as 未计分 in the formula preview', () => {
+    renderDrawer();
+    expect(screen.queryByText(/未计分/)).toBeNull();
+
+    fireEvent.change(ruleInputs('burstOrders')[0], { target: { value: '0' } });
+
+    expect(screen.getByText(/命中密集下单（未计分）/)).toBeTruthy();
+    // 其余规则仍按 命中X×权重 渲染
+    expect(screen.getByText(/风险分 = min\(100, .*命中同地址多账号×20/)).toBeTruthy();
+  });
+
   it('flags a rule whose dependency column is unmapped', () => {
     renderDrawer({
       columns: ['用户ID', '订单支付时间', '实付金额'],

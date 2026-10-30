@@ -380,6 +380,13 @@ describe('SQL 快照', () => {
   it('核心 5 项全关且 priceAnomaly 开启', () => {
     expect(build(cfg({ ruleToggles: { burstOrders: false, addressCluster: false, mobileCluster: false, deviceCluster: false, newAccounts: false, priceAnomaly: true, amountDeviation: false, refundAnomaly: false } }, ALL_COLS))).toMatchSnapshot();
   });
+
+  // 回归（review 问题 1）：NULL user_id 不得聚成「幽灵主体」——usr CTE 必须先过滤再分组
+  it('usr CTE 过滤 NULL user_id（幽灵主体回归）', () => {
+    const sql = build(full());
+    const usrSeg = sql.slice(sql.indexOf('usr AS ('), sql.indexOf(',\nburst AS (') > -1 ? sql.indexOf(',\nburst AS (') : sql.length);
+    expect(usrSeg).toContain('FROM src\n  WHERE user_id IS NOT NULL\n  GROUP BY user_id');
+  });
 });
 
 

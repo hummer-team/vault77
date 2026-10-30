@@ -261,7 +261,8 @@ export function buildUsrCte(cfg: SuspiciousOrderDetectConfig): string {
     'MIN(first_order_ms) AS first_order_ms',
     `${buildOrderIdsExpr(cfg)} AS order_ids`,
   ].join(',\n    ');
-  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  GROUP BY user_id\n)`;
+  // NULL user_id 不参与主体聚合：否则缺失用户ID的行会聚成一个「幽灵主体」输出行（与 ord INNER JOIN 口径自相矛盾）
+  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  WHERE user_id IS NOT NULL\n  GROUP BY user_id\n)`;
 }
 
 /** 0.6 列 17：先去 NULL 再去重，前 10 个 + 「等 N 笔」，禁止静默截断 */
