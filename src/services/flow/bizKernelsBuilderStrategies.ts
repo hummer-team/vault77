@@ -55,6 +55,8 @@ export enum SelectNodePanelType {
   PLATFORM_FEE_ALLOCATE_CALC_DRAWER = 'PLATFORM_FEE_ALLOCATE_CALC_DRAWER',
   /** EcomActivityEffectSplitDrawer — used for 活动/优惠券/直播间效果拆分 */
   ACTIVITY_EFFECT_SPLIT_DRAWER = 'ACTIVITY_EFFECT_SPLIT_DRAWER',
+  /** EcomSuspiciousOrderDetectDrawer — used for 恶意下单/刷单/异常订单识别 */
+  SUSPICIOUS_ORDER_DETECT_DRAWER = 'SUSPICIOUS_ORDER_DETECT_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -94,6 +96,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_order_profit_margin_calc: SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER,
   fn_ecom_platform_fee_allocate: SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER,
   fn_ecom_activity_effect_split: SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER,
+  fn_ecom_suspicious_order_detect: SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER,
 };
 
 // ============================================================================
@@ -175,6 +178,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.PROFIT_MARGIN_CALC_DRAWER:
     case SelectNodePanelType.PLATFORM_FEE_ALLOCATE_CALC_DRAWER:
     case SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER:
+    case SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

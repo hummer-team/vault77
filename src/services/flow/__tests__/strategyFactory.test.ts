@@ -11,6 +11,7 @@ import { UdfReplaceColumnStrategy } from '../strategies/udfReplaceColumnStrategy
 import { OrderProfitMarginCalcStrategy } from '../strategies/orderProfitMarginCalcStrategy';
 import { EcomPlatformFeeAllocateStrategy } from '../strategies/ecomPlatformFeeAllocateStrategy';
 import { EcomActivityEffectSplitStrategy } from '../strategies/ecomActivityEffectSplitStrategy';
+import { EcomSuspiciousOrderDetectStrategy } from '../strategies/ecomSuspiciousOrderDetectStrategy';
 import { OperatorType } from '../types';
 
 describe('StrategyFactory', () => {
@@ -38,13 +39,19 @@ describe('StrategyFactory', () => {
         StrategyFactory.getStrategy('UNKNOWN' as OperatorType);
       }).toThrow('Unknown operator type: UNKNOWN');
     });
+
+    it('should return EcomSuspiciousOrderDetectStrategy for SUSPICIOUS_ORDER_DETECT operator', () => {
+      const strategy = StrategyFactory.getStrategy(OperatorType.SUSPICIOUS_ORDER_DETECT);
+      expect(strategy).toBeInstanceOf(EcomSuspiciousOrderDetectStrategy);
+      expect(strategy.type).toBe(OperatorType.SUSPICIOUS_ORDER_DETECT);
+    });
   });
 
   describe('getAllStrategies', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(23);
+      expect(strategies).toHaveLength(24);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);
@@ -52,6 +59,7 @@ describe('StrategyFactory', () => {
       expect(strategies[20]).toBeInstanceOf(OrderProfitMarginCalcStrategy);
       expect(strategies[21]).toBeInstanceOf(EcomPlatformFeeAllocateStrategy);
       expect(strategies[22]).toBeInstanceOf(EcomActivityEffectSplitStrategy);
+      expect(strategies[23]).toBeInstanceOf(EcomSuspiciousOrderDetectStrategy);
     });
 
     it('should return strategies with correct operator types', () => {
