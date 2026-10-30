@@ -41,8 +41,14 @@ import type {
   ProfitMarginCalcConfig,
   PlatformFeeAllocateConfig,
   ActivityEffectSplitConfig,
+  SuspiciousOrderDetectConfig,
 } from '../../../services/flow/types';
-import { OperatorType, FlowNodeType, collectActivitySplitBlockers } from '../../../services/flow/types';
+import {
+  OperatorType,
+  FlowNodeType,
+  collectActivitySplitBlockers,
+  collectSuspiciousOrderBlockers,
+} from '../../../services/flow/types';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -70,6 +76,7 @@ import { OrderNetAmountCalcDrawer } from '../udf/OrderNetAmountCalcDrawer';
 import { OrderProfitMarginCalcDrawer } from '../udf/OrderProfitMarginCalcDrawer';
 import { EcomPlatformFeeAllocateDrawer } from '../udf/EcomPlatformFeeAllocateDrawer';
 import { EcomActivityEffectSplitDrawer } from '../udf/EcomActivityEffectSplitDrawer';
+import { EcomSuspiciousOrderDetectDrawer } from '../udf/ecomSuspiciousOrderDetectDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -145,6 +152,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_order_profit_margin_calc:             OperatorType.PROFIT_MARGIN_CALC,
     fn_ecom_platform_fee_allocate:                OperatorType.PLATFORM_FEE_ALLOCATE,
     fn_ecom_activity_effect_split:                OperatorType.ACTIVITY_EFFECT_SPLIT,
+    fn_ecom_suspicious_order_detect:              OperatorType.SUSPICIOUS_ORDER_DETECT,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -360,6 +368,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleSuspiciousOrderDetectConfirm = useCallback(
+    (config: SuspiciousOrderDetectConfig) => {
+      updateNode(id, { suspiciousOrderDetectConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.SUSPICIOUS_ORDER_DETECT } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -440,6 +460,11 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         // 与 Phase 1 校验规则 1–4 与两条口径补充规则同源（Phase 0 唯一判据，禁止内联重写判定）
         const splitCfg = data.activityEffectSplitConfig;
         return !!splitCfg && collectActivitySplitBlockers(splitCfg).length === 0;
+      }
+      case SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER: {
+        // Same single source of truth as strategy validate() and the drawer apply gate.
+        const sosCfg = data.suspiciousOrderDetectConfig;
+        return !!sosCfg && collectSuspiciousOrderBlockers(sosCfg).length === 0;
       }
       default:
         return false;
@@ -935,6 +960,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               initialConfig={data.activityEffectSplitConfig}
               kernelDisplayName={kernelMeta?.displayName}
               onConfirm={handleActivityEffectSplitConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER:
+          return (
+            <EcomSuspiciousOrderDetectDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.suspiciousOrderDetectConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              onConfirm={handleSuspiciousOrderDetectConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

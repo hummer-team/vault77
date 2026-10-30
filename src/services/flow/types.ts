@@ -1374,7 +1374,8 @@ export function collectSuspiciousOrderBlockers(
 /** 列名匹配正则（中英双写，`i`）：抽屉自动预填与单测共同消费，键集 = fieldMapping 的 11 个键 */
 export const SUSPICIOUS_FIELD_MATCH_PATTERNS: Record<keyof SuspiciousOrderDetectFieldMapping, RegExp> = {
   userIdCol: /用户[ _. -]?(编号|号|id)|会员[ _. -]?(编号|号|id)|买家[ _. -]?(编号|号|id)|user[ _. -]?id|buyer[ _. -]?id|member[ _. -]?id/i,
-  orderTimeCol: /下单(时间|日期)|订单(时间|日期)|创建时间|支付(时间|日期)|payment[ _. -]?time|pay[ _. -]?(time|date)|create[ _. -]?(time|at)|paid[ _. -]?(at|time)/i,
+  // 下单分支排除「首次/首单」前缀：首单/首次下单时间归 firstOrderTimeCol，保证 11 列全映射时主体时间列唯一命中
+  orderTimeCol: /(?<!首次)(?<!首单)下单(时间|日期)|订单(时间|日期)|创建时间|支付(时间|日期)|payment[ _. -]?time|pay[ _. -]?(time|date)|create[ _. -]?(time|at)|paid[ _. -]?(at|time)/i,
   addressCol: /收货地址|收件地址|详细地址|地址|receiver[ _. -]?addr|shipping[ _. -]?addr|address/i,
   mobileCol: /收货(手机|电话)|收件(手机|电话)|联系(手机|电话)|手机号?|mobile|phone|tel/i,
   deviceCol: /设备(号|id|编号)|device[ _. -]?(id|no)|imei|idfa|oaid|mac/i,
