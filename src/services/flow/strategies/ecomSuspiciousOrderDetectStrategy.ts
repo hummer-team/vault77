@@ -247,6 +247,17 @@ export function buildRefCte(): string {
 }
 
 /**
+ * 主体/账号有效性谓词（0.8 口径，`usr` 与三处 `*_clu` **共用**，单点定义以免口径分裂）：
+ * `user_id` 为 NULL 或「无实体」的空白串均视为缺失用户ID —— 既不聚成幽灵主体行，也不计入聚集规则
+ * （R2/R3/R4）的 `COUNT(DISTINCT "user_id")` 账号数（NULL 会被 distinct 自动忽略，空白串不会）。
+ * 空白覆盖三类形态：空串（导入/导出补列的常见缺值）、纯空格（`TRIM` 可清）、`\t` / `\n` / `\r`
+ * （DuckDB `TRIM` 不视为空白，实测 `TRIM(chr(9)) <> ''` 为 true，故需 `regexp_matches` 兜底）。
+ * 与同文件 `addrKeyExpr` / `deviceKeyExpr` 的 `NULLIF(TRIM(...), '')` 及 `types.ts` `hasColumnValue`
+ * （`trim() === ''` 视为未配置）口径一致。
+ */
+const VALID_USER = `user_id IS NOT NULL AND TRIM(user_id) <> '' AND regexp_matches(user_id, '\\S')`;
+
+/**
  * task 6：主体级聚合。`amount_sum` / `amount_count` 成对输出且**同为「金额非空行」口径**
  * （R7 留一均值的分子分母），不输出 `amount_avg`。
  */
@@ -261,10 +272,10 @@ export function buildUsrCte(cfg: SuspiciousOrderDetectConfig): string {
     'MIN(first_order_ms) AS first_order_ms',
     `${buildOrderIdsExpr(cfg)} AS order_ids`,
   ].join(',\n    ');
-  // 缺失用户ID（NULL 与空白/纯空格）不参与主体聚合：否则这些脏数据行会聚成一个「幽灵主体」输出行
+  // 缺失用户ID（NULL 与各类空白）不参与主体聚合：否则这些脏数据行会聚成一个「幽灵主体」输出行
   // （空白串能正常 JOIN ord/abn，行内指标看似「正常值」，比 NULL 更难被下游识别），并污染风险主体数/
-  // 平均风险分/严重·高风险数三张洞察卡片与 TopN 榜。空白归 NULL 与同文件 addrKeyExpr / deviceKeyExpr 一致。
-  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''\n  GROUP BY user_id\n)`;
+  // 平均风险分/严重·高风险数三张洞察卡片与 TopN 榜。谓词见 VALID_USER（与聚集计数共用同一口径）。
+  return `usr AS (\n  SELECT\n    ${cols}\n  FROM src\n  WHERE ${VALID_USER}\n  GROUP BY user_id\n)`;
 }
 
 /** 0.6 列 17：先去 NULL 再去重，前 10 个 + 「等 N 笔」，禁止静默截断 */
@@ -282,11 +293,13 @@ export function buildBurstCte(cfg: SuspiciousOrderDetectConfig): string {
 
 /**
  * task 7：聚集类规则的一一对偶。
- * `*_clu` = (key, bkt, COUNT(DISTINCT user_id) AS key_users)（NULL 键先剔除，否则空地址自成一簇）；
+ * `*_clu` = (key, bkt, COUNT(DISTINCT user_id) AS key_users)（NULL 键先剔除，否则空地址自成一簇；
+ * 账号计数按 VALID_USER 剔除空白 user_id，否则一个空白行即可把 `key_users` 顶高 1，在真实账号数
+ * 只有「阈值 − 1」时让簇内**全部真实用户**误命中 R2/R3/R4）；
  * `*_user` = 该用户全部窗口里的最大同簇主体数（一用户一行，供 feat 直接 LEFT JOIN）。
  */
 export function buildClusterCtes(spec: ClusterSpec): string[] {
-  const clu = `${spec.ctePrefix}_clu AS (\n  SELECT\n    "${spec.keyCol}" AS "key",\n    bkt_cluster AS "bkt",\n    COUNT(DISTINCT "user_id") AS "key_users"\n  FROM src\n  WHERE "${spec.keyCol}" IS NOT NULL\n  GROUP BY "${spec.keyCol}", bkt_cluster\n)`;
+  const clu = `${spec.ctePrefix}_clu AS (\n  SELECT\n    "${spec.keyCol}" AS "key",\n    bkt_cluster AS "bkt",\n    COUNT(DISTINCT "user_id") AS "key_users"\n  FROM src\n  WHERE "${spec.keyCol}" IS NOT NULL AND ${VALID_USER}\n  GROUP BY "${spec.keyCol}", bkt_cluster\n)`;
   const user = `${spec.ctePrefix}_user AS (\n  SELECT\n    src.user_id,\n    MAX(c."key_users") AS ${spec.outCol}\n  FROM src\n  JOIN ${spec.ctePrefix}_clu c ON c."key" = src."${spec.keyCol}" AND c."bkt" = src.bkt_cluster\n  GROUP BY src.user_id\n)`;
   return [clu, user];
 }

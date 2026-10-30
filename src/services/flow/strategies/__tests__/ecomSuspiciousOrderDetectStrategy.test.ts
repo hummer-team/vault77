@@ -381,28 +381,28 @@ describe('SQL 快照', () => {
     expect(build(cfg({ ruleToggles: { burstOrders: false, addressCluster: false, mobileCluster: false, deviceCluster: false, newAccounts: false, priceAnomaly: true, amountDeviation: false, refundAnomaly: false } }, ALL_COLS))).toMatchSnapshot();
   });
 
-  // 回归（review 问题 1）：缺失用户ID不得聚成「幽灵主体」——usr CTE 必须先过滤 NULL 与空白再分组
-  const usrSegment = (sql: string): string => {
-    const start = sql.indexOf('usr AS (');
-    const end = sql.indexOf(',\nburst AS (');
+  // 主体有效性谓词字面量（与策略内 VALID_USER 常量逐字对齐）：NULL / 空串 / 纯空格 / \t\n\r 均视为缺失用户ID
+  const VALID_USER_SQL = `user_id IS NOT NULL AND TRIM(user_id) <> '' AND regexp_matches(user_id, '\\S')`;
+
+  /** 截取某个 CTE 的定义体（从 `name AS (` 到下一个顶层 `\n),`） */
+  const cteSegment = (sql: string, name: string): string => {
+    const start = sql.indexOf(`${name} AS (`);
+    if (start < 0) return '';
+    const end = sql.indexOf('\n),', start);
     return sql.slice(start, end > -1 ? end : sql.length);
   };
 
-  it('usr CTE 过滤 NULL user_id（幽灵主体回归）', () => {
-    expect(usrSegment(build(full()))).toContain(
-      "FROM src\n  WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''\n  GROUP BY user_id",
-    );
-  });
-
-  // 回归（review 第 2 轮 问题 1）：空白/纯空格 user_id 是导入导出补列的常见缺值形态，
-  // 若不过滤则以普通字符串聚成幽灵主体，且能正常 JOIN ord/abn（行内指标看似正常值，更难被下游识别）。
-  // 主体行唯一来源是 usr（feat 以 `FROM usr` 驱动），故 usr 单点过滤即等价于「空白用户ID不产出主体行」。
-  it('usr CTE 同时过滤空白 user_id（第 2 轮幽灵主体回归）', () => {
+  // 回归（review 第 1/2/3 轮 问题 1）：缺失用户ID 既不得聚成「幽灵主体」输出行，
+  // 也不得在聚集规则（R2/R3/R4）的 distinct 账号计数里充当一个账号 —— 两处必须共用同一谓词，
+  // 否则「N−1 个真实用户 + 1 行空白用户ID」会把真实用户顶成「同地址多账号」命中（真实主体被误判）。
+  it('usr 与三处 *_clu 均含同一主体有效性谓词（幽灵主体 / 簇账号计数回归）', () => {
     const sql = build(full());
-    const seg = usrSegment(sql);
-    expect(seg).toContain("WHERE user_id IS NOT NULL AND TRIM(user_id) <> ''");
-    expect(seg).toContain('GROUP BY user_id');
-    expect(sql).toContain('FROM usr');
+    expect(cteSegment(sql, 'usr')).toContain(`WHERE ${VALID_USER_SQL}\n  GROUP BY user_id`);
+    for (const prefix of ['addr', 'mobile', 'device']) {
+      const clu = cteSegment(sql, `${prefix}_clu`);
+      expect(clu).toBeTruthy();
+      expect(clu).toContain(`IS NOT NULL AND ${VALID_USER_SQL}`);
+    }
   });
 });
 
