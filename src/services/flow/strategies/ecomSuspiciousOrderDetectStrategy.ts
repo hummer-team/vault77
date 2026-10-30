@@ -132,9 +132,9 @@ export function strExpr(col?: string): string {
   return has(col) ? `CAST("${col}" AS VARCHAR)` : 'NULL::VARCHAR';
 }
 
-/** 毫秒整除分桶：同一窗口内的订单落入同一桶（D13） */
+/** 毫秒整除分桶（D13）：用 DuckDB 整数除法 `//`；`CAST(BIGINT / BIGINT AS BIGINT)` 的 `/` 产出 DOUBLE 且 CAST 四舍五入，桶界会偏移半个桶 */
 export function bucketExpr(col: string, minutes: number): string {
-  return `CAST(${tsMs(col)} / ${minutes * MS_MINUTE} AS BIGINT)`;
+  return `${tsMs(col)} // ${minutes * MS_MINUTE}`;
 }
 
 /** 全角转半角（D12 地址/手机号/设备号归一化第一步） */

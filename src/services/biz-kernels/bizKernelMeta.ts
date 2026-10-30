@@ -609,18 +609,41 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     industry: '电商/订单',
     category: '风险风控',
     version: '1.0.0',
-    description: '识别密集下单、同地址/同手机、批量小号、改价异常',
+    description: '识别电商恶意下单风险：密集下单、同地址/同手机/同设备多账号、批量小号、改价异常、金额突变、退款异常',
     detailedDescription:
-        '基于用户行为、地址、设备、下单频次、金额突变识别刷单、黄牛、恶意薅券、批量测试订单，输出风险等级与证据清单。',
+        '基于用户行为、地址、设备、下单频次、金额突变识别刷单、黄牛、恶意薅券、批量测试订单，输出风险等级与证据清单。输出一行一个风险主体的风险评分、证据清单与处置建议；8 项规则可独立开关并自定义阈值与权重；缺少依赖列时自动降级并在结果中标注。',
     author: 'official',
     likes: 410,
     credits: 220,
     dataVolume: '10w order',
     estimatedTime: '6s',
     metadata: {
-      inputFields: ['user_id','order_time','address','mobile','device_id','amount'],
-      outputFields: ['user_id','risk_type','risk_level','order_count_abnormal'],
-      constraints: ['需要用户ID、地址、下单时间']
+      inputFields: [
+        'user_id', 'order_time', 'receiver_address', 'receiver_mobile', 'device_id',
+        'pay_amount', 'origin_amount', 'order_id', 'order_status', 'register_time', 'first_order_time',
+      ],
+      outputFields: [
+        'user_id', 'order_count', 'order_count_abnormal', 'risk_score', 'risk_level', 'risk_type',
+        'max_window_orders', 'addr_cluster_users', 'mobile_cluster_users', 'device_cluster_accounts',
+        'account_age_days', 'age_basis', 'refund_count', 'refund_rate', 'price_anomaly_orders',
+        'amount_deviation_orders', 'order_ids', 'skipped_rules', 'data_quality_flag',
+        'risk_evidence', 'suggestion',
+      ],
+      constraints: [
+        '必填：用户ID、订单下单时间（缺失时阻断执行）',
+        '同地址多账号：需要收货地址列，缺失时该规则自动跳过并在结果中标注',
+        '同手机多账号：需要收货手机列，缺失时该规则自动跳过并在结果中标注',
+        '同设备多账号：需要设备号列，缺失时该规则自动跳过并在结果中标注',
+        '批量小号：优先用注册时间，其次首次下单时间，两者都没有时按本批首单估算账号年龄',
+        '改价异常：需要订单原价与实付金额列，缺失时该规则自动跳过（本算子不推算价格基线）',
+        '金额突变：需要订单实付金额列；单笔金额与该用户其余订单平均金额（不含本单）比较，缺失时该规则自动跳过；平均值仅统计金额非空的订单',
+        '退款异常：需要订单状态列与退款状态值；默认状态值含中英文（已退款/退款成功/已退货/已取消/交易关闭/退货退款 与 REFUNDED/RETURNED/CANCELLED），可自定义',
+        '输出粒度：一行一个用户主体，风险分四档（严重/高/中/低），异常订单数按订单号去重（同一订单只计一次）',
+        '统计口径：密集下单与聚集规则按时间窗整除对齐的固定分桶统计，跨越分桶边界的突发可能被低估',
+        '统计口径：观察区间默认全量；设置天数后以区间内最大下单时间为终点向前裁剪',
+        '统计口径：账号年龄以区间内最大下单时间为基准，基准晚于该时间时按 0 天计',
+        '统计口径：未指定订单号列时按数据行计数（一行视作一单）；明细粒度宽表请指定订单号列，否则密集下单与聚集规则会按行放大',
+      ]
     }
   },
   {

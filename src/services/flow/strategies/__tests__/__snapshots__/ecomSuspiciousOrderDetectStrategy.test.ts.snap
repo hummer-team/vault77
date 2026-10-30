@@ -5,8 +5,8 @@ exports[`SQL 快照 > 8 项全开（映射全部 11 列） 1`] = `
   SELECT
     CAST("buyer_id" AS VARCHAR) AS user_id,
     ts_to_epoch_ms("create_time") AS order_time_ms,
-    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
-    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    ts_to_epoch_ms("create_time") // 3600000 AS bkt_burst,
+    ts_to_epoch_ms("create_time") // 7200000 AS bkt_cluster,
     LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
     CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
     NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
@@ -215,8 +215,8 @@ exports[`SQL 快照 > 核心 5 项全关且 priceAnomaly 开启 1`] = `
   SELECT
     CAST("buyer_id" AS VARCHAR) AS user_id,
     ts_to_epoch_ms("create_time") AS order_time_ms,
-    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
-    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    ts_to_epoch_ms("create_time") // 3600000 AS bkt_burst,
+    ts_to_epoch_ms("create_time") // 7200000 AS bkt_cluster,
     LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
     CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
     NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
@@ -335,8 +335,8 @@ exports[`SQL 快照 > 默认配置（核心 5 项开启 + 全列映射） 1`] = 
   SELECT
     CAST("buyer_id" AS VARCHAR) AS user_id,
     ts_to_epoch_ms("create_time") AS order_time_ms,
-    CAST(ts_to_epoch_ms("create_time") / 3600000 AS BIGINT) AS bkt_burst,
-    CAST(ts_to_epoch_ms("create_time") / 7200000 AS BIGINT) AS bkt_cluster,
+    ts_to_epoch_ms("create_time") // 3600000 AS bkt_burst,
+    ts_to_epoch_ms("create_time") // 7200000 AS bkt_cluster,
     LEFT(NULLIF(TRIM(regexp_replace(translate(CAST("receiver_address" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '\\s', '', 'g')), ''), 15) AS addr_key,
     CASE WHEN length(regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g')) >= 7 THEN regexp_replace(translate(CAST("receiver_mobile" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'), '[^0-9]', '', 'g') ELSE NULL END AS mobile_key,
     NULLIF(TRIM(translate(CAST("utdid" AS VARCHAR), ' ０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ', ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')), '') AS device_key,
