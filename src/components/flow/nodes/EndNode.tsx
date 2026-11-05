@@ -104,6 +104,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_platform_fee_allocate:                OperatorType.PLATFORM_FEE_ALLOCATE,
     fn_ecom_activity_effect_split:                OperatorType.ACTIVITY_EFFECT_SPLIT,
     fn_ecom_suspicious_order_detect:              OperatorType.SUSPICIOUS_ORDER_DETECT,
+    fn_ecom_zero_negative_order_detect:           OperatorType.ZERO_NEGATIVE_ORDER_DETECT,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {

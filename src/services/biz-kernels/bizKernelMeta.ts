@@ -661,9 +661,29 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '3s',
     metadata: {
-      inputFields: ['pay_amount','discount_total','product_amount'],
-      outputFields: ['order_id','abnormal_type','loss_amount','risk_level'],
-      constraints: ['需要支付金额与优惠金额']
+      inputFields: [
+        'order_id','order_time','order_status','pay_amount','product_amount','discount_total',
+        'quantity','unit_price','coupon_amount','platform_discount','merchant_discount','refund_amount',
+      ],
+      outputFields: [
+        'order_id','order_time','abnormal_type','abnormal_types','expected_amount','pay_amount','discount_total',
+        'loss_amount','risk_level','abnormal_reasons','suggestion','skipped_rules','data_quality_flag',
+      ],
+      constraints: [
+        '必填：实付金额、商品金额、优惠合计（缺失时阻断执行，抽屉「确定」置灰）',
+        '输出粒度：一行一个订单；已指定订单号列时按订单号去重（同单多行只算一单），未指定时按数据行计数并在 data_quality_flag 标注 ROW_LEVEL',
+        '金额缺失口径：实付金额或商品金额为空的行不参与任何规则判定（不按 0 处理），其数量统计在「数据质量提示」卡片与 data_quality_flag 的 NULL_AMOUNT 短码中',
+        '0 元单三层误报控制：判定恒要求商品金额 > 0；默认剔除已取消/交易关闭/已退款等状态（大小写与首尾空格不敏感，中英文状态值并存）；可选映射豁免列（如订单类型）按值排除赠品与测试单',
+        '负单价：优先使用单价列；无单价列时按「商品金额 ÷ 数量」计算，数量为空或 0 的订单该规则自动跳过',
+        '优惠溢出：优惠合计大于商品金额即命中（容差默认 0.01 元，可调）',
+        '金额不符：按「实际应付」与净实付差额判定，需同时超过容差与最小可报告缺口（默认 1 元）；实际应付由公式槽位自定义，默认 = 商品金额 − 优惠合计',
+        '优惠分项不符：需同时映射优惠券金额、平台补贴、商家优惠三列，任一缺失该规则自动跳过并在 skipped_rules 标注',
+        '微额订单：净实付大于 0 且不超过微额上限（默认 0.01 元），并显著低于商品金额（差额 ≥ 最小可报告缺口）才命中',
+        '损失口径：损失 = max(0, 实际应付 − 净实付) + max(0, −实际应付)；两项互斥不重复计损；净实付 = 实付 − 退款（未映射退款列时等于实付）；「超额优惠并入损失」开关关闭时不计第二项',
+        '部分退款：状态为已退款/已取消等的订单整单剔除（优先），其余订单按实付减退款计净回款，两者不叠加扣减',
+        '风险分档：按损失金额四档（默认 ≥500 严重 / ≥100 高 / ≥10 中 / 其余低），命中 3 类及以上规则升一档；abnormal_type 取根因优先级最高的一项，abnormal_types 保留全部命中规则短码',
+        '富化列（非 outputFields 声明项，供表格展示与筛选）：is_abnormal（是否命中任一已启用规则，用于「仅看异常单」筛选）、net_pay_amount（净实付，供核对损失公式）',
+      ]
     }
   },
 

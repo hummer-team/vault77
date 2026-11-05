@@ -29,6 +29,7 @@ import { OrderProfitMarginCalcStrategy } from './strategies/orderProfitMarginCal
 import { EcomPlatformFeeAllocateStrategy } from './strategies/ecomPlatformFeeAllocateStrategy';
 import { EcomActivityEffectSplitStrategy } from './strategies/ecomActivityEffectSplitStrategy';
 import { EcomSuspiciousOrderDetectStrategy } from './strategies/ecomSuspiciousOrderDetectStrategy';
+import { EcomZeroNegativeOrderDetectStrategy } from './strategies/ecomZeroNegativeOrderDetectStrategy';
 
 /**
  * Strategy Factory
@@ -60,6 +61,7 @@ export class StrategyFactory {
     [OperatorType.PLATFORM_FEE_ALLOCATE, new EcomPlatformFeeAllocateStrategy()],
     [OperatorType.ACTIVITY_EFFECT_SPLIT, new EcomActivityEffectSplitStrategy()],
     [OperatorType.SUSPICIOUS_ORDER_DETECT, new EcomSuspiciousOrderDetectStrategy()],
+    [OperatorType.ZERO_NEGATIVE_ORDER_DETECT, new EcomZeroNegativeOrderDetectStrategy()],
   ]);
 
   /**
