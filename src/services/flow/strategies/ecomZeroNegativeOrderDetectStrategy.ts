@@ -20,25 +20,39 @@ import {
   OperatorType,
   ValidationSeverity,
   ZERO_NEGATIVE_DERIVED_COLS,
+  ZERO_NEGATIVE_RULE_CODE,
   ZERO_NEGATIVE_RULE_KEYS,
   ZERO_NEGATIVE_RULE_LABEL,
+  ZERO_NEGATIVE_RULE_PRIORITY,
   ZERO_NEGATIVE_SOURCE_COLS,
+  DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG,
   cloneZeroNegativeOrderDetectConfig,
   collectZeroNegativeBlockers,
   collectZeroNegativeRuleCoverage,
   collectZeroNegativeSkippedRules,
+  compareZeroNegativeRows,
   hasColumnValue,
+  joinZeroNegativeQuality,
   parseRefundStatusValues,
   resolveZeroNegativeThresholds,
+  riskLevelFromLoss,
+  zeroNegativeSlotHuman,
   zeroNegativeSlotSql,
   type AnalysisResult,
   type FlowEdge,
   type FlowNode,
+  type InsightItem,
+  type InsightMetric,
+  type InsightSummary,
+  type OperatorDisplayConfig,
   type SelectNodeData,
   type FormulaSlot,
   type ValidationError,
   type ZeroNegativeOrderDetectConfig,
+  type ZeroNegativeRiskLevel,
+  type ZeroNegativeRuleCoverage,
   type ZeroNegativeRuleKey,
+  type ZeroNegativeSortableRow,
 } from '../types';
 import { logger } from '../../../utils/logger';
 
@@ -391,21 +405,485 @@ export class EcomZeroNegativeOrderDetectStrategy extends BaseStrategy {
     return errors;
   }
 
-  /** Phase 2 补全行级富化 / 洞察卡 / 展示配置；此处仅直通行集以保持编译闭合 */
+  /** Phase 2：行级富化 / 空结果四态 / 4+1 洞察卡 / 展示配置（配置唯一来源 _lastConfig） */
   override async postProcess(data: unknown): Promise<AnalysisResult> {
-    const cfg = this._lastConfig;
-    const rows = Array.isArray((data as { data?: unknown } | undefined)?.data)
-      ? ((data as { data: unknown[] }).data)
-      : [];
+    const cfg = this._lastConfig ?? DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG;
+    const queryResult = (data ?? {}) as { data?: unknown; schema?: unknown[] };
+    const rows = (Array.isArray(queryResult.data) ? queryResult.data : []) as ZeroNegativeRawRow[];
+    const skipped = collectZeroNegativeSkippedRules(cfg);
+    const coverage = collectZeroNegativeRuleCoverage(cfg);
     logger.info(
-      `[${this.name}.postProcess] rows=${rows.length}, ` +
-      `effective=${cfg ? collectZeroNegativeRuleCoverage(cfg).effective.length : 0}/8`,
+      `[${this.name}.postProcess] rows=${rows.length}, effectiveRules=${coverage.effective.length}/8, skipped=${skipped.length}`,
     );
+
+    const decorated = rows.map((row) => enrichZeroNegativeRow(row, cfg, skipped));
+    decorated.sort(compareZeroNegativeRows);
+    const hitCount = decorated.filter((r) => r.is_abnormal === true).length;
+
+    const insights = decorateInsightsForState(decorated, skipped, coverage, hitCount);
+    if (insights) {
+      // 空结果四态：只产出 1 张卡；无行时不保留行集，有行时行集照旧输出
+      return {
+        type: this.type,
+        sql: '',
+        data: insights.dropRows ? [] : decorated.map(toOutputRow),
+        schema: ZERO_NEGATIVE_OUTPUT_SCHEMA as unknown[],
+        insightsData: { summary: buildSummary(decorated, hitCount), insights: insights.items },
+        displayConfig: buildDisplayConfig(cfg),
+      };
+    }
+
     return {
       type: this.type,
       sql: '',
-      data: rows,
-      schema: ((data as { schema?: unknown[] } | undefined)?.schema ?? []) as unknown[],
-    } as AnalysisResult;
+      data: decorated.map(toOutputRow),
+      schema: ZERO_NEGATIVE_OUTPUT_SCHEMA as unknown[],
+      insightsData: { summary: buildSummary(decorated, hitCount), insights: buildInsightItems(decorated, cfg, skipped, hitCount) },
+      displayConfig: buildDisplayConfig(cfg),
+    };
   }
+}
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 2 — postProcess：行级富化 / 空结果四态 / 4+1 洞察卡 / 展示配置
+// 全部中文文案在此生成（R3-3：SQL 只出数值与布尔）
+// ════════════════════════════════════════════════════════════════════════════
+
+type ZeroNegativeRawRow = Record<string, unknown>;
+
+interface ZeroNegativeDecoratedRow extends ZeroNegativeSortableRow {
+  order_id: string | null;
+  order_time: string | null;
+  abnormal_type: string | null;
+  abnormal_types: string | null;
+  abnormal_reasons: string | null;
+  risk_level: ZeroNegativeRiskLevel;
+  loss_amount: number | null;
+  expected_amount: number | null;
+  pay_amount: number | null;
+  discount_total: number | null;
+  suggestion: string | null;
+  data_quality_flag: string;
+  skipped_rules: string | null;
+  net_pay_amount: number | null;
+  is_abnormal: boolean;
+  /** 内部标记：仅用于空结果态判定与质量短码，输出前剥离 */
+  has_null_amount: boolean;
+}
+
+/** 输出列（15）：内部 `hit_*` / `has_null_amount` 用完即丢，不进 schema */
+const ZERO_NEGATIVE_OUTPUT_SCHEMA: ReadonlyArray<{ name: string; type: string }> = [
+  { name: 'order_id', type: 'VARCHAR' },
+  { name: 'order_time', type: 'VARCHAR' },
+  { name: 'abnormal_type', type: 'VARCHAR' },
+  { name: 'abnormal_types', type: 'VARCHAR' },
+  { name: 'abnormal_reasons', type: 'VARCHAR' },
+  { name: 'risk_level', type: 'VARCHAR' },
+  { name: 'loss_amount', type: 'DOUBLE' },
+  { name: 'expected_amount', type: 'DOUBLE' },
+  { name: 'pay_amount', type: 'DOUBLE' },
+  { name: 'discount_total', type: 'DOUBLE' },
+  { name: 'suggestion', type: 'VARCHAR' },
+  { name: 'data_quality_flag', type: 'VARCHAR' },
+  { name: 'skipped_rules', type: 'VARCHAR' },
+  { name: 'net_pay_amount', type: 'DOUBLE' },
+  { name: 'is_abnormal', type: 'BOOLEAN' },
+];
+
+const RISK_LEVELS: readonly ZeroNegativeRiskLevel[] = ['严重', '高', '中', '低'];
+
+/** 数值读取：非有限值（含 null / 非数字字符串）一律 null，不被静默当 0 */
+function safeNum(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/** 十进制安全四舍五入：直接 ×100 会让 10.005 得 1000.4999… → 10.00 */
+function round2(value: number | null): number | null {
+  if (value === null) return null;
+  const shifted = Number(`${value}e2`);
+  if (!Number.isFinite(shifted)) return Math.round(value * 100) / 100;
+  return Number(`${Math.round(shifted)}e-2`);
+}
+
+/** 金额文案：null 用「—」占位，不伪造 0.00 */
+function moneyText(value: number | null): string {
+  return value === null ? '—' : value.toFixed(2);
+}
+
+function textOf(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s === '' ? null : s;
+}
+
+/** 规则命中原因（带实际数值，主类型用） */
+function buildZeroNegativeReason(key: ZeroNegativeRuleKey, row: ZeroNegativeRawRow): string {
+  const pay = moneyText(round2(safeNum(row.pay_amount)));
+  const expected = moneyText(round2(safeNum(row.expected_amount)));
+  const discount = moneyText(round2(safeNum(row.discount_total)));
+  const netPay = moneyText(round2(safeNum(row.net_pay_amount)));
+  const loss = moneyText(round2(safeNum(row.loss_amount)));
+  switch (key) {
+    case 'zero_pay':
+      return `实付 ${pay} 元而应付金额 ${expected} 元`;
+    case 'negative_pay':
+      return `实付 ${pay} 元为负（净实付 ${netPay} 元）`;
+    case 'negative_unit_price':
+      return `存在负单价，应付金额合计 ${expected} 元`;
+    case 'discount_overflow':
+      return `优惠合计 ${discount} 元致应付金额降为 ${expected} 元，超额 ${loss} 元`;
+    case 'negative_field':
+      return `应付金额 ${expected} 元为负，商品金额或优惠合计存在负值`;
+    case 'amount_mismatch':
+      return `实付 ${pay} 元与应付 ${expected} 元不一致，差额 ${loss} 元`;
+    case 'discount_sum_mismatch':
+      return `优惠合计 ${discount} 元与券/平台/商家分项之和不一致`;
+    case 'penny_order':
+      return `实付 ${pay} 元而应付金额 ${expected} 元，差额 ${loss} 元`;
+    default:
+      return `命中规则，损失 ${loss} 元`;
+  }
+}
+
+/** 处置建议（按主类型给一句话动作） */
+function buildZeroNegativeSuggestion(key: ZeroNegativeRuleKey): string {
+  switch (key) {
+    case 'zero_pay':
+      return '确认是否为赠品/试用/纯积分兑换单，非预期则核查下单链路与优惠叠加配置';
+    case 'negative_pay':
+      return '核对退款/冲正单是否混入正式单，确认后转财务对账';
+    case 'negative_unit_price':
+      return '核查商品单价取数字段是否混入退款/冲正行，确认后修正单价口径';
+    case 'discount_overflow':
+      return '检查优惠券/补贴是否重复叠加或超额发放，确认后调整优惠计算口径';
+    case 'negative_field':
+      return '核对商品金额与优惠合计的取数口径，确认后修正源数据';
+    case 'amount_mismatch':
+      return '核对实付与应付的恒等式，定位差额来源（运费、改价、补差价）';
+    case 'discount_sum_mismatch':
+      return '核对优惠券/平台补贴/商家优惠三个分项是否漏记或多记';
+    case 'penny_order':
+      return '确认是否为低价引流或改价单，核对实付与应付差额的归属';
+    default:
+      return '核对数据源与口径后重跑';
+  }
+}
+
+/** 单行富化：命中键按根因优先级排序，主类型取首位（R3-2） */
+function enrichZeroNegativeRow(
+  row: ZeroNegativeRawRow,
+  cfg: ZeroNegativeOrderDetectConfig,
+  skipped: readonly ZeroNegativeRuleKey[],
+): ZeroNegativeDecoratedRow {
+  const hits = ZERO_NEGATIVE_RULE_PRIORITY.filter((k) => row[ZERO_NEGATIVE_FLAG_COL[k]] === true);
+  const loss = round2(safeNum(row.loss_amount));
+  const { level } = riskLevelFromLoss(loss ?? 0, hits.length, cfg.tiers);
+  const nullAmount = row.has_null_amount === true;
+  return {
+    order_id: textOf(row.order_id),
+    order_time: textOf(row.order_time),
+    abnormal_type: hits.length > 0 ? ZERO_NEGATIVE_RULE_LABEL[hits[0]] : null,
+    abnormal_types: hits.length > 0 ? hits.map((k) => ZERO_NEGATIVE_RULE_CODE[k]).join(',') : null,
+    abnormal_reasons: hits.length > 0
+      ? hits.map((k) => `${ZERO_NEGATIVE_RULE_CODE[k]} ${ZERO_NEGATIVE_RULE_LABEL[k]}：${buildZeroNegativeReason(k, row)}`).join('；')
+      : null,
+    risk_level: level,
+    loss_amount: loss,
+    expected_amount: round2(safeNum(row.expected_amount)),
+    pay_amount: round2(safeNum(row.pay_amount)),
+    discount_total: round2(safeNum(row.discount_total)),
+    suggestion: hits.length > 0 ? buildZeroNegativeSuggestion(hits[0]) : null,
+    data_quality_flag: joinZeroNegativeQuality([
+      hasColumnValue(cfg.fieldMapping.orderIdCol) ? null : 'ROW_LEVEL',
+      skipped.length > 0 ? 'PARTIAL_RULES' : null,
+      nullAmount ? 'NULL_AMOUNT' : null,
+    ]),
+    skipped_rules: skipped.length > 0 ? skipped.map((k) => ZERO_NEGATIVE_RULE_CODE[k]).join(',') : null,
+    net_pay_amount: round2(safeNum(row.net_pay_amount)),
+    is_abnormal: row.is_abnormal === true,
+    has_null_amount: nullAmount,
+  };
+}
+
+/** 剥离内部列：只保留 ZERO_NEGATIVE_OUTPUT_SCHEMA 声明的 15 列 */
+function toOutputRow(row: ZeroNegativeDecoratedRow): Record<string, unknown> {
+  // SAFETY: 遍历键全部来自 ZERO_NEGATIVE_OUTPUT_SCHEMA，均为 ZeroNegativeDecoratedRow 的静态字段，
+  // 动态下标访问因此安全（TS 无法静态校验字符串下标）。
+  const source = row as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const col of ZERO_NEGATIVE_OUTPUT_SCHEMA) {
+    out[col.name] = source[col.name] ?? null;
+  }
+  return out;
+}
+
+/** 空结果四态（R2-8）：命中即只产出 1 张卡。只有第 4 态给健康结论 */
+function decorateInsightsForState(
+  rows: readonly ZeroNegativeDecoratedRow[],
+  skipped: readonly ZeroNegativeRuleKey[],
+  coverage: ZeroNegativeRuleCoverage,
+  hitCount: number,
+): { items: InsightItem[]; dropRows: boolean } | null {
+  const card = (id: string, iconKey: InsightItem['iconKey'], title: string, description: string): InsightItem[] => [
+    { id, cardType: 'standard', iconKey, title, description, sortOrder: 1 },
+  ];
+
+  if (rows.length === 0) {
+    if (coverage.effective.length === 0) {
+      const names = skipped.length > 0 ? skipped.map((k) => ZERO_NEGATIVE_RULE_LABEL[k]).join('、') : '全部规则';
+      return {
+        dropRows: true,
+        items: card(
+          'no-effective-rules', 'quality', '无法执行任何检测规则',
+          `本次生效规则 0/8 项（${names} 因缺少依赖列被跳过）。请先完成实付金额、商品金额两列映射，` +
+          '并按需补齐单价/数量、优惠分项、退款金额等列后重新运行。',
+        ),
+      };
+    }
+    return {
+      dropRows: true,
+      items: card(
+        'no-orders', 'quality', '本次没有可判定的订单',
+        `当前生效规则 ${coverage.effective.length}/8 项。数据源为空，或全部订单被观察区间 / 状态剔除过滤，` +
+        '请检查数据源与筛选条件。',
+      ),
+    };
+  }
+
+  if (rows.every((r) => r.has_null_amount)) {
+    return {
+      dropRows: false,
+      items: card(
+        'all-null-amount', 'quality', '全部订单因金额缺失未参与判定',
+        `${rows.length} 行全部存在实付金额或商品金额缺失，未参与任何规则判定。请检查这两列的取数与空值情况后重跑。`,
+      ),
+    };
+  }
+
+  if (hitCount === 0) {
+    return {
+      dropRows: false,
+      items: card(
+        'no-hit', 'safe', '未发现 0 元单 / 负金额 / 优惠溢出',
+        `已按生效规则 ${coverage.effective.length}/8 项扫描 ${rows.length} 个订单，未命中任何启用规则的阈值。`,
+      ),
+    };
+  }
+
+  return null;
+}
+
+interface ZeroNegativeTypeGroup {
+  label: string;
+  loss: number;
+  count: number;
+}
+
+/** 主类型分组（含「其他」），各组金额之和恒等于总损失（R3-2） */
+function groupByAbnormalType(
+  rows: readonly ZeroNegativeDecoratedRow[],
+  totalLoss: number,
+): ZeroNegativeTypeGroup[] {
+  const map = new Map<string, ZeroNegativeTypeGroup>();
+  for (const row of rows) {
+    if (row.abnormal_type === null) continue;
+    const g = map.get(row.abnormal_type) ?? { label: row.abnormal_type, loss: 0, count: 0 };
+    g.loss += row.loss_amount ?? 0;
+    g.count += 1;
+    map.set(row.abnormal_type, g);
+  }
+  const sorted = [...map.values()].sort((a, b) => b.loss - a.loss || b.count - a.count || a.label.localeCompare(b.label));
+  const top = sorted.slice(0, 5);
+  const rest = sorted.slice(5);
+  const restLoss = rest.reduce((a, g) => a + g.loss, 0);
+  const restCount = rest.reduce((a, g) => a + g.count, 0);
+  // 未命中规则但有损失的订单并入「其他」，保证各组之和 == 总损失
+  const residual = round2(totalLoss - top.reduce((a, g) => a + g.loss, 0) - restLoss) ?? 0;
+  if (rest.length > 0) top.push({ label: '其他', loss: round2(restLoss) ?? 0, count: restCount });
+  if (residual > 0) {
+    const other = top.find((g) => g.label === '其他');
+    if (other) other.loss = round2(other.loss + residual) ?? other.loss;
+    else top.push({ label: '其他', loss: residual, count: 0 });
+  }
+  return top;
+}
+
+function buildLossOverviewCard(rows: readonly ZeroNegativeDecoratedRow[], totalLoss: number, hitCount: number): InsightItem {
+  const metrics: InsightMetric[] = [
+    { label: '总损失', value: totalLoss, unit: '元', highlight: true },
+    { label: '命中订单数', value: hitCount, unit: '单' },
+    { label: '命中率', value: rows.length > 0 ? hitCount / rows.length : 0, unit: '%' },
+    { label: '平均单笔损失', value: hitCount > 0 ? totalLoss / hitCount : 0, unit: '元' },
+  ];
+  return {
+    id: 'loss-overview',
+    cardType: 'standard',
+    iconKey: 'critical',
+    title: '损失总览',
+    description: `共扫描 ${rows.length} 个订单，命中 ${hitCount} 个，损失合计 ${moneyText(round2(totalLoss))} 元`,
+    sortOrder: 1,
+    metrics,
+  };
+}
+
+function buildTypeCompositionCard(rows: readonly ZeroNegativeDecoratedRow[], totalLoss: number): InsightItem {
+  const groups = groupByAbnormalType(rows, totalLoss);
+  const text = groups.length > 0
+    ? groups.map((g) => `${g.label} ${moneyText(round2(g.loss))} 元（${g.count} 单）`).join('、')
+    : '本次未命中任何异常类型';
+  const metrics: InsightMetric[] = groups.slice(0, 4).map((g) => ({
+    label: g.label,
+    value: round2(g.loss) ?? 0,
+    unit: '元',
+  }));
+  return {
+    id: 'type-composition',
+    cardType: 'standard',
+    iconKey: 'warning',
+    title: '异常类型构成',
+    description: text,
+    sortOrder: 2,
+    metrics,
+    metadata: { groups },
+  };
+}
+
+function buildRiskDistributionCard(rows: readonly ZeroNegativeDecoratedRow[], totalLoss: number): InsightItem {
+  const metrics: InsightMetric[] = RISK_LEVELS.map((level) => {
+    const hit = rows.filter((r) => r.risk_level === level);
+    const amount = hit.reduce((a, r) => a + (r.loss_amount ?? 0), 0);
+    return {
+      label: `${level}（${hit.length} 单）`,
+      value: totalLoss > 0 ? amount / totalLoss : 0,
+      unit: '%',
+      highlight: level === '严重' && hit.length > 0,
+    };
+  });
+  const desc = RISK_LEVELS.map((level) => {
+    const hit = rows.filter((r) => r.risk_level === level);
+    const amount = hit.reduce((a, r) => a + (r.loss_amount ?? 0), 0);
+    return `${level} ${hit.length} 单 / ${moneyText(round2(amount))} 元`;
+  }).join('、');
+  return {
+    id: 'risk-distribution',
+    cardType: 'standard',
+    iconKey: 'insight',
+    title: '风险分档分布',
+    description: desc,
+    sortOrder: 3,
+    metrics,
+  };
+}
+
+function buildTopLossOrdersCard(hitRows: readonly ZeroNegativeDecoratedRow[], topN: number): InsightItem {
+  const entries = [...hitRows]
+    .sort((a, b) => (b.loss_amount ?? 0) - (a.loss_amount ?? 0) || String(a.order_id ?? '').localeCompare(String(b.order_id ?? '')))
+    .slice(0, topN)
+    .map((r) => ({ order_id: r.order_id ?? '—', abnormal_type: r.abnormal_type ?? '—', loss_amount: r.loss_amount ?? 0 }));
+  const desc = entries.length > 0
+    ? entries.map((e) => `${e.order_id}（${e.abnormal_type}）${moneyText(e.loss_amount)} 元`).join('；')
+    : '本次无命中订单';
+  const maxLoss = entries.reduce((a, e) => Math.max(a, e.loss_amount), 0);
+  return {
+    id: 'top-loss-orders',
+    cardType: 'standard',
+    iconKey: 'order',
+    title: `损失 Top${topN} 订单`,
+    description: desc,
+    sortOrder: 4,
+    metrics: [{ label: '最大单笔损失', value: round2(maxLoss) ?? 0, unit: '元', highlight: true }],
+    metadata: { entries },
+  };
+}
+
+function buildDataQualityCard(
+  rows: readonly ZeroNegativeDecoratedRow[],
+  cfg: ZeroNegativeOrderDetectConfig,
+  skipped: readonly ZeroNegativeRuleKey[],
+): InsightItem | null {
+  const nullCount = rows.filter((r) => r.has_null_amount).length;
+  const rowLevel = !hasColumnValue(cfg.fieldMapping.orderIdCol);
+  if (skipped.length === 0 && !rowLevel && nullCount === 0) return null;
+
+  const segs: string[] = [];
+  if (skipped.length > 0) {
+    segs.push(`缺依赖列跳过 ${skipped.length} 项规则（${skipped.map((k) => ZERO_NEGATIVE_RULE_LABEL[k]).join('、')}），结论未覆盖这些规则`);
+  }
+  if (rowLevel) segs.push('订单号列未映射，按行计数的指标为行级口径（同一订单的多行会重复计数）');
+  if (nullCount > 0) segs.push(`${nullCount} 行因金额缺失未参与判定`);
+  return {
+    id: 'data-quality',
+    cardType: 'standard',
+    iconKey: 'quality',
+    title: '数据质量提示',
+    description: segs.join('；'),
+    sortOrder: 5,
+  };
+}
+
+/** 常驻 4 卡 + 条件质量卡；sortOrder 严格递增 */
+function buildInsightItems(
+  rows: readonly ZeroNegativeDecoratedRow[],
+  cfg: ZeroNegativeOrderDetectConfig,
+  skipped: readonly ZeroNegativeRuleKey[],
+  hitCount: number,
+): InsightItem[] {
+  const totalLoss = rows.reduce((a, r) => a + (r.loss_amount ?? 0), 0);
+  const hitRows = rows.filter((r) => r.is_abnormal);
+  const topN = Math.max(1, Math.min(10, Math.trunc(safeNum(cfg.topN) ?? 5)));
+  const items = [
+    buildLossOverviewCard(rows, totalLoss, hitCount),
+    buildTypeCompositionCard(rows, totalLoss),
+    buildRiskDistributionCard(rows, totalLoss),
+    buildTopLossOrdersCard(hitRows, topN),
+  ];
+  const quality = buildDataQualityCard(rows, cfg, skipped);
+  if (quality) items.push(quality);
+  return items;
+}
+
+function buildSummary(rows: readonly ZeroNegativeDecoratedRow[], hitCount: number): InsightSummary {
+  const totalLoss = rows.reduce((a, r) => a + (r.loss_amount ?? 0), 0);
+  return {
+    totalRecordCount: rows.length,
+    totalFilterRecordCount: hitCount,
+    riskRecordCount: hitCount,
+    criticalRecordCount: rows.filter((r) => r.risk_level === '严重').length,
+    estimatedLoss: round2(totalLoss) ?? 0,
+  };
+}
+
+/** 展示配置：行序唯一真值在 compareZeroNegativeRows，故不设 defaultSort / rowColorizer */
+function buildDisplayConfig(cfg: ZeroNegativeOrderDetectConfig): OperatorDisplayConfig {
+  const refundMapped = hasColumnValue(cfg.fieldMapping.refundAmountCol);
+  return {
+    tabs: [
+      { label: '全量订单' },
+      { label: '仅看异常单', filterField: 'is_abnormal', filterValue: true },
+    ],
+    columnFormatters: {
+      risk_level: { type: 'risk_badge' },
+      abnormal_types: { type: 'json_tag_badges' },
+    },
+    columnTooltips: {
+      loss_amount:
+        `损失 = GREATEST(0, ${zeroNegativeSlotHuman(cfg.formula.lossSlots)})` +
+        (cfg.includeOverflowLoss ? ' + GREATEST(0, -应付金额)' : '') + '；超额优惠计入损失：' +
+        (cfg.includeOverflowLoss ? '已开启' : '已关闭'),
+      expected_amount: `应付金额 = ${zeroNegativeSlotHuman(cfg.formula.expectedSlots)}`,
+      net_pay_amount: refundMapped
+        ? '净实付 = 实付金额 − 退款金额'
+        : '净实付 = 实付金额（未映射退款金额列）',
+      data_quality_flag: '质量短码按 ROW_LEVEL → PARTIAL_RULES → NULL_AMOUNT 次序拼接，无问题为 OK',
+      skipped_rules: '本次因缺少依赖列而跳过的规则短码（R1–R8）',
+      abnormal_type: '主类型按根因优先级取首个命中：负数字段 > 负实付 > 优惠溢出 > 零实付 > 负单价 > 金额不符 > 一分钱单 > 分项不符',
+      abnormal_types: '命中的全部规则短码，可能多于一个',
+      is_abnormal: '是否命中任一已启用规则',
+      order_time: '订单级最早时间；字符串列按字典序取值',
+    },
+  };
 }
