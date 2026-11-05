@@ -492,8 +492,7 @@ export const EcomZeroNegativeOrderDetectDrawer: React.FC<EcomZeroNegativeOrderDe
               label: <Text style={{ fontSize: 11, color: TOKEN.textMuted }}>查看 SQL 表达式</Text>,
               children: (
                 <pre style={{ fontSize: 11, color: TOKEN.textSecondary, margin: 0, whiteSpace: 'pre-wrap' }}>
-{`COALESCE(${preview.expectedSql}) AS expected_amount
-COALESCE(${preview.lossSql}) AS loss_amount`}
+{preview.sqlLines.join('\n')}
                 </pre>
               ),
             }]}

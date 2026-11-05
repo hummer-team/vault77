@@ -36,6 +36,7 @@ import {
   parseRefundStatusValues,
   resolveZeroNegativeThresholds,
   riskLevelFromLoss,
+  zeroNegativeOverflowLossSql,
   zeroNegativeSlotHuman,
   zeroNegativeSlotSql,
   type AnalysisResult,
@@ -287,7 +288,7 @@ function ruleBody(key: ZeroNegativeRuleKey, cfg: ZeroNegativeOrderDetectConfig):
 /** ⑥ 损失金额 + 8 个命中标志（关闭/跳过 → 固定 FALSE，列名恒齐） */
 export function buildCalcCte(cfg: ZeroNegativeOrderDetectConfig, gates: ZeroNegativeGates): string {
   const lossSlots = zeroNegativeSlotSql(slotsOf(cfg.formula?.lossSlots, DERIVED_COL_SET));
-  const overflow = cfg.includeOverflowLoss ? 'GREATEST(0, -expected_amount)' : '0';
+  const overflow = zeroNegativeOverflowLossSql(cfg.includeOverflowLoss);
   const flags = ZERO_NEGATIVE_RULE_KEYS.map((key) => {
     const body = gates[key] ? `(${ruleBody(key, cfg)}) AND NOT has_null_amount` : 'FALSE';
     return `${body} AS ${ZERO_NEGATIVE_FLAG_COL[key]}`;
@@ -520,6 +521,20 @@ function textOf(value: unknown): string | null {
   return s === '' ? null : s;
 }
 
+/** 实付与应付的方向无关差额：与损失金额解耦（多收时损失恒为 0，不能冒充差额） */
+function mismatchGapText(row: ZeroNegativeRawRow): string {
+  const payNum = safeNum(row.pay_amount);
+  const expectedNum = safeNum(row.expected_amount);
+  if (payNum === null || expectedNum === null) return '—';
+  return moneyText(round2(Math.abs(payNum - expectedNum)));
+}
+/** 差额方向后缀（多收 / 少收），两侧无法比较或相等时为空串 */
+function mismatchDirectionSuffix(row: ZeroNegativeRawRow): string {
+  const payNum = safeNum(row.pay_amount);
+  const expectedNum = safeNum(row.expected_amount);
+  if (payNum === null || expectedNum === null || payNum === expectedNum) return '';
+  return payNum > expectedNum ? '（多收）' : '（少收）';
+}
 /** 规则命中原因（带实际数值，主类型用） */
 function buildZeroNegativeReason(key: ZeroNegativeRuleKey, row: ZeroNegativeRawRow): string {
   const pay = moneyText(round2(safeNum(row.pay_amount)));
@@ -539,11 +554,11 @@ function buildZeroNegativeReason(key: ZeroNegativeRuleKey, row: ZeroNegativeRawR
     case 'negative_field':
       return `应付金额 ${expected} 元为负，商品金额或优惠合计存在负值`;
     case 'amount_mismatch':
-      return `实付 ${pay} 元与应付 ${expected} 元不一致，差额 ${loss} 元`;
+      return `实付 ${pay} 元与应付 ${expected} 元不一致，差额 ${mismatchGapText(row)} 元${mismatchDirectionSuffix(row)}`;
     case 'discount_sum_mismatch':
       return `优惠合计 ${discount} 元与券/平台/商家分项之和不一致`;
     case 'penny_order':
-      return `实付 ${pay} 元而应付金额 ${expected} 元，差额 ${loss} 元`;
+      return `实付 ${pay} 元而应付金额 ${expected} 元，差额 ${mismatchGapText(row)} 元${mismatchDirectionSuffix(row)}`;
     default:
       return `命中规则，损失 ${loss} 元`;
   }

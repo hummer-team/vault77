@@ -2420,20 +2420,43 @@ export interface ZeroNegativeFormulaPreview {
   expectedSql: string;
   lossHuman: string;
   lossSql: string;
+  /** 折叠区两行 SQL：与 `buildBaseCalcCte` / `buildCalcCte` 同源，抽屉直接渲染不再拼串 */
+  sqlLines: string[];
+}
+
+/** 超额优惠并入损失项：P1 SQL 与抽屉预览共用同一表达式，避免两处口径漂移 */
+export function zeroNegativeOverflowLossSql(includeOverflowLoss?: boolean): string {
+  return includeOverflowLoss ? 'GREATEST(0, -expected_amount)' : '0';
+}
+
+/** SQL 预览两行（派生列与损失列的完整表达式，非裸槽位）：与真实执行 SQL 同源 */
+export function buildZeroNegativeSqlPreviewLines(
+  expectedSql: string,
+  lossSql: string,
+  includeOverflowLoss?: boolean,
+): string[] {
+  return [
+    `(${expectedSql}) AS expected_amount`,
+    `GREATEST(0, (${lossSql})) + ${zeroNegativeOverflowLossSql(includeOverflowLoss)} AS loss_amount`,
+  ];
 }
 
 /** 公式预览纯函数（抽屉只渲染，不拼串）：人话主行 + 折叠 SQL 行 */
 export function buildZeroNegativeFormulaPreview(
   cfg?: ZeroNegativeOrderDetectConfig,
 ): ZeroNegativeFormulaPreview {
-  const formula = (cfg ?? DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG).formula;
+  const resolved = cfg ?? DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG;
+  const formula = resolved.formula;
   const expectedSlots = formula?.expectedSlots ?? [];
   const lossSlots = formula?.lossSlots ?? [];
+  const expectedSql = zeroNegativeSlotSql(expectedSlots);
+  const lossSql = zeroNegativeSlotSql(lossSlots);
   return {
     expectedHuman: zeroNegativeSlotHuman(expectedSlots),
-    expectedSql: zeroNegativeSlotSql(expectedSlots),
+    expectedSql,
     lossHuman: zeroNegativeSlotHuman(lossSlots),
-    lossSql: zeroNegativeSlotSql(lossSlots),
+    lossSql,
+    sqlLines: buildZeroNegativeSqlPreviewLines(expectedSql, lossSql, resolved.includeOverflowLoss),
   };
 }
 

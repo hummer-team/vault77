@@ -15,6 +15,7 @@ import {
   FlowNodeType,
   ValidationSeverity,
   ZERO_NEGATIVE_RULE_KEYS,
+  buildZeroNegativeFormulaPreview,
   cloneZeroNegativeOrderDetectConfig,
   type FlowNode,
   type ZeroNegativeFieldMapping,
@@ -496,5 +497,29 @@ describe('Phase 1 validateOperatorSpecific', () => {
 
   it('无 SELECT 节点返回空数组', () => {
     expect(validate(tableOnlyNodes())).toEqual([]);
+  });
+});
+
+describe('Phase 1 — 抽屉 SQL 预览与真实执行 SQL 同源', () => {
+  it('预览两行逐字出现在生成的 SQL 中（含超额优惠开关两侧）', () => {
+    for (const includeOverflowLoss of [true, false]) {
+      const config = cfg({ includeOverflowLoss });
+      const sql = build(config);
+      const preview = buildZeroNegativeFormulaPreview(config);
+      expect(preview.sqlLines).toHaveLength(2);
+      for (const line of preview.sqlLines) {
+        expect(sql).toContain(line.trim());
+      }
+      // 旧缺陷：预览曾额外包一层 COALESCE 拼出单参数 COALESCE(...)，DuckDB 非法
+      expect(sql).not.toContain('COALESCE(COALESCE(');
+    }
+  });
+
+  it('预览行含 GREATEST 截断，损失口径与执行一致', () => {
+    const config = cfg({ includeOverflowLoss: true });
+    const preview = buildZeroNegativeFormulaPreview(config);
+    expect(preview.sqlLines[1]).toContain('GREATEST(0, (');
+    expect(preview.sqlLines[1]).toContain('GREATEST(0, -expected_amount)');
+    expect(build(config)).toContain(preview.sqlLines[1].trim());
   });
 });

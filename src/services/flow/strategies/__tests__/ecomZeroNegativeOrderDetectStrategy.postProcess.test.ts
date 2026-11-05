@@ -228,6 +228,44 @@ describe('Phase 2 文案非空转', () => {
   });
 });
 
+describe('Phase 2 差额文案口径（与损失金额解耦）', () => {
+  const mismatchRow = (pay: number, expected: number, loss: number): Record<string, unknown> =>
+    hitRow({
+      hit_negative_pay: false,
+      hit_amount_mismatch: true,
+      pay_amount: pay,
+      expected_amount: expected,
+      loss_amount: loss,
+    });
+
+  it('多收（pay 120 / expected 100）：差额 20.00，损失仍为 0', async () => {
+    const row = rowsOf(await run([mismatchRow(120, 100, 0)]))[0];
+    expect(String(row.abnormal_reasons)).toContain('差额 20.00 元');
+    expect(String(row.abnormal_reasons)).toContain('多收');
+    expect(row.loss_amount).toBe(0);
+  });
+
+  it('少收（pay 80 / expected 100）：差额同为 20.00，损失为 20', async () => {
+    const row = rowsOf(await run([mismatchRow(80, 100, 20)]))[0];
+    expect(String(row.abnormal_reasons)).toContain('差额 20.00 元');
+    expect(String(row.abnormal_reasons)).toContain('少收');
+    expect(row.loss_amount).toBe(20);
+  });
+
+  it('penny_order 同样取方向无关差额，不再用损失金额冒充差额', async () => {
+    const row = rowsOf(await run([hitRow({
+      hit_negative_pay: false,
+      hit_penny_order: true,
+      pay_amount: 0.01,
+      expected_amount: 50,
+      loss_amount: 10,
+    })]))[0];
+    expect(String(row.abnormal_reasons)).toContain('差额 49.99 元');
+    expect(String(row.abnormal_reasons)).toContain('少收');
+    expect(String(row.abnormal_reasons)).not.toContain('差额 10.00 元');
+  });
+});
+
 describe('Phase 2 金额归一', () => {
   it('loss_amount 10.005 → 10.01（十进制四舍五入）', async () => {
     expect(rowsOf(await run([hitRow({ loss_amount: 10.005 })]))[0].loss_amount).toBe(10.01);

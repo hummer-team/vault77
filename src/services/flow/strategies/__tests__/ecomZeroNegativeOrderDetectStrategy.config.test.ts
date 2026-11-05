@@ -12,6 +12,7 @@ import {
   ZERO_NEGATIVE_RULE_PRIORITY,
   ZERO_NEGATIVE_SOURCE_COLS,
   buildZeroNegativeFormulaPreview,
+  buildZeroNegativeSqlPreviewLines,
   cloneZeroNegativeOrderDetectConfig,
   collectEnabledZeroNegativeRules,
   collectZeroNegativeBlockers,
@@ -431,6 +432,30 @@ describe('Phase 0 契约 — 公式预览纯函数', () => {
     expect(preview.expectedSql).toContain('COALESCE');
     expect(preview.expectedSql).toBe('COALESCE(product_amount, 0) - COALESCE(discount_total, 0)');
     expect(preview.lossSql).toBe('COALESCE(expected_amount, 0) - COALESCE(net_pay_amount, 0)');
+  });
+
+  it('SQL 预览折叠行与真实执行 SQL 同源（不含 COALESCE(COALESCE(）', () => {
+    const preview = buildZeroNegativeFormulaPreview(DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG);
+    const text = preview.sqlLines.join('\n');
+    expect(preview.sqlLines).toHaveLength(2);
+    expect(text).not.toContain('COALESCE(COALESCE(');
+    expect(text).toContain('GREATEST(0,');
+    expect(preview.sqlLines[0]).toBe('(COALESCE(product_amount, 0) - COALESCE(discount_total, 0)) AS expected_amount');
+    expect(preview.sqlLines[1]).toContain('GREATEST(0, (COALESCE(expected_amount, 0) - COALESCE(net_pay_amount, 0)))');
+  });
+
+  it('SQL 预览行随 includeOverflowLoss 开关带上超额优惠项', () => {
+    const off = buildZeroNegativeFormulaPreview(validCfg({ includeOverflowLoss: false }));
+    expect(off.sqlLines[1].endsWith('+ 0 AS loss_amount')).toBe(true);
+    const on = buildZeroNegativeFormulaPreview(validCfg({ includeOverflowLoss: true }));
+    expect(on.sqlLines[1]).toContain('GREATEST(0, -expected_amount) AS loss_amount');
+  });
+
+  it('SQL 预览行纯函数与引用处纹理一致', () => {
+    expect(buildZeroNegativeSqlPreviewLines('A - B', 'E - N', true)).toEqual([
+      '(A - B) AS expected_amount',
+      'GREATEST(0, (E - N)) + GREATEST(0, -expected_amount) AS loss_amount',
+    ]);
   });
 
   it('未配置列回落 ? 而非 undefined', () => {
