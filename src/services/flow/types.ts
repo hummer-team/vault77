@@ -64,6 +64,7 @@ export enum OperatorType {
   PLATFORM_FEE_ALLOCATE = 'platform_fee_allocate',  // 平台佣金/服务费自动分摊
   ACTIVITY_EFFECT_SPLIT = 'activity_effect_split',  // 运营复盘：活动/优惠券/直播间效果拆分
   SUSPICIOUS_ORDER_DETECT = 'suspicious_order_detect',  // 风险风控：恶意订单/刷单/异常下单检测
+  ZERO_NEGATIVE_ORDER_DETECT = 'zero_negative_order_detect',  // 风险风控：0元单/负金额单/优惠溢出检测
 }
 
 export enum LogicType {
@@ -301,6 +302,8 @@ export interface SelectNodeData extends BaseNodeData {
   activityEffectSplitConfig?: ActivityEffectSplitConfig;
   /** fn_ecom_suspicious_order_detect 配置 */
   suspiciousOrderDetectConfig?: SuspiciousOrderDetectConfig;
+  /** fn_ecom_zero_negative_order_detect 配置 */
+  zeroNegativeDetectConfig?: ZeroNegativeOrderDetectConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -1945,3 +1948,542 @@ export interface FlowColors {
     error: string;
   };
 }
+
+// ============================================================================
+// fn_ecom_zero_negative_order_detect — 0 元单 / 负金额单检测（feature 16）
+// 契约层：类型 / 默认值 / 规则表 / 阻断判据 / 纯函数
+// 消费者（策略 validate、抽屉应用门禁、SelectNode.isUdfConfigured）只读此处的导出，
+// 禁止任一端另写阈值、规则中文名或阻断判据。
+// ============================================================================
+
+/** 8 条检测规则键（书写次序 = R1..R8，全模块唯一） */
+export type ZeroNegativeRuleKey =
+  | 'zero_pay' | 'negative_pay' | 'negative_unit_price' | 'discount_overflow'
+  | 'negative_field' | 'amount_mismatch' | 'discount_sum_mismatch' | 'penny_order';
+
+/** 规则短码：`abnormal_types` / `skipped_rules` / 证据文案前缀三处共用 */
+export type ZeroNegativeRuleCode = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8';
+
+/** 规则键全集（遍历顺序 = 此顺序） */
+export const ZERO_NEGATIVE_RULE_KEYS: ZeroNegativeRuleKey[] = [
+  'zero_pay', 'negative_pay', 'negative_unit_price', 'discount_overflow',
+  'negative_field', 'amount_mismatch', 'discount_sum_mismatch', 'penny_order',
+];
+
+export const ZERO_NEGATIVE_RULE_CODE: Record<ZeroNegativeRuleKey, ZeroNegativeRuleCode> = {
+  zero_pay: 'R1',
+  negative_pay: 'R2',
+  negative_unit_price: 'R3',
+  discount_overflow: 'R4',
+  negative_field: 'R5',
+  amount_mismatch: 'R6',
+  discount_sum_mismatch: 'R7',
+  penny_order: 'R8',
+};
+
+/** 规则中文业务名（开关行标题、`abnormal_type` 主类型值、跳过的规则文案共用） */
+export const ZERO_NEGATIVE_RULE_LABEL: Record<ZeroNegativeRuleKey, string> = {
+  zero_pay: '零实付订单',
+  negative_pay: '负实付订单',
+  negative_unit_price: '负单价',
+  discount_overflow: '优惠溢出',
+  negative_field: '负金额字段',
+  amount_mismatch: '金额不符',
+  discount_sum_mismatch: '优惠分项不符',
+  penny_order: '微额订单',
+};
+
+/** 一句话判定式（抽屉开关行副标题，与 SQL 判据同源） */
+export const ZERO_NEGATIVE_RULE_DESC: Record<ZeroNegativeRuleKey, string> = {
+  zero_pay: '实付金额为 0（容差内）且商品金额大于 0',
+  negative_pay: '实付金额为负数',
+  negative_unit_price: '单价为负；无单价列时按「商品金额 ÷ 数量」判定',
+  discount_overflow: '优惠合计大于商品金额（超出容差）',
+  negative_field: '商品金额或优惠合计为负数',
+  amount_mismatch: '实付与应付的差额同时超过容差与最小可报告缺口',
+  discount_sum_mismatch: '优惠券 + 平台补贴 + 商家优惠之和与优惠合计不符',
+  penny_order: '实付大于 0 且不超过微额上限，并显著低于商品金额',
+};
+
+/** 默认启用的 6 条核心规则（R7/R8 为增强规则，默认关闭） */
+export const DEFAULT_ZERO_NEGATIVE_RULES: ZeroNegativeRuleKey[] = [
+  'zero_pay', 'negative_pay', 'negative_unit_price',
+  'discount_overflow', 'negative_field', 'amount_mismatch',
+];
+
+/** 规则 → 依赖列（登记即「缺列自动跳过」；未登记表示无额外依赖，永不进 skipped 列表） */
+export const ZERO_NEGATIVE_RULE_DEPENDENCY_COLS: Partial<
+  Record<ZeroNegativeRuleKey, Array<keyof ZeroNegativeFieldMapping>>
+> = {
+  discount_sum_mismatch: ['couponAmountCol', 'platformDiscountCol', 'merchantDiscountCol'],
+};
+
+/** R3 独立谓词：单价列或数量列任一有值即可判定（两者皆空才跳过） */
+export function canEvaluateNegativeUnitPrice(cfg: ZeroNegativeOrderDetectConfig): boolean {
+  const m = cfg?.fieldMapping;
+  return hasColumnValue(m?.unitPriceCol) || hasColumnValue(m?.quantityCol);
+}
+
+/**
+ * 主类型优先级（根因优先）：`abnormal_type` 取此项最高命中的规则，
+ * `abnormal_types` 仍保留全部命中短码。
+ */
+export const ZERO_NEGATIVE_RULE_PRIORITY: readonly ZeroNegativeRuleKey[] = [
+  'negative_field', 'negative_pay', 'discount_overflow', 'zero_pay',
+  'negative_unit_price', 'amount_mismatch', 'penny_order', 'discount_sum_mismatch',
+];
+
+/** 字段映射：13 个槽位（空串 = 未映射） */
+export interface ZeroNegativeFieldMapping {
+  orderIdCol: string;            // 可选：未映射时按数据行计数（ROW_LEVEL）
+  orderTimeCol: string;          // 可选：观察窗口与 order_time 输出列
+  orderStatusCol: string;        // 可选：状态剔除
+  payAmountCol: string;          // 必填
+  productAmountCol: string;      // 必填
+  discountTotalCol: string;      // 必填
+  quantityCol: string;           // 可选：R3 兜底分母
+  unitPriceCol: string;          // 可选：R3 优先口径
+  couponAmountCol: string;       // 可选：R7 分项
+  platformDiscountCol: string;   // 可选：R7 分项
+  merchantDiscountCol: string;   // 可选：R7 分项
+  refundAmountCol: string;       // 可选：决定净实付 = 实付 − 退款
+  exemptionCol: string;          // 可选：业务豁免列（如订单类型）
+}
+
+export interface ZeroNegativeThresholds {
+  toleranceYuan: number;        // 容差（元），默认 0.01
+  mismatchMinYuan: number;      // 最小可报告缺口（元），默认 1
+  pennyOrderMaxYuan: number;    // 微额上限（元），默认 0.01
+}
+
+export interface ZeroNegativeRiskTiers {
+  criticalYuan: number;         // 严重档，默认 500
+  highYuan: number;             // 高档，默认 100
+  mediumYuan: number;           // 中档，默认 10
+  ruleCountUpgrade: number;     // 命中 N 类及以上升一档，默认 3
+}
+
+export interface ZeroNegativeOrderDetectConfig {
+  fieldMapping: ZeroNegativeFieldMapping;
+  /** undefined → `DEFAULT_ZERO_NEGATIVE_RULES`；空数组视为「未启用任何规则」而阻断 */
+  enabledRules?: ZeroNegativeRuleKey[];
+  thresholds: ZeroNegativeThresholds;
+  tiers: ZeroNegativeRiskTiers;
+  windows: { observationDays: number };
+  /** 状态剔除值（逗号分隔，`UPPER(TRIM())` 比对，中英混写一视同仁） */
+  excludeStatusValues: string;
+  /** 误报豁免值（逗号分隔，命中 `exemptionCol` 的订单整单跳过） */
+  exemptionValues: string;
+  /** 超额优惠并入损失（`max(0, -应付)` 第二项） */
+  includeOverflowLoss: boolean;
+  formula: { expectedSlots: FormulaSlot[]; lossSlots: FormulaSlot[] };
+  /** 洞察 TopN，1–10 */
+  topN: number;
+}
+
+/** 派生列白名单（损失组槽位可引用；应付组不可自引用） */
+export const ZERO_NEGATIVE_DERIVED_COLS = ['expected_amount', 'net_pay_amount'] as const;
+
+export type ZeroNegativeDerivedCol = (typeof ZERO_NEGATIVE_DERIVED_COLS)[number];
+
+export const ZERO_NEGATIVE_DERIVED_COL_LABEL: Record<ZeroNegativeDerivedCol, string> = {
+  expected_amount: '应付金额',
+  net_pay_amount: '净实付金额',
+};
+
+export const ZERO_NEGATIVE_SLOT_OPERATORS: ReadonlyArray<'+' | '-'> = ['+', '-'];
+
+/** 槽位可引用的源数据列（= `src_all` 投影别名，SQL 表达式与预览共用同一套别名） */
+export const ZERO_NEGATIVE_SOURCE_COLS = [
+  'order_id', 'order_time', 'order_status', 'pay_amount', 'product_amount',
+  'discount_total', 'quantity', 'unit_price', 'coupon_amount',
+  'platform_discount', 'merchant_discount', 'refund_amount',
+] as const;
+
+export type ZeroNegativeSourceCol = (typeof ZERO_NEGATIVE_SOURCE_COLS)[number];
+
+/** 投影别名 → 字段槽（预览据此把别名翻成业务中文名） */
+export const ZERO_NEGATIVE_SOURCE_COL_FIELD: Record<ZeroNegativeSourceCol, keyof ZeroNegativeFieldMapping> = {
+  order_id: 'orderIdCol',
+  order_time: 'orderTimeCol',
+  order_status: 'orderStatusCol',
+  pay_amount: 'payAmountCol',
+  product_amount: 'productAmountCol',
+  discount_total: 'discountTotalCol',
+  quantity: 'quantityCol',
+  unit_price: 'unitPriceCol',
+  coupon_amount: 'couponAmountCol',
+  platform_discount: 'platformDiscountCol',
+  merchant_discount: 'merchantDiscountCol',
+  refund_amount: 'refundAmountCol',
+};
+
+/** 字段槽类型（13 槽） */
+export type ZeroNegativeFieldKey = keyof ZeroNegativeFieldMapping;
+
+/** 字段业务口径中文名（抽屉标签 + 预览显示名共用） */
+export const ZERO_NEGATIVE_FIELD_LABEL: Record<ZeroNegativeFieldKey, string> = {
+  orderIdCol: '订单号',
+  orderTimeCol: '订单支付时间',
+  orderStatusCol: '订单状态',
+  payAmountCol: '实付金额',
+  productAmountCol: '商品金额',
+  discountTotalCol: '优惠合计',
+  quantityCol: '商品数量',
+  unitPriceCol: '商品单价',
+  couponAmountCol: '优惠券金额',
+  platformDiscountCol: '平台补贴',
+  merchantDiscountCol: '商家优惠',
+  refundAmountCol: '退款金额',
+  exemptionCol: '订单类型列（豁免用）',
+};
+
+/** 必填字段唯一真源（validate / 抽屉星号 / blockers 三处共读） */
+export const ZERO_NEGATIVE_REQUIRED_FIELDS: readonly ZeroNegativeFieldKey[] = [
+  'payAmountCol', 'productAmountCol', 'discountTotalCol',
+];
+
+/** 列名匹配正则（中文 + 英文 + 蛇形，大小写不敏感），键集 = 13 个映射槽 */
+export const ZERO_NEGATIVE_FIELD_MATCH_PATTERNS: Record<ZeroNegativeFieldKey, RegExp> = {
+  payAmountCol: /实付(金额|额)?|支付(金额|额)|付款(金额|额)|pay[ _. -]?(amount|amt)/i,
+  productAmountCol: /商品(金额|总额|原价)|货物金额|product[ _. -]?(amount|amt)|goods[ _. -]?(amount|amt)/i,
+  discountTotalCol: /优惠(合计|总额|金额合计)|折扣合计|discount[ _. -]?(total|sum)|total[ _. -]?discount/i,
+  quantityCol: /数量|件数|购买数量|quantity|qty/i,
+  unitPriceCol: /单价|商品单价|unit[ _. -]?price|price/i,
+  couponAmountCol: /优惠券(金额|额)?|券(金额|额)|coupon[ _. -]?(amount|amt|discount)/i,
+  platformDiscountCol: /平台(补贴|优惠|承担)|platform[ _. -]?(discount|subsidy)/i,
+  merchantDiscountCol: /商家(优惠|承担|补贴)|店铺优惠|merchant[ _. -]?(discount|subsidy)|seller[ _. -]?discount/i,
+  refundAmountCol: /退款(金额|额)?|退货(金额|额)|refund[ _. -]?(amount|amt)/i,
+  orderIdCol: /订单[ _. -]?(编号|号|id)|order[ _. -]?(id|no)/i,
+  orderTimeCol: /支付(时间|日期)|下单(时间|日期)|订单(时间|日期)|paid[ _. -]?(at|time)|pay[ _. -]?(time|date)|order[ _. -]?(time|date)/i,
+  orderStatusCol: /订单状态|交易状态|order[ _. -]?status|trade[ _. -]?status/i,
+  exemptionCol: /订单类型|业务类型|单据类型|order[ _. -]?type|biz[ _. -]?type/i,
+};
+
+/** 预填匹配次序：更精确的正则优先，先到先得（避免 `coupon_discount_amount` 被优惠合计抢占） */
+export const ZERO_NEGATIVE_FIELD_MATCH_ORDER: readonly ZeroNegativeFieldKey[] = [
+  'couponAmountCol', 'platformDiscountCol', 'merchantDiscountCol', 'refundAmountCol',
+  'payAmountCol', 'productAmountCol', 'discountTotalCol', 'quantityCol', 'unitPriceCol',
+  'orderIdCol', 'orderTimeCol', 'orderStatusCol', 'exemptionCol',
+];
+
+/**
+ * 表驱动预填：仅当「该槽当前为空」且「未被前序槽占用的候选列唯一命中」时写入。
+ * 已有值不覆盖，多列同时命中不猜（返回原值）。
+ */
+export function matchZeroNegativeColumns(
+  columns: string[],
+  current: ZeroNegativeFieldMapping,
+): ZeroNegativeFieldMapping {
+  const next: ZeroNegativeFieldMapping = { ...current };
+  // 已被槽位显式占用的列不再参与预填，避免抢占用户已确认的值
+  const consumed = new Set<string>();
+  for (const key of ZERO_NEGATIVE_FIELD_MATCH_ORDER) {
+    if (hasColumnValue(next[key])) consumed.add(next[key]);
+  }
+  const available = (columns ?? []).filter((c) => typeof c === 'string' && hasColumnValue(c));
+  for (const key of ZERO_NEGATIVE_FIELD_MATCH_ORDER) {
+    if (hasColumnValue(next[key])) continue;
+    const pattern = ZERO_NEGATIVE_FIELD_MATCH_PATTERNS[key];
+    // 唯一命中才写：多列同时命中说明该槽有歧义，留给用户手选
+    const hits = available.filter((c) => !consumed.has(c) && pattern.test(c));
+    if (hits.length === 1) {
+      next[key] = hits[0];
+      consumed.add(hits[0]);
+    }
+  }
+  return next;
+}
+
+export type ZeroNegativeBlockerCode =
+  | 'no-pay-amount' | 'no-product-amount' | 'no-discount-total'
+  | 'no-enabled-rule' | 'no-expected-slot' | 'no-loss-slot'
+  | 'invalid-threshold' | 'invalid-risk-tiers' | 'invalid-observation-days' | 'invalid-top-n';
+
+export interface ZeroNegativeBlocker {
+  code: ZeroNegativeBlockerCode;
+  message: string;
+}
+
+/** 阈值归一：非有限或负数兜底为默认值（SQL 拼装只从这里取数，防 NaN 表达式） */
+export function resolveZeroNegativeThresholds(cfg?: ZeroNegativeOrderDetectConfig): ZeroNegativeThresholds {
+  const fallback = DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG.thresholds;
+  const pick = (value: number | undefined, def: number): number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : def;
+  return {
+    toleranceYuan: pick(cfg?.thresholds?.toleranceYuan, fallback.toleranceYuan),
+    mismatchMinYuan: pick(cfg?.thresholds?.mismatchMinYuan, fallback.mismatchMinYuan),
+    pennyOrderMaxYuan: pick(cfg?.thresholds?.pennyOrderMaxYuan, fallback.pennyOrderMaxYuan),
+  };
+}
+
+/** 生效规则（`enabledRules === undefined` → 六核心；未知键过滤并保持 R1..R8 次序） */
+export function collectEnabledZeroNegativeRules(cfg?: ZeroNegativeOrderDetectConfig): ZeroNegativeRuleKey[] {
+  const list = cfg?.enabledRules;
+  if (list === undefined) return [...DEFAULT_ZERO_NEGATIVE_RULES];
+  const picked = new Set<string>(Array.isArray(list) ? list : []);
+  return ZERO_NEGATIVE_RULE_KEYS.filter((key) => picked.has(key));
+}
+
+/** 已启用但缺依赖列被跳过的规则（降级判据唯一来源） */
+export function collectZeroNegativeSkippedRules(cfg?: ZeroNegativeOrderDetectConfig): ZeroNegativeRuleKey[] {
+  if (!cfg) return [];
+  const enabled = new Set<string>(collectEnabledZeroNegativeRules(cfg));
+  return ZERO_NEGATIVE_RULE_KEYS.filter((key) => {
+    if (!enabled.has(key)) return false;
+    if (key === 'negative_unit_price') return !canEvaluateNegativeUnitPrice(cfg);
+    const deps = ZERO_NEGATIVE_RULE_DEPENDENCY_COLS[key];
+    if (!deps) return false;
+    return deps.some((col) => !hasColumnValue(cfg.fieldMapping?.[col]));
+  });
+}
+
+/** 规则覆盖三态：closed 用户关闭 / skipped 缺列跳过 / effective 真正参与判定 */
+export interface ZeroNegativeRuleCoverage {
+  total: 8;
+  closed: ZeroNegativeRuleKey[];
+  skipped: ZeroNegativeRuleKey[];
+  effective: ZeroNegativeRuleKey[];
+}
+
+/** 覆盖度（禁止用 `8 - skipped` 自行相减，那会把主动关闭的规则算成生效） */
+export function collectZeroNegativeRuleCoverage(cfg?: ZeroNegativeOrderDetectConfig): ZeroNegativeRuleCoverage {
+  const enabled = new Set<string>(collectEnabledZeroNegativeRules(cfg));
+  const skipped = collectZeroNegativeSkippedRules(cfg);
+  const skippedSet = new Set<string>(skipped);
+  return {
+    total: 8,
+    closed: ZERO_NEGATIVE_RULE_KEYS.filter((k) => !enabled.has(k)),
+    skipped,
+    effective: ZERO_NEGATIVE_RULE_KEYS.filter((k) => enabled.has(k) && !skippedSet.has(k)),
+  };
+}
+
+/** 数据质量短码（闭集）：拼接次序固定，空集为 `OK` */
+export type ZeroNegativeQualityCode = 'OK' | 'ROW_LEVEL' | 'PARTIAL_RULES' | 'NULL_AMOUNT';
+
+export const ZERO_NEGATIVE_QUALITY_ORDER: readonly ZeroNegativeQualityCode[] = [
+  'ROW_LEVEL', 'PARTIAL_RULES', 'NULL_AMOUNT',
+];
+
+export function joinZeroNegativeQuality(codes: Array<ZeroNegativeQualityCode | null | undefined>): string {
+  const set = new Set<string>(codes.filter((c): c is ZeroNegativeQualityCode => !!c && c !== 'OK'));
+  const picked = ZERO_NEGATIVE_QUALITY_ORDER.filter((c) => set.has(c));
+  return picked.length > 0 ? picked.join('+') : 'OK';
+}
+
+/**
+ * 阻断原因（固定次序输出）：三必填列 → 生效规则 → 两组槽位 → 阈值 → 分档 → 观察窗口 → TopN。
+ * 消息即业务化中文，策略 validate / 抽屉应用门禁 / SelectNode 三处复用。
+ */
+export function collectZeroNegativeBlockers(cfg?: ZeroNegativeOrderDetectConfig): ZeroNegativeBlocker[] {
+  const c = cfg ?? DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG;
+  const m = c.fieldMapping;
+  const blockers: ZeroNegativeBlocker[] = [];
+
+  if (!hasColumnValue(m?.payAmountCol)) {
+    blockers.push({ code: 'no-pay-amount', message: '请指定实付金额列' });
+  }
+  if (!hasColumnValue(m?.productAmountCol)) {
+    blockers.push({ code: 'no-product-amount', message: '请指定商品金额列' });
+  }
+  if (!hasColumnValue(m?.discountTotalCol)) {
+    blockers.push({ code: 'no-discount-total', message: '请指定优惠合计列' });
+  }
+  if (collectEnabledZeroNegativeRules(c).length === 0) {
+    blockers.push({ code: 'no-enabled-rule', message: '请至少启用一条检测规则' });
+  }
+  // 金额列缺失时槽位表达式无从落地，不再叠加级联噪声
+  if (blockers.length === 0) {
+    const expected = c.formula?.expectedSlots ?? [];
+    const loss = c.formula?.lossSlots ?? [];
+    if (expected.length === 0 || !hasColumnValue(expected[0]?.column)) {
+      blockers.push({ code: 'no-expected-slot', message: '请为「应付金额」公式保留至少一个起始计算项' });
+    }
+    if (loss.length === 0 || !hasColumnValue(loss[0]?.column)) {
+      blockers.push({ code: 'no-loss-slot', message: '请为「损失金额」公式保留至少一个起始计算项' });
+    }
+  }
+  const t = c.thresholds;
+  if (
+    !Number.isFinite(t?.toleranceYuan) || t.toleranceYuan < 0 ||
+    !Number.isFinite(t?.mismatchMinYuan) || t.mismatchMinYuan < 0 ||
+    !Number.isFinite(t?.pennyOrderMaxYuan) || t.pennyOrderMaxYuan < 0
+  ) {
+    blockers.push({ code: 'invalid-threshold', message: '阈值需为不小于 0 的数字' });
+  }
+  const tiers = c.tiers;
+  if (
+    !Number.isFinite(tiers?.criticalYuan) || !Number.isFinite(tiers?.highYuan) || !Number.isFinite(tiers?.mediumYuan) ||
+    !(tiers.criticalYuan > tiers.highYuan && tiers.highYuan > tiers.mediumYuan && tiers.mediumYuan >= 0) ||
+    !Number.isFinite(tiers?.ruleCountUpgrade) || tiers.ruleCountUpgrade < 1
+  ) {
+    blockers.push({ code: 'invalid-risk-tiers', message: '风险分档需满足「严重 > 高 > 中 ≥ 0」，且命中类数阈值不小于 1' });
+  }
+  const days = c.windows?.observationDays;
+  if (!Number.isFinite(days) || days < 0) {
+    blockers.push({ code: 'invalid-observation-days', message: '观察区间天数不能为负数' });
+  }
+  if (!Number.isFinite(c.topN) || c.topN < 1 || c.topN > 10) {
+    blockers.push({ code: 'invalid-top-n', message: '洞察列出订单数需在 1–10 之间' });
+  }
+  return blockers;
+}
+
+/** 风险等级中文四档 + 渲染序号（0 = 最严重） */
+export type ZeroNegativeRiskLevel = '严重' | '高' | '中' | '低';
+
+const ZERO_NEGATIVE_LEVEL_BY_ORDER: readonly ZeroNegativeRiskLevel[] = ['严重', '高', '中', '低'];
+
+export const ZERO_NEGATIVE_LEVEL_RANK: Record<string, number> = { 严重: 0, 高: 1, 中: 2, 低: 3 };
+
+/**
+ * 金额档 + 命中类数双因子分档（R2-2）：命中 ≥ `ruleCountUpgrade` 类升一档，封顶「严重」。
+ * 只对损失金额低于严重档的行生效，严重档不越界。
+ */
+export function riskLevelFromLoss(
+  lossAmount: number,
+  hitCount: number,
+  tiers: ZeroNegativeRiskTiers,
+): { level: ZeroNegativeRiskLevel; order: 0 | 1 | 2 | 3 } {
+  const loss = Number.isFinite(lossAmount) ? lossAmount : 0;
+  let order: number;
+  if (loss >= tiers.criticalYuan) order = 0;
+  else if (loss >= tiers.highYuan) order = 1;
+  else if (loss >= tiers.mediumYuan) order = 2;
+  else order = 3;
+  const need = Number.isFinite(tiers.ruleCountUpgrade) ? Math.max(1, Math.trunc(tiers.ruleCountUpgrade)) : 1;
+  if (hitCount >= need && order > 0) order -= 1;
+  return { level: ZERO_NEGATIVE_LEVEL_BY_ORDER[order], order: order as 0 | 1 | 2 | 3 };
+}
+
+export interface ZeroNegativeSortableRow {
+  risk_level?: unknown;
+  loss_amount?: unknown;
+  order_id?: unknown;
+}
+
+/** 行序唯一真值：等级升序（严重→低）→ 损失金额降序 → `order_id` 升序兜底（稳定） */
+export function compareZeroNegativeRows<T extends ZeroNegativeSortableRow>(a: T, b: T): number {
+  const ra = ZERO_NEGATIVE_LEVEL_RANK[String(a.risk_level)] ?? 4;
+  const rb = ZERO_NEGATIVE_LEVEL_RANK[String(b.risk_level)] ?? 4;
+  if (ra !== rb) return ra - rb;
+  const la = Number(a.loss_amount);
+  const lb = Number(b.loss_amount);
+  const sa = Number.isFinite(la) ? la : 0;
+  const sb = Number.isFinite(lb) ? lb : 0;
+  if (sa !== sb) return sb - sa;
+  const ia = String(a.order_id ?? '');
+  const ib = String(b.order_id ?? '');
+  if (ia === ib) return 0;
+  return ia < ib ? -1 : 1;
+}
+
+/** 槽位表达式（P1 SQL 与抽屉预览共用同一拼装规则）：`COALESCE(<col>, 0)` 按槽位运算符串联 */
+export function zeroNegativeSlotSql(slots: FormulaSlot[]): string {
+  const parts = (slots ?? []).filter((s) => hasColumnValue(s?.column));
+  if (parts.length === 0) return 'NULL::DOUBLE';
+  return parts
+    .map((s, i) => {
+      const term = `COALESCE(${s.column}, 0)`;
+      if (i === 0) return s.operator === '-' ? `-${term}` : term;
+      return `${s.operator} ${term}`;
+    })
+    .join(' ');
+}
+
+/** 槽位人话：派生列取中文名，源列按投影别名翻成字段业务名，未配置回落 `?` */
+export function zeroNegativeSlotHuman(slots: FormulaSlot[]): string {
+  const parts = (slots ?? []).filter((s) => hasColumnValue(s?.column));
+  if (parts.length === 0) return '?';
+  return parts
+    .map((s, i) => {
+      const label = zeroNegativeSlotColumnLabel(s.column);
+      if (i === 0) return s.operator === '-' ? `-${label}` : label;
+      return `${s.operator} ${label}`;
+    })
+    .join(' ');
+}
+
+/** 槽位列 → 展示名（派生列中文名 > 源列字段业务名 > 原列名 > `?`） */
+export function zeroNegativeSlotColumnLabel(column: string): string {
+  if (!hasColumnValue(column)) return '?';
+  const derived = ZERO_NEGATIVE_DERIVED_COL_LABEL[column as ZeroNegativeDerivedCol];
+  if (derived) return derived;
+  const field = ZERO_NEGATIVE_SOURCE_COL_FIELD[column as ZeroNegativeSourceCol];
+  if (field) return ZERO_NEGATIVE_FIELD_LABEL[field];
+  return column;
+}
+
+export interface ZeroNegativeFormulaPreview {
+  expectedHuman: string;
+  expectedSql: string;
+  lossHuman: string;
+  lossSql: string;
+}
+
+/** 公式预览纯函数（抽屉只渲染，不拼串）：人话主行 + 折叠 SQL 行 */
+export function buildZeroNegativeFormulaPreview(
+  cfg?: ZeroNegativeOrderDetectConfig,
+): ZeroNegativeFormulaPreview {
+  const formula = (cfg ?? DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG).formula;
+  const expectedSlots = formula?.expectedSlots ?? [];
+  const lossSlots = formula?.lossSlots ?? [];
+  return {
+    expectedHuman: zeroNegativeSlotHuman(expectedSlots),
+    expectedSql: zeroNegativeSlotSql(expectedSlots),
+    lossHuman: zeroNegativeSlotHuman(lossSlots),
+    lossSql: zeroNegativeSlotSql(lossSlots),
+  };
+}
+
+/** 逐层深拷贝：默认常量是模块级单例，抽屉与策略不得共享其嵌套引用 */
+export function cloneZeroNegativeOrderDetectConfig(
+  cfg: ZeroNegativeOrderDetectConfig,
+): ZeroNegativeOrderDetectConfig {
+  return {
+    fieldMapping: { ...cfg.fieldMapping },
+    enabledRules: cfg.enabledRules ? [...cfg.enabledRules] : undefined,
+    thresholds: { ...cfg.thresholds },
+    tiers: { ...cfg.tiers },
+    windows: { ...cfg.windows },
+    excludeStatusValues: cfg.excludeStatusValues,
+    exemptionValues: cfg.exemptionValues,
+    includeOverflowLoss: cfg.includeOverflowLoss,
+    formula: {
+      expectedSlots: (cfg.formula?.expectedSlots ?? []).map((s) => ({ ...s })),
+      lossSlots: (cfg.formula?.lossSlots ?? []).map((s) => ({ ...s })),
+    },
+    topN: cfg.topN,
+  };
+}
+
+/** 默认配置：核心 6 条开启、增强 2 条关闭，零配置即得到宣称能力 */
+export const DEFAULT_ZERO_NEGATIVE_ORDER_DETECT_CONFIG: ZeroNegativeOrderDetectConfig = {
+  fieldMapping: {
+    orderIdCol: '', orderTimeCol: '', orderStatusCol: '',
+    payAmountCol: '', productAmountCol: '', discountTotalCol: '',
+    quantityCol: '', unitPriceCol: '',
+    couponAmountCol: '', platformDiscountCol: '', merchantDiscountCol: '',
+    refundAmountCol: '', exemptionCol: '',
+  },
+  enabledRules: [...DEFAULT_ZERO_NEGATIVE_RULES],
+  thresholds: { toleranceYuan: 0.01, mismatchMinYuan: 1, pennyOrderMaxYuan: 0.01 },
+  tiers: { criticalYuan: 500, highYuan: 100, mediumYuan: 10, ruleCountUpgrade: 3 },
+  windows: { observationDays: 0 },
+  excludeStatusValues:
+    '已取消,交易关闭,已退款,退款成功,已退货,退货退款,CANCELLED,CLOSED,REFUNDED,RETURNED',
+  exemptionValues: '',
+  includeOverflowLoss: true,
+  formula: {
+    expectedSlots: [
+      { operator: '+', column: 'product_amount' },
+      { operator: '-', column: 'discount_total' },
+    ],
+    lossSlots: [
+      { operator: '+', column: 'expected_amount' },
+      { operator: '-', column: 'net_pay_amount' },
+    ],
+  },
+  topN: 5,
+};

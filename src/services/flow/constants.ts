@@ -274,6 +274,12 @@ export const OPERATOR_CONFIG = {
     icon: '🛡️',
     color: '#eb2f96',
   },
+  zero_negative_order_detect: {
+    name: '0元单/负金额单检测',
+    description: '按订单口径校验实付、商品金额与优惠合计的恒等式，输出损失金额、命中规则与处置建议',
+    icon: '🧾',
+    color: '#eb2f96',
+  },
 };
 
 // ============================================================================
