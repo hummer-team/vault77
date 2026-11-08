@@ -31,8 +31,10 @@ import {
   cloneDailyBizSummaryConfig,
   collectDailyBizBlockers,
   dailyBizBlockingErrors,
+  dailyBizFeeItemsMapped,
   dailyBizSlotHuman,
   dailyBizSlotSql,
+  hasDailyBizFeeSource,
   isDailyBizSlotColumnAllowed,
   joinDailyBizQuality,
   resolveDailyBizFeeSlots,
@@ -57,6 +59,12 @@ export const DAILY_BIZ_COMPARE_SHIFT: Record<Exclude<DailyBizSummaryConfig['comp
   month: '1 MONTH',
   year: '1 YEAR',
 };
+
+/** `agg → sales_calc → calc → metric` 逐层透传的源列别名（顺序固定，8 项） */
+export const DAILY_BIZ_PASSTHROUGH_COLS = [
+  'net_amount', 'gross_profit', 'cost_amount', 'refund_amount',
+  'fee_total_src', 'commission_fee', 'shipping_fee', 'service_fee',
+] as const;
 
 /** 标识符转义（兼容中文列名与保留字，阻断 `"` 注入） */
 function q(identifier: string): string {
@@ -84,6 +92,15 @@ function tsColExpr(col?: string): string {
 function slotExpr(slots: FormulaSlot[]): string {
   const valid = (slots ?? []).filter((s) => hasColumnValue(s?.column));
   return valid.length > 0 ? dailyBizSlotSql(valid) : 'CAST(NULL AS DOUBLE)';
+}
+
+/** 显式透传清单（Issue 5）：`"date"` + order_cnt + 8 个别名（+ quantity 条件）+ 本层新增列 */
+function passthroughList(layer: 'a' | 's' | 'c', cfg: DailyBizSummaryConfig, extra: string[]): string {
+  const cols = [`${layer}.${q('date')}`, `${layer}.order_cnt`];
+  for (const col of DAILY_BIZ_PASSTHROUGH_COLS) cols.push(`${layer}.${q(col)}`);
+  if (hasColumnValue(cfg.fieldMapping.quantityCol)) cols.push(`${layer}.${q('quantity')}`);
+  cols.push(...extra);
+  return cols.join(',\n    ');
 }
 
 /** ① 归一化投影 + 状态剔除；`userWhere` 只在此层注入 */
@@ -114,6 +131,7 @@ export function buildDailyBizSrcCte(
 
   const statuses = parseRefundStatusValues(cfg.excludeStatusValues);
   if (hasColumnValue(m.orderStatusCol) && statuses.length > 0) {
+    // 形态写死（plan §3.1）：NULL 行必须放行（`NULL NOT IN (...)` 求值为 UNKNOWN 会静默丢行）；空剔除集不生成整条条件
     const ref = q(m.orderStatusCol as string);
     conds.push(
       `(${ref} IS NULL OR UPPER(TRIM(CAST(${ref} AS VARCHAR))) NOT IN (${statuses.map(lit).join(', ')}))`,
@@ -151,19 +169,42 @@ export function buildDailyBizAggCte(cfg: DailyBizSummaryConfig): string {
 
 /** ③ 销售额派生（仅引用 agg 源列） */
 export function buildDailyBizSalesCte(cfg: DailyBizSummaryConfig): string {
-  return `sales_calc AS (\n  SELECT a.*, ${slotExpr(allowedDailyBizSlots('salesSlots', cfg.salesSlots))} AS sales\n  FROM agg a\n)`;
+  const list = passthroughList('a', cfg, [`${slotExpr(allowedDailyBizSlots('salesSlots', cfg.salesSlots))} AS sales`]);
+  return `sales_calc AS (\n  SELECT\n    ${list}\n  FROM agg a\n)`;
 }
 
-/** ④ 毛利 + 费用合计派生（毛利可引用 sales；费用按口径二选一） */
+/** ④ 毛利 + 费用合计派生（毛利可引用 sales；费用按口径三支：NULL / 分项和 / 合计列兜底） */
 export function buildDailyBizCalcCte(cfg: DailyBizSummaryConfig): string {
+  const feeReady = hasDailyBizFeeSource(cfg);
   const feeSlots = resolveDailyBizFeeSlots(cfg);
-  const feeExpr = feeSlots.length > 0 ? slotExpr(feeSlots) : 'COALESCE("fee_total_src", 0)';
-  return `calc AS (\n  SELECT s.*, ${slotExpr(resolveDailyBizProfitSlots(cfg))} AS profit,\n         ${feeExpr} AS fee_total\n  FROM sales_calc s\n)`;
+  // 分支只看「是否有已映射列」，不看 feeSlots.length；单列口径下分项映射与否则无意义（§3.2 行 1/2）
+  const feeItemsReady = cfg.feeCaliber === 'slot_sum' && dailyBizFeeItemsMapped(cfg);
+  const feeExpr = !feeReady
+    ? 'CAST(NULL AS DOUBLE)'
+    : feeItemsReady
+      ? slotExpr(feeSlots)
+      : 'COALESCE("fee_total_src", 0)';
+  const list = passthroughList('s', cfg, [
+    `s.${q('sales')}`,
+    `${slotExpr(resolveDailyBizProfitSlots(cfg))} AS profit`,
+    `${feeExpr} AS fee_total`,
+  ]);
+  return `calc AS (\n  SELECT\n    ${list}\n  FROM sales_calc s\n)`;
 }
 
-/** ⑤ 净利派生（可引用 sales / profit / fee_total） */
+/** ⑤ 净利派生（可引用 sales / profit / fee_total）；费用不可用时引用了任一费用别名的净利公式整体置 NULL */
 export function buildDailyBizMetricCte(cfg: DailyBizSummaryConfig): string {
-  return `metric AS (\n  SELECT c.*, ${slotExpr(allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots))} AS net_profit\n  FROM calc c\n)`;
+  const feeReady = hasDailyBizFeeSource(cfg);
+  const netSlots = allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots);
+  const netUsesFee = netSlots.some((s) => s.column === 'fee_total' || s.column === 'fee_total_src');
+  const netExpr = !feeReady && netUsesFee ? 'CAST(NULL AS DOUBLE)' : slotExpr(netSlots);
+  const list = passthroughList('c', cfg, [
+    `c.${q('sales')}`,
+    `c.${q('profit')}`,
+    `c.${q('fee_total')}`,
+    `${netExpr} AS net_profit`,
+  ]);
+  return `metric AS (\n  SELECT\n    ${list}\n  FROM calc c\n)`;
 }
 
 /** 输出列 schema（15 列基准；关闭对比 −3，未映射销量 −1） */
