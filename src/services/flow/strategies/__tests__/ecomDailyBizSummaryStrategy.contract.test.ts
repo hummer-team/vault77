@@ -1,24 +1,32 @@
 /**
- * Phase 0 单测 — fn_ecom_daily_biz_summary 契约层（计划 §Phase 0 测试矩阵）
- * 纯函数断言：默认配置 / 字典与正则 / 预填 / 质量短码 / 槽位同源 / 口径切换 / blockers。
+ * Phase 0 单测 — fn_ecom_daily_biz_summary 契约层（计划 §Phase 0 测试矩阵，编号 1–9）
+ * 纯函数断言：默认配置 / 字典与正则 / 预填与负例与歧义 / 质量短码 / 槽位同源 /
+ * 费用可用性（六条）/ 口径切换 / blockers 分级（三场景）/ 槽位求值与 AC3 恒等。
  */
 import { describe, it, expect } from 'vitest';
 import {
+  DAILY_BIZ_AMOUNT_GUARDED_FIELDS,
   DAILY_BIZ_COLUMN_LABEL,
   DAILY_BIZ_FIELD_LABEL,
   DAILY_BIZ_FIELD_MATCH_ORDER,
   DAILY_BIZ_FIELD_MATCH_PATTERNS,
+  DAILY_BIZ_NO_FEE_COL_MESSAGE,
   DAILY_BIZ_RESERVED_COLS,
+  DAILY_BIZ_SOURCE_COL_FIELD,
   DAILY_BIZ_SOURCE_COLS,
   DEFAULT_DAILY_BIZ_SUMMARY_CONFIG,
   applyDailyBizSalesCaliber,
   buildDailyBizFormulaPreview,
   cloneDailyBizSummaryConfig,
   collectDailyBizBlockers,
+  dailyBizBlockingErrors,
   dailyBizDefaultNetProfitSlots,
+  dailyBizFeeItemsMapped,
   dailyBizSlotHuman,
   dailyBizSlotSql,
+  evalDailyBizSlot,
   hasDailyBizCaliberConflict,
+  hasDailyBizFeeSource,
   isDailyBizNetProfitEdited,
   isDailyBizSlotColumnAllowed,
   joinDailyBizQuality,
@@ -51,7 +59,13 @@ const fullConfig = (): DailyBizSummaryConfig => {
   return cfg;
 };
 
-describe('Phase 0 — 默认配置', () => {
+/** 金额类槽位清单（负例断言范围：任一项都不得被预填） */
+const AMOUNT_SLOTS: readonly DailyBizFieldKey[] = [
+  'salesCol', 'grossProfitCol', 'costCol', 'refundAmountCol',
+  'feeTotalCol', 'commissionFeeCol', 'shippingFeeCol', 'serviceFeeCol',
+];
+
+describe('Phase 0 · 1 — 默认配置', () => {
   it('口径与对比默认值符合决策', () => {
     const cfg = DEFAULT_DAILY_BIZ_SUMMARY_CONFIG;
     expect(cfg.salesCaliber).toBe('gross');
@@ -87,7 +101,7 @@ describe('Phase 0 — 默认配置', () => {
   });
 });
 
-describe('Phase 0 — 字典完整性', () => {
+describe('Phase 0 · 2 — 字典完整性', () => {
   it('匹配次序覆盖 fieldMapping 全部 12 键且无重复', () => {
     const keys = Object.keys(DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping);
     expect(keys).toHaveLength(12);
@@ -129,45 +143,72 @@ describe('Phase 0 — 字典完整性', () => {
       }
     }
   });
+
+  it('金额类字段的正则 source 必含金额词根（词典层约束，非候选列层）', () => {
+    expect(DAILY_BIZ_AMOUNT_GUARDED_FIELDS).toHaveLength(8);
+    for (const field of DAILY_BIZ_AMOUNT_GUARDED_FIELDS) {
+      expect(DAILY_BIZ_FIELD_MATCH_ORDER).toContain(field);
+      expect(DAILY_BIZ_FIELD_MATCH_PATTERNS[field].source).toMatch(/(金额|额|费|价|利|amount|amt|fee|cost)/i);
+    }
+  });
 });
 
-describe('Phase 0 — 预填', () => {
+describe('Phase 0 · 3 — 预填与负例（Issue 4）', () => {
   it('中文列名集合按正则唯一命中预填', () => {
-    const mapped = matchDailyBizColumns(
+    const { mapping } = matchDailyBizColumns(
       ['订单支付时间', '销售额', '订单号', '订单状态', '毛利额', '商品成本', '退款金额', '费用合计', '佣金', '运费', '服务费', '销量'],
       DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping,
     );
-    expect(mapped.orderDateCol).toBe('订单支付时间');
-    expect(mapped.salesCol).toBe('销售额');
-    expect(mapped.orderIdCol).toBe('订单号');
-    expect(mapped.quantityCol).toBe('销量');
+    expect(mapping.orderDateCol).toBe('订单支付时间');
+    expect(mapping.salesCol).toBe('销售额');
+    expect(mapping.orderIdCol).toBe('订单号');
+    expect(mapping.quantityCol).toBe('销量');
   });
 
   it('英文列名集合按正则唯一命中预填', () => {
-    const mapped = matchDailyBizColumns(
+    const { mapping } = matchDailyBizColumns(
       ['order_date', 'net_amount', 'order_id', 'order_status', 'gross_profit', 'cost', 'refund_amount',
         'fee_total', 'commission_fee', 'shipping_fee', 'service_fee', 'quantity'],
       DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping,
     );
-    expect(mapped.orderDateCol).toBe('order_date');
-    expect(mapped.salesCol).toBe('net_amount');
-    expect(mapped.feeTotalCol).toBe('fee_total');
-    expect(mapped.serviceFeeCol).toBe('service_fee');
+    expect(mapping.orderDateCol).toBe('order_date');
+    expect(mapping.salesCol).toBe('net_amount');
+    expect(mapping.feeTotalCol).toBe('fee_total');
+    expect(mapping.serviceFeeCol).toBe('service_fee');
   });
 
   it('已填值不被覆盖', () => {
     const current = { ...DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping, salesCol: '自定义销售额' };
-    const mapped = matchDailyBizColumns(['销售额', 'net_amount'], current);
-    expect(mapped.salesCol).toBe('自定义销售额');
+    const { mapping } = matchDailyBizColumns(['销售额', 'net_amount'], current);
+    expect(mapping.salesCol).toBe('自定义销售额');
+  });
+
+  it('4 条负例（退款状态 / 退款原因 / 毛利率 / 成本占比）不写入任何金额类槽位', () => {
+    const { mapping } = matchDailyBizColumns(
+      ['退款状态', '退款原因', '毛利率', '成本占比'],
+      DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping,
+    );
+    for (const slot of AMOUNT_SLOTS) expect(mapping[slot] ?? '', `${slot} 不应被预填`).toBe('');
+  });
+
+  it('歧义（≥2 候选）不猜：refundAmountCol 保持为空并回报候选清单', () => {
+    const result = matchDailyBizColumns(
+      ['退款金额', '退款金额合计'],
+      DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping,
+    );
+    expect(result.mapping.refundAmountCol).toBe('');
+    expect(result.ambiguous).toHaveLength(1);
+    expect(result.ambiguous[0].field).toBe('refundAmountCol');
+    expect(result.ambiguous[0].candidates).toEqual(['退款金额', '退款金额合计']);
   });
 
   it('歧义列（同时命中 2 列）不写入', () => {
-    const mapped = matchDailyBizColumns(['销售额', 'net_amount'], DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping);
-    expect(mapped.salesCol).toBe('');
+    const { mapping } = matchDailyBizColumns(['销售额', 'net_amount'], DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping);
+    expect(mapping.salesCol).toBe('');
   });
 });
 
-describe('Phase 0 — 质量短码', () => {
+describe('Phase 0 · 4 — 质量短码', () => {
   it('4 码全缺 → 固定次序拼接', () => {
     const codes = resolveDailyBizQualityCodes(DEFAULT_DAILY_BIZ_SUMMARY_CONFIG);
     expect(joinDailyBizQuality(codes)).toBe('ROW_LEVEL+NO_STATUS_FILTER+NO_PROFIT_COL+NULL_AMOUNT');
@@ -193,7 +234,7 @@ describe('Phase 0 — 质量短码', () => {
   });
 });
 
-describe('Phase 0 — 槽位同源（AC6）', () => {
+describe('Phase 0 · 5 — 槽位同源（AC6）', () => {
   it('空槽位同时为空', () => {
     const empty = [{ operator: '+' as const, column: '' }];
     expect(dailyBizSlotSql(empty)).toBe('NULL::DOUBLE');
@@ -219,7 +260,7 @@ describe('Phase 0 — 槽位同源（AC6）', () => {
   });
 });
 
-describe('Phase 0 — 降级判定（Q9 / Q14 唯一真源）', () => {
+describe('Phase 0 · 6 — 降级判定与费用可用性（Q9 / Q14 / Issue 3）', () => {
   it('毛利三态：有毛利列 / 仅成本列 / 两路都缺', () => {
     const withGross = fullConfig();
     expect(resolveDailyBizProfitSlots(withGross)).toEqual([{ operator: '+', column: 'gross_profit' }]);
@@ -248,9 +289,57 @@ describe('Phase 0 — 降级判定（Q9 / Q14 唯一真源）', () => {
     cfg.feeCaliber = 'single_column';
     expect(resolveDailyBizFeeSlots(fullConfig())).toHaveLength(0);
   });
+
+  it('hasDailyBizFeeSource 六条（严格按约定 §3.2 表）', () => {
+    // ① single_column + 合计列已映射 → true
+    const a = cloneDailyBizSummaryConfig();
+    a.fieldMapping = { ...a.fieldMapping, feeTotalCol: '费用合计' };
+    a.feeCaliber = 'single_column';
+    expect(hasDailyBizFeeSource(a)).toBe(true);
+
+    // ② single_column + 合计列未映射 → false
+    expect(hasDailyBizFeeSource(cloneDailyBizSummaryConfig())).toBe(false);
+
+    // ③ slot_sum + 分项引用的列已映射 → true（映射表生效判据）
+    expect(DAILY_BIZ_SOURCE_COL_FIELD.commission_fee).toBe('commissionFeeCol');
+    const c = cloneDailyBizSummaryConfig();
+    c.feeCaliber = 'slot_sum';
+    c.feeSlots = [{ operator: '+', column: 'commission_fee' }];
+    c.fieldMapping = { ...c.fieldMapping, commissionFeeCol: '佣金' };
+    expect(hasDailyBizFeeSource(c)).toBe(true);
+
+    // ④ slot_sum + 分项为空 + 合计列已映射 → true（既有兜底保留）
+    const d = cloneDailyBizSummaryConfig();
+    d.feeCaliber = 'slot_sum';
+    d.feeSlots = [];
+    d.fieldMapping = { ...d.fieldMapping, feeTotalCol: '费用合计' };
+    expect(hasDailyBizFeeSource(d)).toBe(true);
+
+    // ⑤ slot_sum + 分项为空 + 合计列未映射 → false
+    const e = cloneDailyBizSummaryConfig();
+    e.feeCaliber = 'slot_sum';
+    e.feeSlots = [];
+    e.fieldMapping = { ...e.fieldMapping, feeTotalCol: '' };
+    expect(hasDailyBizFeeSource(e)).toBe(false);
+
+    // ⑥ 判定看「映射」不看槽位数组长度
+    const f = cloneDailyBizSummaryConfig();
+    f.feeCaliber = 'slot_sum';
+    f.feeSlots = [{ operator: '+', column: 'commission_fee' }];
+    f.fieldMapping = { ...f.fieldMapping, commissionFeeCol: '', feeTotalCol: '费用合计' };
+    expect(hasDailyBizFeeSource(f)).toBe(true);
+    expect(dailyBizFeeItemsMapped(f)).toBe(false);
+  });
+
+  it('DAILY_BIZ_SOURCE_COL_FIELD 覆盖 12 个别名且值为合法字段键', () => {
+    expect(Object.keys(DAILY_BIZ_SOURCE_COL_FIELD)).toHaveLength(12);
+    expect(Object.keys(DAILY_BIZ_SOURCE_COL_FIELD).sort()).toEqual([...DAILY_BIZ_SOURCE_COLS].sort());
+    const fieldKeys = Object.keys(DEFAULT_DAILY_BIZ_SUMMARY_CONFIG.fieldMapping);
+    for (const value of Object.values(DAILY_BIZ_SOURCE_COL_FIELD)) expect(fieldKeys).toContain(value);
+  });
 });
 
-describe('Phase 0 — 销售额口径切换（Q12）', () => {
+describe('Phase 0 · 7 — 销售额口径切换（Q12）', () => {
   it('未编辑时切到净额 → 重建为 [销售额, −费用合计]', () => {
     const cfg = fullConfig();
     expect(isDailyBizNetProfitEdited(cfg)).toBe(false);
@@ -283,18 +372,45 @@ describe('Phase 0 — 销售额口径切换（Q12）', () => {
   });
 });
 
-describe('Phase 0 — blockers', () => {
-  it('缺两个必填 → 2 条且次序固定', () => {
-    const blockers = collectDailyBizBlockers(cloneDailyBizSummaryConfig());
-    expect(blockers.map((b) => b.code)).toEqual(['no-order-date', 'no-sales-col']);
+describe('Phase 0 · 8 — blockers 与分级（Issue 3，三场景独立）', () => {
+  it('场景 A：缺必填 → 2 条 error + 1 条 no-fee-col warning（末位）', () => {
+    const cfg = cloneDailyBizSummaryConfig();
+    const blockers = collectDailyBizBlockers(cfg);
+    expect(blockers.filter((b) => b.severity === 'error').map((b) => b.code)).toEqual(['no-order-date', 'no-sales-col']);
+    expect(dailyBizBlockingErrors(cfg)).toHaveLength(2);
+    expect(blockers.map((b) => b.code)).toEqual(['no-order-date', 'no-sales-col', 'no-fee-col']);
+    expect(blockers[2].severity).toBe('warning');
+    expect(blockers[2].message).toBe(DAILY_BIZ_NO_FEE_COL_MESSAGE);
     expect(blockers[0].message).toContain('订单支付时间');
   });
 
-  it('salesSlots 清空 → 追加 1 条', () => {
+  it('场景 B：必填齐备但费用列不可用 → 仅 1 条 warning，门禁 ERROR = 0', () => {
+    const cfg = cloneDailyBizSummaryConfig();
+    cfg.fieldMapping = { ...cfg.fieldMapping, orderDateCol: '订单支付时间', salesCol: '销售额' };
+    cfg.feeCaliber = 'single_column';
+    cfg.fieldMapping.feeTotalCol = '';
+    const blockers = collectDailyBizBlockers(cfg);
+    expect(blockers).toHaveLength(1);
+    expect(blockers[0].code).toBe('no-fee-col');
+    expect(blockers[0].severity).toBe('warning');
+    expect(dailyBizBlockingErrors(cfg)).toHaveLength(0);
+  });
+
+  it('场景 C：分项口径无任何已映射列 → no-fee-slot(error) + no-fee-col 末位', () => {
+    const cfg = cloneDailyBizSummaryConfig();
+    cfg.fieldMapping = { ...cfg.fieldMapping, orderDateCol: '订单支付时间', salesCol: '销售额', feeTotalCol: '' };
+    cfg.feeCaliber = 'slot_sum';
+    cfg.feeSlots = [];
+    const codes = collectDailyBizBlockers(cfg).map((b) => b.code);
+    expect(codes).toContain('no-fee-slot');
+    expect(codes[codes.length - 1]).toBe('no-fee-col');
+    expect(dailyBizBlockingErrors(cfg)).toHaveLength(1);
+  });
+
+  it('salesSlots 清空 → 追加 1 条 error', () => {
     const cfg = fullConfig();
     cfg.salesSlots = [];
-    const codes = collectDailyBizBlockers(cfg).map((b) => b.code);
-    expect(codes).toEqual(['no-sales-slot']);
+    expect(collectDailyBizBlockers(cfg).map((b) => b.code)).toEqual(['no-sales-slot']);
   });
 
   it('费用分项口径下清空分项 → 追加 no-fee-slot；合计口径不追加', () => {
@@ -315,6 +431,35 @@ describe('Phase 0 — blockers', () => {
     cfg.fieldMapping.orderIdCol = '';
     cfg.fieldMapping.orderStatusCol = '';
     expect(collectDailyBizBlockers(cfg)).toHaveLength(0);
+  });
+});
+
+describe('Phase 0 · 9 — 槽位求值（AC3 数值侧）', () => {
+  const X = { sales: 1000, refund_amount: 120, fee_total: 80 };
+
+  it('gross 分支求值为 800', () => {
+    const gross = [
+      { operator: '+' as const, column: 'sales' },
+      { operator: '-' as const, column: 'refund_amount' },
+      { operator: '-' as const, column: 'fee_total' },
+    ];
+    expect(evalDailyBizSlot(gross, X)).toBe(800);
+  });
+
+  it('net − gross === refundAmount（容差 0，符号方向固定）', () => {
+    const gross = dailyBizDefaultNetProfitSlots('gross');
+    const net = dailyBizDefaultNetProfitSlots('net');
+    const netValue = evalDailyBizSlot(net, X);
+    const grossValue = evalDailyBizSlot(gross, X);
+    expect(netValue).toBe(920);
+    expect(netValue === null || grossValue === null ? null : netValue - grossValue).toBe(120);
+  });
+
+  it('空槽位 → null；缺键按 0 计；越界列按 0 计', () => {
+    expect(evalDailyBizSlot([], X)).toBeNull();
+    expect(evalDailyBizSlot([{ operator: '+', column: '' }], X)).toBeNull();
+    expect(evalDailyBizSlot([{ operator: '+', column: 'sales' }, { operator: '-', column: 'gross_profit' }], X)).toBe(1000);
+    expect(evalDailyBizSlot([{ operator: '+', column: 'sales' }, { operator: '-', column: 'fee_total' }], { sales: 100 })).toBe(100);
   });
 });
 

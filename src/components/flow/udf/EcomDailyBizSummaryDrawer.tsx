@@ -188,7 +188,7 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
   useEffect(() => {
     if (!open) return;
     const base = cloneDailyBizSummaryConfig(initialConfig ?? DEFAULT_DAILY_BIZ_SUMMARY_CONFIG);
-    base.fieldMapping = matchDailyBizColumns(columns, base.fieldMapping);
+    base.fieldMapping = matchDailyBizColumns(columns, base.fieldMapping).mapping;
     setCfg(base);
   }, [open, initialConfig, columns]);
 
@@ -202,7 +202,9 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
     setCfg((prev) => ({ ...prev, [group]: next }));
   }, []);
 
+  // 全量 blockers（含 warning）供提示展示；门禁只看 error
   const blockers = useMemo(() => collectDailyBizBlockers(cfg), [cfg]);
+  const blockingErrors = useMemo(() => blockers.filter((b) => b.severity === 'error'), [blockers]);
   const preview = useMemo(() => buildDailyBizFormulaPreview(cfg), [cfg]);
   const qualityCodes = useMemo(() => resolveDailyBizQualityCodes(cfg), [cfg]);
   const quality = useMemo(() => joinDailyBizQuality(qualityCodes), [qualityCodes]);
@@ -245,7 +247,7 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={onCancel}>取消</Button>
-          <Button type="primary" disabled={blockers.length > 0} onClick={() => onConfirm(cloneDailyBizSummaryConfig(cfg))}>
+          <Button type="primary" disabled={blockingErrors.length > 0} onClick={() => onConfirm(cloneDailyBizSummaryConfig(cfg))}>
             确定
           </Button>
         </div>
@@ -449,13 +451,13 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
         </div>
       </Section>
 
-      {blockers.length > 0 && (
+      {blockingErrors.length > 0 && (
         <Alert
           data-alert="blockers"
           type="warning"
           showIcon
           message="还不能执行"
-          description={blockers.map((b) => b.message).join('；')}
+          description={blockingErrors.map((b) => b.message).join('；')}
         />
       )}
     </Drawer>
