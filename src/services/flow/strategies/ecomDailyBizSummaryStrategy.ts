@@ -4,7 +4,6 @@
  * 契约段（类型 / 字典 / 判据）在 `ecomDailyBizSummaryContract.ts`，此处 `export *` 转发保持导入面不变。
  * 本文件只保留 SQL 生成层（Phase 1）、策略类（Phase 2）与展示配置。
  */
-export * from './ecomDailyBizSummaryContract';
 import { BaseStrategy } from '../strategies';
 import {
   FlowNodeType,
@@ -46,6 +45,9 @@ import {
   type DailyBizSlotGroup,
 } from './ecomDailyBizSummaryContract';
 import { logger } from '../../../utils/logger';
+
+// 契约段符号在此统一转发，对外导入面（strategy 路径）不变
+export * from './ecomDailyBizSummaryContract';
 
 // ============================================================================
 // Phase 1 — SQL 生成层（5 段 CTE：src → agg → sales_calc → calc → metric）

@@ -11,6 +11,7 @@ import { Alert, Button, Collapse, Drawer, Input, Radio, Select, Tag, Tooltip, Ty
 import { CalendarOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import {
   DAILY_BIZ_COLUMN_LABEL,
+  DAILY_BIZ_COMPARE_COPY,
   DAILY_BIZ_FIELD_LABEL,
   DAILY_BIZ_QUALITY_DESC,
   DAILY_BIZ_REQUIRED_FIELDS,
@@ -205,12 +206,24 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
   // 全量 blockers（含 warning）供提示展示；门禁只看 error
   const blockers = useMemo(() => collectDailyBizBlockers(cfg), [cfg]);
   const blockingErrors = useMemo(() => blockers.filter((b) => b.severity === 'error'), [blockers]);
+  const warnings = useMemo(() => blockers.filter((b) => b.severity === 'warning'), [blockers]);
+  // 歧义只消费 matchDailyBizColumns 的返回，不另写过滤判定
+  const ambiguous = useMemo(() => matchDailyBizColumns(columns, cfg.fieldMapping).ambiguous, [columns, cfg.fieldMapping]);
   const preview = useMemo(() => buildDailyBizFormulaPreview(cfg), [cfg]);
   const qualityCodes = useMemo(() => resolveDailyBizQualityCodes(cfg), [cfg]);
   const quality = useMemo(() => joinDailyBizQuality(qualityCodes), [qualityCodes]);
   const conflict = hasDailyBizCaliberConflict(cfg);
   const profitDegraded = !hasColumnValue(cfg.fieldMapping.grossProfitCol);
   const slotSum = cfg.feeCaliber === 'slot_sum';
+
+  // 逐条提示只给必填项与当前费用口径相关槽；其余折叠计数（N 必须按 min(3, focused) 算，否则静默丢失）
+  const feeSlotKeys: DailyBizFieldKey[] = slotSum
+    ? ['commissionFeeCol', 'shippingFeeCol', 'serviceFeeCol']
+    : ['feeTotalCol'];
+  const focused = ambiguous.filter(
+    (a) => a.field === 'orderDateCol' || a.field === 'salesCol' || feeSlotKeys.indexOf(a.field) >= 0,
+  );
+  const hiddenAmbiguousCount = ambiguous.length - Math.min(3, focused.length);
 
   const optionsOf = useCallback(
     (group: DailyBizSlotGroup) =>
@@ -274,6 +287,20 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
 
       {/* ② 金额口径 */}
       <Section title="② 金额口径">
+        {focused.length > 0 || hiddenAmbiguousCount >= 1 ? (
+          <div data-hint="ambiguous" style={{ marginBottom: 8 }}>
+            {focused.slice(0, 3).map((a) => (
+              <Text key={a.field} style={{ fontSize: 11, color: TOKEN.flowWarning, display: 'block' }}>
+                「{DAILY_BIZ_FIELD_LABEL[a.field]}」有 {a.candidates.length} 个候选列，请手动选择
+              </Text>
+            ))}
+            {hiddenAmbiguousCount >= 1 && (
+              <Text style={{ fontSize: 11, color: TOKEN.flowWarning, display: 'block' }}>
+                另有 {hiddenAmbiguousCount} 处字段有多个候选
+              </Text>
+            )}
+          </div>
+        ) : null}
         <FieldRow fieldKey="salesCol" label={DAILY_BIZ_FIELD_LABEL.salesCol}
           required={DAILY_BIZ_REQUIRED_FIELDS.indexOf('salesCol') >= 0} tip={FIELD_TIP.salesCol}>
           <ColumnSelect value={cfg.fieldMapping.salesCol} columns={columns}
@@ -417,8 +444,7 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
             onChange={(e) => patch({ excludeStatusValues: e.target.value })}
           />
         </div>
-        <FieldRow fieldKey="compareMode" label="对比口径"
-          tip="与上一可对齐出数日比较；月环比对齐上月同日，上月无该日时取上月最后一天；对齐日无出数则该列为空">
+        <FieldRow fieldKey="compareMode" label="对比口径" tip={DAILY_BIZ_COMPARE_COPY}>
           <Select
             size="small"
             style={{ width: 160 }}
@@ -449,6 +475,11 @@ export const EcomDailyBizSummaryDrawer: React.FC<EcomDailyBizSummaryDrawerProps>
             ))
           )}
         </div>
+        {warnings.map((w) => (
+          <Text key={w.code} data-hint="warning" style={{ fontSize: 11, color: TOKEN.flowWarning, display: 'block' }}>
+            · {w.message}
+          </Text>
+        ))}
       </Section>
 
       {blockingErrors.length > 0 && (

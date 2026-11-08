@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EcomDailyBizSummaryDrawer } from '../EcomDailyBizSummaryDrawer';
 import {
+  DAILY_BIZ_COMPARE_COPY,
+  DAILY_BIZ_NO_FEE_COL_MESSAGE,
   DEFAULT_DAILY_BIZ_SUMMARY_CONFIG,
   cloneDailyBizSummaryConfig,
   dailyBizSlotHuman,
@@ -243,5 +245,95 @@ describe('Phase 3 — 列下拉取值', () => {
     fireEvent.click(confirmBtn());
     const submitted = onConfirm.mock.calls[0][0] as DailyBizSummaryConfig;
     expect(submitted.fieldMapping.orderStatusCol).toBe('销售额');
+  });
+});
+
+// ── Issue 4 / Issue 8：歧义提示与负例 ─────────────────────────────────────────
+
+const hintText = () => document.body.querySelector('[data-hint="ambiguous"]')?.textContent ?? '';
+
+const slotSumConfig = (): DailyBizSummaryConfig => {
+  const cfg = cloneDailyBizSummaryConfig();
+  cfg.feeCaliber = 'slot_sum';
+  return cfg;
+};
+
+describe('Phase 3 — 歧义提示（Issue 4 / Issue 8）', () => {
+  it('必填项歧义 → 下拉留空、1 条逐条提示、无计数行', () => {
+    renderDrawer({ columns: ['订单支付时间', '销售额', '销售额合计'] });
+    expect(selText('salesCol')).toBe('');
+    expect(hintText()).toContain('销售额');
+    expect(hintText()).toContain('候选列');
+    expect(hintText()).not.toContain('另有');
+  });
+
+  it('可选槽歧义 → 下拉留空、无逐条提示、仅 1 行折叠计数', () => {
+    renderDrawer({ columns: ['订单支付时间', '销售额', '退款金额', '退款金额合计'] });
+    expect(selText('refundAmountCol')).toBe('');
+    expect(hintText()).not.toContain('候选列');
+    expect(hintText()).toContain('另有 1 处字段有多个候选');
+  });
+
+  it('唯一命中 → 正常预填且无任何歧义文本', () => {
+    renderDrawer({ columns: ['订单支付时间', '销售额', '退款金额'] });
+    expect(selText('refundAmountCol')).toBe('退款金额');
+    expect(hintText()).toBe('');
+  });
+
+  it('slot_sum 下 focused 满 5 项 → 逐条 3 条 + 「另有 2 处」（截断不丢歧义）', () => {
+    renderDrawer({
+      initialConfig: slotSumConfig(),
+      columns: [
+        '订单支付时间', '支付时间',
+        '销售额', '销售额合计',
+        '佣金', '佣金合计',
+        '运费', '运费合计',
+        '服务费', '服务费合计',
+      ],
+    });
+    const hints = document.body.querySelector('[data-hint="ambiguous"]')!;
+    expect(hints.textContent?.split('个候选列').length ?? 0).toBe(4); // 3 条逐条提示
+    expect(hintText()).toContain('另有 2 处字段有多个候选');
+  });
+
+  it('single_column 下逐条 3 条 + 「另有 1 处」', () => {
+    renderDrawer({
+      columns: [
+        '订单支付时间', '支付时间',
+        '销售额', '销售额合计',
+        '费用合计', '费用合计明细',
+        '毛利额', '毛利金额',
+      ],
+    });
+    const hints = document.body.querySelector('[data-hint="ambiguous"]')!;
+    expect(hints.textContent?.split('个候选列').length ?? 0).toBe(4); // 3 条逐条提示
+    expect(hintText()).toContain('另有 1 处字段有多个候选');
+  });
+});
+
+describe('Phase 3 — 预填负例（Issue 4）', () => {
+  it('退款状态 / 退款原因 / 毛利率 / 成本占比 均不预填金额类槽位', () => {
+    renderDrawer({ columns: ['退款状态', '退款原因', '毛利率', '成本占比'] });
+    for (const key of ['salesCol', 'refundAmountCol', 'grossProfitCol', 'costCol']) {
+      expect(selText(key), `${key} 不应被预填`).toBe('');
+    }
+  });
+
+  it('费用列未映射（warning）不阻断提交，且提示文案同源', () => {
+    renderDrawer({ columns: ['订单支付时间', '销售额', '毛利额'] });
+    expect(confirmBtn()).toBeEnabled();
+    expect(fieldRow('dataQuality')?.parentElement?.textContent ?? document.body.textContent).toContain(
+      DAILY_BIZ_NO_FEE_COL_MESSAGE,
+    );
+    expect(document.body.querySelector('[data-alert="blockers"]')).toBeNull();
+  });
+});
+
+describe('Phase 3 — 对比文案同源（Issue 2）', () => {
+  it('④ 分区对比口径 tip 引用单一真源常量', () => {
+    const src = readFileSync(resolve(__dirname, '../EcomDailyBizSummaryDrawer.tsx'), 'utf-8');
+    expect(src).toContain('tip={DAILY_BIZ_COMPARE_COPY}');
+    expect(src).not.toContain('与上一可对齐出数日比较');
+    expect(DAILY_BIZ_COMPARE_COPY.length).toBeGreaterThan(0);
   });
 });
