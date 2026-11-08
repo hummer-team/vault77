@@ -12,10 +12,13 @@ import {
   hasColumnValue,
   parseRefundStatusValues,
   type AnalysisResult,
+  type ColumnFormatterSpec,
   type DailyBizSummaryConfig,
   type FlowEdge,
   type FlowNode,
   type FormulaSlot,
+  type InsightItem,
+  type OperatorDisplayConfig,
   type SelectNodeData,
   type ValidationError,
 } from '../types';
@@ -699,16 +702,295 @@ export class EcomDailyBizSummaryStrategy extends BaseStrategy {
     return errors;
   }
 
-  /** Phase 2 实现完整加工；Phase 1 仅保证 schema 与列名对齐 */
+  /** Phase 2：空结果提示卡 / 5 张经营洞察卡 / 展示配置（配置唯一来源 _lastConfig） */
   override async postProcess(data: unknown): Promise<AnalysisResult> {
     const cfg = this._lastConfig ?? DEFAULT_DAILY_BIZ_SUMMARY_CONFIG;
     const queryResult = (data ?? {}) as { data?: unknown };
-    const rows = (Array.isArray(queryResult.data) ? queryResult.data : []) as Record<string, unknown>[];
+    const rows = (Array.isArray(queryResult.data) ? queryResult.data : [])
+      .filter((r): r is DailyBizRawRow => !!r && typeof r === 'object');
+    const schema = dailyBizOutputSchema(cfg) as unknown[];
+    const quality = joinDailyBizQuality(resolveDailyBizQualityCodes(cfg));
+
+    logger.info(`[${this.name}.postProcess] rows=${rows.length}, quality=${quality}, compare=${cfg.compareMode}`);
+
+    if (rows.length === 0) {
+      return {
+        type: this.type,
+        sql: '',
+        data: [],
+        schema,
+        insightsData: {
+          summary: { totalRecordCount: 0, totalFilterRecordCount: 0 },
+          insights: [buildDailyBizEmptyInsight()],
+        },
+        displayConfig: buildDailyBizDisplayConfig(cfg),
+      };
+    }
+
+    const sorted = [...rows].sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')));
     return {
       type: this.type,
       sql: '',
-      data: rows,
-      schema: dailyBizOutputSchema(cfg) as unknown[],
+      data: sorted,
+      schema,
+      insightsData: {
+        summary: {
+          totalRecordCount: sorted.length,
+          totalFilterRecordCount: sorted.filter((r) => (num(r, 'sales') ?? 0) > 0).length,
+        },
+        insights: buildDailyBizInsights(sorted, cfg, quality),
+      },
+      displayConfig: buildDailyBizDisplayConfig(cfg),
     };
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 2 — postProcess：数值归一 / 洞察卡 / 展示配置（中文文案全部在此生成）
+// ════════════════════════════════════════════════════════════════════════════
+
+type DailyBizRawRow = Record<string, unknown>;
+
+/** 数值读取：非有限值（含 null / BigInt 溢出 / 非数字字符串）一律 null，不被静默当 0 */
+function num(row: DailyBizRawRow, key: string): number | null {
+  const value = row?.[key];
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/** 两日期间隔天数（解析失败返回 null） */
+function daysBetween(a: unknown, b: unknown): number | null {
+  const ta = Date.parse(String(a ?? ''));
+  const tb = Date.parse(String(b ?? ''));
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return null;
+  return Math.round(Math.abs(tb - ta) / 86_400_000);
+}
+
+/** 变化幅度：基数为 0 或缺失 → null（不产出 Infinity/NaN） */
+function pctChange(prev: number | null, next: number | null): number | null {
+  if (prev === null || next === null || prev === 0) return null;
+  return (next - prev) / prev;
+}
+
+const fmtAmount = (v: number | null): string =>
+  v === null ? '空值' : v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const fmtPct = (v: number | null): string =>
+  v === null ? '不可计算' : `${(v * 100).toFixed(1)}%`;
+
+function sumOf(rows: DailyBizRawRow[], key: string): number | null {
+  let total = 0;
+  let seen = false;
+  for (const row of rows) {
+    const v = num(row, key);
+    if (v === null) continue;
+    total += v;
+    seen = true;
+  }
+  return seen ? total : null;
+}
+
+/** 空结果提示卡（AC8） */
+function buildDailyBizEmptyInsight(): InsightItem {
+  return {
+    id: 'daily-biz-empty',
+    cardType: 'standard',
+    iconKey: 'warning',
+    title: '所选范围内没有可汇总的订单数据',
+    description: '请检查订单支付时间列是否映射正确，或放宽条件节点过滤后重试。',
+    sortOrder: 1,
+  };
+}
+
+function buildDailyBizInsights(
+  rows: DailyBizRawRow[],
+  cfg: DailyBizSummaryConfig,
+  quality: string,
+): InsightItem[] {
+  const items: InsightItem[] = [buildDailyBizTrendInsight(rows), buildDailyBizProfitInsight(rows)];
+
+  const refundMapped = hasColumnValue(cfg.fieldMapping.refundAmountCol);
+  items.push(buildDailyBizRefundInsight(rows, refundMapped));
+  items.push(buildDailyBizOrderInsight(rows, quality));
+
+  if (quality !== 'OK') items.push(buildDailyBizQualityInsight(quality));
+  return items.map((item, i) => ({ ...item, sortOrder: i + 1 }));
+}
+
+/** ① 经营趋势：首日 → 末日变化 + 区间累计 */
+function buildDailyBizTrendInsight(rows: DailyBizRawRow[]): InsightItem {
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  const salesTotal = sumOf(rows, 'sales');
+  const netProfitTotal = sumOf(rows, 'net_profit');
+  const span = daysBetween(first.date, last.date);
+
+  let description: string;
+  if (rows.length < 2) {
+    description = `仅一日数据，暂无趋势对比（${String(first.date ?? '')}）。`;
+  } else {
+    const salesPct = pctChange(num(first, 'sales'), num(last, 'sales'));
+    const netPct = pctChange(num(first, 'net_profit'), num(last, 'net_profit'));
+    description =
+      `首日（${String(first.date ?? '')}）销售额 ${fmtAmount(num(first, 'sales'))} 元，` +
+      `末日（${String(last.date ?? '')}）${fmtAmount(num(last, 'sales'))} 元，` +
+      `期间销售额${trendWord(salesPct)}、净利${trendWord(netPct)}。`;
+  }
+
+  return {
+    id: 'daily-biz-trend',
+    cardType: 'standard',
+    iconKey: 'insight',
+    title: '经营趋势',
+    description,
+    metrics: [
+      { label: '统计天数', value: rows.length, unit: '天' },
+      { label: '累计销售额', value: salesTotal ?? 0, unit: '元' },
+      { label: '累计净利', value: netProfitTotal ?? 0, unit: '元', highlight: true },
+    ],
+    metadata: span === null ? undefined : { spanDays: span },
+    sortOrder: 1,
+  };
+}
+
+function trendWord(pct: number | null): string {
+  if (pct === null) return '变化幅度不可计算';
+  if (pct === 0) return '持平';
+  return `${pct > 0 ? '上升' : '下降'} ${Math.abs(pct * 100).toFixed(1)}%`;
+}
+
+/** ② 盈利质量：区间净利率（按销售额加权）+ 毛利/费用合计 */
+function buildDailyBizProfitInsight(rows: DailyBizRawRow[]): InsightItem {
+  const salesTotal = sumOf(rows, 'sales');
+  const netTotal = sumOf(rows, 'net_profit');
+  const profitTotal = sumOf(rows, 'profit');
+  const feeTotal = sumOf(rows, 'fee_total');
+  const margin = salesTotal === null || netTotal === null || salesTotal === 0 ? null : netTotal / salesTotal;
+
+  const suggestion = margin === null
+    ? '缺少销售额或净利数据，暂无法给出盈利建议。'
+    : margin >= 0.2 ? '净利率健康，可维持现有费用投入。'
+      : margin >= 0.05 ? '净利率偏薄，建议压缩费用或提升客单价。'
+        : '净利率承压，建议核查费用结构与退款情况。';
+
+  return {
+    id: 'daily-biz-profit-quality',
+    cardType: 'standard',
+    iconKey: 'insight',
+    title: '盈利质量',
+    description: margin === null
+      ? '区间净利率无法计算（销售额合计为 0 或缺数）。'
+      : `按销售额加权的区间净利率 ${fmtPct(margin)}，净利 ${fmtAmount(netTotal)} 元。`,
+    suggestion,
+    metrics: [
+      { label: '区间净利率', value: margin ?? 0, unit: '%', highlight: true },
+      { label: '毛利合计', value: profitTotal ?? 0, unit: '元' },
+      { label: '费用合计', value: feeTotal ?? 0, unit: '元' },
+    ],
+    sortOrder: 2,
+  };
+}
+
+/** ③ 退款与费用：金额口径退款率 */
+function buildDailyBizRefundInsight(rows: DailyBizRawRow[], refundMapped: boolean): InsightItem {
+  const refundTotal = sumOf(rows, 'refund_amount');
+  const salesTotal = sumOf(rows, 'sales');
+  const refundRate = !refundMapped || refundTotal === null || salesTotal === null || salesTotal === 0
+    ? null
+    : refundTotal / salesTotal;
+
+  return {
+    id: 'daily-biz-refund-fee',
+    cardType: 'standard',
+    iconKey: 'price',
+    title: '退款与费用',
+    description: !refundMapped || refundTotal === null
+      ? '未映射退款金额列，退款率不可计算。'
+      : `退款金额合计 ${fmtAmount(refundTotal)} 元，退款率 ${fmtPct(refundRate)}；销售数据已按所选销售额口径汇总。`,
+    metrics: [
+      { label: '退款金额合计', value: refundTotal ?? 0, unit: '元' },
+      { label: '退款率', value: refundRate ?? 0, unit: '%' },
+    ],
+    sortOrder: 3,
+  };
+}
+
+/** ④ 订单与客单价 */
+function buildDailyBizOrderInsight(rows: DailyBizRawRow[], quality: string): InsightItem {
+  const orderTotal = sumOf(rows, 'order_cnt');
+  const salesTotal = sumOf(rows, 'sales');
+  const aov = orderTotal === null || salesTotal === null || orderTotal === 0 ? null : salesTotal / orderTotal;
+
+  const rowLevelNote = quality.includes('ROW_LEVEL') ? '（订单数按数据行计数）' : '';
+  return {
+    id: 'daily-biz-orders',
+    cardType: 'standard',
+    iconKey: 'order',
+    title: '订单与客单价',
+    description: `区间订单数合计 ${orderTotal === null ? '空值' : orderTotal.toLocaleString('zh-CN')} 笔${rowLevelNote}，` +
+      `客单价 ${fmtAmount(aov)} 元。`,
+    metrics: [
+      { label: '订单数合计', value: orderTotal ?? 0, unit: '笔' },
+      { label: '客单价', value: aov ?? 0, unit: '元', highlight: true },
+    ],
+    sortOrder: 4,
+  };
+}
+
+/** ⑤ 数据质量：仅在有降级短码时出现 */
+function buildDailyBizQualityInsight(quality: string): InsightItem {
+  const codes = quality.split('+') as DailyBizQualityCode[];
+  return {
+    id: 'daily-biz-quality',
+    cardType: 'standard',
+    iconKey: 'quality',
+    title: '数据质量提示',
+    description: codes.map((c) => DAILY_BIZ_QUALITY_DESC[c] ?? c).join('；'),
+    suggestion: '补齐对应列后重新执行，可获得完整口径的日报。',
+    sortOrder: 5,
+  };
+}
+
+/** 展示配置：默认排序 / 数值格式化 / 列口径提示（不新增 formatter 类型） */
+export function buildDailyBizDisplayConfig(cfg: DailyBizSummaryConfig): OperatorDisplayConfig {
+  const formatters: Record<string, ColumnFormatterSpec> = {
+    net_profit: { type: 'currency_signed', unit: '元', precision: 2 },
+  };
+  const compare = cfg.compareMode !== 'none';
+  if (compare) {
+    formatters.sales_cmp = { type: 'percent_signed', precision: 1 };
+    formatters.profit_cmp = { type: 'percent_signed', precision: 1 };
+    formatters.net_profit_cmp = { type: 'percent_signed', precision: 1 };
+  }
+
+  const profitHuman = dailyBizSlotHuman(resolveDailyBizProfitSlots(cfg));
+  const quality = joinDailyBizQuality(resolveDailyBizQualityCodes(cfg));
+  const compareTip = '与上一可对齐出数日比较；无对齐日为空值（月环比对齐上月同日，上月无该日时取上月最后一天）';
+
+  const tooltips: Record<string, string> = {
+    sales: `销售额 = ${dailyBizSlotHuman(allowedDailyBizSlots('salesSlots', cfg.salesSlots))}`,
+    profit: `毛利 = ${profitHuman}${hasColumnValue(cfg.fieldMapping.grossProfitCol) ? '' : '（未映射毛利额列，已按销售额减商品成本降级或输出空值）'}`,
+    net_profit: `净利 = ${dailyBizSlotHuman(allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots))}；` +
+      `销售额口径：${cfg.salesCaliber === 'net' ? '已扣退款（净额）' : '未扣退款（毛额）'}`,
+    refund_rate: '退款率 = 退款金额合计 ÷ 销售额合计（保留 4 位）；销售额为 0 或未映射退款金额时为空值',
+    net_profit_rate: '净利率 = 净利 ÷ 销售额；分母为 0 时为空值',
+    avg_order_value: '客单价 = 销售额 ÷ 订单数；分母为 0 时为空值',
+    data_quality_flag: `当前短码：${quality}（按 ROW_LEVEL → NO_STATUS_FILTER → NO_PROFIT_COL → NULL_AMOUNT 次序拼接）`,
+  };
+  if (compare) {
+    tooltips.sales_cmp = compareTip;
+    tooltips.profit_cmp = compareTip;
+    tooltips.net_profit_cmp = compareTip;
+  }
+
+  return {
+    defaultSort: { column: 'date', order: 'ascend' },
+    columnFormatters: formatters,
+    columnTooltips: tooltips,
+  };
 }
