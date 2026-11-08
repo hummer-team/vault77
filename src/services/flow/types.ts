@@ -65,6 +65,7 @@ export enum OperatorType {
   ACTIVITY_EFFECT_SPLIT = 'activity_effect_split',  // 运营复盘：活动/优惠券/直播间效果拆分
   SUSPICIOUS_ORDER_DETECT = 'suspicious_order_detect',  // 风险风控：恶意订单/刷单/异常下单检测
   ZERO_NEGATIVE_ORDER_DETECT = 'zero_negative_order_detect',  // 风险风控：0元单/负金额单/优惠溢出检测
+  DAILY_BIZ_SUMMARY = 'daily_biz_summary',  // 经营决策：店铺每日经营全景汇总
 }
 
 export enum LogicType {
@@ -304,6 +305,8 @@ export interface SelectNodeData extends BaseNodeData {
   suspiciousOrderDetectConfig?: SuspiciousOrderDetectConfig;
   /** fn_ecom_zero_negative_order_detect 配置 */
   zeroNegativeDetectConfig?: ZeroNegativeOrderDetectConfig;
+  /** fn_ecom_daily_biz_summary 配置 */
+  dailyBizSummaryConfig?: DailyBizSummaryConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -2079,6 +2082,36 @@ export interface ZeroNegativeOrderDetectConfig {
   formula: { expectedSlots: FormulaSlot[]; lossSlots: FormulaSlot[] };
   /** 洞察 TopN，1–10 */
   topN: number;
+}
+
+/** Config stored on SelectNodeData for fn_ecom_daily_biz_summary（日粒度经营全景汇总） */
+export interface DailyBizSummaryConfig {
+  fieldMapping: {
+    orderDateCol: string;        // 必填 · 订单支付时间
+    salesCol: string;            // 必填 · 销售额（实收）
+    orderIdCol?: string;         // 订单号（缺 → ROW_LEVEL）
+    orderStatusCol?: string;     // 订单状态（缺 → NO_STATUS_FILTER）
+    grossProfitCol?: string;     // 毛利额（缺 → 槽位降级 + NO_PROFIT_COL）
+    costCol?: string;            // 商品成本（毛利降级用）
+    refundAmountCol?: string;    // 退款金额（缺 → NULL_AMOUNT）
+    feeTotalCol?: string;        // 费用合计（single_column）
+    commissionFeeCol?: string;   // 佣金（slot_sum 分项）
+    shippingFeeCol?: string;     // 运费
+    serviceFeeCol?: string;      // 服务费
+    quantityCol?: string;        // 销量（缺 → 整列省略）
+  };
+  /** 销售额口径：毛额（未扣退款）/ 净额（已扣退款） */
+  salesCaliber: 'gross' | 'net';
+  /** 费用口径：单列费用合计 / 分项相加 */
+  feeCaliber: 'single_column' | 'slot_sum';
+  /** 对比口径：关闭 / 日环比 / 周环比 / 月环比 / 年同比 */
+  compareMode: 'none' | 'day' | 'week' | 'month' | 'year';
+  /** 剔除状态值（逗号分隔） */
+  excludeStatusValues: string;
+  salesSlots: FormulaSlot[];
+  profitSlots: FormulaSlot[];
+  netProfitSlots: FormulaSlot[];
+  feeSlots: FormulaSlot[];
 }
 
 /** 派生列白名单（损失组槽位可引用；应付组不可自引用） */
