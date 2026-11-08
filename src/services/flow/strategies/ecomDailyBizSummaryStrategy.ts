@@ -4,12 +4,22 @@
  * 契约段（Phase 0）：类型 / 默认配置 / 12 字段字典 / 正则预填 / 质量短码 / 槽位同源拼装 / 阻断判据。
  * 消费者（策略 validate、抽屉门禁、`isUdfConfigured`、单测）只读此处的导出，禁止任一端另写判据或中文名。
  */
+import { BaseStrategy } from '../strategies';
 import {
+  FlowNodeType,
+  OperatorType,
+  ValidationSeverity,
   hasColumnValue,
   parseRefundStatusValues,
+  type AnalysisResult,
   type DailyBizSummaryConfig,
+  type FlowEdge,
+  type FlowNode,
   type FormulaSlot,
+  type SelectNodeData,
+  type ValidationError,
 } from '../types';
+import { logger } from '../../../utils/logger';
 
 // ============================================================================
 // 类型
@@ -406,4 +416,299 @@ export function buildDailyBizFormulaPreview(cfg: DailyBizSummaryConfig): DailyBi
       `net_profit = ${netProfitSql}`,
     ],
   };
+}
+
+// ============================================================================
+// Phase 1 — SQL 生成层（5 段 CTE：src → agg → sales_calc → calc → metric）
+// ============================================================================
+
+/** 空输入 / 缺表 / 含阻断项时的降级查询：语法合法、恒 0 行 */
+export const DAILY_BIZ_DEGRADE_SQL = 'SELECT 1 WHERE false';
+
+/** 对比偏移常量（Q3/Q10/Q15：同一模板，仅位移不同） */
+export const DAILY_BIZ_COMPARE_SHIFT: Record<Exclude<DailyBizSummaryConfig['compareMode'], 'none'>, string> = {
+  day: '1 DAY',
+  week: '7 DAYS',
+  month: '1 MONTH',
+  year: '1 YEAR',
+};
+
+/** 标识符转义（兼容中文列名与保留字，阻断 `"` 注入） */
+function q(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
+function lit(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/** 数值列投影：未映射直接给 NULL（不走 SUM，保住退款率的 NULL 语义） */
+function colExpr(col?: string): string {
+  return hasColumnValue(col) ? `CAST(${q(col as string)} AS DOUBLE)` : 'CAST(NULL AS DOUBLE)';
+}
+
+function strColExpr(col?: string): string {
+  return hasColumnValue(col) ? `CAST(${q(col as string)} AS VARCHAR)` : 'CAST(NULL AS VARCHAR)';
+}
+
+function tsColExpr(col?: string): string {
+  return hasColumnValue(col) ? `CAST(${q(col as string)} AS TIMESTAMP)` : 'CAST(NULL AS TIMESTAMP)';
+}
+
+/** 槽位表达式；空集给 `CAST(NULL AS DOUBLE)`（派生层列存在但为空，供比率列自然传导 NULL） */
+function slotExpr(slots: FormulaSlot[]): string {
+  const valid = (slots ?? []).filter((s) => hasColumnValue(s?.column));
+  return valid.length > 0 ? dailyBizSlotSql(valid) : 'CAST(NULL AS DOUBLE)';
+}
+
+/** ① 归一化投影 + 状态剔除；`userWhere` 只在此层注入 */
+export function buildDailyBizSrcCte(
+  tableName: string,
+  cfg: DailyBizSummaryConfig,
+  userWhere: string,
+): string {
+  const m = cfg.fieldMapping;
+  const proj = [
+    `${tsColExpr(m.orderDateCol)} AS order_date`,
+    `${strColExpr(m.orderIdCol)} AS order_id`,
+    `${strColExpr(m.orderStatusCol)} AS order_status`,
+    `${colExpr(m.salesCol)} AS net_amount`,
+    `${colExpr(m.grossProfitCol)} AS gross_profit`,
+    `${colExpr(m.costCol)} AS cost_amount`,
+    `${colExpr(m.refundAmountCol)} AS refund_amount`,
+    `${colExpr(m.feeTotalCol)} AS fee_total_src`,
+    `${colExpr(m.commissionFeeCol)} AS commission_fee`,
+    `${colExpr(m.shippingFeeCol)} AS shipping_fee`,
+    `${colExpr(m.serviceFeeCol)} AS service_fee`,
+  ];
+  if (hasColumnValue(m.quantityCol)) proj.push(`${colExpr(m.quantityCol)} AS quantity`);
+
+  const conds: string[] = [];
+  const uw = (userWhere ?? '').replace(/^WHERE\s+/i, '').trim();
+  if (uw) conds.push(`(${uw})`);
+
+  const statuses = parseRefundStatusValues(cfg.excludeStatusValues);
+  if (hasColumnValue(m.orderStatusCol) && statuses.length > 0) {
+    const ref = q(m.orderStatusCol as string);
+    conds.push(
+      `(${ref} IS NULL OR UPPER(TRIM(CAST(${ref} AS VARCHAR))) NOT IN (${statuses.map(lit).join(', ')}))`,
+    );
+  }
+
+  return `src AS (\n  SELECT\n    ${proj.join(',\n    ')}\n  FROM ${q(tableName)}${
+    conds.length ? `\n  WHERE ${conds.join('\n    AND ')}` : ''
+  }\n)`;
+}
+
+/** ② 日粒度聚合：已映射列 SUM，未映射列 CAST(NULL)（不参与 SUM） */
+export function buildDailyBizAggCte(cfg: DailyBizSummaryConfig): string {
+  const m = cfg.fieldMapping;
+  const sumOrNull = (mapped: boolean, alias: string): string =>
+    mapped ? `SUM(src.${q(alias)}) AS ${q(alias)}` : `CAST(NULL AS DOUBLE) AS ${q(alias)}`;
+  const proj = [
+    `date_trunc('day', src.${q('order_date')}) AS "date"`,
+    hasColumnValue(m.orderIdCol)
+      ? `COUNT(DISTINCT src.${q('order_id')}) AS order_cnt`
+      : 'COUNT(*) AS order_cnt',
+    sumOrNull(hasColumnValue(m.salesCol), 'net_amount'),
+    sumOrNull(hasColumnValue(m.grossProfitCol), 'gross_profit'),
+    sumOrNull(hasColumnValue(m.costCol), 'cost_amount'),
+    sumOrNull(hasColumnValue(m.refundAmountCol), 'refund_amount'),
+    sumOrNull(hasColumnValue(m.feeTotalCol), 'fee_total_src'),
+    sumOrNull(hasColumnValue(m.commissionFeeCol), 'commission_fee'),
+    sumOrNull(hasColumnValue(m.shippingFeeCol), 'shipping_fee'),
+    sumOrNull(hasColumnValue(m.serviceFeeCol), 'service_fee'),
+  ];
+  if (hasColumnValue(m.quantityCol)) proj.push(`SUM(src.${q('quantity')}) AS ${q('quantity')}`);
+
+  return `agg AS (\n  SELECT\n    ${proj.join(',\n    ')}\n  FROM src\n  GROUP BY 1\n)`;
+}
+
+/** ③ 销售额派生（仅引用 agg 源列） */
+export function buildDailyBizSalesCte(cfg: DailyBizSummaryConfig): string {
+  return `sales_calc AS (\n  SELECT a.*, ${slotExpr(allowedDailyBizSlots('salesSlots', cfg.salesSlots))} AS sales\n  FROM agg a\n)`;
+}
+
+/** ④ 毛利 + 费用合计派生（毛利可引用 sales；费用按口径二选一） */
+export function buildDailyBizCalcCte(cfg: DailyBizSummaryConfig): string {
+  const feeSlots = resolveDailyBizFeeSlots(cfg);
+  const feeExpr = feeSlots.length > 0 ? slotExpr(feeSlots) : 'COALESCE("fee_total_src", 0)';
+  return `calc AS (\n  SELECT s.*, ${slotExpr(resolveDailyBizProfitSlots(cfg))} AS profit,\n         ${feeExpr} AS fee_total\n  FROM sales_calc s\n)`;
+}
+
+/** ⑤ 净利派生（可引用 sales / profit / fee_total） */
+export function buildDailyBizMetricCte(cfg: DailyBizSummaryConfig): string {
+  return `metric AS (\n  SELECT c.*, ${slotExpr(allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots))} AS net_profit\n  FROM calc c\n)`;
+}
+
+/** 输出列 schema（15 列基准；关闭对比 −3，未映射销量 −1） */
+export function dailyBizOutputSchema(cfg: DailyBizSummaryConfig): Array<{ name: string; type: string }> {
+  const cols: Array<{ name: string; type: string }> = [
+    { name: 'date', type: 'DATE' },
+    { name: 'order_cnt', type: 'BIGINT' },
+    { name: 'sales', type: 'DOUBLE' },
+    { name: 'profit', type: 'DOUBLE' },
+    { name: 'refund_amount', type: 'DOUBLE' },
+    { name: 'refund_rate', type: 'DOUBLE' },
+    { name: 'fee_total', type: 'DOUBLE' },
+    { name: 'net_profit', type: 'DOUBLE' },
+    { name: 'net_profit_rate', type: 'DOUBLE' },
+    { name: 'avg_order_value', type: 'DOUBLE' },
+  ];
+  if (hasColumnValue(cfg.fieldMapping.quantityCol)) cols.push({ name: 'quantity', type: 'DOUBLE' });
+  if (cfg.compareMode !== 'none') {
+    cols.push(
+      { name: 'sales_cmp', type: 'DOUBLE' },
+      { name: 'profit_cmp', type: 'DOUBLE' },
+      { name: 'net_profit_cmp', type: 'DOUBLE' },
+    );
+  }
+  cols.push({ name: 'data_quality_flag', type: 'VARCHAR' });
+  return cols;
+}
+
+/** 主 SELECT：比率与对比列同级引用，`*_cmp` 仅在开启对比时输出 */
+export function buildDailyBizFinalSelect(cfg: DailyBizSummaryConfig): string {
+  const compare = cfg.compareMode !== 'none';
+  const cols = [
+    'CAST(m."date" AS DATE) AS "date"',
+    'm.order_cnt',
+    'ROUND(m.sales, 2) AS sales',
+    'ROUND(m.profit, 2) AS profit',
+    'ROUND(m.refund_amount, 2) AS refund_amount',
+    'ROUND(m.refund_amount / NULLIF(m.sales, 0), 4) AS refund_rate',
+    'ROUND(m.fee_total, 2) AS fee_total',
+    'ROUND(m.net_profit, 2) AS net_profit',
+    'ROUND(m.net_profit / NULLIF(m.sales, 0), 4) AS net_profit_rate',
+    'ROUND(m.sales / NULLIF(m.order_cnt, 0), 2) AS avg_order_value',
+  ];
+  if (hasColumnValue(cfg.fieldMapping.quantityCol)) cols.push('ROUND(m.quantity, 2) AS quantity');
+  if (compare) {
+    cols.push(
+      'ROUND((m.sales - p.sales) * 1.0 / NULLIF(p.sales, 0), 4) AS sales_cmp',
+      'ROUND((m.profit - p.profit) * 1.0 / NULLIF(p.profit, 0), 4) AS profit_cmp',
+      'ROUND((m.net_profit - p.net_profit) * 1.0 / NULLIF(p.net_profit, 0), 4) AS net_profit_cmp',
+    );
+  }
+  cols.push(`${lit(joinDailyBizQuality(resolveDailyBizQualityCodes(cfg)))} AS data_quality_flag`);
+
+  const join = compare
+    ? `\nLEFT JOIN metric p ON p."date" = m."date" - INTERVAL ${lit(DAILY_BIZ_COMPARE_SHIFT[cfg.compareMode as Exclude<DailyBizSummaryConfig['compareMode'], 'none'>])}`
+    : '';
+  return `SELECT ${cols.join(',\n       ')}\nFROM metric m${join}\nORDER BY m."date"`;
+}
+
+/** 完整 SQL 拼装（策略与单测共用同一入口） */
+export function buildDailyBizSql(
+  tableName: string,
+  cfg: DailyBizSummaryConfig,
+  userWhere: string,
+): string {
+  const ctes = [
+    buildDailyBizSrcCte(tableName, cfg, userWhere),
+    buildDailyBizAggCte(cfg),
+    buildDailyBizSalesCte(cfg),
+    buildDailyBizCalcCte(cfg),
+    buildDailyBizMetricCte(cfg),
+  ];
+  return `WITH ${ctes.join(',\n')}\n${buildDailyBizFinalSelect(cfg)}`;
+}
+
+// ============================================================================
+// 策略
+// ============================================================================
+
+export class EcomDailyBizSummaryStrategy extends BaseStrategy {
+  readonly type = OperatorType.DAILY_BIZ_SUMMARY;
+  readonly name = 'EcomDailyBizSummaryStrategy';
+
+  /** buildOperatorSql 记录、postProcess 唯一配置来源（禁止 postProcess 重读节点） */
+  private _lastConfig: DailyBizSummaryConfig | null = null;
+
+  getRequiredNodes(): FlowNodeType[] {
+    return [FlowNodeType.TABLE, FlowNodeType.SELECT];
+  }
+
+  protected buildOperatorSql(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+    _placeholderValues: Record<string, unknown> | undefined,
+    userWhere: string,
+  ): string {
+    const tableName =
+      (nodes.find((n) => n.type === FlowNodeType.TABLE)?.data as { tableName?: string } | undefined)?.tableName ?? '';
+    const rawCfg = (nodes.find((n) => n.type === FlowNodeType.SELECT)?.data as SelectNodeData | undefined)
+      ?.dailyBizSummaryConfig;
+
+    // 先赋值再判降级：单例策略不得把上一个节点的配置残留给无配置节点
+    const cfg = rawCfg ? cloneDailyBizSummaryConfig(rawCfg) : null;
+    this._lastConfig = cfg;
+
+    if (!tableName || !cfg || collectDailyBizBlockers(cfg).length > 0) {
+      logger.warn(
+        `[${this.name}.buildOperatorSql] 降级空查询: table=${tableName || '<空>'}, config=${cfg ? 'ok' : '<缺失>'}, ` +
+        `blockers=${collectDailyBizBlockers(cfg ?? undefined).map((b) => b.code).join('/') || '<无>'}`,
+      );
+      return DAILY_BIZ_DEGRADE_SQL;
+    }
+
+    const sql = buildDailyBizSql(tableName, cfg, userWhere);
+    logger.info(
+      `[${this.name}.buildOperatorSql] table=${tableName}, caliber=${cfg.salesCaliber}/${cfg.feeCaliber}, ` +
+      `compare=${cfg.compareMode}`,
+    );
+    return sql;
+  }
+
+  /** 阻断项 → ERROR；降级短码与越界槽位 → WARNING（降级一律不阻断） */
+  protected override validateOperatorSpecific(
+    nodes: FlowNode[],
+    _edges: FlowEdge[],
+  ): ValidationError[] {
+    const selectNode = nodes.find((n) => n.type === FlowNodeType.SELECT);
+    if (!selectNode) return [];
+    const cfg = (selectNode.data as SelectNodeData | undefined)?.dailyBizSummaryConfig;
+
+    const errors: ValidationError[] = [];
+    const push = (message: string, severity: ValidationSeverity = ValidationSeverity.ERROR): void => {
+      errors.push({ nodeId: selectNode.id, nodeType: FlowNodeType.SELECT, severity, message });
+    };
+
+    for (const blocker of collectDailyBizBlockers(cfg)) push(blocker.message);
+    if (!cfg) return errors;
+
+    for (const code of resolveDailyBizQualityCodes(cfg)) {
+      if (code === 'OK') continue;
+      push(`本次按降级口径出数：${DAILY_BIZ_QUALITY_DESC[code]}（${code}）`, ValidationSeverity.WARNING);
+    }
+
+    const groups: Array<[DailyBizSlotGroup, FormulaSlot[] | undefined, string]> = [
+      ['salesSlots', cfg.salesSlots, '销售额'],
+      ['profitSlots', cfg.profitSlots, '毛利'],
+      ['netProfitSlots', cfg.netProfitSlots, '净利'],
+      ['feeSlots', cfg.feeSlots, '费用分项'],
+    ];
+    for (const [group, slots, label] of groups) {
+      const dropped = (slots ?? []).filter(
+        (s) => hasColumnValue(s?.column) && !isDailyBizSlotColumnAllowed(group, s.column),
+      );
+      if (dropped.length > 0) {
+        push(`${label}公式中 ${dropped.length} 项不在可引用范围，已忽略`, ValidationSeverity.WARNING);
+      }
+    }
+    return errors;
+  }
+
+  /** Phase 2 实现完整加工；Phase 1 仅保证 schema 与列名对齐 */
+  override async postProcess(data: unknown): Promise<AnalysisResult> {
+    const cfg = this._lastConfig ?? DEFAULT_DAILY_BIZ_SUMMARY_CONFIG;
+    const queryResult = (data ?? {}) as { data?: unknown };
+    const rows = (Array.isArray(queryResult.data) ? queryResult.data : []) as Record<string, unknown>[];
+    return {
+      type: this.type,
+      sql: '',
+      data: rows,
+      schema: dailyBizOutputSchema(cfg) as unknown[],
+    };
+  }
 }
