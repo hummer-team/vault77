@@ -341,6 +341,29 @@ export function hasDailyBizFeeSource(cfg: DailyBizSummaryConfig): boolean {
   return dailyBizFeeItemsMapped(cfg) || hasColumnValue(m.feeTotalCol);
 }
 
+/** 派生层数值空值表达式：费用/净利不可用时统一形态（CTE 与抽屉 SQL 明细共用，禁止各写一份） */
+export const DAILY_BIZ_NULL_NUMERIC_SQL = 'CAST(NULL AS DOUBLE)';
+
+/**
+ * `calc.fee_total` 表达式（§3.2 五分支表唯一真源；calc CTE 与抽屉 SQL 明细共用）。
+ * 分支只看「分项是否有已映射列」，不看 `feeSlots.length`（§3.2 禁止以槽位数组长度作同义表达）。
+ */
+export function dailyBizFeeExprSql(cfg: DailyBizSummaryConfig): string {
+  if (!hasDailyBizFeeSource(cfg)) return DAILY_BIZ_NULL_NUMERIC_SQL;
+  if (cfg.feeCaliber === 'slot_sum' && dailyBizFeeItemsMapped(cfg)) {
+    return dailyBizSlotSql(resolveDailyBizFeeSlots(cfg));
+  }
+  return 'COALESCE("fee_total_src", 0)';
+}
+
+/** `metric.net_profit` 表达式（唯一真源）：费用不可用且公式引用任一费用别名时整体置 NULL */
+export function dailyBizNetProfitExprSql(cfg: DailyBizSummaryConfig): string {
+  const netSlots = allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots);
+  const netUsesFee = netSlots.some((s) => s.column === 'fee_total' || s.column === 'fee_total_src');
+  if (!hasDailyBizFeeSource(cfg) && netUsesFee) return DAILY_BIZ_NULL_NUMERIC_SQL;
+  return netSlots.length > 0 ? dailyBizSlotSql(netSlots) : DAILY_BIZ_NULL_NUMERIC_SQL;
+}
+
 function slotSignature(slots: FormulaSlot[] | undefined): string {
   return (slots ?? [])
     .filter((s) => hasColumnValue(s?.column))
@@ -489,12 +512,14 @@ export function buildDailyBizFormulaPreview(cfg: DailyBizSummaryConfig): DailyBi
   const profitSlots = resolveDailyBizProfitSlots(cfg);
   const netProfitSlots = allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots);
   const feeSlots = resolveDailyBizFeeSlots(cfg);
-  const feeSource: FormulaSlot[] = feeSlots.length > 0 ? feeSlots : [{ operator: '+', column: 'fee_total_src' }];
+  // 费用来源判据与 calc CTE 同源（§3.2）：只看是否真有已映射列，不看 feeSlots.length
+  const feeItemsReady = cfg.feeCaliber === 'slot_sum' && dailyBizFeeItemsMapped(cfg);
+  const feeSource: FormulaSlot[] = feeItemsReady ? feeSlots : [{ operator: '+', column: 'fee_total_src' }];
 
   const salesSql = dailyBizSlotSql(salesSlots);
   const profitSql = dailyBizSlotSql(profitSlots);
-  const feeSql = dailyBizSlotSql(feeSource);
-  const netProfitSql = dailyBizSlotSql(netProfitSlots);
+  const feeSql = dailyBizFeeExprSql(cfg);
+  const netProfitSql = dailyBizNetProfitExprSql(cfg);
 
   return {
     salesHuman: dailyBizSlotHuman(salesSlots),

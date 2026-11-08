@@ -32,13 +32,13 @@ import {
   cloneDailyBizSummaryConfig,
   collectDailyBizBlockers,
   dailyBizBlockingErrors,
-  dailyBizFeeItemsMapped,
+  dailyBizFeeExprSql,
+  dailyBizNetProfitExprSql,
   dailyBizSlotHuman,
   dailyBizSlotSql,
   hasDailyBizFeeSource,
   isDailyBizSlotColumnAllowed,
   joinDailyBizQuality,
-  resolveDailyBizFeeSlots,
   resolveDailyBizProfitSlots,
   resolveDailyBizQualityCodes,
   type DailyBizQualityCode,
@@ -179,15 +179,8 @@ export function buildDailyBizSalesCte(cfg: DailyBizSummaryConfig): string {
 
 /** ④ 毛利 + 费用合计派生（毛利可引用 sales；费用按口径三支：NULL / 分项和 / 合计列兜底） */
 export function buildDailyBizCalcCte(cfg: DailyBizSummaryConfig): string {
-  const feeReady = hasDailyBizFeeSource(cfg);
-  const feeSlots = resolveDailyBizFeeSlots(cfg);
-  // 分支只看「是否有已映射列」，不看 feeSlots.length；单列口径下分项映射与否则无意义（§3.2 行 1/2）
-  const feeItemsReady = cfg.feeCaliber === 'slot_sum' && dailyBizFeeItemsMapped(cfg);
-  const feeExpr = !feeReady
-    ? 'CAST(NULL AS DOUBLE)'
-    : feeItemsReady
-      ? slotExpr(feeSlots)
-      : 'COALESCE("fee_total_src", 0)';
+  // 费用表达式判据在契约段（`dailyBizFeeExprSql`），与抽屉 SQL 明细共用同一真源（§3.2 五分支表）
+  const feeExpr = dailyBizFeeExprSql(cfg);
   const list = passthroughList('s', cfg, [
     `s.${q('sales')}`,
     `${slotExpr(resolveDailyBizProfitSlots(cfg))} AS profit`,
@@ -198,10 +191,8 @@ export function buildDailyBizCalcCte(cfg: DailyBizSummaryConfig): string {
 
 /** ⑤ 净利派生（可引用 sales / profit / fee_total）；费用不可用时引用了任一费用别名的净利公式整体置 NULL */
 export function buildDailyBizMetricCte(cfg: DailyBizSummaryConfig): string {
-  const feeReady = hasDailyBizFeeSource(cfg);
-  const netSlots = allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots);
-  const netUsesFee = netSlots.some((s) => s.column === 'fee_total' || s.column === 'fee_total_src');
-  const netExpr = !feeReady && netUsesFee ? 'CAST(NULL AS DOUBLE)' : slotExpr(netSlots);
+  // 净利表达式判据在契约段（`dailyBizNetProfitExprSql`），与抽屉 SQL 明细共用同一真源
+  const netExpr = dailyBizNetProfitExprSql(cfg);
   const list = passthroughList('c', cfg, [
     `c.${q('sales')}`,
     `c.${q('profit')}`,

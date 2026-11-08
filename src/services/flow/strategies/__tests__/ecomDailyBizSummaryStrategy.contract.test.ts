@@ -16,7 +16,9 @@ import {
   DAILY_BIZ_SOURCE_COLS,
   DEFAULT_DAILY_BIZ_SUMMARY_CONFIG,
   applyDailyBizSalesCaliber,
+  buildDailyBizCalcCte,
   buildDailyBizFormulaPreview,
+  buildDailyBizMetricCte,
   cloneDailyBizSummaryConfig,
   collectDailyBizBlockers,
   dailyBizBlockingErrors,
@@ -480,5 +482,41 @@ describe('Phase 0 — 公式预览', () => {
     const preview = buildDailyBizFormulaPreview(cfg);
     expect(preview.profitHuman).toBe(dailyBizSlotHuman(resolveDailyBizProfitSlots(cfg)));
     expect(preview.profitHuman).toBe('销售额 - 商品成本');
+  });
+
+  // Issue 3 / AC6：预览 SQL 明细必须与真实 CTE 同源（禁止用 feeSlots.length 判费用来源）
+  it('费用列未映射（仅 no-fee-col warning）→ 预览 fee_total / net_profit 与 CTE 同为 NULL', () => {
+    const cfg = fullConfig();
+    cfg.feeCaliber = 'single_column';
+    cfg.fieldMapping.feeTotalCol = '';
+    const preview = buildDailyBizFormulaPreview(cfg);
+    expect(preview.feeSql).toBe('CAST(NULL AS DOUBLE)');
+    expect(preview.netProfitSql).toBe('CAST(NULL AS DOUBLE)');
+    expect(preview.sqlLines[2]).toBe('fee_total  = CAST(NULL AS DOUBLE)');
+    expect(preview.sqlLines[3]).toBe('net_profit = CAST(NULL AS DOUBLE)');
+    // 与真实 SQL 恒等：两个派生层都用同一 NULL 形态，且不出现静默归零的 COALESCE
+    expect(buildDailyBizCalcCte(cfg)).toContain(`${preview.feeSql} AS fee_total`);
+    expect(buildDailyBizMetricCte(cfg)).toContain(`${preview.netProfitSql} AS net_profit`);
+    expect(preview.feeSql).not.toContain('COALESCE');
+  });
+
+  it('合计列口径（feeSlots 非空）→ 预览费用取合计列兜底，与 CTE 一致', () => {
+    const cfg = fullConfig();
+    cfg.feeCaliber = 'single_column';
+    cfg.feeSlots = [{ operator: '+', column: 'commission_fee' }];
+    const preview = buildDailyBizFormulaPreview(cfg);
+    expect(preview.feeSql).toBe('COALESCE("fee_total_src", 0)');
+    expect(buildDailyBizCalcCte(cfg)).toContain(`${preview.feeSql} AS fee_total`);
+    expect(buildDailyBizMetricCte(cfg)).toContain(`${preview.netProfitSql} AS net_profit`);
+  });
+
+  it('分项口径且分项已映射 → 预览费用取分项和，与 CTE 一致', () => {
+    const cfg = fullConfig();
+    cfg.feeCaliber = 'slot_sum';
+    cfg.feeSlots = [{ operator: '+', column: 'commission_fee' }, { operator: '+', column: 'shipping_fee' }];
+    const preview = buildDailyBizFormulaPreview(cfg);
+    expect(preview.feeSql).toBe(dailyBizSlotSql(cfg.feeSlots));
+    expect(preview.feeHuman).toBe('佣金 + 运费');
+    expect(buildDailyBizCalcCte(cfg)).toContain(`${preview.feeSql} AS fee_total`);
   });
 });

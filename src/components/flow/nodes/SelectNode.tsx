@@ -52,7 +52,7 @@ import {
   collectSuspiciousOrderBlockers,
   collectZeroNegativeBlockers,
 } from '../../../services/flow/types';
-import { collectDailyBizBlockers } from '../../../services/flow/strategies/ecomDailyBizSummaryStrategy';
+import { dailyBizBlockingErrors } from '../../../services/flow/strategies/ecomDailyBizSummaryStrategy';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -505,8 +505,9 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
       }
       case SelectNodePanelType.DAILY_BIZ_SUMMARY_DRAWER: {
         // Same single source of truth as strategy validate() and the drawer apply gate.
+        // 门禁只看 error：`no-fee-col` 是 warning（数值为空但不阻断节点生效），禁止改回 collectDailyBizBlockers
         const dbCfg = data.dailyBizSummaryConfig;
-        return !!dbCfg && collectDailyBizBlockers(dbCfg).length === 0;
+        return !!dbCfg && dailyBizBlockingErrors(dbCfg).length === 0;
       }
       default:
         return false;
