@@ -43,6 +43,7 @@ import type {
   ActivityEffectSplitConfig,
   SuspiciousOrderDetectConfig,
   ZeroNegativeOrderDetectConfig,
+  DailyBizSummaryConfig,
 } from '../../../services/flow/types';
 import {
   OperatorType,
@@ -51,6 +52,7 @@ import {
   collectSuspiciousOrderBlockers,
   collectZeroNegativeBlockers,
 } from '../../../services/flow/types';
+import { collectDailyBizBlockers } from '../../../services/flow/strategies/ecomDailyBizSummaryStrategy';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -80,6 +82,7 @@ import { EcomPlatformFeeAllocateDrawer } from '../udf/EcomPlatformFeeAllocateDra
 import { EcomActivityEffectSplitDrawer } from '../udf/EcomActivityEffectSplitDrawer';
 import { EcomSuspiciousOrderDetectDrawer } from '../udf/ecomSuspiciousOrderDetectDrawer';
 import { EcomZeroNegativeOrderDetectDrawer } from '../udf/EcomZeroNegativeOrderDetectDrawer';
+import { EcomDailyBizSummaryDrawer } from '../udf/EcomDailyBizSummaryDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -157,6 +160,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_activity_effect_split:                OperatorType.ACTIVITY_EFFECT_SPLIT,
     fn_ecom_suspicious_order_detect:              OperatorType.SUSPICIOUS_ORDER_DETECT,
     fn_ecom_zero_negative_order_detect:           OperatorType.ZERO_NEGATIVE_ORDER_DETECT,
+    fn_ecom_daily_biz_summary:                    OperatorType.DAILY_BIZ_SUMMARY,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -396,6 +400,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleDailyBizSummaryConfirm = useCallback(
+    (config: DailyBizSummaryConfig) => {
+      updateNode(id, { dailyBizSummaryConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.DAILY_BIZ_SUMMARY } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -486,6 +502,11 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         // Same single source of truth as strategy validate() and the drawer apply gate.
         const znCfg = data.zeroNegativeDetectConfig;
         return !!znCfg && collectZeroNegativeBlockers(znCfg).length === 0;
+      }
+      case SelectNodePanelType.DAILY_BIZ_SUMMARY_DRAWER: {
+        // Same single source of truth as strategy validate() and the drawer apply gate.
+        const dbCfg = data.dailyBizSummaryConfig;
+        return !!dbCfg && collectDailyBizBlockers(dbCfg).length === 0;
       }
       default:
         return false;
@@ -1003,6 +1024,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               initialConfig={data.zeroNegativeDetectConfig}
               kernelDisplayName={kernelMeta?.displayName}
               onConfirm={handleZeroNegativeOrderDetectConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.DAILY_BIZ_SUMMARY_DRAWER:
+          return (
+            <EcomDailyBizSummaryDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.dailyBizSummaryConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              onConfirm={handleDailyBizSummaryConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );

@@ -59,6 +59,8 @@ export enum SelectNodePanelType {
   SUSPICIOUS_ORDER_DETECT_DRAWER = 'SUSPICIOUS_ORDER_DETECT_DRAWER',
   /** EcomZeroNegativeOrderDetectDrawer — used for 0元单/负单价/异常优惠检测 */
   ZERO_NEGATIVE_ORDER_DETECT_DRAWER = 'ZERO_NEGATIVE_ORDER_DETECT_DRAWER',
+  /** EcomDailyBizSummaryDrawer — used for 店铺每日经营全景汇总 */
+  DAILY_BIZ_SUMMARY_DRAWER = 'DAILY_BIZ_SUMMARY_DRAWER',
 }
 
 /** Callback set the strategy executor delegates to */
@@ -100,6 +102,7 @@ const UDF_PANEL_ROUTING: Readonly<Record<string, SelectNodePanelType>> = {
   fn_ecom_activity_effect_split: SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER,
   fn_ecom_suspicious_order_detect: SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER,
   fn_ecom_zero_negative_order_detect: SelectNodePanelType.ZERO_NEGATIVE_ORDER_DETECT_DRAWER,
+  fn_ecom_daily_biz_summary:        SelectNodePanelType.DAILY_BIZ_SUMMARY_DRAWER,
 };
 
 // ============================================================================
@@ -183,6 +186,7 @@ export function executeSelectNodeClickStrategy(
     case SelectNodePanelType.ACTIVITY_EFFECT_SPLIT_DRAWER:
     case SelectNodePanelType.SUSPICIOUS_ORDER_DETECT_DRAWER:
     case SelectNodePanelType.ZERO_NEGATIVE_ORDER_DETECT_DRAWER:
+    case SelectNodePanelType.DAILY_BIZ_SUMMARY_DRAWER:
       actions.openUdfDrawer();
       break;
     default:

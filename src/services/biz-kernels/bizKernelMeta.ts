@@ -705,9 +705,29 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '4s',
     metadata: {
-      inputFields: ['order_date','net_amount','gross_profit','refund_amount','fee_total'],
-      outputFields: ['date','order_cnt','sales','profit','refund_rate','net_profit'],
-      constraints: ['需要订单日期与核心金额字段']
+      inputFields: [
+        'order_date','order_id','order_status','net_amount','gross_profit','cost_amount',
+        'refund_amount','fee_total','commission_fee','shipping_fee','service_fee','quantity',
+      ],
+      outputFields: [
+        'date','order_cnt','sales','profit','refund_amount','refund_rate','fee_total','net_profit',
+        'net_profit_rate','avg_order_value','quantity','sales_cmp','profit_cmp','net_profit_cmp',
+        'data_quality_flag',
+      ],
+      constraints: [
+        '必填：订单支付时间、销售额（实收）；其余字段可选，缺列不阻断执行，一律以 data_quality_flag 可见降级',
+        '销售额口径：可选「未扣退款（毛额，默认）」或「已扣退款（净额）」；毛额下净利 = 销售额 − 退款金额 − 费用合计（退款只扣一次）；净额下净利不再扣退款，退款仅进入退款率',
+        '订单数：映射订单号时按订单号去重计数；未映射时按数据行计数并在 data_quality_flag 标注 ROW_LEVEL',
+        '退款率 = 退款金额合计 ÷ 销售额合计（保留 4 位，与 fn_ecom_order_channel_analysis 的金额口径一致）；销售额为 0 或退款金额未映射时输出空值，不写 0',
+        '退款只扣一次：切换销售额口径时不覆盖用户已自定义的净利公式，改为在配置面板提示口径与公式冲突',
+        '订单状态剔除：默认剔除已取消 / 交易关闭 / 已关闭 / 未支付 / 待付款 / CANCELLED / CLOSED / UNPAID（大小写与首尾空格不敏感），可自行增删；未映射状态列时全量计入并标注 NO_STATUS_FILTER',
+        '输出粒度：一行一天（按订单支付时间取日期），全店口径；渠道 / 商品 / 活动维度请使用同组其它算子',
+        '毛利：默认取毛利额列；毛利额缺失时自动降级为「销售额 − 商品成本」并在此处标注；两路都缺时毛利输出空值并标注 NO_PROFIT_COL',
+        '费用：可选「费用合计列」或「分项相加（佣金 + 运费 + 服务费）」；分项模式下费用合计、净利与费用合计列三处同源，不各算一次',
+        '销量：未映射销量列时结果集不含销量列（不输出整列空值）；净利率 = 净利 ÷ 销售额、客单价 = 销售额 ÷ 订单数，分母为 0 时输出空值',
+        '对比列（sales_cmp / profit_cmp / net_profit_cmp）：可选日环比（默认）/ 周环比 / 月环比 / 年同比，均与上一可对齐出数日比较（稀疏日期不补零）；无可比期输出空值而非 0；关闭对比时三列不输出',
+        'data_quality_flag：短码闭集 ROW_LEVEL / NO_STATUS_FILTER / NO_PROFIT_COL / NULL_AMOUNT，按此固定次序以「+」拼接，全部正常时为 OK；空结果返回明确提示卡片而非空表',
+      ]
     }
   },
   {

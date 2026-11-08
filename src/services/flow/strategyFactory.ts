@@ -30,6 +30,7 @@ import { EcomPlatformFeeAllocateStrategy } from './strategies/ecomPlatformFeeAll
 import { EcomActivityEffectSplitStrategy } from './strategies/ecomActivityEffectSplitStrategy';
 import { EcomSuspiciousOrderDetectStrategy } from './strategies/ecomSuspiciousOrderDetectStrategy';
 import { EcomZeroNegativeOrderDetectStrategy } from './strategies/ecomZeroNegativeOrderDetectStrategy';
+import { EcomDailyBizSummaryStrategy } from './strategies/ecomDailyBizSummaryStrategy';
 
 /**
  * Strategy Factory
@@ -62,6 +63,7 @@ export class StrategyFactory {
     [OperatorType.ACTIVITY_EFFECT_SPLIT, new EcomActivityEffectSplitStrategy()],
     [OperatorType.SUSPICIOUS_ORDER_DETECT, new EcomSuspiciousOrderDetectStrategy()],
     [OperatorType.ZERO_NEGATIVE_ORDER_DETECT, new EcomZeroNegativeOrderDetectStrategy()],
+    [OperatorType.DAILY_BIZ_SUMMARY, new EcomDailyBizSummaryStrategy()],
   ]);
 
   /**

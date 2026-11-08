@@ -13,6 +13,7 @@ import { EcomPlatformFeeAllocateStrategy } from '../strategies/ecomPlatformFeeAl
 import { EcomActivityEffectSplitStrategy } from '../strategies/ecomActivityEffectSplitStrategy';
 import { EcomSuspiciousOrderDetectStrategy } from '../strategies/ecomSuspiciousOrderDetectStrategy';
 import { EcomZeroNegativeOrderDetectStrategy } from '../strategies/ecomZeroNegativeOrderDetectStrategy';
+import { EcomDailyBizSummaryStrategy } from '../strategies/ecomDailyBizSummaryStrategy';
 import { OperatorType } from '../types';
 
 describe('StrategyFactory', () => {
@@ -46,13 +47,19 @@ describe('StrategyFactory', () => {
       expect(strategy).toBeInstanceOf(EcomSuspiciousOrderDetectStrategy);
       expect(strategy.type).toBe(OperatorType.SUSPICIOUS_ORDER_DETECT);
     });
+
+    it('should return EcomDailyBizSummaryStrategy for DAILY_BIZ_SUMMARY operator', () => {
+      const strategy = StrategyFactory.getStrategy(OperatorType.DAILY_BIZ_SUMMARY);
+      expect(strategy).toBeInstanceOf(EcomDailyBizSummaryStrategy);
+      expect(strategy.type).toBe(OperatorType.DAILY_BIZ_SUMMARY);
+    });
   });
 
   describe('getAllStrategies', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(25);
+      expect(strategies).toHaveLength(26);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);
@@ -62,6 +69,7 @@ describe('StrategyFactory', () => {
       expect(strategies[22]).toBeInstanceOf(EcomActivityEffectSplitStrategy);
       expect(strategies[23]).toBeInstanceOf(EcomSuspiciousOrderDetectStrategy);
       expect(strategies[24]).toBeInstanceOf(EcomZeroNegativeOrderDetectStrategy);
+      expect(strategies[25]).toBeInstanceOf(EcomDailyBizSummaryStrategy);
     });
 
     it('should return strategies with correct operator types', () => {
