@@ -17,6 +17,7 @@ import {
 } from '../bizKernelsBuilderStrategies';
 import { KERNEL_UDF_MAP } from '../../duckDBUdfService';
 import { SEED_KERNELS } from '../../biz-kernels/bizKernelMeta';
+import { DAILY_BIZ_COMPARE_COPY } from '../strategies/ecomDailyBizSummaryStrategy';
 
 const FN = 'fn_ecom_daily_biz_summary';
 const src = (p: string) => readFileSync(resolve(__dirname, p), 'utf-8');
@@ -95,6 +96,25 @@ describe('Phase 4 — 元数据契约', () => {
     const { constraints } = kernel.metadata;
     expect(constraints.filter((c) => c.includes('退款')).length).toBeGreaterThanOrEqual(2);
     expect(constraints.filter((c) => c.includes('data_quality_flag')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('constraints[8]（费用）声明空值语义与部分映射口径（Issue 3）', () => {
+    const fee = kernel.metadata.constraints[8];
+    expect(fee).toContain('费用');
+    expect(fee).toContain('未识别到费用列');
+    expect(fee).toContain('空值');
+    expect(fee).toContain('未映射到列的分项按 0 计');
+    expect(fee).not.toContain('按 0 计费用');
+    expect(fee).not.toContain('费用按 0');
+  });
+
+  it('constraints[10]（对比列）内含单一真源常量且不含旧口径表述（Issue 2）', () => {
+    const compare = kernel.metadata.constraints[10];
+    expect(compare).not.toContain('上一可对齐出数日');
+    expect(compare).not.toContain('上一个出数日');
+    expect(compare).toContain(DAILY_BIZ_COMPARE_COPY);
+    for (const col of ['sales_cmp', 'profit_cmp', 'net_profit_cmp']) expect(compare).toContain(col);
+    for (const word of ['日环比', '周环比', '月环比', '年同比']) expect(compare).toContain(word);
   });
 });
 

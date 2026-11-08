@@ -6,6 +6,7 @@
  */
 
 import type { BizKernelMetadata } from './types';
+import { DAILY_BIZ_COMPARE_COPY } from '../flow/strategies/ecomDailyBizSummaryContract';
 
 /**
  * Seed business kernels - 11 initial operators
@@ -723,9 +724,9 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
         '订单状态剔除：默认剔除已取消 / 交易关闭 / 已关闭 / 未支付 / 待付款 / CANCELLED / CLOSED / UNPAID（大小写与首尾空格不敏感），可自行增删；未映射状态列时全量计入并标注 NO_STATUS_FILTER',
         '输出粒度：一行一天（按订单支付时间取日期），全店口径；渠道 / 商品 / 活动维度请使用同组其它算子',
         '毛利：默认取毛利额列；毛利额缺失时自动降级为「销售额 − 商品成本」并在此处标注；两路都缺时毛利输出空值并标注 NO_PROFIT_COL',
-        '费用：可选「费用合计列」或「分项相加（佣金 + 运费 + 服务费）」；分项模式下费用合计、净利与费用合计列三处同源，不各算一次',
+        '费用：可选「费用合计列」或「分项相加（佣金 + 运费 + 服务费）」；分项模式下费用合计、净利与费用合计列三处同源，不各算一次；分项相加时未映射到列的分项按 0 计（净利可能高估），请逐项核对分项列；未识别到费用列时费用合计、净利与净利率三列为空值（不按 0 计），并在节点校验中提示',
         '销量：未映射销量列时结果集不含销量列（不输出整列空值）；净利率 = 净利 ÷ 销售额、客单价 = 销售额 ÷ 订单数，分母为 0 时输出空值',
-        '对比列（sales_cmp / profit_cmp / net_profit_cmp）：可选日环比（默认）/ 周环比 / 月环比 / 年同比，均与上一可对齐出数日比较（稀疏日期不补零）；无可比期输出空值而非 0；关闭对比时三列不输出',
+        `对比列（sales_cmp / profit_cmp / net_profit_cmp）：${DAILY_BIZ_COMPARE_COPY}`,
         'data_quality_flag：短码闭集 ROW_LEVEL / NO_STATUS_FILTER / NO_PROFIT_COL / NULL_AMOUNT，按此固定次序以「+」拼接，全部正常时为 OK；空结果返回明确提示卡片而非空表',
       ]
     }
