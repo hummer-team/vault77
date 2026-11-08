@@ -4,6 +4,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  DAILY_BIZ_COMPARE_COPY,
+  DAILY_BIZ_NO_FEE_COL_MESSAGE,
   EcomDailyBizSummaryStrategy,
   cloneDailyBizSummaryConfig,
   dailyBizSlotHuman,
@@ -248,5 +250,109 @@ describe('Phase 2 — schema', () => {
       'net_profit', 'net_profit_rate', 'avg_order_value', 'quantity',
       'sales_cmp', 'profit_cmp', 'net_profit_cmp', 'data_quality_flag',
     ]);
+  });
+});
+
+// ── Issue 3 / 第 3 轮 Issue 4：空值只能省略指标，禁止折 0 ──────────────────────
+
+/** 9 项「空值伪装」关注的指标标签（统计天数除外） */
+const NULLABLE_LABELS = [
+  '累计销售额', '累计净利', '区间净利率', '毛利合计', '费用合计',
+  '退款金额合计', '退款率', '订单数合计', '客单价',
+];
+
+const labelsOf = (card: { metrics?: Array<{ label: string; value: number }> } | undefined): string[] =>
+  (card?.metrics ?? []).map((m) => m.label);
+
+describe('Phase 2 · 2 — 空值不折 0（Issue 3）', () => {
+  /** net_profit / fee_total 为 null 的两日数据（费用列未映射的 SQL 输出形态） */
+  const NULL_FEE_ROWS = [
+    row({ net_profit: null, fee_total: null, net_profit_rate: null }),
+    row({ date: '2024-01-02', order_cnt: 3, sales: 450, net_profit: null, fee_total: null, net_profit_rate: null }),
+  ];
+
+  it('费用列未映射 → 区间净利率 / 费用合计 / 累计净利 全部省略，且文案同源', async () => {
+    const cards = (await run(cfg({}, { feeTotalCol: '' }), NULL_FEE_ROWS)).insightsData!.insights;
+    const profit = cards.find((c) => c.title === '盈利质量');
+    const trend = cards[0];
+    expect(labelsOf(profit)).not.toContain('区间净利率');
+    expect(labelsOf(profit)).not.toContain('费用合计');
+    expect(profit?.description).toContain(DAILY_BIZ_NO_FEE_COL_MESSAGE);
+    expect(labelsOf(trend)).not.toContain('累计净利');
+  });
+
+  it('费用列已映射 → 三类指标全部出现且数值正确', async () => {
+    const cards = (await run(cfg(), TWO_DAYS)).insightsData!.insights;
+    const profit = cards.find((c) => c.title === '盈利质量')!;
+    expect(labelsOf(profit)).toEqual(['区间净利率', '毛利合计', '费用合计']);
+    expect(profit.metrics!.find((m) => m.label === '费用合计')!.value).toBe(35);
+    expect(labelsOf(cards[0])).toContain('累计净利');
+  });
+
+  it('退款金额未映射 → 退款金额合计 / 退款率 均省略，description 仍说明原因', async () => {
+    const rows = TWO_DAYS.map((r) => ({ ...r, refund_amount: null, refund_rate: null }));
+    const cards = (await run(cfg({}, { refundAmountCol: '' }), rows)).insightsData!.insights;
+    const refund = cards.find((c) => c.iconKey === 'price')!;
+    expect(labelsOf(refund)).toEqual([]);
+    expect(refund.description).toContain('未映射退款金额列');
+  });
+
+  it('毛利与成本列均未映射 → 毛利合计省略', async () => {
+    const rows = TWO_DAYS.map((r) => ({ ...r, profit: null }));
+    const cards = (await run(cfg({}, { grossProfitCol: '', costCol: '' }), rows)).insightsData!.insights;
+    const profit = cards.find((c) => c.title === '盈利质量')!;
+    expect(labelsOf(profit)).not.toContain('毛利合计');
+  });
+
+  it('单日 order_cnt = 0 → 客单价省略（订单数合计仍为 0，与 SQL NULLIF 语义一致）', async () => {
+    const cards = (await run(cfg(), [row({ order_cnt: 0, avg_order_value: null })])).insightsData!.insights;
+    const order = cards.find((c) => c.iconKey === 'order')!;
+    expect(labelsOf(order)).not.toContain('客单价');
+    expect(labelsOf(order)).toContain('订单数合计');
+  });
+
+  it('不存在「标签属于 9 项且值为 0」的空值伪装指标', async () => {
+    const cards = (await run(cfg({}, { feeTotalCol: '' }), NULL_FEE_ROWS)).insightsData!.insights;
+    for (const card of cards) {
+      for (const metric of card.metrics ?? []) {
+        if (NULLABLE_LABELS.indexOf(metric.label) >= 0) {
+          expect(metric.value, `${card.title}/${metric.label} 不应以 0 伪装空值`).not.toBe(0);
+        }
+      }
+    }
+  });
+});
+
+describe('Phase 2 · 7 — 对比文案同源（Issue 2）', () => {
+  it('三个 *_cmp tooltip 逐字等于 DAILY_BIZ_COMPARE_COPY', async () => {
+    const tooltips = (await run(cfg({ compareMode: 'day' }), TWO_DAYS)).displayConfig!.columnTooltips!;
+    expect(tooltips.sales_cmp).toBe(DAILY_BIZ_COMPARE_COPY);
+    expect(tooltips.profit_cmp).toBe(DAILY_BIZ_COMPARE_COPY);
+    expect(tooltips.net_profit_cmp).toBe(DAILY_BIZ_COMPARE_COPY);
+  });
+
+  it('关闭对比时三个 *_cmp tooltip 不存在', async () => {
+    const tooltips = (await run(cfg({ compareMode: 'none' }), TWO_DAYS)).displayConfig!.columnTooltips!;
+    expect(tooltips.sales_cmp).toBeUndefined();
+    expect(tooltips.profit_cmp).toBeUndefined();
+    expect(tooltips.net_profit_cmp).toBeUndefined();
+  });
+
+  it('费用列未映射 → net_profit tooltip 追加同源提示', async () => {
+    const tooltips = (await run(cfg({}, { feeTotalCol: '' }), TWO_DAYS)).displayConfig!.columnTooltips!;
+    expect(tooltips.net_profit).toContain(DAILY_BIZ_NO_FEE_COL_MESSAGE);
+  });
+});
+
+describe('Phase 2 · 8 — 对比卡接线', () => {
+  it('compareMode=day → 经营趋势卡 suggestion 指向常量', async () => {
+    const cards = (await run(cfg({ compareMode: 'day' }), TWO_DAYS)).insightsData!.insights;
+    expect(cards[0].suggestion).toBe(DAILY_BIZ_COMPARE_COPY);
+  });
+
+  it('compareMode=none → 不设置 suggestion', async () => {
+    const cards = (await run(cfg({ compareMode: 'none' }), TWO_DAYS)).insightsData!.insights;
+    expect(cards[0].suggestion).toBeUndefined();
+    expect(cards[0].suggestion).not.toBe(DAILY_BIZ_COMPARE_COPY);
   });
 });

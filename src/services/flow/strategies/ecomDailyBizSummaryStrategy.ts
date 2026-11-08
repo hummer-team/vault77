@@ -19,12 +19,14 @@ import {
   type FlowNode,
   type FormulaSlot,
   type InsightItem,
+  type InsightMetric,
   type OperatorDisplayConfig,
   type SelectNodeData,
   type ValidationError,
 } from '../types';
 import {
   DAILY_BIZ_COMPARE_COPY,
+  DAILY_BIZ_NO_FEE_COL_MESSAGE,
   DAILY_BIZ_QUALITY_DESC,
   DEFAULT_DAILY_BIZ_SUMMARY_CONFIG,
   allowedDailyBizSlots,
@@ -477,7 +479,7 @@ function buildDailyBizInsights(
   cfg: DailyBizSummaryConfig,
   quality: string,
 ): InsightItem[] {
-  const items: InsightItem[] = [buildDailyBizTrendInsight(rows), buildDailyBizProfitInsight(rows)];
+  const items: InsightItem[] = [buildDailyBizTrendInsight(rows, cfg), buildDailyBizProfitInsight(rows, cfg)];
 
   const refundMapped = hasColumnValue(cfg.fieldMapping.refundAmountCol);
   items.push(buildDailyBizRefundInsight(rows, refundMapped));
@@ -487,8 +489,20 @@ function buildDailyBizInsights(
   return items.map((item, i) => ({ ...item, sortOrder: i + 1 }));
 }
 
-/** ① 经营趋势：首日 → 末日变化 + 区间累计 */
-function buildDailyBizTrendInsight(rows: DailyBizRawRow[]): InsightItem {
+/** 指标入列唯一入口：空值只能省略指标，不得写 0（Issue 3，`InsightMetric.value` 无 null 通道） */
+function pushMetric(
+  list: InsightMetric[],
+  label: string,
+  value: number | null,
+  unit: string,
+  highlight = false,
+): void {
+  if (value === null) return;
+  list.push(highlight ? { label, value, unit, highlight } : { label, value, unit });
+}
+
+/** ① 经营趋势：首日 → 末日变化 + 区间累计；开启对比时 suggestion 指向对比口径单一真源 */
+function buildDailyBizTrendInsight(rows: DailyBizRawRow[], cfg: DailyBizSummaryConfig): InsightItem {
   const first = rows[0];
   const last = rows[rows.length - 1];
   const salesTotal = sumOf(rows, 'sales');
@@ -507,17 +521,19 @@ function buildDailyBizTrendInsight(rows: DailyBizRawRow[]): InsightItem {
       `期间销售额${trendWord(salesPct)}、净利${trendWord(netPct)}。`;
   }
 
+  const metrics: InsightMetric[] = [];
+  pushMetric(metrics, '统计天数', rows.length, '天');
+  pushMetric(metrics, '累计销售额', salesTotal, '元');
+  pushMetric(metrics, '累计净利', netProfitTotal, '元', true);
+
   return {
     id: 'daily-biz-trend',
     cardType: 'standard',
     iconKey: 'insight',
     title: '经营趋势',
     description,
-    metrics: [
-      { label: '统计天数', value: rows.length, unit: '天' },
-      { label: '累计销售额', value: salesTotal ?? 0, unit: '元' },
-      { label: '累计净利', value: netProfitTotal ?? 0, unit: '元', highlight: true },
-    ],
+    metrics,
+    suggestion: cfg.compareMode === 'none' ? undefined : DAILY_BIZ_COMPARE_COPY,
     metadata: span === null ? undefined : { spanDays: span },
     sortOrder: 1,
   };
@@ -529,34 +545,40 @@ function trendWord(pct: number | null): string {
   return `${pct > 0 ? '上升' : '下降'} ${Math.abs(pct * 100).toFixed(1)}%`;
 }
 
-/** ② 盈利质量：区间净利率（按销售额加权）+ 毛利/费用合计 */
-function buildDailyBizProfitInsight(rows: DailyBizRawRow[]): InsightItem {
+/** ② 盈利质量：区间净利率（按销售额加权）+ 毛利/费用合计；费用不可用时指标省略且文案同源 */
+function buildDailyBizProfitInsight(rows: DailyBizRawRow[], cfg: DailyBizSummaryConfig): InsightItem {
   const salesTotal = sumOf(rows, 'sales');
   const netTotal = sumOf(rows, 'net_profit');
   const profitTotal = sumOf(rows, 'profit');
   const feeTotal = sumOf(rows, 'fee_total');
   const margin = salesTotal === null || netTotal === null || salesTotal === 0 ? null : netTotal / salesTotal;
+  const feeMissing = !hasDailyBizFeeSource(cfg);
 
-  const suggestion = margin === null
-    ? '缺少销售额或净利数据，暂无法给出盈利建议。'
-    : margin >= 0.2 ? '净利率健康，可维持现有费用投入。'
-      : margin >= 0.05 ? '净利率偏薄，建议压缩费用或提升客单价。'
-        : '净利率承压，建议核查费用结构与退款情况。';
+  const suggestion = feeMissing
+    ? DAILY_BIZ_NO_FEE_COL_MESSAGE
+    : margin === null
+      ? '缺少销售额或净利数据，暂无法给出盈利建议。'
+      : margin >= 0.2 ? '净利率健康，可维持现有费用投入。'
+        : margin >= 0.05 ? '净利率偏薄，建议压缩费用或提升客单价。'
+          : '净利率承压，建议核查费用结构与退款情况。';
+
+  const description = margin === null
+    ? '区间净利率无法计算（销售额合计为 0 或缺数）。'
+    : `按销售额加权的区间净利率 ${fmtPct(margin)}，净利 ${fmtAmount(netTotal)} 元。`;
+
+  const metrics: InsightMetric[] = [];
+  pushMetric(metrics, '区间净利率', margin, '%', true);
+  pushMetric(metrics, '毛利合计', profitTotal, '元');
+  pushMetric(metrics, '费用合计', feeTotal, '元');
 
   return {
     id: 'daily-biz-profit-quality',
     cardType: 'standard',
     iconKey: 'insight',
     title: '盈利质量',
-    description: margin === null
-      ? '区间净利率无法计算（销售额合计为 0 或缺数）。'
-      : `按销售额加权的区间净利率 ${fmtPct(margin)}，净利 ${fmtAmount(netTotal)} 元。`,
+    description: feeMissing ? `${description}${DAILY_BIZ_NO_FEE_COL_MESSAGE}。` : description,
     suggestion,
-    metrics: [
-      { label: '区间净利率', value: margin ?? 0, unit: '%', highlight: true },
-      { label: '毛利合计', value: profitTotal ?? 0, unit: '元' },
-      { label: '费用合计', value: feeTotal ?? 0, unit: '元' },
-    ],
+    metrics,
     sortOrder: 2,
   };
 }
@@ -569,6 +591,10 @@ function buildDailyBizRefundInsight(rows: DailyBizRawRow[], refundMapped: boolea
     ? null
     : refundTotal / salesTotal;
 
+  const metrics: InsightMetric[] = [];
+  pushMetric(metrics, '退款金额合计', refundTotal, '元');
+  pushMetric(metrics, '退款率', refundRate, '%');
+
   return {
     id: 'daily-biz-refund-fee',
     cardType: 'standard',
@@ -577,10 +603,7 @@ function buildDailyBizRefundInsight(rows: DailyBizRawRow[], refundMapped: boolea
     description: !refundMapped || refundTotal === null
       ? '未映射退款金额列，退款率不可计算。'
       : `退款金额合计 ${fmtAmount(refundTotal)} 元，退款率 ${fmtPct(refundRate)}；销售数据已按所选销售额口径汇总。`,
-    metrics: [
-      { label: '退款金额合计', value: refundTotal ?? 0, unit: '元' },
-      { label: '退款率', value: refundRate ?? 0, unit: '%' },
-    ],
+    metrics,
     sortOrder: 3,
   };
 }
@@ -592,6 +615,10 @@ function buildDailyBizOrderInsight(rows: DailyBizRawRow[], quality: string): Ins
   const aov = orderTotal === null || salesTotal === null || orderTotal === 0 ? null : salesTotal / orderTotal;
 
   const rowLevelNote = quality.includes('ROW_LEVEL') ? '（订单数按数据行计数）' : '';
+  const metrics: InsightMetric[] = [];
+  pushMetric(metrics, '订单数合计', orderTotal, '笔');
+  pushMetric(metrics, '客单价', aov, '元', true);
+
   return {
     id: 'daily-biz-orders',
     cardType: 'standard',
@@ -599,10 +626,7 @@ function buildDailyBizOrderInsight(rows: DailyBizRawRow[], quality: string): Ins
     title: '订单与客单价',
     description: `区间订单数合计 ${orderTotal === null ? '空值' : orderTotal.toLocaleString('zh-CN')} 笔${rowLevelNote}，` +
       `客单价 ${fmtAmount(aov)} 元。`,
-    metrics: [
-      { label: '订单数合计', value: orderTotal ?? 0, unit: '笔' },
-      { label: '客单价', value: aov ?? 0, unit: '元', highlight: true },
-    ],
+    metrics,
     sortOrder: 4,
   };
 }
@@ -640,7 +664,8 @@ export function buildDailyBizDisplayConfig(cfg: DailyBizSummaryConfig): Operator
     sales: `销售额 = ${dailyBizSlotHuman(allowedDailyBizSlots('salesSlots', cfg.salesSlots))}`,
     profit: `毛利 = ${profitHuman}${hasColumnValue(cfg.fieldMapping.grossProfitCol) ? '' : '（未映射毛利额列，已按销售额减商品成本降级或输出空值）'}`,
     net_profit: `净利 = ${dailyBizSlotHuman(allowedDailyBizSlots('netProfitSlots', cfg.netProfitSlots))}；` +
-      `销售额口径：${cfg.salesCaliber === 'net' ? '已扣退款（净额）' : '未扣退款（毛额）'}`,
+      `销售额口径：${cfg.salesCaliber === 'net' ? '已扣退款（净额）' : '未扣退款（毛额）'}` +
+      (hasDailyBizFeeSource(cfg) ? '' : `；${DAILY_BIZ_NO_FEE_COL_MESSAGE}`),
     refund_rate: '退款率 = 退款金额合计 ÷ 销售额合计（保留 4 位）；销售额为 0 或未映射退款金额时为空值',
     net_profit_rate: '净利率 = 净利 ÷ 销售额；分母为 0 时为空值',
     avg_order_value: '客单价 = 销售额 ÷ 订单数；分母为 0 时为空值',
