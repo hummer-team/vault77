@@ -66,6 +66,7 @@ export enum OperatorType {
   SUSPICIOUS_ORDER_DETECT = 'suspicious_order_detect',  // 风险风控：恶意订单/刷单/异常下单检测
   ZERO_NEGATIVE_ORDER_DETECT = 'zero_negative_order_detect',  // 风险风控：0元单/负金额单/优惠溢出检测
   DAILY_BIZ_SUMMARY = 'daily_biz_summary',  // 经营决策：店铺每日经营全景汇总
+  SKU_SALES_ANALYSIS = 'sku_sales_analysis',  // 经营决策：SKU/SPU 销量毛利排行分析
 }
 
 export enum LogicType {
@@ -307,6 +308,8 @@ export interface SelectNodeData extends BaseNodeData {
   zeroNegativeDetectConfig?: ZeroNegativeOrderDetectConfig;
   /** fn_ecom_daily_biz_summary 配置 */
   dailyBizSummaryConfig?: DailyBizSummaryConfig;
+  /** 本算子配置 */
+  ecomSkuSalesAnalysisConfig?: EcomSkuSalesAnalysisConfig;
 }
 
 export interface SelectAggNodeData extends BaseNodeData {
@@ -2112,6 +2115,47 @@ export interface DailyBizSummaryConfig {
   profitSlots: FormulaSlot[];
   netProfitSlots: FormulaSlot[];
   feeSlots: FormulaSlot[];
+}
+
+/** Config stored on SelectNodeData for SKU/SPU 销量毛利排行分析 */
+export interface EcomSkuSalesAnalysisConfig {
+  fieldMapping: {
+    skuIdCol?: string;        // SKU 编码（groupLevel='sku' 必填）
+    productIdCol?: string;    // 商品编码 / SPU（groupLevel='spu' 必填）
+    categoryCol?: string;     // 商品品类（附加维度）
+    brandCol?: string;        // 品牌（附加维度）
+    shopCol?: string;         // 店铺（附加维度）
+    salesCol: string;         // 必填 · 实收金额
+    quantityCol: string;      // 必填 · 销量
+    grossProfitCol?: string;  // 毛利额（缺 → 槽位降级 + NO_PROFIT_COL）
+    costCol?: string;         // 商品成本（毛利降级用）
+    refundAmountCol?: string; // 退款金额（净额口径必填）
+    stockQtyCol?: string;     // 库存数量（缺 → NO_STOCK_COL）
+    orderIdCol?: string;      // 订单号（缺 → ROW_LEVEL）
+    orderStatusCol?: string;  // 订单状态（缺 → NO_STATUS_FILTER）
+  };
+  /** 统计粒度：SKU / SPU */
+  groupLevel: 'sku' | 'spu';
+  /** 附加维度：无 / 品类 / 品牌 / 店铺 */
+  extraDimension: 'none' | 'category' | 'brand' | 'shop';
+  /** 销售额口径：毛额（未扣退款）/ 净额（已扣退款） */
+  salesCaliber: 'gross' | 'net';
+  salesSlots: FormulaSlot[];
+  profitSlots: FormulaSlot[];
+  /** ABC 排序指标：销售额 / 毛利 */
+  abcMetric: 'sales' | 'profit';
+  /** A 类阈值（百分数，默认 70） */
+  abcThresholdA: number;
+  /** B 类阈值（百分数，默认 90） */
+  abcThresholdB: number;
+  /** 滞销销量阈值（件，默认 1） */
+  slowMovingQtyThreshold: number;
+  /** 毛利率阈值（百分数，默认 30） */
+  profitMarginThreshold: number;
+  /** 返回条数（默认 200，0 表示不限） */
+  topN: number;
+  /** 剔除状态值（逗号分隔） */
+  excludeStatusValues: string;
 }
 
 /** 派生列白名单（损失组槽位可引用；应付组不可自引用） */

@@ -286,6 +286,12 @@ export const OPERATOR_CONFIG = {
     icon: '📊',
     color: '#2f54eb',
   },
+  sku_sales_analysis: {
+    name: 'SKU/SPU 销量毛利排行分析',
+    description: '按 SKU 或 SPU 统计销量、销额、毛利与库存健康度，自动识别爆款、利润款与滞销款',
+    icon: '📦',
+    color: '#d46b08',
+  },
 };
 
 // ============================================================================
