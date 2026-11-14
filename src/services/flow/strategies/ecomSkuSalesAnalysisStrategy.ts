@@ -12,6 +12,8 @@ import {
   ValidationSeverity,
   type AnalysisResult,
   type EcomSkuSalesAnalysisConfig,
+  type InsightItem,
+  type OperatorDisplayConfig,
   type FlowEdge,
   type FlowNode,
   type FormulaSlot,
@@ -478,18 +480,237 @@ export class EcomSkuSalesAnalysisStrategy extends BaseStrategy {
     return errors;
   }
 
-  /** 行归一；洞察卡 / schema / 展示配置在 Phase 2 补齐（配置唯一来源 _lastConfig） */
+  /** 结果加工：行透传 + 双计数 + 洞察卡 + 输出契约（排序与截断均由 SQL 保证，此处不二次处理） */
   override async postProcess(data: unknown): Promise<AnalysisResult> {
     const cfg = this._lastConfig ?? DEFAULT_SKU_SALES_CONFIG;
     const queryResult = (data ?? {}) as { data?: unknown };
-    const rows = (Array.isArray(queryResult.data) ? queryResult.data : [])
-      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object');
-
-    logger.info(
-      `[${this.name}.postProcess] rows=${rows.length}, ` +
-      `quality=${joinSkuSalesQuality(resolveSkuSalesQualityCodes(cfg))}`,
+    const rows = (Array.isArray(queryResult.data) ? queryResult.data : []).filter(
+      (r): r is SkuSalesRow => !!r && typeof r === 'object',
     );
 
-    return { type: this.type, sql: '', data: rows };
+    const quality = joinSkuSalesQuality(resolveSkuSalesQualityCodes(cfg));
+    logger.info(`[${this.name}.postProcess] rows=${rows.length}, quality=${quality}`);
+
+    return {
+      type: this.type,
+      sql: '',
+      data: rows,
+      schema: buildSkuSalesOutputSchema(cfg) as unknown[],
+      insightsData: {
+        summary: {
+          totalRecordCount: rows.length,
+          totalFilterRecordCount: rows.filter((r) => (rowNum(r, 'quantity') ?? 0) > 0).length,
+        },
+        insights: buildSkuSalesInsights(rows, cfg),
+      },
+      displayConfig: buildSkuSalesDisplayConfig(cfg),
+    };
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 2 — 输出契约 / 洞察卡 / 展示配置（中文文案全部在此生成）
+// ════════════════════════════════════════════════════════════════════════════
+
+type SkuSalesRow = Record<string, unknown>;
+
+/** 恒定输出项（顺序与主 SELECT 一致，对象键与维度项另置于首部之后） */
+const SKU_SALES_CONST_OUTPUT_COLS = [
+  'order_cnt',
+  'quantity',
+  'sales',
+  'profit',
+  'margin_rate',
+  'stock_qty',
+  'sell_through_rate',
+  'turnover_rate',
+  'abc_class',
+  'is_slow_moving',
+  'tag',
+  'data_quality_flag',
+];
+
+/** 维度项来源解析：与 SQL 投影同源，未映射则不出该列 */
+function resolveSkuSalesDimSource(cfg: EcomSkuSalesAnalysisConfig): string | null {
+  const m = cfg.fieldMapping;
+  const source =
+    cfg.extraDimension === 'category'
+      ? m.categoryCol
+      : cfg.extraDimension === 'brand'
+        ? m.brandCol
+        : cfg.extraDimension === 'shop'
+          ? m.shopCol
+          : '';
+  return hasColumnValue(source) ? (source as string) : null;
+}
+
+/** 输出列：排名 + 对象键 + 可选维度项 + 12 个恒定项 */
+export function buildSkuSalesOutputSchema(config: EcomSkuSalesAnalysisConfig): string[] {
+  const dim = resolveSkuSalesDimSource(config);
+  return [
+    'rank',
+    resolveSkuSalesObjectKey(config.fieldMapping, config.groupLevel),
+    ...(dim ? [dim] : []),
+    ...SKU_SALES_CONST_OUTPUT_COLS,
+  ];
+}
+
+/** 表格展示：默认按排名升序，金额/比率格式化与标签徽章 */
+export function buildSkuSalesDisplayConfig(
+  config: EcomSkuSalesAnalysisConfig,
+): OperatorDisplayConfig {
+  const caliber = config.salesCaliber === 'net' ? '已扣除退款' : '未扣除退款';
+  return {
+    defaultSort: { column: 'rank', order: 'ascend' },
+    columnFormatters: {
+      sales: { type: 'currency_signed', unit: '元', precision: 2 },
+      profit: { type: 'currency_signed', unit: '元', precision: 2 },
+      margin_rate: { type: 'percent_signed', precision: 1 },
+      sell_through_rate: { type: 'percent_signed', precision: 1 },
+      turnover_rate: { type: 'percent_signed', precision: 1 },
+      tag: { type: 'json_tag_badges', priorityTags: ['滞销款', '爆款', '利润款'] },
+    },
+    columnTooltips: {
+      sales: `本期成交金额，${caliber}`,
+      profit: '本期成交金额减去商品成本后的毛利',
+      margin_rate: '毛利占成交金额的比例，成交金额为 0 时为空',
+      sell_through_rate: '销量占销量与库存之和的比例，库存未识别时为空',
+      turnover_rate: '有销量商品数与有库存商品数的比值，用于看整体动销面',
+    },
+  };
+}
+
+/** 数值读取：非有限值一律 null，不被静默当 0 */
+function rowNum(row: SkuSalesRow, key: string): number | null {
+  const value = row[key];
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function fmtRowNum(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+const SKU_SALES_CARD = {
+  empty: 'sku-sales-empty',
+  qty: 'sku-sales-qty-champion',
+  profit: 'sku-sales-profit-champion',
+  slow: 'sku-sales-slow-moving',
+  cr5: 'sku-sales-cr5',
+} as const;
+
+/** 非空 → 最多 4 张卡（销量/毛利冠军、滞销预警、Top5 集中度）；空 → 单张提示卡 */
+function buildSkuSalesInsights(
+  rows: SkuSalesRow[],
+  cfg: EcomSkuSalesAnalysisConfig,
+): InsightItem[] {
+  if (rows.length === 0) {
+    return [
+      {
+        id: SKU_SALES_CARD.empty,
+        cardType: 'standard',
+        iconKey: 'warning',
+        title: '本期没有可分析的商品数据',
+        description: '请检查时间范围、商品编码与销量的选择后重试',
+        sortOrder: 1,
+      },
+    ];
+  }
+
+  const quality = joinSkuSalesQuality(resolveSkuSalesQualityCodes(cfg));
+  const objectKey = resolveSkuSalesObjectKey(cfg.fieldMapping, cfg.groupLevel);
+  const cards: Array<Omit<InsightItem, 'sortOrder'>> = [];
+
+  // 销量冠军：占本次返回集的销量比例
+  const totalQty = rows.reduce((acc, r) => acc + Math.max(rowNum(r, 'quantity') ?? 0, 0), 0);
+  const qtyTop = [...rows]
+    .filter((r) => (rowNum(r, 'quantity') ?? 0) > 0)
+    .sort((a, b) => (rowNum(b, 'quantity') ?? 0) - (rowNum(a, 'quantity') ?? 0))[0];
+  if (qtyTop) {
+    const qty = rowNum(qtyTop, 'quantity') ?? 0;
+    const share = totalQty > 0 ? (qty / totalQty) * 100 : 0;
+    cards.push({
+      id: SKU_SALES_CARD.qty,
+      cardType: 'standard',
+      iconKey: 'order',
+      title: `${String(qtyTop[objectKey] ?? '')} 销量第一`,
+      description: `本期销量 ${fmtRowNum(qty)} 件，占 ${share.toFixed(1)}%`,
+    });
+  }
+
+  // 毛利冠军：未识别毛利或毛利全空均不出卡
+  const profitIdentified = resolveSkuSalesProfitSlots(cfg.fieldMapping, cfg.profitSlots).length > 0;
+  const profitTop = profitIdentified
+    ? [...rows]
+      .filter((r) => rowNum(r, 'profit') !== null)
+      .sort((a, b) => (rowNum(b, 'profit') ?? 0) - (rowNum(a, 'profit') ?? 0))[0]
+    : undefined;
+  if (profitTop) {
+    const profit = rowNum(profitTop, 'profit') ?? 0;
+    const margin = rowNum(profitTop, 'margin_rate');
+    cards.push({
+      id: SKU_SALES_CARD.profit,
+      cardType: 'standard',
+      iconKey: 'price',
+      title: `${String(profitTop[objectKey] ?? '')} 毛利第一`,
+      description:
+        `本期毛利 ${fmtRowNum(profit)} 元` +
+        (margin === null ? '' : `，毛利率 ${(margin * 100).toFixed(1)}%`),
+    });
+  }
+
+  // 滞销预警：非空分支恒定出卡，并承载负毛利的累计口径披露
+  const slowCount = rows.filter((r) => r.is_slow_moving === true).length;
+  const slowParts = [
+    slowCount === 0
+      ? '本期无滞销商品'
+      : `${slowCount} 个商品本期无销量但仍有库存，建议清仓或降价`,
+  ];
+  if (quality.includes('NO_STOCK_COL')) slowParts.push('未识别库存，售罄率/动销率本期为空');
+  const negCount =
+    cfg.abcMetric === 'profit' ? rows.filter((r) => (rowNum(r, 'profit') ?? 0) < 0).length : 0;
+  if (negCount > 0) {
+    slowParts.push(
+      cfg.topN > 0 && rows.length === cfg.topN
+        ? `返回的前 ${cfg.topN} 条中有 ${negCount} 个商品毛利为负，ABC 与爆款仅按正贡献累计`
+        : `本期有 ${negCount} 个商品毛利为负，ABC 与爆款仅按正贡献累计`,
+    );
+  }
+  cards.push({
+    id: SKU_SALES_CARD.slow,
+    cardType: 'standard',
+    iconKey: 'warning',
+    title: '滞销预警',
+    description: slowParts.join('；'),
+  });
+
+  // Top5 集中度：分母 = 本次返回集合计，非正不出卡
+  const totalSales = rows.reduce((acc, r) => acc + (rowNum(r, 'sales') ?? 0), 0);
+  if (totalSales > 0) {
+    const top5 = [...rows]
+      .map((r) => rowNum(r, 'sales') ?? 0)
+      .sort((a, b) => b - a)
+      .slice(0, 5)
+      .reduce((acc, v) => acc + v, 0);
+    const cr5 = ((top5 / totalSales) * 100).toFixed(1);
+    const parts = [`Top5 集中度 ${cr5}%`];
+    if (cfg.topN > 0 && rows.length === cfg.topN) {
+      parts.push(`按返回的前 ${cfg.topN} 条计算，非全量`);
+    }
+    if (quality.includes('SPU_FALLBACK')) parts.push('已按 SKU 统计');
+    cards.push({
+      id: SKU_SALES_CARD.cr5,
+      cardType: 'standard',
+      iconKey: 'insight',
+      title: 'Top5 集中度',
+      description: parts.join('；'),
+    });
+  }
+
+  return cards.map((card, index) => ({ ...card, sortOrder: index + 1 }));
 }

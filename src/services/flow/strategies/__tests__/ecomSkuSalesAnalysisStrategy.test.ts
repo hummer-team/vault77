@@ -44,6 +44,22 @@ import {
   type SkuSalesFieldKey,
 } from '../ecomSkuSalesAnalysisContract';
 import type { EcomSkuSalesAnalysisConfig, FormulaSlot } from '../../types';
+import {
+  EcomSkuSalesAnalysisStrategy,
+  SKU_SALES_DEGRADE_SQL,
+  buildSkuSalesDisplayConfig,
+  buildSkuSalesOutputSchema,
+  buildSkuSalesSql,
+  composeSkuSalesSrcWhere,
+} from '../ecomSkuSalesAnalysisStrategy';
+import {
+  FlowNodeType,
+  OperatorType,
+  ValidationSeverity,
+  type AnalysisResult,
+  type FlowNode,
+  type ValidationError,
+} from '../../types';
 
 /** 禁用技术词（用户可见区零容忍） */
 const BANNED = ['字段', '列', '表达式', '算子', 'SQL', '参数', '配置项', 'JSON'];
@@ -613,5 +629,845 @@ describe('契约段', () => {
       expect(collectSkuSalesBlockers(makeCfg()).map((b) => b.code))
         .toContain<SkuSalesBlockerCode>('no-object-key');
     });
+  });
+});
+// ============================================================================
+// Phase 1 — SQL 拼装层
+// ============================================================================
+
+function makeNodes(cfg: EcomSkuSalesAnalysisConfig, tableName = 'shop_orders'): FlowNode[] {
+  return [
+    { id: 'table-1', type: FlowNodeType.TABLE, position: { x: 0, y: 0 }, data: { tableName } },
+    {
+      id: 'select-1',
+      type: FlowNodeType.SELECT,
+      position: { x: 100, y: 0 },
+      data: { tableName, ecomSkuSalesAnalysisConfig: cfg },
+    },
+  ];
+}
+
+function makeNodesWithoutTable(cfg: EcomSkuSalesAnalysisConfig): FlowNode[] {
+  return [
+    {
+      id: 'select-1',
+      type: FlowNodeType.SELECT,
+      position: { x: 0, y: 0 },
+      data: { ecomSkuSalesAnalysisConfig: cfg },
+    },
+  ];
+}
+
+function sqlOf(cfg: EcomSkuSalesAnalysisConfig, userWhere = ''): string {
+  return buildSkuSalesSql('shop_orders', cfg, userWhere);
+}
+
+/** 取单个 CTE 的文本（到下一个 CTE 边界为止） */
+function cteOf(sql: string, name: string): string {
+  const start = sql.indexOf(`${name} AS (`);
+  if (start < 0) return '';
+  const end = sql.indexOf('\n),', start);
+  return end < 0 ? sql.slice(start) : sql.slice(start, end);
+}
+
+/** 取 CTE 的 GROUP BY 列清单（去掉表别名前缀后比较） */
+function groupByOf(sql: string, name: string): string {
+  const hit = /GROUP BY ([^\n]+)/.exec(cteOf(sql, name));
+  return (hit?.[1] ?? '').replace(/\b[sk]\./g, '').trim();
+}
+
+describe('buildOperatorSql', () => {
+  const strategy = new EcomSkuSalesAnalysisStrategy();
+
+  it('六段 CTE 各出现恰好一次', () => {
+    const sql = strategy.buildSql(makeNodes(completeCfg()), []);
+    for (const name of ['src', 'sku_agg', 'calc', 'sales', 'metric', 'tag']) {
+      expect((sql.match(new RegExp(`${name} AS`, 'g')) ?? []).length, name).toBe(1);
+    }
+    expect(sql.startsWith('WITH src AS (')).toBe(true);
+  });
+
+  it('缺表节点时降级为空查询', () => {
+    expect(strategy.buildSql(makeNodesWithoutTable(completeCfg()), [])).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+
+  it('缺配置时降级为空查询', () => {
+    const nodes = makeNodes(completeCfg()).map((n) =>
+      n.type === FlowNodeType.SELECT ? { ...n, data: {} } : n,
+    );
+    expect(strategy.buildSql(nodes, [])).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+});
+
+describe('userWhere', () => {
+  it('三档合成：皆空 / 仅上游条件 / 两者都有', () => {
+    expect(composeSkuSalesSrcWhere('', '')).toBe('');
+    expect(composeSkuSalesSrcWhere('', "pay_time >= '2024-01-01'")).toBe(
+      "WHERE pay_time >= '2024-01-01'",
+    );
+    expect(composeSkuSalesSrcWhere('a = 1', "pay_time >= '2024-01-01'")).toBe(
+      "WHERE a = 1 AND (pay_time >= '2024-01-01')",
+    );
+    expect(composeSkuSalesSrcWhere('a = 1', '')).toBe('WHERE a = 1');
+  });
+
+  it('WHERE 前缀去重，1=1 视为无上游条件', () => {
+    expect(composeSkuSalesSrcWhere('', "WHERE pay_time >= '2024-01-01'")).toBe(
+      "WHERE pay_time >= '2024-01-01'",
+    );
+    expect(composeSkuSalesSrcWhere('', '1=1')).toBe('');
+  });
+
+  it('两种子句皆空时全 SQL 不生成 WHERE', () => {
+    const sql = sqlOf(completeCfg({ excludeStatusValues: '', topN: 0 }));
+    expect(sql.includes('WHERE')).toBe(false);
+    expect(sql.includes('NOT IN')).toBe(false);
+  });
+
+  it('上游条件只在 src 层出现一次', () => {
+    const sql = sqlOf(completeCfg(), "pay_time >= '2024-01-01'");
+    expect(sql.split('pay_time').length - 1).toBe(1);
+    expect(sql.indexOf('pay_time')).toBe(sql.lastIndexOf('pay_time'));
+  });
+
+  it('状态剔除与上游条件共存时先剔除后条件', () => {
+    const sql = sqlOf(completeCfg(), "pay_time >= '2024-01-01'");
+    expect(sql.includes("NOT IN ('已取消'")).toBe(true);
+    expect(sql.indexOf('NOT IN')).toBeLessThan(sql.indexOf("AND (pay_time >= '2024-01-01')"));
+  });
+});
+
+describe('状态剔除', () => {
+  it('默认剔除集按固定项序写入', () => {
+    const sql = sqlOf(completeCfg());
+    expect(sql.includes('COALESCE(UPPER(TRIM(')).toBe(true);
+    expect(
+      sql.includes(
+        "NOT IN ('已取消', '交易关闭', '已关闭', '未支付', '待付款', 'CANCELLED', 'CLOSED', 'UNPAID')",
+      ),
+    ).toBe(true);
+  });
+
+  it('空串不进剔除集，NULL 状态被放过', () => {
+    expect(parseSkuSalesStatusList(DEFAULT_SKU_SALES_EXCLUDE_STATUSES)).not.toContain('');
+    expect(sqlOf(completeCfg())).toContain(
+      `COALESCE(UPPER(TRIM(CAST("order_status" AS VARCHAR))), '')`,
+    );
+  });
+
+  it('未映射订单状态时不生成剔除', () => {
+    expect(sqlOf(completeCfg({ fieldMapping: { orderStatusCol: '' } })).includes('NOT IN')).toBe(
+      false,
+    );
+  });
+
+  it('剔除值为空时不生成剔除', () => {
+    expect(sqlOf(completeCfg({ excludeStatusValues: ' , ' })).includes('NOT IN')).toBe(false);
+  });
+
+  it('剔除值内的单引号被转义', () => {
+    expect(sqlOf(completeCfg({ excludeStatusValues: "o'brien" })).includes("'O''BRIEN'")).toBe(true);
+  });
+});
+
+describe('槽位进 SQL', () => {
+  it('销售额表达式与预览字符级相等', () => {
+    const cfg = completeCfg();
+    const preview = buildSkuSalesFormulaPreview(cfg);
+    expect(preview.salesSql).toBe('"net_amount"');
+    expect(sqlOf(cfg).includes(`(${preview.salesSql}) AS "sales"`)).toBe(true);
+  });
+
+  it('毛利表达式与预览字符级相等', () => {
+    const cfg = completeCfg();
+    const preview = buildSkuSalesFormulaPreview(cfg);
+    expect(sqlOf(cfg).includes(`(${preview.profitSql}) AS "profit"`)).toBe(true);
+  });
+
+  it('净额口径追加退款扣减', () => {
+    expect(sqlOf(completeCfg({ salesCaliber: 'net' }))).toContain('COALESCE("refund_amount", 0)');
+  });
+
+  it('越界槽位零残留', () => {
+    const slots = [
+      { operator: '+', column: 'net_amount' },
+      { operator: '+', column: 'unit_price' },
+    ] as FormulaSlot[];
+    const cfg = completeCfg({ salesSlots: slots });
+    expect(isSkuSalesSlotColumnAllowed('salesSlots', 'unit_price')).toBe(false);
+    expect(collectSkuSalesBlockers(cfg).find((b) => b.code === 'slot-dropped')?.severity).toBe(
+      'warning',
+    );
+    expect(sqlOf(cfg).includes('unit_price')).toBe(false);
+  });
+});
+
+describe('未映射列', () => {
+  it('缺库存数量时以 NULL 投影且不折零', () => {
+    const sql = sqlOf(completeCfg({ fieldMapping: { stockQtyCol: '' } }));
+    expect(sql.includes('CAST(NULL AS DOUBLE) AS "stock_qty"')).toBe(true);
+    expect(sql.includes('COALESCE("stock_qty", 0)')).toBe(false);
+  });
+
+  it('缺毛利额与成本时毛利为 NULL 且比率带 NULLIF', () => {
+    const sql = sqlOf(
+      completeCfg({ profitSlots: [], fieldMapping: { grossProfitCol: '', costCol: '' } }),
+    );
+    expect(sql.includes('(CAST(NULL AS DOUBLE)) AS "profit"')).toBe(true);
+    expect(
+      cteOf(sql, 'metric').includes('NULLIF(sl."quantity" + sl."stock_qty", 0) AS "sell_through_rate"'),
+    ).toBe(true);
+  });
+  it('未映射列仅以 CAST(NULL AS DOUBLE) 形式出现', () => {
+    const sql = sqlOf(completeCfg({ fieldMapping: { stockQtyCol: '' } }));
+    expect(/CAST\(NULL AS DOUBLE\)\s+AS/.test(sql)).toBe(true);
+    expect(sql.includes('SUM(CAST(NULL AS DOUBLE')).toBe(false);
+  });
+});
+
+describe('排名与 ABC', () => {
+  it('排名与累计占比窗口齐备', () => {
+    const sql = sqlOf(completeCfg());
+    expect(sql.includes('ROW_NUMBER() OVER (ORDER BY')).toBe(true);
+    expect(sql.includes('ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW')).toBe(true);
+  });
+
+  it('排序指标为毛利时按毛利排序与累计', () => {
+    const sql = sqlOf(completeCfg({ abcMetric: 'profit' }));
+    expect(sql.includes('ORDER BY m."profit" DESC')).toBe(true);
+    expect(sql.includes('SUM(GREATEST(m."profit", 0)) OVER ()')).toBe(true);
+    expect(sql.includes('GREATEST(m."sales"')).toBe(false);
+  });
+
+  it('毛利不可用时回落销额排序', () => {
+    const sql = sqlOf(
+      completeCfg({ abcMetric: 'profit', profitSlots: [], fieldMapping: { grossProfitCol: '', costCol: '' } }),
+    );
+    expect(sql.includes('ORDER BY m."sales" DESC')).toBe(true);
+    expect(sql.includes('SUM(GREATEST(m."sales", 0)) OVER ()')).toBe(true);
+    expect(sql.includes('GREATEST(m."profit"')).toBe(false);
+  });
+
+  it('排序取未钳位原值', () => {
+    for (const cfg of [completeCfg(), completeCfg({ abcMetric: 'profit' })]) {
+      expect(sqlOf(cfg).includes('ORDER BY GREATEST(')).toBe(false);
+    }
+  });
+
+  it('累计基数钳位恰两处', () => {
+    for (const cfg of [completeCfg(), completeCfg({ abcMetric: 'profit' })]) {
+      expect((sqlOf(cfg).match(/GREATEST\(/g) ?? []).length, cfg.abcMetric).toBe(2);
+    }
+  });
+
+  it('TopN 为零时不加条数上限', () => {
+    expect(sqlOf(completeCfg({ topN: 0 })).includes('"rank" <=')).toBe(false);
+    expect(sqlOf(completeCfg({ topN: 200 })).includes('"rank" <= 200')).toBe(true);
+  });
+});
+
+describe('标签优先级', () => {
+  const SLOW = 't."quantity" < 1 AND (t."stock_qty" IS NULL OR t."stock_qty" > 0)';
+
+  it('四个标签按优先级依次出现', () => {
+    const sql = sqlOf(completeCfg());
+    expect(sql.indexOf('滞销款')).toBeGreaterThan(-1);
+    expect(sql.indexOf('滞销款')).toBeLessThan(sql.indexOf('爆款'));
+    expect(sql.indexOf('爆款')).toBeLessThan(sql.indexOf('利润款'));
+    expect(sql.indexOf('利润款')).toBeLessThan(sql.indexOf('普通'));
+  });
+
+  it('滞销判据与 is_slow_moving 同源', () => {
+    expect(sqlOf(completeCfg()).split(SLOW).length - 1).toBe(2);
+  });
+
+  it('滞销阈值可配', () => {
+    expect(sqlOf(completeCfg({ slowMovingQtyThreshold: 3 })).includes('t."quantity" < 3')).toBe(true);
+  });
+
+  it('毛利率与 ABC 阈值可配', () => {
+    const sql = sqlOf(
+      completeCfg({ profitMarginThreshold: 45, abcThresholdA: 60, abcThresholdB: 85 }),
+    );
+    expect(sql.includes('t."margin_rate" * 100 >= 45')).toBe(true);
+    expect(sql.includes('t."abc_share" * 100 <= 60')).toBe(true);
+    expect(sql.includes('t."abc_share" * 100 <= 85')).toBe(true);
+  });
+
+  it('数量为空时不出滞销标签', () => {
+    expect(sqlOf(completeCfg()).includes('CASE WHEN t."quantity" IS NULL THEN NULL')).toBe(true);
+  });
+});
+
+describe('降级与门禁', () => {
+  const strategy = new EcomSkuSalesAnalysisStrategy();
+  const degrade = (cfg: EcomSkuSalesAnalysisConfig): string => strategy.buildSql(makeNodes(cfg), []);
+
+  it('缺表节点降级', () => {
+    expect(strategy.buildSql(makeNodesWithoutTable(completeCfg()), [])).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+
+  it('缺对象键降级', () => {
+    expect(
+      degrade(completeCfg({ groupLevel: 'spu', fieldMapping: { skuIdCol: '', productIdCol: '' } })),
+    ).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+
+  it('SKU 粒度缺 SKU 编码降级且不进入拼装', () => {
+    const sql = degrade(completeCfg({ groupLevel: 'sku', fieldMapping: { skuIdCol: '' } }));
+    expect(sql).toBe(SKU_SALES_DEGRADE_SQL);
+    expect(sql.includes('GROUP BY')).toBe(false);
+  });
+
+  it('缺实收金额降级', () => {
+    expect(degrade(completeCfg({ fieldMapping: { salesCol: '' } }))).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+
+  it('销售额公式为空降级', () => {
+    expect(degrade(completeCfg({ salesSlots: [] }))).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+
+  it('缺销量降级', () => {
+    expect(degrade(completeCfg({ fieldMapping: { quantityCol: '' } }))).toBe(SKU_SALES_DEGRADE_SQL);
+  });
+});
+
+describe('validate', () => {
+  const ERROR_CASES: Array<[string, EcomSkuSalesAnalysisConfig]> = [
+    ['no-object-key', completeCfg({ groupLevel: 'spu', fieldMapping: { skuIdCol: '', productIdCol: '' } })],
+    ['no-sku-key', completeCfg({ groupLevel: 'sku', fieldMapping: { skuIdCol: '' } })],
+    ['no-sales-col', completeCfg({ fieldMapping: { salesCol: '' } })],
+    ['no-quantity-col', completeCfg({ fieldMapping: { quantityCol: '' } })],
+    ['no-sales-slot', completeCfg({ salesSlots: [] })],
+    ['no-refund-col', completeCfg({ salesCaliber: 'net', fieldMapping: { refundAmountCol: '' } })],
+    ['no-dim-col', completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: '' } })],
+    ['bad-abc-threshold', completeCfg({ abcThresholdA: 95 })],
+    ['bad-margin-threshold', completeCfg({ profitMarginThreshold: 120 })],
+    ['bad-slow-threshold', completeCfg({ slowMovingQtyThreshold: -1 })],
+    ['bad-topn', completeCfg({ topN: 2.5 })],
+  ];
+
+  const validateWith = (cfg: EcomSkuSalesAnalysisConfig): ValidationError[] =>
+    new EcomSkuSalesAnalysisStrategy().validate(makeNodes(cfg), []);
+
+  it('11 个阻断码各产出一条 ERROR', () => {
+    for (const [code, cfg] of ERROR_CASES) {
+      const expected = collectSkuSalesBlockers(cfg).find((b) => b.code === code);
+      expect(expected, code).toBeTruthy();
+      const hit = validateWith(cfg).find(
+        (e) => e.severity === ValidationSeverity.ERROR && e.message === expected?.message,
+      );
+      expect(hit?.nodeId, code).toBe('select-1');
+      expect(hit?.nodeType, code).toBe(FlowNodeType.SELECT);
+    }
+  });
+
+  it('全通配置无 ERROR 且带时间范围提示', () => {
+    const result = validateWith(completeCfg());
+    expect(result.filter((e) => e.severity === ValidationSeverity.ERROR)).toEqual([]);
+    expect(result.some((e) => e.message.includes('时间范围继承上游筛选条件'))).toBe(true);
+  });
+
+  it('退款重复扣减与质量码降级均为 WARNING', () => {
+    const dup = validateWith(
+      completeCfg({
+        salesCaliber: 'net',
+        salesSlots: [
+          { operator: '+', column: 'net_amount' },
+          { operator: '-', column: 'refund_amount' },
+        ],
+      }),
+    ).find((e) => e.message.includes('重复扣除'));
+    expect(dup?.severity).toBe(ValidationSeverity.WARNING);
+
+    const degraded = validateWith(completeCfg({ fieldMapping: { stockQtyCol: '' } })).find((e) =>
+      e.message.includes('NO_STOCK_COL'),
+    );
+    expect(degraded?.severity).toBe(ValidationSeverity.WARNING);
+  });
+
+  it('缺选择节点时不报本算子的阻断项', () => {
+    const nodes: FlowNode[] = [
+      { id: 'table-1', type: FlowNodeType.TABLE, position: { x: 0, y: 0 }, data: { tableName: 't' } },
+    ];
+    const result = new EcomSkuSalesAnalysisStrategy().validate(nodes, []);
+    expect(result.filter((e) => e.nodeId === 'select-1')).toEqual([]);
+  });
+});
+
+describe('SQL 冒烟', () => {
+  const sql = sqlOf(completeCfg());
+
+  it('六段 CTE 名各一次且输出带引号排名', () => {
+    for (const name of ['src', 'sku_agg', 'calc', 'sales', 'metric', 'tag']) {
+      expect((sql.match(new RegExp(`${name} AS`, 'g')) ?? []).length, name).toBe(1);
+    }
+    expect(sql.includes('AS "rank"')).toBe(true);
+  });
+
+  it('窗口与比率函数齐备', () => {
+    expect(sql.includes('ROW_NUMBER() OVER (ORDER BY')).toBe(true);
+    expect(sql.includes('ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW')).toBe(true);
+    expect(sql.includes('NULLIF(')).toBe(true);
+  });
+
+  it('末尾为排序且无分号', () => {
+    expect(sql.trimEnd().endsWith('ORDER BY t."rank"')).toBe(true);
+    expect(sql.trimEnd().endsWith(';')).toBe(false);
+  });
+
+  it('calc 段不派生销售额，sales 段派生', () => {
+    expect(cteOf(sql, 'calc').includes('AS "sales"')).toBe(false);
+    expect(cteOf(sql, 'sales').includes('AS "sales"')).toBe(true);
+  });
+});
+
+describe('SQL 语义结构', () => {
+  it('SKU 模式两层分组键一致', () => {
+    const sql = sqlOf(completeCfg());
+    expect(groupByOf(sql, 'sku_agg')).toBe('"sku_id"');
+    expect(groupByOf(sql, 'calc')).toBe('"sku_id"');
+    expect(groupByOf(sql, 'sku_agg')).toBe(groupByOf(sql, 'calc'));
+  });
+
+  it('SPU 模式对象键以 MAX 投影且不进分组', () => {
+    const sql = sqlOf(completeCfg({ groupLevel: 'spu' }));
+    expect(cteOf(sql, 'sku_agg').includes('MAX(s."product_id") AS "product_id"')).toBe(true);
+    expect(groupByOf(sql, 'sku_agg')).toBe('"sku_id"');
+    expect(groupByOf(sql, 'calc')).toBe('"product_id"');
+  });
+
+  it('附加维度进入两层分组键', () => {
+    const sql = sqlOf(completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }));
+    expect(groupByOf(sql, 'sku_agg')).toBe('"sku_id", "brand"');
+    expect(groupByOf(sql, 'calc')).toBe('"sku_id", "brand"');
+    expect(sql.includes('t."brand"')).toBe(true);
+  });
+
+  it('库存两级聚合：SKU 级取最大、对象级求和', () => {
+    const sql = sqlOf(completeCfg());
+    expect(cteOf(sql, 'sku_agg').includes('MAX(s."stock_qty") AS "stock_qty"')).toBe(true);
+    expect(cteOf(sql, 'sku_agg').includes('SUM(s."stock_qty")')).toBe(false);
+    expect(cteOf(sql, 'calc').includes('SUM(k."stock_qty")')).toBe(true);
+  });
+
+  it('订单数：映射订单号去重、未映射按行计', () => {
+    expect(cteOf(sqlOf(completeCfg()), 'sku_agg').includes('COUNT(DISTINCT s."order_id")')).toBe(true);
+    expect(
+      cteOf(sqlOf(completeCfg({ fieldMapping: { orderIdCol: '' } })), 'sku_agg').includes('COUNT(*)'),
+    ).toBe(true);
+  });
+
+  it('ABC 阈值写入分级判据', () => {
+    const sql = sqlOf(completeCfg());
+    expect(sql.includes('* 100 <= 70')).toBe(true);
+    expect(sql.includes('* 100 <= 90')).toBe(true);
+    expect(sqlOf(completeCfg({ abcThresholdA: 60 })).includes('* 100 <= 60')).toBe(true);
+  });
+
+  it('金额与数量保留两位、比率保留四位', () => {
+    const sql = sqlOf(completeCfg());
+    for (const col of ['quantity', 'sales', 'profit', 'stock_qty']) {
+      expect(sql.includes(`ROUND(t."${col}", 2) AS "${col}"`), col).toBe(true);
+    }
+    for (const col of ['margin_rate', 'sell_through_rate', 'turnover_rate']) {
+      expect(sql.includes(`ROUND(t."${col}", 4) AS "${col}"`), col).toBe(true);
+    }
+  });
+
+  it('质量码以字面量写出', () => {
+    expect(sqlOf(completeCfg()).includes(`'OK' AS "data_quality_flag"`)).toBe(true);
+  });
+
+  it('状态条件含清洗包裹', () => {
+    expect(cteOf(sqlOf(completeCfg()), 'src').includes('COALESCE(UPPER(TRIM(')).toBe(true);
+  });
+
+  it('累计基数钳位：分子分母各一次、排序不钳位、总计两次', () => {
+    for (const cfg of [completeCfg(), completeCfg({ abcMetric: 'profit' })]) {
+      const sql = sqlOf(cfg);
+      const metric = cfg.abcMetric === 'profit' ? 'profit' : 'sales';
+      expect(sql.split(`GREATEST(m."${metric}", 0)`).length - 1, metric).toBe(2);
+      expect(sql.includes(`SUM(GREATEST(m."${metric}", 0)) OVER ()`)).toBe(true);
+      expect(
+        sql.includes(`SUM(GREATEST(m."${metric}", 0)) OVER (ORDER BY m."${metric}" DESC, m."sku_id"`),
+      ).toBe(true);
+      expect(sql.includes('ORDER BY GREATEST(')).toBe(false);
+      expect((sql.match(/GREATEST\(/g) ?? []).length, cfg.abcMetric).toBe(2);
+    }
+  });
+});
+
+// ============================================================================
+// Phase 2 — 结果加工层（洞察卡 / 输出契约 / 展示配置）
+// ============================================================================
+
+type Row = Record<string, unknown>;
+
+/** 与线上同序：先拼 SQL（写入 _lastConfig）再加工 */
+async function post(
+  cfg: EcomSkuSalesAnalysisConfig,
+  rows: Row[],
+): Promise<AnalysisResult> {
+  const strategy = new EcomSkuSalesAnalysisStrategy();
+  strategy.buildSql(makeNodes(cfg), []);
+  return strategy.postProcess({ data: rows });
+}
+
+function mkRow(patch: Row = {}): Row {
+  return {
+    rank: 1,
+    sku_id: 'SKU-A',
+    order_cnt: 1,
+    quantity: 1,
+    sales: 100,
+    profit: 10,
+    margin_rate: 0.1,
+    stock_qty: 5,
+    sell_through_rate: 0.2,
+    turnover_rate: 0.5,
+    abc_class: 'A',
+    tag: '爆款',
+    is_slow_moving: false,
+    data_quality_flag: 'OK',
+    ...patch,
+  };
+}
+
+const INSIGHT_KEYS = ['order', 'price', 'warning', 'insight'];
+
+describe('postProcess 洞察卡', () => {
+  // 夹具 4 行：quantity 依次 5 / 2 / 0 / null
+  const rows: Row[] = [
+    mkRow({ rank: 1, sku_id: 'SKU-A', quantity: 5, sales: 500, profit: 100 }),
+    mkRow({ rank: 2, sku_id: 'SKU-B', quantity: 2, sales: 300, profit: 50 }),
+    mkRow({ rank: 3, sku_id: 'SKU-C', quantity: 0, sales: 100, profit: 0, is_slow_moving: true, tag: '滞销款' }),
+    mkRow({ rank: 4, sku_id: 'SKU-D', quantity: null, sales: 60, profit: null, margin_rate: null, is_slow_moving: null }),
+  ];
+
+  it('四张卡、图标与排序稳定、标识唯一', async () => {
+    const result = await post(completeCfg(), rows);
+    const insights = result.insightsData?.insights ?? [];
+
+    expect(insights).toHaveLength(4);
+    expect(insights.map((i) => i.iconKey)).toEqual(INSIGHT_KEYS);
+    expect(insights.map((i) => i.sortOrder)).toEqual([1, 2, 3, 4]);
+    expect(insights.every((i) => i.cardType === 'standard')).toBe(true);
+    expect(insights.every((i) => typeof i.id === 'string' && i.id.length > 0)).toBe(true);
+    expect(new Set(insights.map((i) => i.id)).size).toBe(4);
+  });
+
+  it('返回值形状符合结果契约', async () => {
+    const result = await post(completeCfg(), rows);
+    expect(Array.isArray(result)).toBe(false);
+    expect(result.type).toBe(OperatorType.SKU_SALES_ANALYSIS);
+    expect(result.sql).toBe('');
+    expect(Array.isArray(result.data)).toBe(true);
+    expect(result.displayConfig?.defaultSort?.column).toBe('rank');
+  });
+
+  it('双计数：总量与有效量分别统计', async () => {
+    const result = await post(completeCfg(), rows);
+    expect(result.insightsData?.summary?.totalRecordCount).toBe(4);
+    expect(result.insightsData?.summary?.totalFilterRecordCount).toBe(2);
+  });
+
+  it('冠军卡带关键数字', async () => {
+    const insights = (await post(completeCfg(), rows)).insightsData?.insights ?? [];
+    const qty = insights.find((i) => i.id === 'sku-sales-qty-champion');
+    const profit = insights.find((i) => i.id === 'sku-sales-profit-champion');
+    expect(qty?.title).toContain('SKU-A');
+    expect(qty?.description).toContain('5');
+    expect(profit?.description).toContain('100');
+    expect(profit?.description).toContain('毛利率');
+  });
+
+  it('文案不含技术词', async () => {
+    const insights = (await post(completeCfg(), rows)).insightsData?.insights ?? [];
+    for (const item of insights) {
+      expect(bannedHits(`${item.title}${item.description ?? ''}`), item.id).toEqual([]);
+    }
+  });
+});
+
+describe('postProcess 空结果', () => {
+  it('返回单张提示卡而非数组', async () => {
+    const strategy = new EcomSkuSalesAnalysisStrategy();
+    strategy.buildSql(makeNodes(completeCfg()), []);
+    const pending = strategy.postProcess({ data: [] });
+    expect(pending).toBeInstanceOf(Promise);
+
+    const result = await pending;
+    const insights = result.insightsData?.insights ?? [];
+    expect(Array.isArray(result)).toBe(false);
+    expect(insights).toHaveLength(1);
+    expect(insights[0].iconKey).toBe('warning');
+    expect(insights[0].title).toContain('没有可分析');
+    expect(insights[0].sortOrder).toBe(1);
+    expect(result.insightsData?.summary?.totalRecordCount).toBe(0);
+  });
+});
+
+describe('postProcess 降级文案', () => {
+  const rows = [mkRow({ sku_id: 'SKU-A', quantity: 3, sales: 300, profit: 30 })];
+
+  it('库存未识别时滞销卡追加说明且不含禁用词', async () => {
+    const insights =
+      (await post(completeCfg({ fieldMapping: { stockQtyCol: '' } }), rows)).insightsData?.insights ??
+      [];
+    const slow = insights.find((i) => i.id === 'sku-sales-slow-moving');
+    expect(slow?.description).toContain('未识别库存');
+    expect(slow?.description?.includes('列')).toBe(false);
+  });
+
+  it('毛利未识别时不出毛利冠军卡', async () => {
+    const insights =
+      (
+        await post(
+          completeCfg({ profitSlots: [], fieldMapping: { grossProfitCol: '', costCol: '' } }),
+          rows,
+        )
+      ).insightsData?.insights ?? [];
+    expect(insights.some((i) => i.iconKey === 'price')).toBe(false);
+    expect(insights.every((i) => i.id !== 'sku-sales-profit-champion')).toBe(true);
+  });
+
+  it('回落 SKU 统计时集中度卡追加说明', async () => {
+    const insights =
+      (
+        await post(
+          completeCfg({ groupLevel: 'spu', fieldMapping: { productIdCol: '' } }),
+          rows,
+        )
+      ).insightsData?.insights ?? [];
+    expect(insights.find((i) => i.id === 'sku-sales-cr5')?.description).toContain('已按 SKU 统计');
+  });
+});
+
+describe('CR5', () => {
+  const mk = (sales: number[]): Row[] =>
+    sales.map((s, i) => mkRow({ rank: i + 1, sku_id: `SKU-${i + 1}`, quantity: 1, sales: s }));
+
+  const cr5Of = async (cfg: EcomSkuSalesAnalysisConfig, rows: Row[]): Promise<string> => {
+    const insights = (await post(cfg, rows)).insightsData?.insights ?? [];
+    return insights.find((i) => i.id === 'sku-sales-cr5')?.description ?? '';
+  };
+
+  it('前五合计即全体时为一成之内', async () => {
+    expect(await cr5Of(completeCfg(), mk([300, 200, 150, 10, 0]))).toContain('100.0%');
+  });
+
+  it('销售额含负值时按原值求和', async () => {
+    expect(await cr5Of(completeCfg(), mk([300, 200, 150, 10, -60]))).toContain('100.0%');
+  });
+
+  it('销售额全为零时不出集中度卡', async () => {
+    const insights = (await post(completeCfg(), mk([0, 0, 0]))).insightsData?.insights ?? [];
+    expect(insights.some((i) => i.id === 'sku-sales-cr5')).toBe(false);
+  });
+
+  it('截断与非截断两档口径', async () => {
+    const truncated = await cr5Of(completeCfg({ topN: 2 }), mk([300, 200]));
+    expect(truncated).toContain('100.0%');
+    expect(truncated).toContain('非全量');
+
+    const full = await cr5Of(completeCfg({ topN: 0 }), mk([300, 200, 150, 100, 50]));
+    expect(full).toContain('100.0%');
+    expect(full.includes('非全量')).toBe(false);
+  });
+
+  it('负毛利口径不由集中度卡承载', async () => {
+    const rows = [
+      mkRow({ rank: 1, sku_id: 'A', sales: 300, profit: 10 }),
+      mkRow({ rank: 2, sku_id: 'B', sales: 200, profit: 5 }),
+      mkRow({ rank: 3, sku_id: 'C', sales: 100, profit: -100 }),
+    ];
+    expect(await cr5Of(completeCfg({ abcMetric: 'profit' }), rows)).not.toContain(
+      'ABC 与爆款仅按正贡献累计',
+    );
+  });
+});
+
+describe('输出 schema', () => {
+  const CONST_COLS = [
+    'order_cnt', 'quantity', 'sales', 'profit', 'margin_rate', 'stock_qty',
+    'sell_through_rate', 'turnover_rate', 'abc_class', 'is_slow_moving', 'tag', 'data_quality_flag',
+  ];
+
+  it('SKU 粒度含商品编码不含产品编码', () => {
+    const cols = buildSkuSalesOutputSchema(completeCfg());
+    expect(cols).toContain('sku_id');
+    expect(cols).not.toContain('product_id');
+  });
+
+  it('SPU 粒度含产品编码不含商品编码', () => {
+    const cols = buildSkuSalesOutputSchema(completeCfg({ groupLevel: 'spu' }));
+    expect(cols).toContain('product_id');
+    expect(cols).not.toContain('sku_id');
+  });
+
+  it('SPU 回落到 SKU 时按实际键出列', () => {
+    expect(buildSkuSalesOutputSchema(completeCfg({ groupLevel: 'spu', fieldMapping: { productIdCol: '' } })))
+      .toContain('sku_id');
+  });
+
+  it('维度项三选一', () => {
+    const cols = buildSkuSalesOutputSchema(
+      completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }),
+    );
+    expect(cols).toContain('brand');
+    expect(cols).not.toContain('category');
+    expect(cols).not.toContain('shop');
+  });
+
+  it('恒定项恒在，长度随维度项变化', () => {
+    const base = buildSkuSalesOutputSchema(completeCfg());
+    expect(base).toHaveLength(14);
+    for (const col of CONST_COLS) expect(base, col).toContain(col);
+    expect(base).toContain('rank');
+
+    const withDim = buildSkuSalesOutputSchema(
+      completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }),
+    );
+    expect(withDim).toHaveLength(15);
+  });
+
+  it('十六种组合均含对象键与恒定项', () => {
+    const levels = ['sku', 'spu'] as const;
+    const dims = ['none', 'category', 'brand', 'shop'] as const;
+    for (const groupLevel of levels) {
+      for (const extraDimension of dims) {
+        for (const productIdCol of ['product_id', '']) {
+          const cfg = completeCfg({ groupLevel, extraDimension, fieldMapping: { productIdCol } });
+          const cols = buildSkuSalesOutputSchema(cfg);
+          expect(cols.includes('sku_id') || cols.includes('product_id'), `${groupLevel}/${extraDimension}(${productIdCol})`).toBe(true);
+          for (const col of CONST_COLS) expect(cols, col).toContain(col);
+        }
+      }
+    }
+  });
+});
+
+describe('展示配置', () => {
+  const cfg = completeCfg();
+  const display = buildSkuSalesDisplayConfig(cfg);
+  const formatters = display.columnFormatters ?? {};
+
+  it('默认按排名升序', () => {
+    expect(display.defaultSort).toEqual({ column: 'rank', order: 'ascend' });
+  });
+
+  it('六项格式逐项定稿', () => {
+    expect(formatters.sales).toEqual({ type: 'currency_signed', unit: '元', precision: 2 });
+    expect(formatters.profit).toEqual({ type: 'currency_signed', unit: '元', precision: 2 });
+    expect(formatters.margin_rate).toEqual({ type: 'percent_signed', precision: 1 });
+    expect(formatters.sell_through_rate).toEqual({ type: 'percent_signed', precision: 1 });
+    expect(formatters.turnover_rate).toEqual({ type: 'percent_signed', precision: 1 });
+    expect(formatters.tag).toEqual({
+      type: 'json_tag_badges',
+      priorityTags: ['滞销款', '爆款', '利润款'],
+    });
+    expect(Object.keys(formatters).sort()).toEqual(
+      ['margin_rate', 'profit', 'sales', 'sell_through_rate', 'tag', 'turnover_rate'].sort(),
+    );
+  });
+
+  it('取值全部落在既有格式集内', () => {
+    const ALLOWED = [
+      'ratio_to_fold', 'percent_signed', 'currency_signed', 'percent_deviation',
+      'json_tag_badges', 'duration_days', 'risk_badge',
+    ];
+    expect(Object.values(formatters).every((f) => ALLOWED.includes(f.type))).toBe(true);
+  });
+
+  it('口径说明齐备且不含技术词', () => {
+    const tooltips = display.columnTooltips ?? {};
+    expect(Object.keys(tooltips).sort()).toEqual(
+      ['margin_rate', 'profit', 'sales', 'sell_through_rate', 'turnover_rate'].sort(),
+    );
+    for (const text of Object.values(tooltips)) expect(bannedHits(text)).toEqual([]);
+  });
+});
+
+describe('postProcess 不再截断', () => {
+  it('传入多少行就返回多少行，总量照实统计', async () => {
+    const rows: Row[] = Array.from({ length: 250 }, (_, i) =>
+      mkRow({ rank: i + 1, sku_id: `SKU-${i + 1}`, quantity: 1, sales: 250 - i, profit: 1 }),
+    );
+    const result = await post(completeCfg({ topN: 200 }), rows);
+    expect(result.data).toHaveLength(250);
+    expect((result.data[0] as Row).rank).toBe(1);
+    expect(result.insightsData?.summary?.totalRecordCount).toBe(250);
+  });
+});
+
+describe('负毛利提示', () => {
+  const NEG = 'ABC 与爆款仅按正贡献累计';
+
+  const slowDesc = async (cfg: EcomSkuSalesAnalysisConfig, rows: Row[]): Promise<string> => {
+    const insights = (await post(cfg, rows)).insightsData?.insights ?? [];
+    return insights.find((i) => i.id === 'sku-sales-slow-moving')?.description ?? '';
+  };
+
+  const posRows = [
+    mkRow({ rank: 1, sku_id: 'A', sales: 300, profit: 10 }),
+    mkRow({ rank: 2, sku_id: 'B', sales: 200, profit: 5 }),
+    mkRow({ rank: 3, sku_id: 'C', sales: 100, profit: -100 }),
+  ];
+
+  it('按毛利排序累计时给出披露', async () => {
+    expect(await slowDesc(completeCfg({ abcMetric: 'profit' }), posRows)).toContain(
+      `本期有 1 个商品毛利为负，${NEG}`,
+    );
+  });
+
+  it('按销售额排序累计时不出现披露', async () => {
+    expect(await slowDesc(completeCfg({ abcMetric: 'sales' }), posRows).then((d) => d.includes(NEG)))
+      .toBe(false);
+  });
+
+  it('集中度卡被抑制时披露仍在', async () => {
+    const rows = [
+      mkRow({ rank: 1, sku_id: 'A', sales: 0, profit: -1 }),
+      mkRow({ rank: 2, sku_id: 'B', sales: 0, profit: -2 }),
+      mkRow({ rank: 3, sku_id: 'C', sales: 0, profit: 0 }),
+    ];
+    const result = await post(completeCfg({ abcMetric: 'profit' }), rows);
+    const insights = result.insightsData?.insights ?? [];
+    expect(insights.some((i) => i.id === 'sku-sales-cr5')).toBe(false);
+    expect(insights.find((i) => i.id === 'sku-sales-slow-moving')?.description).toContain(
+      '本期有 2 个商品毛利为负',
+    );
+  });
+
+  it('截断与非截断两档文案', async () => {
+    const negRows = [
+      mkRow({ rank: 1, sku_id: 'A', sales: 100, profit: -1 }),
+      mkRow({ rank: 2, sku_id: 'B', sales: 100, profit: -2 }),
+    ];
+    const truncated = await slowDesc(completeCfg({ abcMetric: 'profit', topN: 2 }), negRows);
+    expect(truncated).toContain('返回的前 2 条中有 2 个商品毛利为负');
+
+    const full = await slowDesc(completeCfg({ abcMetric: 'profit', topN: 0 }), negRows);
+    expect(full).toContain('本期有');
+    expect(full.includes('返回的前')).toBe(false);
+  });
+
+  it('卡数不变量：不出现第五张卡', async () => {
+    const positive = await post(completeCfg({ abcMetric: 'profit' }), posRows);
+    const pInsights = positive.insightsData?.insights ?? [];
+    expect(pInsights).toHaveLength(4);
+    expect(new Set(pInsights.map((i) => i.id)).size).toBe(4);
+
+    const degraded = await post(
+      completeCfg({ abcMetric: 'profit' }),
+      [
+        mkRow({ rank: 1, sku_id: 'A', sales: 0, profit: -1 }),
+        mkRow({ rank: 2, sku_id: 'B', sales: 0, profit: -2 }),
+      ],
+    );
+    const dInsights = degraded.insightsData?.insights ?? [];
+    expect(dInsights.length).toBeLessThanOrEqual(4);
+    expect(dInsights.some((i) => i.id === 'sku-sales-cr5')).toBe(false);
   });
 });
