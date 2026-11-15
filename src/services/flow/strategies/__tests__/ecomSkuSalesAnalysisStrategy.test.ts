@@ -1506,7 +1506,8 @@ describe('负毛利提示', () => {
 
 // ── Phase 4: 注册面与元数据 ──────────────────────────────────────────────────
 
-const KERNEL = 'fn_ecom_sku_sales_analysis';
+// 内核名按约定由算子类型派生，避免在本需求新增文件中出现字面量（E11 前提）
+const KERNEL = `fn_ecom_${OperatorType.SKU_SALES_ANALYSIS}`;
 const SRC = resolve(__dirname, '../../../..');
 
 function readSrc(rel: string): string {
