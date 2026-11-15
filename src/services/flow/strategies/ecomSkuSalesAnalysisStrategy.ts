@@ -310,9 +310,8 @@ function slowMovingCondition(cfg: EcomSkuSalesAnalysisConfig, alias: string): st
 function buildSkuSalesSelectList(plan: SkuSalesPlan): string[] {
   const { cfg, objectKey, dimCol } = plan;
   const out: string[] = ['t."rank"'];
+  // 对象键二者一：SKU 粒度输出 sku_id，SPU 粒度输出 product_id（另一键不在结果集内）
   out.push(`t.${q(objectKey)}`);
-  // 另一键：对象键为 product_id 时才输出 sku_id
-  if (objectKey === 'product_id') out.push('t."sku_id"');
   if (dimCol === 'category') out.push('t."category"');
   if (dimCol === 'brand') out.push('t."brand"');
   if (dimCol === 'shop') out.push('t."shop"');

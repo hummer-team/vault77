@@ -80,7 +80,17 @@ function bannedHits(text: string): string[] {
   return BANNED.filter((w) => text.toLowerCase().includes(w.toLowerCase()));
 }
 
-function makeCfg(patch: Partial<EcomSkuSalesAnalysisConfig> = {}): EcomSkuSalesAnalysisConfig {
+/** 顶层可局部覆盖，字段映射允许只给要改的键（测试便利，运行时由契约补默认） */
+type CfgPatch = Partial<Omit<EcomSkuSalesAnalysisConfig, 'fieldMapping'>> & {
+  fieldMapping?: Partial<EcomSkuSalesAnalysisConfig['fieldMapping']>;
+};
+
+/** 仅覆盖若干键的完整字段映射（契约类型要求必填项齐全） */
+function mapOf(patch: Partial<EcomSkuSalesAnalysisConfig['fieldMapping']> = {}) {
+  return { ...completeCfg().fieldMapping, ...patch };
+}
+
+function makeCfg(patch: CfgPatch = {}): EcomSkuSalesAnalysisConfig {
   const base = cloneSkuSalesConfig(DEFAULT_SKU_SALES_CONFIG);
   const cfg: EcomSkuSalesAnalysisConfig = {
     ...base,
@@ -93,7 +103,7 @@ function makeCfg(patch: Partial<EcomSkuSalesAnalysisConfig> = {}): EcomSkuSalesA
 }
 
 /** 一份必填项齐全的配置 */
-function completeCfg(patch: Partial<EcomSkuSalesAnalysisConfig> = {}): EcomSkuSalesAnalysisConfig {
+function completeCfg(patch: CfgPatch = {}): EcomSkuSalesAnalysisConfig {
   return makeCfg({
     ...patch,
     fieldMapping: {
@@ -316,9 +326,9 @@ describe('契约段', () => {
     });
 
     it('SKU 级聚合键优先 SKU 编码', () => {
-      expect(resolveSkuSalesSkuAggKey({ skuIdCol: 'sku', productIdCol: 'pid' }, 'spu')).toBe('sku_id');
-      expect(resolveSkuSalesSkuAggKey({ skuIdCol: '', productIdCol: 'pid' }, 'spu')).toBe('product_id');
-      expect(resolveSkuSalesSkuAggKey({ skuIdCol: '', productIdCol: '' }, 'spu')).toBe('sku_id');
+      expect(resolveSkuSalesSkuAggKey(mapOf({ skuIdCol: 'sku', productIdCol: 'pid' }), 'spu')).toBe('sku_id');
+      expect(resolveSkuSalesSkuAggKey(mapOf({ skuIdCol: '', productIdCol: 'pid' }), 'spu')).toBe('product_id');
+      expect(resolveSkuSalesSkuAggKey(mapOf({ skuIdCol: '', productIdCol: '' }), 'spu')).toBe('sku_id');
     });
 
     it('ABC 排序指标毛利不可用时回落销售额', () => {
@@ -1049,6 +1059,16 @@ describe('SQL 语义结构', () => {
     expect(groupByOf(sql, 'calc')).toBe('"product_id"');
   });
 
+  it('主 SELECT 的对象键二者一：SPU 不投影 sku_id（该层已无此列）', () => {
+    // 主 SELECT 层统一用 t. 前缀，CTE 层用 s./k./c./m. 前缀，故按前缀即可区分
+    const spuSql = sqlOf(completeCfg({ groupLevel: 'spu' }));
+    expect(spuSql.includes('t."product_id"')).toBe(true);
+    expect(spuSql.includes('t."sku_id"')).toBe(false);
+    const skuSql = sqlOf(completeCfg());
+    expect(skuSql.includes('t."sku_id"')).toBe(true);
+    expect(skuSql.includes('t."product_id"')).toBe(false);
+  });
+
   it('附加维度进入两层分组键', () => {
     const sql = sqlOf(completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }));
     expect(groupByOf(sql, 'sku_agg')).toBe('"sku_id", "brand"');
@@ -1505,7 +1525,9 @@ describe('StrategyFactory 注册', () => {
     const s = StrategyFactory.getStrategy(OperatorType.SKU_SALES_ANALYSIS);
     expect(s).toBeInstanceOf(EcomSkuSalesAnalysisStrategy);
     expect(s).toBeInstanceOf(BaseStrategy);
-    expect(typeof s.buildOperatorSql).toBe('function');
+    // buildOperatorSql 是 BaseStrategy 的 protected 抽象成员：接口不可见、不可直接取值
+    expect('buildOperatorSql' in s).toBe(true);
+    expect(typeof (s as unknown as Record<string, unknown>).buildOperatorSql).toBe('function');
   });
 
   it('实例可被 sealed buildSql 调用（签名契约）', () => {
