@@ -14,6 +14,7 @@ import { EcomActivityEffectSplitStrategy } from '../strategies/ecomActivityEffec
 import { EcomSuspiciousOrderDetectStrategy } from '../strategies/ecomSuspiciousOrderDetectStrategy';
 import { EcomZeroNegativeOrderDetectStrategy } from '../strategies/ecomZeroNegativeOrderDetectStrategy';
 import { EcomDailyBizSummaryStrategy } from '../strategies/ecomDailyBizSummaryStrategy';
+import { EcomSkuSalesAnalysisStrategy } from '../strategies/ecomSkuSalesAnalysisStrategy';
 import { OperatorType } from '../types';
 
 describe('StrategyFactory', () => {
@@ -59,7 +60,7 @@ describe('StrategyFactory', () => {
     it('should return array of all strategy instances', () => {
       const strategies = StrategyFactory.getAllStrategies();
 
-      expect(strategies).toHaveLength(26);
+      expect(strategies).toHaveLength(27);
       expect(strategies[0]).toBeInstanceOf(AssociationStrategy);
       expect(strategies[1]).toBeInstanceOf(AnomalyStrategy);
       expect(strategies[2]).toBeInstanceOf(ClusteringStrategy);
@@ -70,6 +71,7 @@ describe('StrategyFactory', () => {
       expect(strategies[23]).toBeInstanceOf(EcomSuspiciousOrderDetectStrategy);
       expect(strategies[24]).toBeInstanceOf(EcomZeroNegativeOrderDetectStrategy);
       expect(strategies[25]).toBeInstanceOf(EcomDailyBizSummaryStrategy);
+      expect(strategies[26]).toBeInstanceOf(EcomSkuSalesAnalysisStrategy);
     });
 
     it('should return strategies with correct operator types', () => {

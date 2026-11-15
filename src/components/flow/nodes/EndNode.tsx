@@ -106,6 +106,7 @@ export const EndNode: React.FC<EndNodeProps> = ({ id, data, selected, onSqlValid
     fn_ecom_suspicious_order_detect:              OperatorType.SUSPICIOUS_ORDER_DETECT,
     fn_ecom_zero_negative_order_detect:           OperatorType.ZERO_NEGATIVE_ORDER_DETECT,
     fn_ecom_daily_biz_summary:                    OperatorType.DAILY_BIZ_SUMMARY,
+    fn_ecom_sku_sales_analysis:                    OperatorType.SKU_SALES_ANALYSIS,
   };
 
   const resolvedOperatorType = useMemo((): OperatorType => {

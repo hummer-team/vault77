@@ -31,6 +31,7 @@ import { EcomActivityEffectSplitStrategy } from './strategies/ecomActivityEffect
 import { EcomSuspiciousOrderDetectStrategy } from './strategies/ecomSuspiciousOrderDetectStrategy';
 import { EcomZeroNegativeOrderDetectStrategy } from './strategies/ecomZeroNegativeOrderDetectStrategy';
 import { EcomDailyBizSummaryStrategy } from './strategies/ecomDailyBizSummaryStrategy';
+import { EcomSkuSalesAnalysisStrategy } from './strategies/ecomSkuSalesAnalysisStrategy';
 
 /**
  * Strategy Factory
@@ -64,6 +65,7 @@ export class StrategyFactory {
     [OperatorType.SUSPICIOUS_ORDER_DETECT, new EcomSuspiciousOrderDetectStrategy()],
     [OperatorType.ZERO_NEGATIVE_ORDER_DETECT, new EcomZeroNegativeOrderDetectStrategy()],
     [OperatorType.DAILY_BIZ_SUMMARY, new EcomDailyBizSummaryStrategy()],
+    [OperatorType.SKU_SALES_ANALYSIS, new EcomSkuSalesAnalysisStrategy()],
   ]);
 
   /**

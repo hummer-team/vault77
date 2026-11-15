@@ -35,6 +35,7 @@ export const KERNEL_UDF_MAP: Record<string, string> = {
   fn_ecom_suspicious_order_detect: 'fn_ecom_suspicious_order_detect',
   fn_ecom_zero_negative_order_detect: 'fn_ecom_zero_negative_order_detect',
   fn_ecom_daily_biz_summary: 'fn_ecom_daily_biz_summary',
+  fn_ecom_sku_sales_analysis: 'fn_ecom_sku_sales_analysis',
 } as const;
 
 /** Set of all data-cleaning kernel names for fast lookup */

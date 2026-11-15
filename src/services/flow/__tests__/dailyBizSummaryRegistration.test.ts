@@ -37,7 +37,7 @@ describe('Phase 4 — 工厂', () => {
     expect(strategy).toBeInstanceOf(EcomDailyBizSummaryStrategy);
     expect(strategy).toBeInstanceOf(BaseStrategy);
     expect(strategy.type).toBe(OperatorType.DAILY_BIZ_SUMMARY);
-    expect(StrategyFactory.getAllStrategies()).toHaveLength(26);
+    expect(StrategyFactory.getAllStrategies()).toHaveLength(27);
   });
 });
 

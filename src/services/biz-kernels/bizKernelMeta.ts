@@ -746,9 +746,30 @@ export const SEED_KERNELS: BizKernelMetadata[] = [
     dataVolume: '10w order',
     estimatedTime: '5s',
     metadata: {
-      inputFields: ['product_id','sku_id','category','net_amount','gross_profit','quantity'],
-      outputFields: ['product_id','sales','profit','sell_through_rate','is_slow_moving'],
-      constraints: ['需要商品ID、销量、金额']
+      inputFields: [
+        'sku_id', 'product_id', 'net_amount', 'quantity', 'gross_profit', 'cost_amount',
+        'refund_amount', 'stock_qty', 'order_id', 'order_status', 'category', 'brand', 'shop',
+        'pay_time',
+      ],
+      outputFields: [
+        'rank', 'sku_id', 'product_id', 'category', 'brand', 'shop', 'order_cnt', 'quantity',
+        'sales', 'profit', 'margin_rate', 'stock_qty', 'sell_through_rate', 'turnover_rate',
+        'abc_class', 'tag', 'is_slow_moving', 'data_quality_flag',
+      ],
+      constraints: [
+        '库存口径：缺库存时售罄率/动销率为空并标注 NO_STOCK_COL，不写 0',
+        '销额口径：未扣退款 / 已扣退款二选一；源数据已扣退款时请留空退款金额并保持「未扣退款」',
+        '标签优先级：滞销款 > 爆款 > 利润款 > 普通',
+        '粒度与回退：按 SPU 统计缺商品编码时回退按 SKU 并标注 SPU_FALLBACK；按 SKU 统计缺 SKU 编码则不可执行（no-sku-key）',
+        '状态剔除：订单状态为空的行不受剔除影响（照常统计）',
+        '空结果：返回提示卡而非空表',
+        '返回条数：仅截断输出行，排名与 ABC 在截断前完成',
+        '质量码：OK / ROW_LEVEL / NO_STOCK_COL / NO_PROFIT_COL / NO_STATUS_FILTER / SPU_FALLBACK 固定次序 + 拼接',
+        '与 fn_ecom_inventory_turnover 边界：本算子不输出库龄分布与补货建议',
+        '公式槽位：越界项（如把比率或数量类纳入金额公式）在构建前丢弃并提示',
+        '按 SPU 统计时订单数按行数求和，同一订单含多个同款 SKU 会重复计数',
+        '时间范围由上游筛选条件决定，本算子不单独设时间配置',
+      ]
     }
   },
   {

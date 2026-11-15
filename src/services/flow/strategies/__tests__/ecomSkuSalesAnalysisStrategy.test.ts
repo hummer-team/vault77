@@ -60,6 +60,18 @@ import {
   type FlowNode,
   type ValidationError,
 } from '../../types';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { StrategyFactory } from '../../strategyFactory';
+import { BaseStrategy } from '../../strategies';
+import { KERNEL_UDF_MAP } from '../../../duckDBUdfService';
+import { SEED_KERNELS } from '../../../biz-kernels/bizKernelMeta';
+import {
+  SelectNodePanelType,
+  executeSelectNodeClickStrategy,
+  resolveSelectNodePanelType,
+  shouldRenderUdfDrawer,
+} from '../../bizKernelsBuilderStrategies';
 
 /** 禁用技术词（用户可见区零容忍） */
 const BANNED = ['字段', '列', '表达式', '算子', 'SQL', '参数', '配置项', 'JSON'];
@@ -1469,5 +1481,105 @@ describe('负毛利提示', () => {
     const dInsights = degraded.insightsData?.insights ?? [];
     expect(dInsights.length).toBeLessThanOrEqual(4);
     expect(dInsights.some((i) => i.id === 'sku-sales-cr5')).toBe(false);
+  });
+});
+
+// ── Phase 4: 注册面与元数据 ──────────────────────────────────────────────────
+
+const KERNEL = 'fn_ecom_sku_sales_analysis';
+const SRC = resolve(__dirname, '../../../..');
+
+function readSrc(rel: string): string {
+  return readFileSync(resolve(SRC, rel), 'utf8');
+}
+
+/** §5 输出并集（18 项，顺序即元数据顺序） */
+const OUTPUT_UNION = [
+  'rank', 'sku_id', 'product_id', 'category', 'brand', 'shop', 'order_cnt', 'quantity',
+  'sales', 'profit', 'margin_rate', 'stock_qty', 'sell_through_rate', 'turnover_rate',
+  'abc_class', 'tag', 'is_slow_moving', 'data_quality_flag',
+];
+
+describe('StrategyFactory 注册', () => {
+  it('工厂返回本算子策略实例且通过类型守卫', () => {
+    const s = StrategyFactory.getStrategy(OperatorType.SKU_SALES_ANALYSIS);
+    expect(s).toBeInstanceOf(EcomSkuSalesAnalysisStrategy);
+    expect(s).toBeInstanceOf(BaseStrategy);
+    expect(typeof s.buildOperatorSql).toBe('function');
+  });
+
+  it('实例可被 sealed buildSql 调用（签名契约）', () => {
+    const s = StrategyFactory.getStrategy(OperatorType.SKU_SALES_ANALYSIS);
+    expect(typeof s.buildSql).toBe('function');
+    expect(typeof s.postProcess).toBe('function');
+  });
+});
+
+describe('元数据契约', () => {
+  const meta = SEED_KERNELS.find((k) => k.name === KERNEL);
+
+  it('条目存在且名称唯一（就地补全，不新增重复条目）', () => {
+    expect(meta).toBeTruthy();
+    const occurrences = readSrc('services/biz-kernels/bizKernelMeta.ts')
+      .split(`name: '${KERNEL}'`).length - 1;
+    expect(occurrences).toBe(1);
+  });
+
+  it('14 项入参，且入参名与出参名不混（net_amount 是输入，sales 是输出）', () => {
+    const input = meta?.metadata?.inputFields ?? [];
+    expect(input.length).toBe(14);
+    expect(input).toContain('net_amount');
+    expect(input).not.toContain('sales');
+  });
+
+  it('18 项出参与 §5 并集逐列相等', () => {
+    const out = meta?.metadata?.outputFields ?? [];
+    expect(out.length).toBe(18);
+    expect([...out].sort()).toEqual([...OUTPUT_UNION].sort());
+  });
+
+  it('出参不含输入名 net_amount', () => {
+    expect(meta?.metadata?.outputFields ?? []).not.toContain('net_amount');
+  });
+
+  it('12 条口径约束，编号可引用且非空', () => {
+    const cs = meta?.metadata?.constraints ?? [];
+    expect(cs.length).toBe(12);
+    cs.forEach((c) => expect(c.trim().length).toBeGreaterThan(0));
+  });
+
+  it('约束覆盖关键口径（库存/口径/优先级/回退/截断/质量码）', () => {
+    const joined = (meta?.metadata?.constraints ?? []).join('\n');
+    ['NO_STOCK_COL', '滞销款 > 爆款', 'SPU_FALLBACK', '返回条数', '质量码', 'fn_ecom_inventory_turnover']
+      .forEach((kw) => expect(joined).toContain(kw));
+  });
+});
+
+describe('注册面一致性', () => {
+  it('三处注册面对本算子同键（UDF 映射 / 面板路由 / 节点映射）', () => {
+    expect(KERNEL_UDF_MAP[KERNEL]).toBe(KERNEL);
+    expect(resolveSelectNodePanelType(KERNEL)).toBe(SelectNodePanelType.SKU_SALES_ANALYSIS_DRAWER);
+    expect(shouldRenderUdfDrawer(KERNEL)).toBe(true);
+    ['components/flow/nodes/SelectNode.tsx', 'components/flow/nodes/EndNode.tsx'].forEach((f) => {
+      expect(readSrc(f)).toContain(`${KERNEL}:`);
+    });
+  });
+
+  it('点击路由落到 openUdfDrawer（并入既有 fall-through 组）', () => {
+    let drawer = 0;
+    let detail = 0;
+    executeSelectNodeClickStrategy(KERNEL, {
+      openUdfDrawer: () => { drawer += 1; },
+      openDetailPanel: () => { detail += 1; },
+    });
+    expect(drawer).toBe(1);
+    expect(detail).toBe(0);
+  });
+
+  it('策略工厂键与节点映射键一致（同 OperatorType 成员）', () => {
+    // 源码带对齐空格，断言前归一化空白
+    const flat = readSrc('components/flow/nodes/SelectNode.tsx').replace(/\s+/g, ' ');
+    expect(flat).toContain(`${KERNEL}: OperatorType.SKU_SALES_ANALYSIS`);
+    expect(StrategyFactory.getStrategy(OperatorType.SKU_SALES_ANALYSIS)).toBeTruthy();
   });
 });

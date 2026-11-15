@@ -44,6 +44,7 @@ import type {
   SuspiciousOrderDetectConfig,
   ZeroNegativeOrderDetectConfig,
   DailyBizSummaryConfig,
+  EcomSkuSalesAnalysisConfig,
 } from '../../../services/flow/types';
 import {
   OperatorType,
@@ -53,6 +54,7 @@ import {
   collectZeroNegativeBlockers,
 } from '../../../services/flow/types';
 import { dailyBizBlockingErrors } from '../../../services/flow/strategies/ecomDailyBizSummaryStrategy';
+import { skuSalesBlockingErrors } from '../../../services/flow/strategies/ecomSkuSalesAnalysisContract';
 import { FLOW_COLORS } from '../../../services/flow/constants';
 import {
   executeSelectNodeClickStrategy,
@@ -83,6 +85,7 @@ import { EcomActivityEffectSplitDrawer } from '../udf/EcomActivityEffectSplitDra
 import { EcomSuspiciousOrderDetectDrawer } from '../udf/ecomSuspiciousOrderDetectDrawer';
 import { EcomZeroNegativeOrderDetectDrawer } from '../udf/EcomZeroNegativeOrderDetectDrawer';
 import { EcomDailyBizSummaryDrawer } from '../udf/EcomDailyBizSummaryDrawer';
+import { EcomSkuSalesAnalysisDrawer } from '../udf/EcomSkuSalesAnalysisDrawer';
 import { NodeNextButton } from '../shared/NodeNextButton';
 import { useUpstreamJoinedTables } from '../hooks/useUpstreamJoinedTables';
 import { bizKernelService } from '../../../services/biz-kernels/bizKernelService';
@@ -161,6 +164,7 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     fn_ecom_suspicious_order_detect:              OperatorType.SUSPICIOUS_ORDER_DETECT,
     fn_ecom_zero_negative_order_detect:           OperatorType.ZERO_NEGATIVE_ORDER_DETECT,
     fn_ecom_daily_biz_summary:                    OperatorType.DAILY_BIZ_SUMMARY,
+    fn_ecom_sku_sales_analysis:                   OperatorType.SKU_SALES_ANALYSIS,
   };
   const isAssociationOperator = useMemo(() => {
     if (isUdfNode) return false;
@@ -412,6 +416,18 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
     [id, updateNode]
   );
 
+  const handleEcomSkuSalesAnalysisConfirm = useCallback(
+    (config: EcomSkuSalesAnalysisConfig) => {
+      updateNode(id, { ecomSkuSalesAnalysisConfig: config } as Partial<SelectNodeData>);
+      setUdfDrawerOpen(false);
+      const endNode = useFlowStore.getState().nodes.find((n) => n.type === 'end');
+      if (endNode) {
+        updateNode(endNode.id, { operatorType: OperatorType.SKU_SALES_ANALYSIS } as Record<string, unknown>);
+      }
+    },
+    [id, updateNode]
+  );
+
   // Derive columns (with full field info) from the first upstream joined table
   const allFields = useMemo(() => {
     const tableName = joinedTables[0];
@@ -508,6 +524,11 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
         // 门禁只看 error：`no-fee-col` 是 warning（数值为空但不阻断节点生效），禁止改回 collectDailyBizBlockers
         const dbCfg = data.dailyBizSummaryConfig;
         return !!dbCfg && dailyBizBlockingErrors(dbCfg).length === 0;
+      }
+      case SelectNodePanelType.SKU_SALES_ANALYSIS_DRAWER: {
+        // 门禁只看 error：warning（如缺库存）不阻断节点生效
+        const ssCfg = data.ecomSkuSalesAnalysisConfig;
+        return !!ssCfg && skuSalesBlockingErrors(ssCfg).length === 0;
       }
       default:
         return false;
@@ -1036,6 +1057,17 @@ export const SelectNode: React.FC<SelectNodeProps> = ({
               initialConfig={data.dailyBizSummaryConfig}
               kernelDisplayName={kernelMeta?.displayName}
               onConfirm={handleDailyBizSummaryConfirm}
+              onCancel={() => setUdfDrawerOpen(false)}
+            />
+          );
+        case SelectNodePanelType.SKU_SALES_ANALYSIS_DRAWER:
+          return (
+            <EcomSkuSalesAnalysisDrawer
+              open={udfDrawerOpen}
+              columns={columnNames}
+              initialConfig={data.ecomSkuSalesAnalysisConfig}
+              kernelDisplayName={kernelMeta?.displayName}
+              onConfirm={handleEcomSkuSalesAnalysisConfirm}
               onCancel={() => setUdfDrawerOpen(false)}
             />
           );
