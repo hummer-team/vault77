@@ -542,11 +542,14 @@ function resolveSkuSalesDimSource(cfg: EcomSkuSalesAnalysisConfig): string | nul
 export function buildSkuSalesOutputSchema(
   config: EcomSkuSalesAnalysisConfig,
 ): SkuSalesOutputColumn[] {
-  const dim = resolveSkuSalesDimSource(config);
+  const dimSource = resolveSkuSalesDimSource(config);
+  // 维度列名固定取 src 层的别名（与主 SELECT :313-315、planSkuSales :101 同一来源），
+  // 不能取源列名：算子 schema 会覆盖真实查询 schema（workbench），而结果行里只有别名（CR-2-1）
+  const dimName = dimSource ? SKU_SALES_DIM_COLS[config.extraDimension] ?? null : null;
   return [
     { name: 'rank', type: 'BIGINT' },
     { name: resolveSkuSalesObjectKey(config.fieldMapping, config.groupLevel), type: 'VARCHAR' },
-    ...(dim ? [{ name: dim, type: 'VARCHAR' }] : []),
+    ...(dimName ? [{ name: dimName, type: 'VARCHAR' }] : []),
     ...SKU_SALES_CONST_OUTPUT_COLS,
   ];
 }

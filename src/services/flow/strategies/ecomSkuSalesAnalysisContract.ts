@@ -200,12 +200,28 @@ function columnLabel(col: string): string {
   return SKU_SALES_COLUMN_LABEL[col] ?? col;
 }
 
+/**
+ * 运算符前缀（SQL 与人话串的唯一实现点，同源同分支）：
+ * 非首项按选定运算符连接；首项 `+` 省略运算符（`+x` ≡ `x`，计划 `:405`），
+ * 首项 `-` 必须如实生成一元负号 —— 否则用户把首项选成 `−`（例如删掉销售额项后只剩
+ * 「− 商品成本」）会被静默取正，毛利/毛利率/ABC 与标签全部反号（CR-2-2）。
+ */
+function slotOperatorPrefix(
+  index: number,
+  operator: FormulaSlot['operator'],
+  plus: string,
+  minus: string,
+): string {
+  if (index > 0) return operator === '-' ? minus : plus;
+  return operator === '-' ? minus.trim() : '';
+}
+
 /** 槽位 → SQL 片段（列名一律双引号；空集返回 null） */
 export function skuSalesSlotSql(slots?: FormulaSlot[]): string | null {
   const list = Array.isArray(slots) ? slots : [];
   if (list.length === 0) return null;
   return list
-    .map((s, i) => `${i === 0 ? '' : s.operator === '-' ? ' - ' : ' + '}"${s.column}"`)
+    .map((s, i) => `${slotOperatorPrefix(i, s.operator, ' + ', ' - ')}"${s.column}"`)
     .join('');
 }
 
@@ -214,7 +230,7 @@ export function skuSalesSlotHuman(slots?: FormulaSlot[]): string | null {
   const list = Array.isArray(slots) ? slots : [];
   if (list.length === 0) return null;
   return list
-    .map((s, i) => `${i === 0 ? '' : s.operator === '-' ? ' \u2212 ' : ' + '}${columnLabel(s.column)}`)
+    .map((s, i) => `${slotOperatorPrefix(i, s.operator, ' + ', ' \u2212 ')}${columnLabel(s.column)}`)
     .join('');
 }
 

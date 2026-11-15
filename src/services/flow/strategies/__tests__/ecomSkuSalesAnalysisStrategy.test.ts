@@ -1421,6 +1421,45 @@ describe('输出 schema', () => {
     expect(names).not.toContain('shop');
   });
 
+  it('维度列名取别名而非源列名（源名 ≠ 别名时表头不与数据错位）', () => {
+    const cases = [
+      { extraDimension: 'brand' as const, mapping: { brandCol: '品牌名称' }, alias: 'brand', sql: 't."brand"' },
+      { extraDimension: 'category' as const, mapping: { categoryCol: '商品品类' }, alias: 'category', sql: 't."category"' },
+      { extraDimension: 'shop' as const, mapping: { shopCol: '店铺名称' }, alias: 'shop', sql: 't."shop"' },
+    ];
+    for (const c of cases) {
+      const cfg = completeCfg({ extraDimension: c.extraDimension, fieldMapping: c.mapping });
+      const names = namesOf(buildSkuSalesOutputSchema(cfg));
+      const sourceName = Object.values(c.mapping)[0];
+      // 算子 schema 会覆盖真实查询 schema，列名必须等于 SQL 别名；取源名会让表头多出空白列、真实维度列不可见
+      expect(names, c.alias).toContain(c.alias);
+      expect(names, c.alias).not.toContain(sourceName);
+      expect(buildSkuSalesSql('t_order', cfg, ''), c.alias).toContain(c.sql);
+    }
+  });
+
+  it('首项为减号时如实生成一元负号，不得静默取正（CR-2-2）', () => {
+    // 删除首项后的真实形态：只剩「− 商品成本」
+    expect(skuSalesSlotSql([{ operator: '-', column: 'cost_amount' }])).toBe('-\"cost_amount\"');
+    expect(skuSalesSlotHuman([{ operator: '-', column: 'cost_amount' }])).toBe('\u2212商品成本');
+    // 与「+ 商品成本」不再等价 —— 这正是修复前后的分水岭
+    expect(skuSalesSlotSql([{ operator: '-', column: 'cost_amount' }])).not.toBe(
+      skuSalesSlotSql([{ operator: '+', column: 'cost_amount' }]),
+    );
+    // 首项 `+` 仍省略运算符（计划 `:405` 的口径不变）
+    expect(skuSalesSlotSql([{ operator: '+', column: 'net_amount' }])).toBe('\"net_amount\"');
+    expect(skuSalesSlotHuman([{ operator: '+', column: 'net_amount' }])).toBe('实收金额');
+  });
+
+  it('首项为减号的毛利槽位在预览与 SQL 中均为负向（不做静默取正兜底）', () => {
+    const cfg = completeCfg({ profitSlots: [{ operator: '-', column: 'cost_amount' }] });
+    const preview = buildSkuSalesFormulaPreview(cfg);
+    expect(preview.profitSql).toBe('-\"cost_amount\"');
+    expect(preview.profitFormula).toBe('\u2212商品成本');
+    // 头部一元负号进入聚合层时被括号闭合：成本 40 应得 -40 而非 +40
+    expect(buildSkuSalesSql('t_order', cfg, '')).toContain('(-\"cost_amount\") AS \"profit\"');
+  });
+
   it('每列均携带具体类型，不出现 unknown（数值列必须可数值排序）', () => {
     const cols = buildSkuSalesOutputSchema(completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }));
     for (const col of cols) {
