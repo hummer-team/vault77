@@ -56,8 +56,8 @@ export const SKU_SALES_COLUMN_LABEL: Record<string, string> = {
   turnover_rate: '动销率',
 };
 
-/** 永远必需的字段（商品编码/商品编码的必填随统计粒度切换，由抽屉按粒度追加） */
-export const SKU_SALES_REQUIRED_FIELDS: SkuSalesFieldKey[] = ['skuIdCol', 'salesCol', 'quantityCol'];
+/** 与统计粒度无关的必填字段（SKU 编码 / 商品编码的必填随粒度切换，由抽屉按粒度判定） */
+export const SKU_SALES_REQUIRED_FIELDS: SkuSalesFieldKey[] = ['salesCol', 'quantityCol'];
 
 /** 金额类字段：预填时额外套用金额排除词 */
 export const SKU_SALES_AMOUNT_FIELDS: SkuSalesFieldKey[] = [
@@ -112,7 +112,10 @@ export function isSkuSalesSlotColumnAllowed(group: SkuSalesSlotGroup, column?: s
   return SKU_SALES_SLOT_FIELDS[group].indexOf(column as string) >= 0;
 }
 
-/** 越界项在此丢弃（构建 SQL 前唯一过滤点），返回项为副本 */
+/**
+ * 仅按「可引用域」过滤（不含源数据映射判定），返回项为副本。
+ * 构建 SQL 的入口请用 `usableSkuSalesSlots`：它同时丢弃「源数据未映射」项。
+ */
 export function allowedSkuSalesSlots(group: SkuSalesSlotGroup, slots?: FormulaSlot[]): FormulaSlot[] {
   const list = Array.isArray(slots) ? slots : [];
   return list
@@ -122,6 +125,75 @@ export function allowedSkuSalesSlots(group: SkuSalesSlotGroup, slots?: FormulaSl
 
 export function skuSalesSlotsIncludeRefund(slots?: FormulaSlot[]): boolean {
   return allowedSkuSalesSlots('salesSlots', slots).some((s) => s.column === 'refund_amount');
+}
+
+/** 槽位别名 → 依赖的源列字段槽（`sales` 是派生别名，没有自己的源列） */
+const SKU_SALES_SLOT_SOURCE_FIELD: Record<string, SkuSalesFieldKey> = {
+  net_amount: 'salesCol',
+  gross_profit: 'grossProfitCol',
+  cost_amount: 'costCol',
+  refund_amount: 'refundAmountCol',
+};
+
+/**
+ * 槽位别名的源数据是否已映射。
+ * 未映射时聚合层只会产出 `CAST(NULL AS DOUBLE)`，引用它的公式整列退化为 NULL（静默全空），
+ * 因此与越界项同样丢弃并由 `slot-dropped` 告警。
+ */
+export function isSkuSalesSlotColumnMapped(
+  fieldMapping: EcomSkuSalesAnalysisConfig['fieldMapping'] | undefined,
+  column?: string,
+): boolean {
+  if (!hasColumnValue(column)) return false;
+  const field = SKU_SALES_SLOT_SOURCE_FIELD[column as string];
+  if (field) return hasColumnValue(fieldMapping?.[field]);
+  // `sales` 等派生别名没有独立源数据，其可用性由 `no-sales-slot` 单独把关
+  return column === 'sales';
+}
+
+export type SkuSalesSlotDropReason = 'out-of-range' | 'unmapped-source';
+
+export interface SkuSalesSlotResolution {
+  /** 可进入 SQL 的槽位项 */
+  usable: FormulaSlot[];
+  /** 被丢弃项：越界（不在可引用范围）或源数据未映射 */
+  dropped: Array<{ slot: FormulaSlot; reason: SkuSalesSlotDropReason }>;
+}
+
+/**
+ * 槽位项唯一解析点：越界项与源数据未映射项在此丢弃，其余为可用集。
+ * 构建 SQL / 判空 / 公式预览共用本函数，保证三者口径一致。
+ */
+export function resolveSkuSalesSlots(
+  group: SkuSalesSlotGroup,
+  fieldMapping: EcomSkuSalesAnalysisConfig['fieldMapping'] | undefined,
+  slots?: FormulaSlot[],
+): SkuSalesSlotResolution {
+  const usable: FormulaSlot[] = [];
+  const dropped: SkuSalesSlotResolution['dropped'] = [];
+  for (const slot of Array.isArray(slots) ? slots : []) {
+    // 空槽位（尚未选列）与非法运算符属编辑中间态，不产生告警
+    if (!slot || SKU_SALES_SLOT_OPERATORS.indexOf(slot.operator) < 0 || !hasColumnValue(slot.column)) continue;
+    if (!isSkuSalesSlotColumnAllowed(group, slot.column)) {
+      dropped.push({ slot: { operator: slot.operator, column: slot.column }, reason: 'out-of-range' });
+      continue;
+    }
+    if (!isSkuSalesSlotColumnMapped(fieldMapping, slot.column)) {
+      dropped.push({ slot: { operator: slot.operator, column: slot.column }, reason: 'unmapped-source' });
+      continue;
+    }
+    usable.push({ operator: slot.operator, column: slot.column });
+  }
+  return { usable, dropped };
+}
+
+/** 可用槽位项（`resolveSkuSalesSlots` 的可用集） */
+export function usableSkuSalesSlots(
+  group: SkuSalesSlotGroup,
+  fieldMapping: EcomSkuSalesAnalysisConfig['fieldMapping'] | undefined,
+  slots?: FormulaSlot[],
+): FormulaSlot[] {
+  return resolveSkuSalesSlots(group, fieldMapping, slots).usable;
 }
 
 function columnLabel(col: string): string {
@@ -151,7 +223,7 @@ export function resolveSkuSalesProfitSlots(
   fieldMapping: EcomSkuSalesAnalysisConfig['fieldMapping'],
   profitSlots?: FormulaSlot[],
 ): FormulaSlot[] {
-  const allowed = allowedSkuSalesSlots('profitSlots', profitSlots);
+  const allowed = usableSkuSalesSlots('profitSlots', fieldMapping, profitSlots);
   if (allowed.length > 0) return allowed;
   if (hasColumnValue(fieldMapping?.grossProfitCol)) return [{ operator: '+', column: 'gross_profit' }];
   if (hasColumnValue(fieldMapping?.costCol)) {
@@ -162,9 +234,12 @@ export function resolveSkuSalesProfitSlots(
 
 /** 销售额口径唯一实现点：净额口径再扣一次退款 */
 export function applySkuSalesCaliber(config: EcomSkuSalesAnalysisConfig): string | null {
-  const base = skuSalesSlotSql(allowedSkuSalesSlots('salesSlots', config?.salesSlots));
+  const base = skuSalesSlotSql(usableSkuSalesSlots('salesSlots', config?.fieldMapping, config?.salesSlots));
   if (base === null) return null;
-  return config.salesCaliber === 'net' ? `${base} - COALESCE("refund_amount", 0)` : base;
+  // 退款源数据未映射时不做减法：否则会得到 `- COALESCE(CAST(NULL AS DOUBLE), 0)`，
+  // 净额口径静默退化为毛额（CR-1-3）
+  const refundMapped = isSkuSalesSlotColumnMapped(config?.fieldMapping, 'refund_amount');
+  return config.salesCaliber === 'net' && refundMapped ? `${base} - COALESCE("refund_amount", 0)` : base;
 }
 
 // ============================================================================
@@ -313,7 +388,7 @@ export function collectSkuSalesBlockers(config?: EcomSkuSalesAnalysisConfig): Sk
   }
   if (!hasColumnValue(m.salesCol)) push('no-sales-col', '请先选择实收金额');
   if (!hasColumnValue(m.quantityCol)) push('no-quantity-col', '请先选择销量');
-  if (allowedSkuSalesSlots('salesSlots', config.salesSlots).length === 0) {
+  if (usableSkuSalesSlots('salesSlots', m, config.salesSlots).length === 0) {
     push('no-sales-slot', '销售额公式至少需要保留一项');
   }
   if (config.salesCaliber === 'net' && !hasColumnValue(m.refundAmountCol)) {
@@ -352,10 +427,12 @@ export function collectSkuSalesBlockers(config?: EcomSkuSalesAnalysisConfig): Sk
     ['profitSlots', config.profitSlots, '毛利'],
   ];
   for (const [group, slots, label] of groups) {
-    const dropped = (Array.isArray(slots) ? slots : []).filter(
-      (s) => hasColumnValue(s?.column) && !isSkuSalesSlotColumnAllowed(group, s.column),
-    );
-    if (dropped.length > 0) warn('slot-dropped', `${label}公式中 ${dropped.length} 项不在可引用范围，已忽略`);
+    // 逐条丢弃项一条 WARNING（计划 §4「每条被丢弃项一条提示」）
+    for (const { slot, reason } of resolveSkuSalesSlots(group, m, slots).dropped) {
+      const name = columnLabel(slot.column as string);
+      const why = reason === 'unmapped-source' ? '未匹配到源数据' : '不在可引用范围';
+      warn('slot-dropped', `${label}公式中的「${name}」${why}，已忽略`);
+    }
   }
   if (config.salesCaliber === 'net' && skuSalesSlotsIncludeRefund(config.salesSlots)) {
     warn('refund-double-deduct', '已选「已扣退款」口径，销售额公式中的退款金额会被重复扣除');
@@ -450,7 +527,7 @@ export interface SkuSalesFormulaPreview {
 
 export function buildSkuSalesFormulaPreview(config: EcomSkuSalesAnalysisConfig): SkuSalesFormulaPreview {
   const cfg = config ?? DEFAULT_SKU_SALES_CONFIG;
-  const salesAllowed = allowedSkuSalesSlots('salesSlots', cfg.salesSlots);
+  const salesAllowed = usableSkuSalesSlots('salesSlots', cfg.fieldMapping, cfg.salesSlots);
   const profitAllowed = resolveSkuSalesProfitSlots(cfg.fieldMapping ?? {}, cfg.profitSlots);
 
   const droppedSlots: FormulaSlot[] = [];
@@ -472,7 +549,9 @@ export function buildSkuSalesFormulaPreview(config: EcomSkuSalesAnalysisConfig):
     profitFormula: skuSalesSlotHuman(profitAllowed),
     profitSql: skuSalesSlotSql(profitAllowed),
     salesCaliberNote: cfg.salesCaliber === 'net'
-      ? '销售额口径：已扣退款，再减一次退款金额'
+      ? (isSkuSalesSlotColumnMapped(cfg.fieldMapping, 'refund_amount')
+          ? '销售额口径：已扣退款，再减一次退款金额'
+          : '销售额口径：退款情况未提供，按未扣退款计算')
       : '销售额口径：未扣退款',
     droppedSlots,
   };

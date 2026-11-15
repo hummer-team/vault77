@@ -172,8 +172,11 @@ describe('契约段', () => {
   });
 
   describe('必填项与金额类字段', () => {
-    it('必填项为 SKU 编码 / 实收金额 / 销量', () => {
-      expect(SKU_SALES_REQUIRED_FIELDS).toEqual(['skuIdCol', 'salesCol', 'quantityCol']);
+    it('必填项为实收金额 / 销量（商品编码类随粒度判定）', () => {
+      // 商品编码必填随粒度切换：skuIdCol 仅在 groupLevel='sku' 必填，故不入恒真集合（CR-1-6）
+      expect(SKU_SALES_REQUIRED_FIELDS).toEqual(['salesCol', 'quantityCol']);
+      expect(SKU_SALES_REQUIRED_FIELDS).not.toContain('skuIdCol');
+      expect(SKU_SALES_REQUIRED_FIELDS).not.toContain('productIdCol');
     });
 
     it('金额类字段为 4 个', () => {
@@ -262,10 +265,31 @@ describe('契约段', () => {
     });
 
     it('销售额口径：毛额不扣退款、净额再扣一次', () => {
-      expect(applySkuSalesCaliber(makeCfg({ salesCaliber: 'gross' }))).toBe('"net_amount"');
-      expect(applySkuSalesCaliber(makeCfg({ salesCaliber: 'net' })))
+      // 槽位解析要求源数据已映射（CR-1-3），故用必填项齐全的配置
+      expect(applySkuSalesCaliber(completeCfg({ salesCaliber: 'gross' }))).toBe('"net_amount"');
+      expect(applySkuSalesCaliber(completeCfg({ salesCaliber: 'net' })))
         .toBe('"net_amount" - COALESCE("refund_amount", 0)');
-      expect(applySkuSalesCaliber(makeCfg({ salesSlots: [] }))).toBeNull();
+      expect(applySkuSalesCaliber(completeCfg({ salesSlots: [] }))).toBeNull();
+    });
+
+    it('槽位源数据未映射时不出可空表达式（避免静默全空）', () => {
+      // refund_amount 未映射 → 净额口径下该槽位被丢弃，公式仅剩实收金额，并给出 slot-dropped 告警
+      const cfg = completeCfg({ salesCaliber: 'net', fieldMapping: { refundAmountCol: '' } });
+      expect(applySkuSalesCaliber(cfg)).toBe('"net_amount"');
+      const dropped = collectSkuSalesBlockers(cfg).filter((b) => b.code === 'slot-dropped');
+      expect(dropped).toHaveLength(0);
+
+      // 显式引用未映射槽位 → 丢弃 + 逐条 WARNING
+      const explicit = completeCfg({
+        fieldMapping: { refundAmountCol: '' },
+        salesSlots: [{ operator: '+', column: 'net_amount' }, { operator: '-', column: 'refund_amount' }],
+      });
+      expect(applySkuSalesCaliber(explicit)).toBe('"net_amount"');
+      const warns = collectSkuSalesBlockers(explicit).filter((b) => b.code === 'slot-dropped');
+      expect(warns).toHaveLength(1);
+      expect(warns[0].severity).toBe('warning');
+      expect(warns[0].message).toContain('退款金额');
+      expect(bannedHits(warns[0].message)).toEqual([]);
     });
 
     it('退款重复扣减判定只看销售额槽位', () => {
@@ -618,7 +642,7 @@ describe('契约段', () => {
 
   describe('公式预览', () => {
     it('销售额与毛利同源', () => {
-      const cfg = makeCfg({
+      const cfg = completeCfg({
         salesCaliber: 'net',
         salesSlots: [{ operator: '+', column: 'net_amount' }, { operator: '-', column: 'refund_amount' }],
       });
@@ -682,6 +706,11 @@ function makeNodesWithoutTable(cfg: EcomSkuSalesAnalysisConfig): FlowNode[] {
 
 function sqlOf(cfg: EcomSkuSalesAnalysisConfig, userWhere = ''): string {
   return buildSkuSalesSql('shop_orders', cfg, userWhere);
+}
+
+/** 输出列名序列（schema 为 { name, type } 对象数组） */
+function namesOf(cols: Array<{ name: string; type: string }>): string[] {
+  return cols.map((c) => c.name);
 }
 
 /** 取单个 CTE 的文本（到下一个 CTE 边界为止） */
@@ -988,6 +1017,44 @@ describe('validate', () => {
     const result = validateWith(completeCfg());
     expect(result.filter((e) => e.severity === ValidationSeverity.ERROR)).toEqual([]);
     expect(result.some((e) => e.message.includes('时间范围继承上游筛选条件'))).toBe(true);
+  });
+
+  it('告警不重复：每条消息在 validate 结果里只出现一次（CR-1-1）', () => {
+    const cfg = completeCfg({
+      profitSlots: [{ operator: '+', column: 'quantity' }],
+      fieldMapping: { grossProfitCol: '', costCol: '' },
+    });
+    const messages = validateWith(cfg).map((e) => e.message);
+    const dupes = messages.filter((m, i) => messages.indexOf(m) !== i);
+    expect(dupes).toEqual([]);
+
+    // 条目数 = 契约段条目数 + 唯一一条时间范围提示
+    const blockers = collectSkuSalesBlockers(cfg);
+    expect(messages).toHaveLength(blockers.length + 1);
+    expect(messages).toContain('时间范围继承上游筛选条件');
+    // 槽位告警只由契约段提供，validate 不再自算一份
+    expect(messages.filter((m) => m.includes('不在可引用范围'))).toHaveLength(1);
+    expect(messages.filter((m) => m.includes('毛利公式没有可用的引用项'))).toHaveLength(1);
+  });
+
+  it('每条被丢弃槽位项一条 WARNING（CR-1-4）', () => {
+    const cfg = completeCfg({
+      salesSlots: [
+        { operator: '+', column: 'net_amount' },
+        { operator: '+', column: 'quantity' },
+        { operator: '+', column: 'stock_qty' },
+      ],
+      profitSlots: [{ operator: '+', column: 'brand' }],
+    });
+    const dropped = collectSkuSalesBlockers(cfg).filter((b) => b.code === 'slot-dropped');
+    // 销售额 2 项越界 + 毛利 1 项越界 = 3 条，逐项一条
+    expect(dropped).toHaveLength(3);
+    for (const w of dropped) {
+      expect(w.severity).toBe('warning');
+      expect(bannedHits(w.message)).toEqual([]);
+    }
+    expect(dropped.filter((w) => w.message.includes('销售额')).length).toBe(2);
+    expect(dropped.filter((w) => w.message.includes('毛利')).length).toBe(1);
   });
 
   it('退款重复扣减与质量码降级均为 WARNING', () => {
@@ -1328,35 +1395,52 @@ describe('输出 schema', () => {
 
   it('SKU 粒度含商品编码不含产品编码', () => {
     const cols = buildSkuSalesOutputSchema(completeCfg());
-    expect(cols).toContain('sku_id');
-    expect(cols).not.toContain('product_id');
+    expect(namesOf(cols)).toContain('sku_id');
+    expect(namesOf(cols)).not.toContain('product_id');
   });
 
   it('SPU 粒度含产品编码不含商品编码', () => {
     const cols = buildSkuSalesOutputSchema(completeCfg({ groupLevel: 'spu' }));
-    expect(cols).toContain('product_id');
-    expect(cols).not.toContain('sku_id');
+    expect(namesOf(cols)).toContain('product_id');
+    expect(namesOf(cols)).not.toContain('sku_id');
   });
 
   it('SPU 回落到 SKU 时按实际键出列', () => {
-    expect(buildSkuSalesOutputSchema(completeCfg({ groupLevel: 'spu', fieldMapping: { productIdCol: '' } })))
-      .toContain('sku_id');
+    expect(
+      namesOf(buildSkuSalesOutputSchema(completeCfg({ groupLevel: 'spu', fieldMapping: { productIdCol: '' } }))),
+    ).toContain('sku_id');
   });
 
   it('维度项三选一', () => {
     const cols = buildSkuSalesOutputSchema(
       completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }),
     );
-    expect(cols).toContain('brand');
-    expect(cols).not.toContain('category');
-    expect(cols).not.toContain('shop');
+    const names = namesOf(cols);
+    expect(names).toContain('brand');
+    expect(names).not.toContain('category');
+    expect(names).not.toContain('shop');
+  });
+
+  it('每列均携带具体类型，不出现 unknown（数值列必须可数值排序）', () => {
+    const cols = buildSkuSalesOutputSchema(completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }));
+    for (const col of cols) {
+      expect(col.type, col.name).toBeTruthy();
+      expect(col.type.toLowerCase(), col.name).not.toBe('unknown');
+    }
+    const typeOf = (name: string): string => cols.find((c) => c.name === name)?.type ?? '';
+    for (const name of ['quantity', 'sales', 'profit', 'margin_rate', 'stock_qty', 'turnover_rate']) {
+      expect(typeOf(name), name).toMatch(/double|decimal|int/i);
+    }
+    expect(typeOf('is_slow_moving')).toMatch(/bool/i);
+    expect(typeOf('sku_id')).toMatch(/varchar|text|string/i);
   });
 
   it('恒定项恒在，长度随维度项变化', () => {
     const base = buildSkuSalesOutputSchema(completeCfg());
+    const baseNames = namesOf(base);
     expect(base).toHaveLength(14);
-    for (const col of CONST_COLS) expect(base, col).toContain(col);
-    expect(base).toContain('rank');
+    for (const col of CONST_COLS) expect(baseNames, col).toContain(col);
+    expect(baseNames).toContain('rank');
 
     const withDim = buildSkuSalesOutputSchema(
       completeCfg({ extraDimension: 'brand', fieldMapping: { brandCol: 'brand' } }),
@@ -1371,7 +1455,7 @@ describe('输出 schema', () => {
       for (const extraDimension of dims) {
         for (const productIdCol of ['product_id', '']) {
           const cfg = completeCfg({ groupLevel, extraDimension, fieldMapping: { productIdCol } });
-          const cols = buildSkuSalesOutputSchema(cfg);
+          const cols = namesOf(buildSkuSalesOutputSchema(cfg));
           expect(cols.includes('sku_id') || cols.includes('product_id'), `${groupLevel}/${extraDimension}(${productIdCol})`).toBe(true);
           for (const col of CONST_COLS) expect(cols, col).toContain(col);
         }

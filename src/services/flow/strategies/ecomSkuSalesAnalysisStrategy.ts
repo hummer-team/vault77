@@ -16,14 +16,12 @@ import {
   type OperatorDisplayConfig,
   type FlowEdge,
   type FlowNode,
-  type FormulaSlot,
   type SelectNodeData,
   type ValidationError,
   hasColumnValue,
 } from '../types';
 import {
   DEFAULT_SKU_SALES_CONFIG,
-  allowedSkuSalesSlots,
   buildSkuSalesFormulaPreview,
   cloneSkuSalesConfig,
   collectSkuSalesBlockers,
@@ -460,21 +458,8 @@ export class EcomSkuSalesAnalysisStrategy extends BaseStrategy {
     }
     if (!cfg) return errors;
 
-    const groups: Array<['salesSlots' | 'profitSlots', FormulaSlot[] | undefined, string]> = [
-      ['salesSlots', cfg.salesSlots, '销售额'],
-      ['profitSlots', cfg.profitSlots, '毛利'],
-    ];
-    for (const [group, slots, label] of groups) {
-      const dropped = (slots ?? []).filter(
-        (s) => hasColumnValue(s?.column) && !allowedSkuSalesSlots(group, [s]).length,
-      );
-      if (dropped.length > 0) {
-        push(`${label}公式中 ${dropped.length} 项不在可引用范围，已忽略`, ValidationSeverity.WARNING);
-      }
-    }
-    if (resolveSkuSalesProfitSlots(cfg.fieldMapping, cfg.profitSlots).length === 0) {
-      push('毛利公式没有可用的引用项，毛利与毛利率本期为空', ValidationSeverity.WARNING);
-    }
+    // 只补契约段不产出的项：slot-dropped / empty-profit-slots 等告警由 collectSkuSalesBlockers 唯一提供，
+    // 此处再算一遍会让 validate() 出现成对重复项（CR-1-1）。
     push('时间范围继承上游筛选条件', ValidationSeverity.WARNING);
     return errors;
   }
@@ -494,7 +479,8 @@ export class EcomSkuSalesAnalysisStrategy extends BaseStrategy {
       type: this.type,
       sql: '',
       data: rows,
-      schema: buildSkuSalesOutputSchema(cfg) as unknown[],
+      // 携带具体类型：表格渲染按 type 判定数值/布尔，纯列名会退化为字典序排序（CR-1-2）
+      schema: buildSkuSalesOutputSchema(cfg),
       insightsData: {
         summary: {
           totalRecordCount: rows.length,
@@ -513,20 +499,26 @@ export class EcomSkuSalesAnalysisStrategy extends BaseStrategy {
 
 type SkuSalesRow = Record<string, unknown>;
 
-/** 恒定输出项（顺序与主 SELECT 一致，对象键与维度项另置于首部之后） */
-const SKU_SALES_CONST_OUTPUT_COLS = [
-  'order_cnt',
-  'quantity',
-  'sales',
-  'profit',
-  'margin_rate',
-  'stock_qty',
-  'sell_through_rate',
-  'turnover_rate',
-  'abc_class',
-  'is_slow_moving',
-  'tag',
-  'data_quality_flag',
+/** 输出列元素：列名 + DuckDB 类型（类型决定表格排序与筛选是否按数值处理） */
+export interface SkuSalesOutputColumn {
+  name: string;
+  type: string;
+}
+
+/** 恒定输出项及其类型（顺序与主 SELECT 一致，对象键与维度项另置于首部之后） */
+const SKU_SALES_CONST_OUTPUT_COLS: ReadonlyArray<SkuSalesOutputColumn> = [
+  { name: 'order_cnt', type: 'BIGINT' },
+  { name: 'quantity', type: 'DOUBLE' },
+  { name: 'sales', type: 'DOUBLE' },
+  { name: 'profit', type: 'DOUBLE' },
+  { name: 'margin_rate', type: 'DOUBLE' },
+  { name: 'stock_qty', type: 'DOUBLE' },
+  { name: 'sell_through_rate', type: 'DOUBLE' },
+  { name: 'turnover_rate', type: 'DOUBLE' },
+  { name: 'abc_class', type: 'VARCHAR' },
+  { name: 'is_slow_moving', type: 'BOOLEAN' },
+  { name: 'tag', type: 'VARCHAR' },
+  { name: 'data_quality_flag', type: 'VARCHAR' },
 ];
 
 /** 维度项来源解析：与 SQL 投影同源，未映射则不出该列 */
@@ -543,13 +535,18 @@ function resolveSkuSalesDimSource(cfg: EcomSkuSalesAnalysisConfig): string | nul
   return hasColumnValue(source) ? (source as string) : null;
 }
 
-/** 输出列：排名 + 对象键 + 可选维度项 + 12 个恒定项 */
-export function buildSkuSalesOutputSchema(config: EcomSkuSalesAnalysisConfig): string[] {
+/**
+ * 输出列：排名 + 对象键 + 可选维度项 + 12 个恒定项。
+ * 必须携带 `type`：下游表格按 `type` 判定数值/布尔/日期，纯列名数组会退化为字典序排序与文本筛选。
+ */
+export function buildSkuSalesOutputSchema(
+  config: EcomSkuSalesAnalysisConfig,
+): SkuSalesOutputColumn[] {
   const dim = resolveSkuSalesDimSource(config);
   return [
-    'rank',
-    resolveSkuSalesObjectKey(config.fieldMapping, config.groupLevel),
-    ...(dim ? [dim] : []),
+    { name: 'rank', type: 'BIGINT' },
+    { name: resolveSkuSalesObjectKey(config.fieldMapping, config.groupLevel), type: 'VARCHAR' },
+    ...(dim ? [{ name: dim, type: 'VARCHAR' }] : []),
     ...SKU_SALES_CONST_OUTPUT_COLS,
   ];
 }

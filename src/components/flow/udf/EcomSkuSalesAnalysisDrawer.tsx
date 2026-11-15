@@ -284,8 +284,10 @@ export const EcomSkuSalesAnalysisDrawer: React.FC<EcomSkuSalesAnalysisDrawerProp
     onConfirm(cloneSkuSalesConfig(cfg));
   }, [cfg, onConfirm]);
 
+  // 商品编码必填随统计粒度切换：SKU 粒度看 SKU 编码，SPU 粒度看商品编码（计划 :94）
   const required = (key: SkuSalesFieldKey): boolean =>
     SKU_SALES_REQUIRED_FIELDS.indexOf(key) >= 0 ||
+    (key === 'skuIdCol' && cfg.groupLevel === 'sku') ||
     (key === 'productIdCol' && cfg.groupLevel === 'spu');
 
   return (
@@ -564,8 +566,9 @@ export const EcomSkuSalesAnalysisDrawer: React.FC<EcomSkuSalesAnalysisDrawerProp
         {warnings.length > 0 && (
           <div data-field="warnings">
             <Text style={{ fontSize: 11, color: TOKEN.textMuted, display: 'block', marginBottom: 4 }}>待补全项</Text>
-            {warnings.map((w) => (
-              <Text key={w.code} data-hint="warning" style={{ fontSize: 11, color: TOKEN.flowWarning, display: 'block' }}>
+            {/* 同一 code 可能对应多条告警（每个槽位组各一条 slot-dropped），key 必须带序号 */}
+            {warnings.map((w, idx) => (
+              <Text key={`${w.code}-${idx}`} data-hint="warning" style={{ fontSize: 11, color: TOKEN.flowWarning, display: 'block' }}>
                 · {w.message}
               </Text>
             ))}
